@@ -1,4 +1,6 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { CargoAplicado, Comprobante, DescuentoAplicado, ItemComprobante } from "@/lib/api/facturas";
+import es from "@/messages/es.json";
 import { AJUSTE_VACIO, type AjusteForm } from "./ajustes";
 import { ISC_VACIO, type IscForm } from "./tributos";
 
@@ -82,25 +84,27 @@ export function sePuedeDuplicar(c: Pick<Comprobante, "tipo">): boolean {
   return c.tipo === "01" || c.tipo === "03";
 }
 
-function omitidosDe(c: Comprobante, operacion: string): string[] {
+function omitidosDe(c: Comprobante, operacion: string, messages: Mensajes): string[] {
+  const t = messages.comprobantes.duplicar.omitidos;
   const o: string[] = [];
-  if (c.tipo_operacion && c.tipo_operacion !== operacion) o.push(`el tipo de operación ${c.tipo_operacion} (se emite como venta interna)`);
-  if (c.detraccion) o.push("la detracción");
-  if (c.percepcion) o.push("la percepción");
-  if (c.retencion_igv) o.push("la retención del IGV");
-  if (c.anticipos?.length) o.push("los anticipos descontados");
-  if (c.forma_pago?.tipo === "credito") o.push("la forma de pago al crédito y sus cuotas");
-  if (c.tipo_cambio != null) o.push("el tipo de cambio");
-  if (c.referencias) o.push("la orden de compra, las guías y los documentos relacionados");
-  if (c.observaciones) o.push("las observaciones");
-  if ((c.totales?.cargos?.length ?? 0) > 1) o.push("los cargos globales además del primero");
-  if (c.items.some((i) => (i.cargos?.length ?? 0) > 1)) o.push("los cargos de línea además del primero");
-  if (c.items.some((i) => i.otros_tributos)) o.push("los otros tributos (9999) de las líneas");
-  if (c.items.some((i) => i.placa || i.hidrobiologico || i.transporte)) o.push("los datos propios de las líneas (placa, hidrobiológicos, transporte)");
+  if (c.tipo_operacion && c.tipo_operacion !== operacion) o.push(interpolar(t.operacion, { codigo: c.tipo_operacion }));
+  if (c.detraccion) o.push(t.detraccion);
+  if (c.percepcion) o.push(t.percepcion);
+  if (c.retencion_igv) o.push(t.retencion);
+  if (c.anticipos?.length) o.push(t.anticipos);
+  if (c.forma_pago?.tipo === "credito") o.push(t.credito);
+  if (c.tipo_cambio != null) o.push(t.tipoCambio);
+  if (c.referencias) o.push(t.referencias);
+  if (c.observaciones) o.push(t.observaciones);
+  if ((c.totales?.cargos?.length ?? 0) > 1) o.push(t.cargosGlobales);
+  if (c.items.some((i) => (i.cargos?.length ?? 0) > 1)) o.push(t.cargosDeLinea);
+  if (c.items.some((i) => i.otros_tributos)) o.push(t.otrosTributos);
+  if (c.items.some((i) => i.placa || i.hidrobiologico || i.transporte)) o.push(t.datosDeLinea);
   return o;
 }
 
-export function plantillaDesde(c: Comprobante): Plantilla | null {
+/** `messages` (#25): el idioma en que se dice lo que no se copió (`omitidos`). */
+export function plantillaDesde(c: Comprobante, messages: Mensajes = es): Plantilla | null {
   if (!sePuedeDuplicar(c)) return null;
   const operacionOriginal = c.tipo_operacion ?? "0101";
   const operacion = OPERACIONES_COPIABLES.test(operacionOriginal) && !NO_SE_OFRECE.has(operacionOriginal) ? operacionOriginal : "0101";
@@ -128,7 +132,7 @@ export function plantillaDesde(c: Comprobante): Plantilla | null {
     descuentoGlobal: ajusteDesde(c.totales?.descuento_global),
     cargoGlobal: ajusteDesde(c.totales?.cargos?.[0]),
     redondeo: c.totales?.redondeo ? String(c.totales.redondeo) : "",
-    omitidos: omitidosDe(c, operacion),
+    omitidos: omitidosDe(c, operacion, messages),
   };
 }
 

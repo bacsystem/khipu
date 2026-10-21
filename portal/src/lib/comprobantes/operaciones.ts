@@ -1,22 +1,36 @@
+import type { Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
+
 /**
  * #311: tipos de operación del catálogo 51 que ofrece «Nuevo comprobante». Hoy la venta interna y la exportación (0200–0208 menos 0202/0205, que piden los datos del
  * huésped) y, en boleta, el NRUS (0113). La detracción (1001–1004) y la percepción (2001) no se eligen aquí: las fija su control (#288, #297). Lo que el backend no emite no se
  * ofrece: el selector promete lo que se puede cumplir.
  */
-export type Operacion = { codigo: string; etiqueta: string; grupo: "Venta interna" | "Exportación"; soloBoleta?: boolean };
+/** Los grupos del selector, en orden; su nombre está en `messages.documentos.grupoOperacion` (#25). */
+export const GRUPOS_OPERACION = ["interna", "exportacion"] as const;
+export type GrupoOperacion = (typeof GRUPOS_OPERACION)[number];
 
-export const OPERACIONES: Operacion[] = [
-  { codigo: "0101", etiqueta: "Venta interna", grupo: "Venta interna" },
+export type Operacion = { codigo: string; etiqueta: string; grupo: GrupoOperacion; soloBoleta?: boolean };
+
+const CATALOGO = [
+  { codigo: "0101", grupo: "interna" },
   // #297: el NRUS (nuevo RUS) solo emite boletas; el catálogo 51 lo liga a ese comprobante.
-  { codigo: "0113", etiqueta: "Venta interna - NRUS", grupo: "Venta interna", soloBoleta: true },
-  { codigo: "0200", etiqueta: "Exportación de bienes", grupo: "Exportación" },
-  { codigo: "0201", etiqueta: "Exportación de servicios realizados íntegramente en el país", grupo: "Exportación" },
-  { codigo: "0203", etiqueta: "Exportación de servicios: transporte de navieras", grupo: "Exportación" },
-  { codigo: "0204", etiqueta: "Exportación de servicios a naves y aeronaves de bandera extranjera", grupo: "Exportación" },
-  { codigo: "0206", etiqueta: "Exportación de servicios complementarios al transporte de carga", grupo: "Exportación" },
-  { codigo: "0207", etiqueta: "Exportación de servicios: energía eléctrica a sujetos domiciliados en ZED", grupo: "Exportación" },
-  { codigo: "0208", etiqueta: "Exportación de servicios realizados parcialmente en el extranjero", grupo: "Exportación" },
-];
+  { codigo: "0113", grupo: "interna", soloBoleta: true },
+  { codigo: "0200", grupo: "exportacion" },
+  { codigo: "0201", grupo: "exportacion" },
+  { codigo: "0203", grupo: "exportacion" },
+  { codigo: "0204", grupo: "exportacion" },
+  { codigo: "0206", grupo: "exportacion" },
+  { codigo: "0207", grupo: "exportacion" },
+  { codigo: "0208", grupo: "exportacion" },
+] as const;
+
+/** Las operaciones con su etiqueta en el idioma de `messages` (#25). */
+export function operaciones(messages: Mensajes = es): Operacion[] {
+  return CATALOGO.map((o) => ({ ...o, etiqueta: messages.documentos.operaciones[o.codigo] }));
+}
+
+export const OPERACIONES: Operacion[] = operaciones();
 
 export const esExportacion = (operacion: string) => /^020[0-8]$/.test(operacion);
 
@@ -37,10 +51,11 @@ export function documentosDeExportacion(operacion: string, boleta: boolean): str
 export type DatosDeExportacion = { operacion: string; incoterm: string; paisDeUso: string; paisDelComprador: string };
 
 /** Lo que el formulario sabe decir antes de enviar; el resto de las reglas las dice el backend al calcular. */
-export function errorDeExportacion(d: DatosDeExportacion, boleta: boolean): string | null {
+export function errorDeExportacion(d: DatosDeExportacion, boleta: boolean, messages: Mensajes = es): string | null {
+  const t = messages.comprobantes.validacion.exportacion;
   if (!esExportacion(d.operacion)) return null;
-  if (!boleta && !d.paisDelComprador) return "El cliente del exterior lleva su país (obligatorio en una factura de exportación).";
-  if (EXIGE_PAIS_DE_USO.has(d.operacion) && !d.paisDeUso) return "Una exportación de servicios de este tipo indica el país donde se usa o aprovecha el servicio (3098).";
-  if (EXIGE_PAIS_DE_USO.has(d.operacion) && d.paisDeUso === "PE") return "El país de uso del servicio no puede ser Perú (3099).";
+  if (!boleta && !d.paisDelComprador) return t.sinPais;
+  if (EXIGE_PAIS_DE_USO.has(d.operacion) && !d.paisDeUso) return t.paisDeUso;
+  if (EXIGE_PAIS_DE_USO.has(d.operacion) && d.paisDeUso === "PE") return t.paisDeUsoPeru;
   return null;
 }

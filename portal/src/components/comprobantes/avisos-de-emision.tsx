@@ -1,7 +1,9 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { useSyncExternalStore } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { interpolar } from "@/i18n/mensajes";
 import { avisosDeEmision, leerAvisosDeEmisionCrudos } from "@/lib/comprobantes/avisos-de-emision";
 
 const sinSuscripcion = () => () => {};
@@ -12,13 +14,14 @@ const sinSuscripcion = () => () => {};
  * pintura no hay nada, y sin avisos guardados el componente no pinta nada.
  */
 export function AvisosDeEmision({ id }: { id: string }) {
+  const t = useMessages().comprobantes.avisosEmision;
   const crudos = useSyncExternalStore(sinSuscripcion, () => leerAvisosDeEmisionCrudos(id), () => "");
   const avisos = avisosDeEmision(crudos);
   if (avisos.length === 0) return null;
   return (
     <div className="flex flex-col gap-2" data-testid="avisos-de-emision">
       {avisos.map((a) => (
-        <Alerta key={a.codigo} tono="aviso" titulo={`SUNAT observará este comprobante (${a.codigo})`}>
+        <Alerta key={a.codigo} tono="aviso" titulo={interpolar(t.titulo, { codigo: a.codigo })}>
           <span data-testid={`aviso-emision-${a.codigo}`}>{a.mensaje}</span>
         </Alerta>
       ))}

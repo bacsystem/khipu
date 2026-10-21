@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { DESCARGA_MAXIMA, DescargaMasiva, hrefDeDescarga } from "./descarga-masiva";
 
 afterEach(cleanup);
@@ -40,6 +41,15 @@ describe("DescargaMasiva (#324)", () => {
     render(<DescargaMasiva filtros={{}} total={0} />);
     abrir();
     expect(screen.getByTestId("descarga-motivo")).toHaveTextContent("No hay comprobantes con estos filtros");
+  });
+
+  it("en inglés (#25): el botón, los archivos y el tope se dicen en inglés", () => {
+    fijarLocaleDePrueba("en");
+    render(<DescargaMasiva filtros={{}} total={DESCARGA_MAXIMA + 1} />);
+    fireEvent.click(screen.getByRole("button", { name: "Download ZIP" }));
+    expect(screen.getByLabelText("Signed XML")).toBeInTheDocument();
+    expect(screen.getByLabelText("SUNAT CDR")).toBeInTheDocument();
+    expect(screen.getByTestId("descarga-motivo")).toHaveTextContent(`There are ${DESCARGA_MAXIMA + 1}: a download allows up to ${DESCARGA_MAXIMA}. Narrow the dates.`);
   });
 
   it("hrefDeDescarga no arma nada sin archivos", () => {

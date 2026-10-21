@@ -1,21 +1,13 @@
+import { useMessages } from "next-intl";
 import { Badge } from "khipu-design-system/ui/badge";
+import type { Mensajes } from "@/i18n/mensajes";
 import type { EstadoDocumento } from "@/lib/api/facturas";
 import { cn } from "@/lib/utils";
+import es from "@/messages/es.json";
 
-export const ETIQUETAS_ESTADO: Record<EstadoDocumento, string> = {
-  RECIBIDO: "Recibido",
-  INVALIDO: "Inválido",
-  FIRMADO: "Firmado",
-  ERROR_ENVIO: "Error de envío",
-  PENDIENTE_AGRUPACION: "Pendiente de agrupación",
-  ENVIADO: "Enviado",
-  ACEPTADO: "Aceptado",
-  ACEPTADO_CON_OBS: "Aceptado con obs.",
-  RECHAZADO: "Rechazado",
-  ANULADO: "Anulado",
-  FUERA_DE_PLAZO: "Fuera de plazo",
-  DESCARTADO: "Descartado",
-};
+/** Los estados del comprobante con las palabras del portal en el idioma de `messages` (#25); `ETIQUETAS_ESTADO` es el castellano. */
+export const etiquetasEstado = (messages: Mensajes = es): Record<EstadoDocumento, string> => messages.documentos.estados;
+export const ETIQUETAS_ESTADO: Record<EstadoDocumento, string> = etiquetasEstado();
 
 const ESTILOS: Record<EstadoDocumento, string> = {
   RECIBIDO: "bg-secondary text-secondary-foreground border-border",
@@ -48,10 +40,11 @@ export const PUNTOS: Record<EstadoDocumento, string> = {
 };
 
 export function EstadoBadge({ estado, etiqueta }: { estado: EstadoDocumento; etiqueta?: string }) {
+  const messages = useMessages();
   return (
     <Badge className={cn("gap-1.5 border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap", ESTILOS[estado])}>
       <span className={cn("size-1.5 shrink-0 rounded-full", PUNTOS[estado])} />
-      {etiqueta ?? ETIQUETAS_ESTADO[estado]}
+      {etiqueta ?? etiquetasEstado(messages)[estado]}
     </Badge>
   );
 }

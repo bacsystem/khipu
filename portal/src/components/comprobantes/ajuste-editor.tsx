@@ -1,6 +1,8 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { interpolar } from "@/i18n/mensajes";
 import { errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
@@ -30,20 +32,22 @@ export function AjusteEditor({
   /** Oculta «reduce la base / paga IGV»: en una nota el ajuste siempre afecta la base (SUNAT no admite los otros, 3271/3277). */
   sinOpcionDeBase?: boolean;
 }) {
-  const error = errorDeAjuste(valor, clase);
+  const messages = useMessages();
+  const t = messages.comprobantes.editores.ajuste;
+  const error = errorDeAjuste(valor, clase, messages);
   const set = (cambio: Partial<AjusteForm>) => onCambio({ ...valor, ...cambio });
-  const textoAfecta = clase === "descuento" ? "Reduce la base del IGV" : "Paga IGV";
+  const textoAfecta = clase === "descuento" ? t.reduceBase : t.pagaIgv;
   return (
     <fieldset className="grid content-start gap-1.5">
       <legend className="mb-1 text-[12px] font-medium text-foreground">{etiqueta}</legend>
       <div className="grid grid-cols-[110px_1fr] gap-2">
-        <Campo id={`${id}-modo`} etiqueta={`${etiqueta}: tipo`} className="[&>label]:sr-only">
+        <Campo id={`${id}-modo`} etiqueta={interpolar(t.tipo, { etiqueta })} className="[&>label]:sr-only">
           <select id={`${id}-modo`} value={valor.modo} onChange={(e) => set({ modo: e.target.value as AjusteForm["modo"] })} className={CAMPO_DENSO}>
-            <option value="porcentaje">Porcentaje</option>
-            <option value="monto">Monto</option>
+            <option value="porcentaje">{t.porcentaje}</option>
+            <option value="monto">{t.monto}</option>
           </select>
         </Campo>
-        <Campo id={`${id}-valor`} etiqueta={`${etiqueta}: valor`} className="[&>label]:sr-only" error={error ?? undefined}>
+        <Campo id={`${id}-valor`} etiqueta={interpolar(t.valor, { etiqueta })} className="[&>label]:sr-only" error={error ?? undefined}>
           <input
             id={`${id}-valor`}
             value={valor.valor}
@@ -64,7 +68,7 @@ export function AjusteEditor({
       {ofreceRecargoConsumo ? (
         <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
           <input type="checkbox" checked={valor.recargoConsumo === true} onChange={(e) => set({ recargoConsumo: e.target.checked })} className="size-3.5 accent-primary" />
-          Recargo al consumo (restaurantes, sin IGV)
+          {t.recargoConsumo}
         </label>
       ) : null}
     </fieldset>

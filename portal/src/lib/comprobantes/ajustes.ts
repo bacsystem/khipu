@@ -1,3 +1,6 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
+
 /**
  * #310: descuentos y cargos del formulario (catálogo 53). Un mismo `AjusteForm` sirve de descuento o de cargo, de línea o global. Viaja como lo piden
  * `FacturaRequest.DescuentoDto` y `CargoDto`: porcentaje **o** monto (nunca ambos) y `afecta_base_igv`. El importe que resulta lo calcula el backend (`/calcular`, #405).
@@ -25,18 +28,19 @@ function decimalesDe(valor: string): number {
 }
 
 /** Por qué no vale el ajuste, o `null` si vale (o está vacío: «sin descuento»). Espeja `Descuento` y `Cargo` del dominio. */
-export function errorDeAjuste(a: AjusteForm, clase: Clase): string | null {
+export function errorDeAjuste(a: AjusteForm, clase: Clase, messages: Mensajes = es): string | null {
+  const t = messages.comprobantes.validacion.ajuste;
   const v = a.valor.trim();
   if (v === "") return null;
-  if (!/^\d*\.?\d+$|^\d+\.$/.test(v)) return "Escriba un número, por ejemplo 10 o 12.50.";
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(v)) return t.numero;
   const n = Number(v);
-  if (!(n > 0)) return "Debe ser mayor que cero.";
+  if (!(n > 0)) return t.mayorQueCero;
   if (a.modo === "porcentaje") {
     const tope = clase === "descuento" ? 100 : 1000;
-    if (n >= tope) return `El porcentaje debe ser menor que ${tope}.`;
-    if (decimalesDe(v) > 5) return "El porcentaje admite hasta 5 decimales.";
+    if (n >= tope) return interpolar(t.porcentajeTope, { tope });
+    if (decimalesDe(v) > 5) return t.porcentajeDecimales;
   } else if (decimalesDe(v) > 2) {
-    return "El monto admite hasta 2 decimales.";
+    return t.montoDecimales;
   }
   return null;
 }

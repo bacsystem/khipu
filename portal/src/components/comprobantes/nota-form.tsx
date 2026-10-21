@@ -3,7 +3,10 @@
 import { FileMinusIcon, SendIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
@@ -18,7 +21,6 @@ import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
-import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
 
@@ -43,6 +45,12 @@ const DOS_DECIMALES = /^\d{1,12}(\.\d{1,2})?$/;
  */
 export function NotaForm({ factura, series }: { factura: Comprobante; series: Serie[] }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.comprobantes.nota;
+  const tr = useTranslations("comprobantes.nota");
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const monto = (valor: number) => formatearMonto(factura.moneda, valor, locale);
   const [tipo, setTipo] = useState<Tipo>("07");
   const [serie, setSerie] = useState("");
   const [motivo, setMotivo] = useState("");
@@ -75,7 +83,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const [intentoCatalogos, setIntentoCatalogos] = useState(0);
   useEffect(() => {
     let vigente = true;
-    const sinMotivos = () => setError("No se pudieron cargar los motivos (catálogos 09/10). Reintente.");
+    const sinMotivos = () => setError(t.errorMotivos);
     Promise.all([apiRequest<CatalogoSunat>("/api/proxy/catalogos/09", { method: "GET" }), apiRequest<CatalogoSunat>("/api/proxy/catalogos/10", { method: "GET" })])
       .then(([nc, ndc]) => {
         if (!vigente) return;
@@ -88,11 +96,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     return () => {
       vigente = false;
     };
-  }, [intentoCatalogos]);
+  }, [intentoCatalogos, t.errorMotivos]);
 
   // #294: la nota sobre una boleta sigue su régimen y su serie empieza con B (Anexo 3; el backend responde 1001/SERIE_INVALIDA si no).
   const sobreBoleta = factura.tipo === "03";
-  const documento = sobreBoleta ? "boleta" : "factura";
+  const claseDocumento = sobreBoleta ? "boleta" : "factura";
+  const documento = t.documento[claseDocumento];
   const letraSerie = sobreBoleta ? "B" : "F";
   const seriesDelTipo = useMemo(() => series.filter((s) => s.tipo === tipo && s.activa && s.serie.startsWith(letraSerie)), [series, tipo, letraSerie]);
   useEffect(() => {
@@ -158,7 +167,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (noSeSabeSiLlego(res)) {
       setEnviando(false);
       setError(
-        `${seVencioLaEspera(res) ? "El servidor tardó demasiado en responder mientras se emitía" : "Se cortó la conexión mientras se emitía"}. Vuelve a emitir sin cambiar nada: si la nota ya se había emitido, verás la misma, sin duplicarla. Si cambias algo, revisa antes las notas de la ${documento} ${factura.serie}-${factura.numero}.`,
+        interpolar(t.sinRespuesta.mensaje, {
+          causa: seVencioLaEspera(res) ? t.sinRespuesta.tardo : t.sinRespuesta.corte,
+          documento,
+          numero: `${factura.serie}-${factura.numero}`,
+        }),
       );
       return;
     }
@@ -188,7 +201,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // factura es exonerada/inafecta, con esa afectación (3503 compara por tributo). La ND de intereses va gravada.
   const afectacionLinea = esPenalidad ? "30" : esExportacion ? "40" : esIvap ? "17" : esImporte ? afectacionPredominante(factura.items) : "10";
   // La etiqueta dice qué impuesto lleva el importe tecleado: «con IGV» mentía en exportación (40, sin IGV) e IVAP (17, 4 %).
-  const etiquetaImporte = { "30": "Importe inafecto, sin IGV", "40": "Importe sin IGV, exportación", "17": "Importe con IVAP", "20": "Importe exonerado, sin IGV", "10": "Importe con IGV" }[afectacionLinea];
+  const etiquetaImporte = (t.etiquetaImporte as Record<string, string>)[afectacionLinea];
 
   // NC 13: lo que exige SUNAT (3253 monto > 0, 3321 vencimiento posterior a la factura, 3320 neto ≤ total) antes
   // «listo» solo pedía que hubiera al menos una cuota, y una cuota en blanco viajaba como monto 0 y fecha vacía.
@@ -258,7 +271,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const admiteAjustesPropios = factura.items.some((i) => i.tipo_afectacion_igv === "10") && !factura.items.some((i) => !!i.otros_tributos);
   const hayAjusteInvalido = esParcial && (errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null);
   const fechaValida = (fecha || hoy) >= factura.fecha_emision && (fecha || hoy) <= hoy && (fecha || hoy) >= fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy);
-  const conceptoTributo = { "10": "gravado + IGV", "20": "exonerado", "30": "inafecto", "40": "exportación", "17": "IVAP" }[afectacionLinea];
+  const conceptoTributo = (t.conceptoTributo as Record<string, string>)[afectacionLinea];
   // 3111: en una línea IVAP un importe de 0.07 a 0.12 deja el impuesto en 0.00 y SUNAT rechaza ya numerada.
   const ivapEnCero = lineaPropia && impuestoRedondeaACero(afectacionLinea, Number(nd.importe) || 0);
 
@@ -271,21 +284,21 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   // solo de bonificaciones no acredita nada. Una gratuita sí puede acompañar a una onerosa.
   const notaSinImporte = esParcial && itemsParciales.length > 0 && importeNota < 0.01;
   const avisoDecimales = lineaPropia && conDecimalesDeMas(nd.importe)
-    ? "El importe admite hasta 2 decimales."
+    ? t.avisos.importeDecimales
     : esCuotas && cuotas.some((q) => conDecimalesDeMas(q.monto))
-      ? "Cada cuota admite hasta 2 decimales."
+      ? t.avisos.cuotaDecimales
       : lineaEnCero
-        ? "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: sube la cantidad o ponla en 0."
+        ? t.avisos.lineaEnCero
         : bolsasFraccionarias
-          ? "Las bolsas del ICBPER se devuelven por unidades enteras (SUNAT 2892)."
+          ? t.avisos.bolsas
         : notaSinImporte
-          ? "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluye también la línea que devuelves."
+          ? t.avisos.sinImporte
         : ivapEnCero
-          ? "El IVAP de la línea redondearía a 0.00 (SUNAT 3111): el importe debe ser 0.13 o más."
+          ? t.avisos.ivapEnCero
         : lineaPropia && nd.descripcion.trim() !== "" && nd.descripcion.trim().length < 3
-          ? "El concepto necesita al menos 3 caracteres (SUNAT 4084)."
+          ? t.avisos.conceptoCorto
           : esParcial && descripcion.trim() !== "" && lineasParciales.length === 0
-            ? "Pon una cantidad mayor que 0 en al menos un ítem."
+            ? t.avisos.sinCantidad
             : null;
 
   const listo =
@@ -307,14 +320,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="space-y-5" data-testid="nota-form">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>Tipo de nota</label>
+          <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>{t.tipoNota}</label>
           <select id="nota-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={CAMPO}>
-            <option value="07">Nota de crédito (07)</option>
-            <option value="08">Nota de débito (08)</option>
+            <option value="07">{t.tipoNC}</option>
+            <option value="08">{t.tipoND}</option>
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-serie" className={ETIQUETA_CAMPO}>Serie</label>
+          <label htmlFor="nota-serie" className={ETIQUETA_CAMPO}>{t.serie}</label>
           {seriesDelTipo.length ? (
             <select id="nota-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO, "font-mono")}>
               {seriesDelTipo.map((s) => (
@@ -323,14 +336,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </select>
           ) : (
             <p className="text-[12px] leading-relaxed text-destructive">
-              No hay series de {esNc ? "nota de crédito" : "nota de débito"} sobre {documento}s. <Link href="/series" className="underline">Cree una</Link> (p. ej. {letraSerie}{esNc ? "C01" : "D01"}).
+              {interpolar(t.sinSeries, { nota: esNc ? t.notaCredito : t.notaDebito, documentos: t.documentoPlural[claseDocumento] })}{" "}
+              <Link href="/series" className="underline">{t.creeUna}</Link>
+              {interpolar(t.sinSeriesEjemplo, { ejemplo: `${letraSerie}${esNc ? "C01" : "D01"}` })}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-motivo" className={ETIQUETA_CAMPO}>Motivo (catálogo {esNc ? "09" : "10"})</label>
+          <label htmlFor="nota-motivo" className={ETIQUETA_CAMPO}>{interpolar(t.motivo, { catalogo: esNc ? "09" : "10" })}</label>
           <select id="nota-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={CAMPO} disabled={!catalogos[tipo]}>
-            <option value="">{catalogos[tipo] ? "Seleccione…" : "Cargando…"}</option>
+            <option value="">{catalogos[tipo] ? t.seleccione : messages.comun.cargando}</option>
             {motivos.map((m) => (
               <option key={m.codigo} value={m.codigo}>{m.codigo} · {m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}</option>
             ))}
@@ -339,47 +354,52 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="nota-descripcion" className={ETIQUETA_CAMPO}>Sustento</label>
-        <input id="nota-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} placeholder="Ej.: el cliente devolvió la mercadería completa" className={CAMPO} />
-        <span className={AYUDA_CAMPO}>Hasta 500 caracteres, sin saltos de línea (SUNAT 2135). Va en el XML y en la representación impresa.</span>
+        <label htmlFor="nota-descripcion" className={ETIQUETA_CAMPO}>{t.sustento}</label>
+        <input id="nota-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} placeholder={t.sustentoPlaceholder} className={CAMPO} />
+        <span className={AYUDA_CAMPO}>{t.sustentoAyuda}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-fecha" className={ETIQUETA_CAMPO}>Fecha de emisión</label>
+          <label htmlFor="nota-fecha" className={ETIQUETA_CAMPO}>{t.fecha}</label>
           <EntradaFecha id="nota-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={[factura.fecha_emision, fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy)].sort().at(-1)} max={hoy} variante="filtro" />
-          <span className={AYUDA_CAMPO}>No anterior a la de la {documento} ({factura.fecha_emision}, SUNAT 2885) ni futura.</span>
+          <span className={AYUDA_CAMPO}>{interpolar(t.fechaAyuda, { documento, fecha: factura.fecha_emision })}</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>Observaciones <span className="font-normal normal-case text-muted-foreground">(opcional)</span></label>
+          <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones} <span className="font-normal normal-case text-muted-foreground">{t.opcional}</span></label>
           <textarea id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>Solo en el PDF: no van a SUNAT. {observaciones.length} / 1000</span>
+          <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
       </div>
 
       {esParcial && admiteAjustesPropios ? (
         <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
-          <summary className="cursor-pointer text-[13px] font-medium">Descuento global y cargo de la nota</summary>
+          <summary className="cursor-pointer text-[13px] font-medium">{t.ajustes.titulo}</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <AjusteEditor id="nota-desc-global" etiqueta="Descuento global de la nota" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
-            <AjusteEditor id="nota-cargo-global" etiqueta="Cargo global de la nota" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
+            <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
+            <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
           </div>
-          <p className={cn(AYUDA_CAMPO, "mt-2")}>Se aplican sobre las líneas de esta nota (afectan la base del IGV). El importe final lo calcula khipu y SUNAT lo compara con el de la {documento} (3286).</p>
+          <p className={cn(AYUDA_CAMPO, "mt-2")}>{interpolar(t.ajustes.ayuda, { documento })}</p>
         </details>
       ) : null}
 
       {esTotal ? (
         <div className={cn("rounded-lg border px-3 py-2 text-[12px] leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
           <p>
-            Nota <strong className="text-foreground">total</strong>: khipu copia los ítems, el descuento global y los cargos de la {documento} {factura.serie}-{factura.numero} ({formatearMonto(factura.moneda, factura.totales.total)}).
+            {tr.rich("totalCopia", {
+              b: (c) => <strong className="text-foreground">{c}</strong>,
+              documento,
+              numero: `${factura.serie}-${factura.numero}`,
+              monto: monto(factura.totales.total),
+            })}
           </p>
           {/* Una nota total sobre una factura ya acreditada por otras NC vigentes la supera (3286): es el escenario de
               la doble acreditación (#83), y antes esta pantalla no decía nada y dejaba emitir. */}
           {acreditado > 0 || superaTope ? (
             <p className="mt-1" data-testid="nota-importe">
-              Importe de la nota: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</span>. Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
-              {acreditado > 0 ? ` (ya acreditado ${formatearMonto(factura.moneda, acreditado)} en otras notas de crédito)` : ""}.
-              {superaTope ? <span role="alert" className="block"> Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {formatearMonto(factura.moneda, tope)}; elige un motivo parcial.</span> : null}
+              {t.importe}: <span className="font-mono tabular-nums">{monto(importeNota)}</span>. {t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>
+              {acreditado > 0 ? interpolar(t.yaAcreditadoOtras, { monto: monto(acreditado) }) : ""}.
+              {superaTope ? <span role="alert" className="block">{interpolar(t.superaTopeTotal, { tope: monto(tope) })}</span> : null}
             </p>
           ) : null}
         </div>
@@ -390,16 +410,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-border/70 bg-muted font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-                <th className="px-3 py-2 font-medium">Ítem de la {documento}</th>
-                <th className="w-24 px-3 py-2 text-right font-medium">Facturado</th>
-                <th className="w-32 px-3 py-2 text-right font-medium">Cantidad en la nota</th>
+                <th className="px-3 py-2 font-medium">{interpolar(t.thItem, { documento })}</th>
+                <th className="w-24 px-3 py-2 text-right font-medium">{t.thFacturado}</th>
+                <th className="w-32 px-3 py-2 text-right font-medium">{t.thCantidad}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {factura.items.map((item, idx) => (
                 <tr key={idx}>
                   <td className="px-3 py-2 text-foreground">{item.descripcion}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad)} {item.unidad}</td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad, locale)} {item.unidad}</td>
                   <td className="px-3 py-2 text-right">
                     <input
                       type="number"
@@ -407,7 +427,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                       max={Number(item.cantidad)}
                       step="any"
                       value={cantidades[idx] ?? 0}
-                      aria-label={`Cantidad de ${item.descripcion} en la nota`}
+                      aria-label={interpolar(t.ariaCantidad, { item: item.descripcion })}
                       // Hasta 10 decimales (2025): con 11 el backend rechazaba después. Y entre 0 y lo facturado.
                       onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(Number(e.target.value).toFixed(10)))) : v)))}
                       className={cn(CAMPO, "w-28 text-right font-mono")}
@@ -420,27 +440,27 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
             {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo)
               ? factura.totales.total > 0
-                ? `La factura regularizó anticipos (neto ${formatearMonto(factura.moneda, factura.totales.total)}): ajuste las cantidades para que la nota no supere ese importe. `
-                : `La factura regularizó anticipos y su neto es ${formatearMonto(factura.moneda, factura.totales.total)}: no hay nota posible (SUNAT rechaza las líneas en cero y una nota por más que el total); anúlela con una baja. `
+                ? interpolar(t.anticiposNeto, { monto: monto(factura.totales.total) })
+                : interpolar(t.anticiposSinNota, { monto: monto(factura.totales.total) })
               : ""}
             {conDescuentoSinBase && MOTIVOS_NC_TOTAL.has(motivo)
-              ? "La factura tiene un descuento que no afecta la base del IGV y una nota no puede llevarlo: las líneas con ese descuento van por lo que se pagó (el importe neto) y se muestran sin descuento. "
+              ? t.descuentoSinBase
               : ""}
-            Ponga 0 en los ítems que no entran en la nota. Un descuento o cargo de línea en porcentaje acompaña a la cantidad; los de monto fijo solo se conservan con la cantidad facturada.
+            {t.ayudaParcial}
           </p>
           {/* El importe que va a salir, contra lo que SUNAT compara. Antes el formulario no mostraba ninguna cifra
               de la nota y el usuario descubría el 3286 después de emitir. */}
           <div className={cn("flex flex-wrap items-baseline justify-between gap-2 border-t border-border/60 px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
             <span>
-              Importe de la nota{conAjustesPropios ? " (antes del descuento y el cargo, que khipu aplica al emitir)" : ""}: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
+              {t.importe}{conAjustesPropios ? t.importeAntesDeAjustes : ""}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
             </span>
             <span>
-              Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>
-              {acreditado > 0 ? ` (${documento} ${formatearMonto(factura.moneda, factura.totales.total)} menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}
+              {t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>
+              {acreditado > 0 ? interpolar(t.topeMenos, { documento, total: monto(factura.totales.total), acreditado: monto(acreditado) }) : ""}
             </span>
             {superaTope ? (
               <span role="alert" className="basis-full">
-                Supera el tope: SUNAT la rechazaría (3286). Baja cantidades, o para anular o devolver todo elige el motivo 01 o 06.
+                {t.superaTopeParcial}
               </span>
             ) : null}
           </div>
@@ -449,16 +469,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {esCuotas ? (
         <div className="space-y-2 rounded-lg border border-border p-3">
-          <p className="text-[12px] text-muted-foreground">Cuotas corregidas de la factura (la nota sale con importe 0; SUNAT 3315). El neto pendiente será la suma de las cuotas.</p>
+          <p className="text-[12px] text-muted-foreground">{t.cuotasAyuda}</p>
           {cuotas.map((q, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
-              <span className="w-20 font-mono text-[11px] text-muted-foreground">Cuota{String(i + 1).padStart(3, "0")}</span>
-              <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={`Monto de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
-              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={`Vencimiento de la cuota ${i + 1}`} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "w-40 font-mono")} />
-              <button type="button" aria-label={`Quitar la cuota ${i + 1}`} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">Quitar</button>
+              <span className="w-20 font-mono text-[11px] text-muted-foreground">{interpolar(t.cuotaId, { n: String(i + 1).padStart(3, "0") })}</span>
+              <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={interpolar(t.montoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
+              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={interpolar(t.vencimientoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "w-40 font-mono")} />
+              <button type="button" aria-label={interpolar(t.quitarCuota, { n: i + 1 })} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">{t.quitar}</button>
             </div>
           ))}
-          <button type="button" onClick={() => setCuotas((cs) => [...cs, { monto: "", vencimiento: "" }])} className={ACCION_SECUNDARIA}>Añadir cuota</button>
+          <button type="button" onClick={() => setCuotas((cs) => [...cs, { monto: "", vencimiento: "" }])} className={ACCION_SECUNDARIA}>{t.anadirCuota}</button>
         </div>
       ) : null}
 
@@ -466,9 +486,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>Concepto</label>
+              <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>{t.concepto}</label>
               {/* Hasta 500 como el sustento (2027, `Item`): la recert #4 midió 501 caracteres viajando y un 422 evitable. */}
-              <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder={esNc ? "Ej.: descuento por pronto pago" : "Ej.: intereses por mora de 30 días"} className={CAMPO} />
+              <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder={esNc ? t.placeholderNc : t.placeholderNd} className={CAMPO} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{etiquetaImporte} ({factura.moneda})</label>
@@ -478,12 +498,12 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           {esImporte ? (
             <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
               <span>
-                Importe de la nota: <strong className="font-mono tabular-nums">{formatearMonto(factura.moneda, importeNota)}</strong>
+                {t.importe}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
               </span>
               <span>
-                {exentoDeTope ? "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122)." : <>Tope: <span className="font-mono tabular-nums">{formatearMonto(factura.moneda, tope)}</span>{limitaTributo ? ` (por tributo, 3503: ${conceptoTributo} de la ${documento} ${formatearMonto(factura.moneda, topeTributo)})` : ""}{acreditado > 0 ? ` (menos ${formatearMonto(factura.moneda, acreditado)} ya acreditado)` : ""}</>}
+                {exentoDeTope ? t.sinTope : <>{t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>{limitaTributo ? interpolar(t.topePorTributo, { concepto: conceptoTributo, documento, monto: monto(topeTributo) }) : ""}{acreditado > 0 ? interpolar(t.topeMenosAcreditado, { monto: monto(acreditado) }) : ""}</>}
               </span>
-              {superaTope ? <span role="alert" className="basis-full">Supera el tope: SUNAT la rechazaría ({limitaTributo ? "3503, por tributo" : "3286"}). Baja el importe.</span> : null}
+              {superaTope ? <span role="alert" className="basis-full">{interpolar(t.superaTopeImporte, { regla: limitaTributo ? t.reglaTributo : "3286" })}</span> : null}
             </div>
           ) : null}
         </div>
@@ -496,7 +516,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               que seguir ahí para recargar el que falta, no solo cuando falta el de la pestaña actual. */}
           {!catalogos["07"] || !catalogos["08"] ? (
             <button type="button" onClick={() => { setError(null); setIntentoCatalogos((n) => n + 1); }} className={ACCION_SECUNDARIA}>
-              Reintentar
+              {t.reintentar}
             </button>
           ) : null}
         </div>
@@ -509,11 +529,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={!listo || enviando} aria-describedby={avisoDecimales ? "nota-aviso-decimales" : undefined} className={BOTON_PRIMARIO}>
           {enviando ? <SendIcon className="size-4 animate-pulse" /> : <FileMinusIcon className="size-4" />}
-          {enviando ? "Emitiendo y enviando a SUNAT…" : `Emitir ${esNc ? "nota de crédito" : "nota de débito"}`}
+          {enviando ? t.emitiendo : interpolar(t.emitir, { nota: esNc ? t.notaCredito : t.notaDebito })}
         </button>
-        <Link href={`/comprobantes/${factura.id}`} className={BOTON_SECUNDARIO}>Cancelar</Link>
+        <Link href={`/comprobantes/${factura.id}`} className={BOTON_SECUNDARIO}>{messages.comun.cancelar}</Link>
         {/* El cambio de texto del botón no se anuncia; esto sí. */}
-        <span role="status" className="sr-only">{enviando ? "Emitiendo y enviando a SUNAT…" : ""}</span>
+        <span role="status" className="sr-only">{enviando ? t.emitiendo : ""}</span>
       </div>
     </form>
   );

@@ -1991,5 +1991,1154 @@
     "titulo": "Algo salió mal",
     "reintentar": "Reintentar",
     "irAlInicio": "Ir al inicio"
+  },
+  "documentos": {
+    "tipos": {
+      "01": "Factura",
+      "03": "Boleta",
+      "04": "Liquidación de compra",
+      "07": "Nota de crédito",
+      "08": "Nota de débito",
+      "09": "Guía de remisión remitente",
+      "20": "Retención",
+      "31": "Guía de remisión transportista",
+      "40": "Percepción"
+    },
+    "relacionados": {
+      "04": "Ticket de salida ENAPU",
+      "05": "Código SCOP",
+      "06": "Factura electrónica remitente",
+      "07": "Guía de remisión remitente",
+      "08": "Declaración de salida del depósito franco",
+      "09": "Declaración simplificada de importación",
+      "99": "Otros"
+    },
+    "identidad": {
+      "1": "DNI",
+      "4": "Carné de extranjería",
+      "6": "RUC",
+      "7": "Pasaporte",
+      "0": "Doc. tributario no domiciliado",
+      "A": "Cédula diplomática",
+      "B": "Doc. identidad país de residencia",
+      "C": "TIN (persona natural)",
+      "D": "IN (persona jurídica)",
+      "E": "Tarjeta Andina de Migración",
+      "G": "Salvoconducto",
+      "-": "Sin documento"
+    },
+    "identidadBoleta": {
+      "1": "DNI",
+      "4": "Carné de extranjería",
+      "7": "Pasaporte",
+      "6": "RUC",
+      "0": "Doc. tributario no domiciliado sin RUC",
+      "A": "Cédula diplomática de identidad",
+      "B": "Doc. de identidad del país de residencia (no domiciliado)",
+      "C": "TIN — doc. tributario de persona natural no domiciliada",
+      "D": "IN — doc. tributario de persona jurídica no domiciliada",
+      "E": "Tarjeta Andina de Migración (TAM)",
+      "F": "Permiso Temporal de Permanencia (PTP)",
+      "G": "Salvoconducto",
+      "H": "Carné de permiso temporal de permanencia (CPP)",
+      "-": "Sin documento (hasta S/ 700)"
+    },
+    "formato": {
+      "dni": "DNI de 8 dígitos",
+      "ruc": "RUC de 11 dígitos",
+      "hasta15": "Hasta 15 caracteres sin espacios",
+      "elegirTipo": "Elige el tipo de documento"
+    },
+    "afectacion": {
+      "10": "Gravado · Op. onerosa",
+      "17": "Gravado · IVAP",
+      "11": "Gravado · Retiro por premio (gratuita)",
+      "12": "Gravado · Retiro por donación (gratuita)",
+      "13": "Gravado · Retiro (gratuita)",
+      "14": "Gravado · Retiro por publicidad (gratuita)",
+      "15": "Gravado · Bonificación (gratuita)",
+      "16": "Gravado · Retiro a trabajadores (gratuita)",
+      "20": "Exonerado · Op. onerosa",
+      "21": "Exonerado · Transferencia gratuita",
+      "30": "Inafecto · Op. onerosa",
+      "31": "Inafecto · Retiro por bonificación (gratuita)",
+      "32": "Inafecto · Retiro (gratuita)",
+      "33": "Inafecto · Muestras médicas (gratuita)",
+      "34": "Inafecto · Convenio colectivo (gratuita)",
+      "35": "Inafecto · Retiro por premio (gratuita)",
+      "36": "Inafecto · Retiro por publicidad (gratuita)",
+      "37": "Inafecto · Transferencia gratuita",
+      "40": "Exportación"
+    },
+    "grupoAfectacion": {
+      "onerosas": "Onerosas",
+      "gratuitasGravadas": "Gratuitas gravadas",
+      "gratuitasExoneradas": "Gratuitas exoneradas",
+      "gratuitasInafectas": "Gratuitas inafectas"
+    },
+    "afectacionCorta": {
+      "10": "Gravado",
+      "20": "Exonerado",
+      "30": "Inafecto",
+      "17": "IVAP (arroz pilado, 4 %)",
+      "11": "Retiro por premio",
+      "12": "Retiro por donación",
+      "13": "Retiro",
+      "14": "Retiro por publicidad",
+      "15": "Bonificación",
+      "16": "Retiro por entrega a trabajadores",
+      "21": "Transferencia gratuita",
+      "31": "Retiro por bonificación",
+      "32": "Retiro",
+      "33": "Retiro por muestras médicas",
+      "34": "Retiro por convenio colectivo",
+      "35": "Retiro por premio",
+      "36": "Retiro por publicidad",
+      "37": "Transferencia gratuita"
+    },
+    "afectacionAnticipo": {
+      "gravado": "gravado",
+      "exonerado": "exonerado",
+      "inafecto": "inafecto"
+    },
+    "estados": {
+      "RECIBIDO": "Recibido",
+      "INVALIDO": "Inválido",
+      "FIRMADO": "Firmado",
+      "ERROR_ENVIO": "Error de envío",
+      "PENDIENTE_AGRUPACION": "Pendiente de agrupación",
+      "ENVIADO": "Enviado",
+      "ACEPTADO": "Aceptado",
+      "ACEPTADO_CON_OBS": "Aceptado con obs.",
+      "RECHAZADO": "Rechazado",
+      "ANULADO": "Anulado",
+      "FUERA_DE_PLAZO": "Fuera de plazo",
+      "DESCARTADO": "Descartado"
+    },
+    "operaciones": {
+      "0101": "Venta interna",
+      "0113": "Venta interna - NRUS",
+      "0200": "Exportación de bienes",
+      "0201": "Exportación de servicios realizados íntegramente en el país",
+      "0203": "Exportación de servicios: transporte de navieras",
+      "0204": "Exportación de servicios a naves y aeronaves de bandera extranjera",
+      "0206": "Exportación de servicios complementarios al transporte de carga",
+      "0207": "Exportación de servicios: energía eléctrica a sujetos domiciliados en ZED",
+      "0208": "Exportación de servicios realizados parcialmente en el extranjero"
+    },
+    "grupoOperacion": {
+      "interna": "Venta interna",
+      "exportacion": "Exportación"
+    },
+    "monedas": {
+      "PEN": "S/ Soles (PEN)",
+      "USD": "$ Dólares americanos (USD)",
+      "EUR": "€ Euros (EUR)",
+      "ARS": "Pesos argentinos (ARS)",
+      "AUD": "Dólares australianos (AUD)",
+      "BOB": "Bolivianos (BOB)",
+      "BRL": "Reales (BRL)",
+      "CAD": "Dólares canadienses (CAD)",
+      "CHF": "Francos suizos (CHF)",
+      "CLP": "Pesos chilenos (CLP)",
+      "CNY": "Yuanes (CNY)",
+      "COP": "Pesos colombianos (COP)",
+      "GBP": "Libras esterlinas (GBP)",
+      "JPY": "Yenes (JPY)",
+      "MXN": "Pesos mexicanos (MXN)",
+      "PYG": "Guaraníes (PYG)",
+      "UYU": "Pesos uruguayos (UYU)"
+    },
+    "regimenesPercepcion": {
+      "51": "Percepción venta interna",
+      "52": "Percepción a la adquisición de combustible",
+      "53": "Percepción realizada al agente de percepción con tasa especial"
+    }
+  },
+  "comprobantes": {
+    "validacion": {
+      "ajuste": {
+        "numero": "Escriba un número, por ejemplo 10 o 12.50.",
+        "mayorQueCero": "Debe ser mayor que cero.",
+        "porcentajeTope": "El porcentaje debe ser menor que {tope}.",
+        "porcentajeDecimales": "El porcentaje admite hasta 5 decimales.",
+        "montoDecimales": "El monto admite hasta 2 decimales."
+      },
+      "anticipo": {
+        "monto": "El monto a descontar del anticipo {etiqueta} es un valor sin IGV mayor que cero, con hasta 2 decimales.",
+        "disponible": "El anticipo {etiqueta} solo tiene {disponible} por descontar en {afectacion}{ya}.",
+        "ya": " (ya se regularizaron {monto})",
+        "repetido": "El mismo anticipo aparece más de una vez (3215)."
+      },
+      "credito": {
+        "netoPendiente": "El neto pendiente es un importe mayor que cero con hasta 2 decimales.",
+        "sinCuotas": "Una factura al crédito lleva al menos una cuota (3259).",
+        "cuotaMonto": "La cuota {n} es un importe mayor que cero con hasta 2 decimales (3253).",
+        "cuotaSinVencimiento": "La cuota {n} necesita su fecha de vencimiento.",
+        "vencimientoTrasEmision": "El vencimiento de la cuota {n} es posterior a la fecha de emisión (3256).",
+        "vencimientoTrasCuota": "El vencimiento de la cuota {n} es posterior al de la cuota {anterior} (3267).",
+        "suma": "Las cuotas suman {suma} y el neto pendiente es {pendiente}: tienen que ser iguales (3250)."
+      },
+      "detraccion": {
+        "sinCodigo": "Elija el bien o servicio sujeto a detracción (catálogo 54).",
+        "porcentaje": "El porcentaje de la detracción es un número mayor que cero y hasta 100, con hasta 5 decimales.",
+        "sinCuenta": "Falta la cuenta de detracciones del Banco de la Nación (3034).",
+        "montoEnSoles": "En una factura en {moneda} el monto de la detracción se indica en soles (3208)."
+      },
+      "tipoCambio": "El tipo de cambio son los soles por 1 {moneda}: un número mayor que cero, de hasta 3 enteros y 3 decimales (por ejemplo 3.756).",
+      "exportacion": {
+        "sinPais": "El cliente del exterior lleva su país (obligatorio en una factura de exportación).",
+        "paisDeUso": "Una exportación de servicios de este tipo indica el país donde se usa o aprovecha el servicio (3098).",
+        "paisDeUsoPeru": "El país de uso del servicio no puede ser Perú (3099)."
+      },
+      "percepcion": {
+        "soloSoles": "La percepción solo se informa en comprobantes en soles (2788).",
+        "soloContado": "La percepción solo se informa en comprobantes al contado (3330).",
+        "base": "La base de la percepción es un monto mayor que cero con hasta 2 decimales (3233)."
+      },
+      "redondeo": {
+        "formato": "El redondeo es un importe con hasta 2 decimales, por ejemplo -0.05 o 0.02.",
+        "tope": "El redondeo no puede superar 1.00 en valor absoluto (3303)."
+      },
+      "referencias": {
+        "ordenCompra": "La orden de compra tiene de 1 a {max} caracteres, sin saltos de línea (4233).",
+        "guiaSinNumero": "Falta el número de una guía de remisión (serie-número, por ejemplo T001-123).",
+        "guiaFormato": "El número de guía «{numero}» no tiene el formato serie-número esperado, por ejemplo T001-123 o EG01-45 (4006).",
+        "guiaRepetida": "La misma guía de remisión aparece más de una vez (2364).",
+        "documentoSinNumero": "Falta el número de un documento relacionado.",
+        "documentoFormato": "El número del documento relacionado «{numero}» tiene de 1 a {max} caracteres sin espacios (4010).",
+        "documentoSoloFactura": "El documento relacionado de tipo {tipo} solo se admite en una factura (4009).",
+        "documentoRepetido": "El mismo documento relacionado aparece más de una vez (2365).",
+        "observaciones": "Las observaciones admiten hasta {max} caracteres."
+      },
+      "retencion": "El porcentaje de la retención es mayor que 0 y menor que 100, con hasta 3 decimales (la tasa legal es 3).",
+      "isc": {
+        "montoUnitario": "El monto por unidad es un número mayor que cero, con hasta 5 decimales.",
+        "tasa": "La tasa es un porcentaje mayor que cero, con hasta 5 decimales.",
+        "basePvp": "El precio de venta al público sugerido es un número mayor que cero, con hasta 5 decimales."
+      },
+      "tributos": {
+        "icbperNrus": "3240 - El ICBPER no aplica al NRUS (0113): quite las bolsas de plástico de las líneas o emita con venta interna.",
+        "ivapMezcla": "Un comprobante con IVAP (17) lleva todos sus ítems con IVAP: no se mezcla con gravado, exonerado, inafecto ni gratuitas.",
+        "itemIvap": "El ítem {item} es IVAP: no lleva ISC ni ICBPER.",
+        "itemIcbperUnidad": "El ítem {item} lleva ICBPER: las bolsas van en unidades (NIU), una bolsa por unidad.",
+        "itemIcbperCantidad": "El ítem {item} lleva ICBPER: la cantidad es el número de bolsas, un entero de 1 a 99999.",
+        "nombreItem": "«{descripcion}»",
+        "itemSinNombre": "ítem"
+      }
+    },
+    "precio": {
+      "sinAfectacion": "Precio unit.",
+      "conIgv": "Precio unit. (con IGV)",
+      "conIvap": "Precio unit. (con IVAP)",
+      "sinIgv": "Precio unit. (sin IGV)"
+    },
+    "duplicar": {
+      "omitidos": {
+        "operacion": "el tipo de operación {codigo} (se emite como venta interna)",
+        "detraccion": "la detracción",
+        "percepcion": "la percepción",
+        "retencion": "la retención del IGV",
+        "anticipos": "los anticipos descontados",
+        "credito": "la forma de pago al crédito y sus cuotas",
+        "tipoCambio": "el tipo de cambio",
+        "referencias": "la orden de compra, las guías y los documentos relacionados",
+        "observaciones": "las observaciones",
+        "cargosGlobales": "los cargos globales además del primero",
+        "cargosDeLinea": "los cargos de línea además del primero",
+        "otrosTributos": "los otros tributos (9999) de las líneas",
+        "datosDeLinea": "los datos propios de las líneas (placa, hidrobiológicos, transporte)"
+      }
+    },
+    "estadoBaja": {
+      "estados": {
+        "GENERADA": "Generada, pendiente de envío",
+        "ENVIADA": "Enviada: SUNAT la está procesando",
+        "ERROR_ENVIO": "Error de envío: se reintentará",
+        "ACEPTADA": "Aceptada: comprobante anulado",
+        "RECHAZADA": "Rechazada por SUNAT"
+      },
+      "altaAceptada": "Aceptado: {que} informada a SUNAT",
+      "altaRechazada": "Rechazado por SUNAT: la {que} no quedó informada",
+      "que": {
+        "boleta": "boleta",
+        "nota": "nota"
+      },
+      "vencida": "Vencida: pasaron los 7 días para anularla",
+      "avisoAltaFueraDePlazo": "Informada fuera de plazo: pasó el 7.º día desde la emisión. SUNAT no la rechaza, pero puede observarla con la 4443 «El comprobante fue informado fuera del plazo establecido» (en e-beta no la observó). Lo que cuenta es la respuesta de SUNAT del comprobante.",
+      "resumenDiario": "Resumen diario",
+      "comunicacion": "Comunicación de baja",
+      "alta": " (alta)",
+      "sinConexion": "Sin conexión: no se pudo consultar a SUNAT. Vuelve a intentarlo.",
+      "actualizar": "Actualizar estado",
+      "estado": "Estado",
+      "motivo": "Motivo",
+      "ticket": "Ticket SUNAT",
+      "detalle": "Detalle",
+      "cdr": "CDR",
+      "ultimoIntento": "Último intento",
+      "intentos": " ({n} intentos)",
+      "pendienteAlta": "Pasó el envío individual: SUNAT la recibe en el resumen diario. Mientras no responda, la {que} queda enviada. Esta ficha se actualiza sola cada 30 s.",
+      "pendiente": "Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s."
+    },
+    "acciones": {
+      "consultandoSunat": "Consultando a SUNAT…"
+    },
+    "baja": {
+      "darDeBaja": "Dar de baja",
+      "cortaConexion": "Se cortó la conexión mientras se enviaba. La baja de {numero} pudo haber llegado a SUNAT: recarga la ficha y revisa su estado antes de volver a intentarlo.",
+      "rechazada": "SUNAT rechazó la baja{cdr}. El comprobante {numero} sigue vigente.",
+      "reversion": "Resumen de reversiones ante SUNAT. SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión.",
+      "resumenDiario": "Resumen diario ante SUNAT con el comprobante anulado",
+      "comunicacion": "Comunicación de baja ante SUNAT",
+      "plazo": "{tramite} (regla 2957: hasta {dias} días desde la emisión).",
+      "ultimoDia": "Hoy es el último día del plazo: si el envío falla y se reintenta mañana, SUNAT la rechazará.",
+      "quedaUno": "Quedan {n} día de plazo.",
+      "quedanVarios": "Quedan {n} días de plazo.",
+      "efecto": "Si SUNAT la acepta, el comprobante queda <b>anulado</b> y <b>no se puede revertir</b>; su número no se reutiliza.",
+      "notasUno": " Tiene {n} nota vigente que quedará sobre un comprobante anulado (SUNAT lo permite).",
+      "notasVarias": " Tiene {n} notas vigentes que quedarán sobre un comprobante anulado (SUNAT lo permite).",
+      "condicionBoleta": "Solo se anula lo que no se entregó al adquirente (RS 097-2012, art. 14). Si ya se le entregó, no se anula: emita una nota de crédito.",
+      "motivo": "Motivo",
+      "motivoPlaceholder": "Ej.: error en el RUC del cliente",
+      "motivoAyuda": "3–100 caracteres, sin saltos de línea (SUNAT 2315).",
+      "motivoSoloKhipu": "Queda solo en khipu: el resumen diario no lo lleva.",
+      "motivoEnXml": "Va en el XML y lo ve SUNAT.",
+      "motivoMaximo": " Llegaste al máximo de 100.",
+      "enviando": "Enviando a SUNAT…",
+      "confirmar": "Confirmar la baja"
+    },
+    "agente": {
+      "documentosPagados": "Documentos pagados al proveedor",
+      "documentosCobrados": "Documentos cobrados al cliente",
+      "regimen": "Régimen {regimen} · {descripcion} · {tasa} %",
+      "columnas": {
+        "documento": "Documento",
+        "emision": "Emisión",
+        "importeTotal": "Importe total",
+        "pago": "Pago",
+        "cobro": "Cobro",
+        "pagado": "Pagado",
+        "cobrado": "Cobrado",
+        "tipoCambio": "T. cambio",
+        "retenido": "Retenido",
+        "percibido": "Percibido",
+        "neto": "Neto"
+      },
+      "ticket": "Ticket",
+      "pago": "N.º {numero} · {fecha}",
+      "totalRetenido": "Importe total retenido",
+      "totalPercibido": "Importe total percibido",
+      "redondeo": "Redondeo",
+      "totalPagado": "Importe total pagado al proveedor",
+      "totalCobrado": "Importe total cobrado al cliente"
+    },
+    "correo": {
+      "boton": "Enviar por correo",
+      "enviadoA": "Enviado a {email}",
+      "dialogo": "Enviar {numero} por correo",
+      "seEnviara": "Se enviará <n>{numero}</n> con el PDF, el XML firmado y la constancia de SUNAT adjuntos.",
+      "correoCliente": "Correo del cliente",
+      "mensaje": "Mensaje (opcional)",
+      "mensajePlaceholder": "Gracias por su compra.",
+      "enviando": "Enviando…",
+      "enviar": "Enviar"
+    },
+    "validez": {
+      "estados": {
+        "ACEPTADO": "Aceptado por SUNAT (0001).",
+        "RECHAZADO": "SUNAT lo tiene como rechazado (0002).",
+        "DE_BAJA": "SUNAT lo tiene dado de baja (0003).",
+        "NO_EXISTE": "SUNAT no tiene este comprobante (0011): no llegó o los datos no coinciden.",
+        "AJENO": "SUNAT lo registra a nombre de otro emisor (0012)."
+      },
+      "estadosApi": {
+        "ACEPTADO": "Aceptado por SUNAT.",
+        "DE_BAJA": "SUNAT lo tiene anulado: se comunicó en una baja.",
+        "NO_EXISTE": "SUNAT no tiene informado este comprobante: no llegó o los datos no coinciden.",
+        "AUTORIZADO": "Comprobante físico autorizado por imprenta.",
+        "NO_AUTORIZADO": "Comprobante físico no autorizado por imprenta."
+      },
+      "respondio": "SUNAT respondió {codigo} {mensaje}",
+      "observaciones": "Observaciones: {lista}",
+      "cortado": "Se cortó la conexión mientras se consultaba a SUNAT. Reintente.",
+      "consultar": "Consultar validez en SUNAT"
+    },
+    "envioAlCliente": {
+      "titulos": {
+        "PENDIENTE": "Envío al cliente pendiente",
+        "ENVIADO": "Enviado al cliente",
+        "FALLIDO": "No se pudo enviar al cliente",
+        "OMITIDO": "No se envió al cliente"
+      },
+      "salieronA": "El PDF, el XML y la constancia de SUNAT salieron a ",
+      "destinatario": "Destinatario: ",
+      "el": " el {fecha}",
+      "falloUno": "Falló 1 intento; se reintenta solo{cuando}.",
+      "falloVarios": "Falló {n} intentos; se reintenta solo{cuando}.",
+      "enSegundos": "Sale en unos segundos.",
+      "aMano": "Puedes enviarlo a mano con «Enviar por correo» o descargar el PDF."
+    },
+    "avisoBoleta": {
+      "titulo": "Esta {que} todavía no se informó a SUNAT",
+      "quedaUno": "queda 1 día",
+      "quedanVarios": "quedan {n} días",
+      "ultimoDiaIndividual": "Hoy es el último día para enviarla sola; desde mañana solo se informa en el resumen diario, hasta el {limite}.",
+      "soloResumen": "Ya no se puede enviar sola: se informa en el resumen diario hasta el {limite} ({queda}).",
+      "ultimoDiaResumen": "Hoy vence el plazo del resumen diario ({limite}). Pasado hoy se informa fuera de plazo y SUNAT puede observarla.",
+      "fueraDePlazo": "El plazo venció el {limite}: al enviarla se informa en un resumen diario fuera de plazo y SUNAT puede observarla.",
+      "enviala": "Envíala ahora con el botón de arriba."
+    },
+    "avisosEmision": {
+      "titulo": "SUNAT observará este comprobante ({codigo})"
+    },
+    "recuperarCdr": {
+      "cortado": "Se cortó la conexión mientras se consultaba a SUNAT. Reintente: consultar no cambia nada si SUNAT no tiene la constancia.",
+      "sinConstancia": "SUNAT todavía no tiene la constancia de este comprobante. Si ya pasó un rato, reenvíelo.",
+      "boton": "Recuperar constancia de SUNAT"
+    },
+    "reenviar": {
+      "etiqueta": "Reenviar",
+      "enCurso": "Reenviando…",
+      "cortado": "Se cortó la conexión mientras se reenviaba. El comprobante pudo haber llegado a SUNAT: actualiza la ficha para ver su estado antes de reintentar."
+    },
+    "duplicarBoton": {
+      "titulo": "Duplicar: nuevo comprobante con los mismos datos",
+      "aria": "Duplicar {numero}",
+      "boton": "Duplicar"
+    },
+    "resumen": {
+      "meses": [
+        "Ene",
+        "Feb",
+        "Mar",
+        "Abr",
+        "May",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Set",
+        "Oct",
+        "Nov",
+        "Dic"
+      ],
+      "diaYMes": "{dia} {mes}",
+      "esteMes": "Este mes",
+      "rango": "{desde} – {hasta}",
+      "desde": "Desde el {fecha}",
+      "hasta": "Hasta el {fecha}",
+      "todo": "Todo el historial",
+      "sinResumen": "No se pudo cargar el resumen",
+      "region": "Resumen del período",
+      "totalFacturado": "Total facturado",
+      "emitidos": "Emitidos en el período",
+      "aceptados": "Aceptados con CDR",
+      "atencion": "Atención requerida",
+      "neto": "Neto de notas de crédito · {cuando}",
+      "porcentaje": "{n} % de lo emitido",
+      "sinComprobantes": "Sin comprobantes"
+    },
+    "pagina": {
+      "titulo": "Comprobantes",
+      "sinEmpresa": "Primero registra una empresa para ver tus comprobantes.",
+      "configurarEmpresa": "Configurar empresa"
+    },
+    "notaPagina": {
+      "titulo": "Nota de crédito o débito",
+      "volverABoleta": "Volver a la boleta",
+      "volverAFactura": "Volver a la factura",
+      "emitirSobre": "Emitir nota sobre {numero}",
+      "docGenerico": "Doc.",
+      "tomaDeBoleta": "la nota toma el cliente y la moneda de la boleta y se envía a SUNAT al emitirla.",
+      "tomaDeFactura": "la nota toma el cliente y la moneda de la factura y se envía a SUNAT al emitirla."
+    },
+    "detalle": {
+      "titulo": "Comprobante",
+      "tiposOperacion": {
+        "0101": "Venta interna",
+        "0200": "Exportación de bienes",
+        "0201": "Exportación de servicios",
+        "0202": "Exportación · Hospedaje a no domiciliados",
+        "0203": "Exportación · Transporte de navieras",
+        "0204": "Exportación · Servicios a naves y aeronaves",
+        "0205": "Exportación · Paquete turístico",
+        "0206": "Exportación · Servicios complementarios al transporte de carga",
+        "0207": "Exportación · Suministro de energía a ZED",
+        "0208": "Exportación · Servicios prestados parcialmente en el extranjero",
+        "1001": "Operación sujeta a detracción",
+        "2001": "Operación sujeta a percepción"
+      },
+      "otraOperacion": "Otra operación",
+      "monedas": {
+        "PEN": "PEN (Soles · S/)",
+        "USD": "USD (Dólares · $)"
+      },
+      "formaPago": {
+        "titulo": "Forma de pago",
+        "credito": "Crédito",
+        "contado": "Contado",
+        "netoPendiente": "Neto pendiente de pago",
+        "cuotaVence": " · vence {fecha}"
+      },
+      "exportacion": {
+        "titulo": "Exportación",
+        "incoterm": "Incoterm",
+        "paisDeUso": "País de uso del servicio",
+        "sinIgv": "Sin IGV (tributo 9995): la factura sustenta la exportación ante SUNAT y Aduanas."
+      },
+      "detraccion": {
+        "titulo": "Detracción (SPOT)",
+        "cuenta": "Cuenta Banco de la Nación",
+        "deposito": "El adquirente deposita este monto en soles y paga el resto al emisor (medio de pago {medio})."
+      },
+      "respuesta": {
+        "titulo": "Respuesta SUNAT",
+        "sinRespuesta": "Todavía sin respuesta de SUNAT.",
+        "cdr": "Respuesta CDR SUNAT",
+        "ultimoErrorUno": "Último error de envío ({n} fallido)",
+        "ultimoErrorVarios": "Último error de envío ({n} fallidos)",
+        "ultimoEstado": "Último estado"
+      },
+      "historial": {
+        "titulo": "Historial",
+        "desde": "desde {estado}",
+        "vacio": "Sin historial."
+      },
+      "volver": "Volver a comprobantes",
+      "miga": "Comprobantes",
+      "enviarASunat": "Enviar a SUNAT",
+      "enviando": "Enviando…",
+      "emitirNota": "Emitir nota",
+      "pdfTitulo": "Representación impresa con QR y hash",
+      "verPdf": "Ver PDF",
+      "tipoElectronico": "{tipo} electrónica",
+      "cdrDelResumen": "Código de la constancia (CDR) del resumen diario {resumen}, en que se informó este comprobante: SUNAT no emite un CDR por boleta en el resumen",
+      "cdrConstancia": "Código de la constancia de recepción (CDR)",
+      "cdrSinConstancia": "Código de respuesta de SUNAT; no se emitió constancia (CDR)",
+      "etiquetaCdr": "CDR",
+      "etiquetaCodigoSunat": "Código SUNAT",
+      "fechaEmision": "Fecha de emisión",
+      "vence": "Vence {fecha}",
+      "plazoVencidoResumen": "Plazo vencido el {fecha}: al enviarla se informa en un resumen diario fuera de plazo (SUNAT no la rechaza; puede observarla con la 4443)",
+      "enviarHasta": "Enviar a SUNAT hasta el {fecha}",
+      "plazoVencido": "Plazo de envío vencido el {fecha}: emita un comprobante nuevo",
+      "descartado": "El soporte dejó de intentar enviarlo: emita un comprobante nuevo",
+      "moneda": "Moneda",
+      "tipoOperacion": "Tipo de operación",
+      "firma": "Firma digital (hash)",
+      "copiarHash": "Copiar hash de la firma",
+      "sinFirmar": "Sin firmar",
+      "leyendas": "Leyendas (catálogo 52)",
+      "receptor": {
+        "titulo": "Datos del receptor",
+        "razonSocial": "Razón social",
+        "documento": "Documento de identidad",
+        "tipo": "Tipo {tipo}",
+        "direccion": "Dirección declarada",
+        "pais": "País",
+        "correo": "Correo",
+        "vacio": "Sin datos de receptor."
+      },
+      "observaciones": "Observaciones (solo PDF)",
+      "nota": {
+        "creditoSobre": "Nota de crédito sobre",
+        "debitoSobre": "Nota de débito sobre",
+        "boletaModificada": "Boleta modificada",
+        "facturaModificada": "Factura modificada",
+        "motivo": "Motivo",
+        "sustento": "Sustento"
+      },
+      "notas": {
+        "sobreBoleta": "Notas emitidas sobre esta boleta",
+        "sobreFactura": "Notas emitidas sobre esta factura"
+      },
+      "referencias": {
+        "titulo": "Documentos relacionados",
+        "ordenCompra": "Orden de compra",
+        "guias": "Guías de remisión",
+        "guia": "Guía",
+        "otros": "Otros documentos",
+        "documento": "Documento"
+      },
+      "items": {
+        "titulo": "Detalle de bienes y servicios",
+        "uno": "{n} ítem",
+        "varios": "{n} ítems",
+        "codigo": "Código",
+        "descripcion": "Descripción",
+        "cantidad": "Cant.",
+        "unidad": "Unidad",
+        "afectacion": "Afectación IGV",
+        "precioUnitario": "P. unitario",
+        "descuento": "Descuento",
+        "cargos": "Cargos",
+        "subtotal": "Subtotal",
+        "codigoSunat": "SUNAT {codigo}",
+        "hidrobiologico": "Embarcación {nombre} (matrícula {matricula}) · {especie} · {cantidad} t descargadas en {lugar} el {fecha}",
+        "valoresReferenciales": "Valores referenciales: servicio {servicio} · carga efectiva {efectiva} · carga útil {util}",
+        "tramoUno": " · {n} tramo",
+        "tramoVarios": " · {n} tramos",
+        "otraAfectacion": "Otra afectación",
+        "iscTitulo": "ISC sistema {sistema}: {monto}",
+        "icbperTitulo": "Impuesto a las bolsas de plástico",
+        "codigoAfecta": "Código SUNAT {codigo} · {afecta}",
+        "afectaBase": "afecta la base del IGV",
+        "noAfectaBase": "no afecta la base del IGV",
+        "gratuitaTitulo": "Operación gratuita: no se cobra",
+        "gratuita": "Gratuita",
+        "vacio": "Este comprobante no tiene ítems.",
+        "iscTasa": "ISC {tasa}%",
+        "icbperMonto": "ICBPER {monto}"
+      },
+      "tecnica": {
+        "titulo": "Información técnica SUNAT",
+        "tabla": "Tabla: documento",
+        "sinObservaciones": "Sin observaciones"
+      },
+      "importes": {
+        "titulo": "Liquidación de importes",
+        "exportacion": "Total exportación (sin IGV)",
+        "sujetoIvap": "Total sujeto al IVAP",
+        "gravado": "Total gravado",
+        "exonerado": "Total exonerado",
+        "inafecto": "Total inafecto",
+        "descuentoGlobal": "Descuento global ({codigo}{afecta})",
+        "afectaLaBase": ", afecta la base",
+        "cargoGlobal": "Cargo global ({codigo}, afecta la base)",
+        "isc": "Total ISC",
+        "icbper": "Total ICBPER (bolsas)",
+        "ivap": "Total IVAP (4 %)",
+        "igvTasa": "Total IGV ({tasa} %)",
+        "igv": "Total IGV",
+        "gratuitas": "Operaciones gratuitas (no se cobran)",
+        "igvGratuitas": "IGV de gratuitas (informativo)",
+        "precioVenta": "Precio de venta",
+        "otrosCargos": "Otros cargos sin IGV{codigos}",
+        "descuentos": "Descuentos que no afectan el IGV",
+        "anticipos": "Anticipos ya pagados (con IGV)",
+        "redondeo": "Redondeo",
+        "totalAPagar": "Total a pagar",
+        "netoFinal": "Importe neto final",
+        "equivale": "Equivale a {monto} al tipo de cambio {tipoCambio} (solo informativo: SUNAT no lo recibe)"
+      },
+      "anticipos": {
+        "titulo": "Anticipos regularizados",
+        "pagado": " · pagado el {fecha}",
+        "sinIgv": " ({monto} sin IGV)"
+      },
+      "retencion": {
+        "titulo": "Retención del IGV ({porcentaje}%)",
+        "neto": "Neto a cobrar (el cliente entera la retención a SUNAT)"
+      },
+      "percepcion": {
+        "titulo": "Percepción {regimen} ({porcentaje}%)",
+        "total": "Total con percepción (lo que paga el cliente)"
+      },
+      "documentoId": "documento_id:"
+    },
+    "formulario": {
+      "nombre": {
+        "factura": "factura",
+        "boleta": "boleta"
+      },
+      "una": {
+        "factura": "una factura",
+        "boleta": "una boleta"
+      },
+      "clienteNoAdmitido": "«{razon}» tiene {documento}, que {destino} no admite{motivo}.",
+      "documentoCodigo": "el documento {codigo}",
+      "estaExportacion": "esta exportación",
+      "facturaNecesitaRuc": ": la factura necesita un cliente con RUC",
+      "productoExportacion": "«{descripcion}» es de exportación (afectación 40): elige una operación de exportación para usarlo.",
+      "productoGratuito": "«{descripcion}» es gratuito (afectación {afectacion}) y una exportación cobra todas sus líneas: no se agrega.",
+      "maxItems": "Un comprobante admite hasta {max} ítems.",
+      "maxItemsTitulo": "Un comprobante admite hasta {max} ítems",
+      "productoConIgv": "«{descripcion}» tiene el IGV dentro de su precio ({precio}); la exportación va sin IGV: revisa el precio de la línea.",
+      "errores": {
+        "sinItems": "Agrega al menos un ítem con descripción, cantidad y precio.",
+        "topeSinDocumento": "Una boleta de más de S/ {tope}.00 (o en otra moneda) identifica al comprador con su documento.",
+        "corrijaAjustes": "Corrija los descuentos, cargos o tributos marcados antes de emitir.",
+        "vencimientoAnterior": "La fecha de vencimiento no puede ser anterior a la de emisión.",
+        "esperaVencida": "El servidor tardó demasiado en responder mientras se emitía",
+        "conexionCortada": "Se cortó la conexión mientras se emitía",
+        "reintentar": "{causa}. Vuelve a emitir sin cambiar nada: si la {nombre} ya se había emitido, verás la misma, sin duplicarla."
+      },
+      "sinSeries": {
+        "titulo": "No tienes series de {nombre}",
+        "texto": "Para emitir necesitas al menos una serie de tipo {tipo} activa ({patron}).",
+        "irASeries": "Ir a series"
+      },
+      "serie": "Serie",
+      "ayudaSerie": "El correlativo lo asigna khipu al emitir",
+      "ultimoEmitido": "último emitido N.º {n}",
+      "sinEmitir": "aún sin emitir",
+      "fechaEmision": "Fecha de emisión",
+      "ayudaFecha": "Máx. {dias} días",
+      "avisoResumen": "Pasado el 5.º día SUNAT ya no la recibe sola: khipu la informa en el resumen diario, hasta el 7.º.",
+      "moneda": "Moneda",
+      "tipoCambio": "Tipo de cambio",
+      "ayudaTipoCambio": "Soles por 1 {moneda}; va al PDF y al registro de ventas, no a SUNAT",
+      "comprador": "Comprador",
+      "cliente": "Cliente",
+      "guardarCliente": "Guardar en mis clientes al emitir",
+      "documentoComprador": "Documento del comprador",
+      "sinDocumentoAyuda": "SUNAT lo admite hasta S/ {tope}.00 de total; en otra moneda, con el tipo de cambio.",
+      "numeroDocumento": "Número de documento",
+      "nombreComprador": "Nombre del comprador",
+      "razonSocial": "Razón social",
+      "placeholderComprador": "Juan Pérez",
+      "tituloNombre": "Al menos 3 caracteres, sin contar los espacios de los extremos",
+      "paisCliente": "País del cliente",
+      "paisOpcionalBoleta": "Opcional en una boleta",
+      "paisObligatorio": "Obligatorio en una factura de exportación",
+      "seleccione": "Seleccione",
+      "direccion": "Dirección",
+      "placeholderDireccionExterior": "1200 Main St, Miami",
+      "placeholderDireccion": "Av. Prueba 123",
+      "placeholderRazonSocial": "Comercial Andina SAC",
+      "avisoTope": "Esta boleta pasa de S/ {tope}.00{extra}: identifica al comprador con su documento.",
+      "avisoTopeSinTipoCambio": " o no es en soles y no indica el tipo de cambio",
+      "correo": "Correo del cliente",
+      "ayudaCorreo": "Si activaste el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepte",
+      "placeholderCorreo": "compras@cliente.pe",
+      "tipoOperacion": "Tipo de operación",
+      "formaPago": "Forma de pago",
+      "alContado": "Al contado",
+      "alCredito": "Al crédito (cuotas)",
+      "incoterm": "Incoterm",
+      "ayudaIncoterm": "Incoterms 2020; lo exige Aduanas, SUNAT no lo valida",
+      "sinIncoterm": "Sin incoterm",
+      "paisUso": "País de uso del servicio",
+      "ayudaPaisUso": "Donde se usa o aprovecha el servicio (3098); distinto de Perú",
+      "detraccionCheck": "Operación sujeta a detracción (SPOT)",
+      "avisoDetraccion": "Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, marque la detracción.",
+      "percepcionCheck": "Operación con percepción del IGV",
+      "retencionCheck": "El cliente retiene el IGV (agente de retención)",
+      "items": "Ítems",
+      "agregarItem": "Agregar ítem",
+      "descripcion": "Descripción",
+      "cantidad": "Cantidad",
+      "acciones": "Acciones",
+      "placeholderDescripcion": "Ej. Servicio de consultoría",
+      "unidadYAfectacion": "Unidad y afectación del IGV",
+      "masOpcionesItem": "Más opciones del ítem {n}",
+      "minimoUnItem": "Un comprobante necesita al menos un ítem",
+      "quitarItem": "Quitar ítem",
+      "quitarItemN": "Quitar ítem {n}",
+      "unidadMedida": "Unidad de medida",
+      "catalogo03": "Catálogo 03",
+      "afectacionIgv": "Afectación del IGV",
+      "catalogo07": "Catálogo 07",
+      "exportacion40": "40 · Exportación de bienes o servicios",
+      "iscItem": "ISC del ítem",
+      "sistemaIsc": "Sistema del ISC",
+      "sinIsc": "Sin ISC",
+      "isc01": "01 · Al valor (tasa %)",
+      "isc02": "02 · Monto fijo por unidad",
+      "isc03": "03 · Precio de venta al público",
+      "montoIsc": "Monto por unidad del ISC",
+      "placeholderMontoIsc": "Monto por unidad, ej. 2.25",
+      "tasaIsc": "Tasa del ISC (%)",
+      "placeholderTasaIsc": "Tasa %, ej. 35",
+      "pvp": "Precio de venta al público sugerido",
+      "placeholderPvp": "PVP sugerido por unidad, ej. 3.50",
+      "bolsas": "Bolsas de plástico (ICBPER)",
+      "bolsasAyuda": "Una bolsa por unidad: se cobra el impuesto por cada una.",
+      "descuentoItem": "Descuento del ítem",
+      "cargoItem": "Cargo del ítem",
+      "masOpciones": "Más opciones del comprobante",
+      "vencimiento": "Fecha de vencimiento",
+      "ayudaVencimiento": "Informativa; no anterior a la emisión",
+      "redondeo": "Redondeo",
+      "ayudaRedondeo": "Entre -1.00 y 1.00, p. ej. -0.05 para cobrar en efectivo sin céntimos",
+      "descuentoGlobal": "Descuento global",
+      "cargoGlobal": "Cargo global",
+      "anticipos": "Anticipos",
+      "anticipoPrefijo": "Anticipo por ",
+      "esAnticipo": "Esta {nombre} es un anticipo",
+      "anticipoAyuda": "Se emite como cualquier {nombre}. Cuando entregue el bien o servicio, en la {nombre} final elija este anticipo en «Descontar anticipos» para regularizarlo.",
+      "descontarAnticipos": "Descontar anticipos",
+      "datosAdicionales": "Datos adicionales: guías, documentos relacionados y observaciones",
+      "verPlan": "Ver plan y consumo",
+      "totales": {
+        "gravado": "Gravado",
+        "exonerado": "Exonerado",
+        "inafecto": "Inafecto",
+        "gratuito": "Gratuito",
+        "igv": "IGV",
+        "igvTasa": "IGV ({tasa} %)"
+      },
+      "incompletoUno": "1 ítem incompleto no se emitirá",
+      "incompletosVarios": "{n} ítems incompletos no se emitirán",
+      "detraccionPie": "Detracción {monto} · Neto a cobrar {neto}",
+      "totalEnSoles": "Equivale a {monto} al tipo de cambio {tipoCambio}",
+      "retencionPie": "Retención {monto} · Neto a cobrar {neto}",
+      "percepcionPie": "Percepción {monto} · Total a cobrar {total}",
+      "totalAPagar": "Total a pagar",
+      "loCalculaKhipu": "Lo calcula khipu",
+      "emitiendo": "Emitiendo…",
+      "emitir": "Emitir {nombre}"
+    },
+    "editores": {
+      "ajuste": {
+        "tipo": "{etiqueta}: tipo",
+        "valor": "{etiqueta}: valor",
+        "porcentaje": "Porcentaje",
+        "monto": "Monto",
+        "reduceBase": "Reduce la base del IGV",
+        "pagaIgv": "Paga IGV",
+        "recargoConsumo": "Recargo al consumo (restaurantes, sin IGV)"
+      },
+      "montoAlEmitir": "El monto lo calcula khipu al emitir.",
+      "retencion": {
+        "porcentaje": "Porcentaje de retención",
+        "ayuda": "La tasa legal es 3 %",
+        "resumen": "El cliente retiene {monto} y la entera a SUNAT; no cambia los importes de la factura."
+      },
+      "percepcion": {
+        "regimen": "Régimen de percepción",
+        "regimenAyuda": "Catálogo 53; la tasa la fija el régimen (catálogo 22)",
+        "base": "Base de la percepción",
+        "baseAyuda": "Por defecto, el importe total",
+        "resumen": "Se cobra {monto} de percepción además del total."
+      },
+      "anticipos": {
+        "sinCliente": "Indique el documento del cliente para ver sus anticipos.",
+        "cargando": "Buscando anticipos del cliente…",
+        "error": "No se pudieron cargar los comprobantes. Cierre y vuelva a abrir esta sección para reintentar.",
+        "vacio": "Este cliente no tiene facturas ni boletas aceptadas en {moneda} con algo por descontar entre las últimas 100 emitidas.",
+        "porDescontar": "{fecha} · por descontar {montos}",
+        "valorADescontar": "Valor a descontar de {etiqueta}",
+        "sinIgv": "Sin IGV",
+        "afectacion": "Afectación"
+      },
+      "credito": {
+        "netoPendiente": "Neto pendiente",
+        "netoPendienteAyuda": "Por defecto el total ({total}); con detracción o retención, lo que queda por cobrar",
+        "repartirEn": "Repartir en",
+        "cuotasIguales": "{n} cuotas iguales",
+        "repartir": "Repartir",
+        "cuotaMonto": "Cuota {n}: monto",
+        "cuotaVencimiento": "Cuota {n}: vencimiento",
+        "quitarCuota": "Quitar la cuota {n}",
+        "agregarCuota": "Agregar cuota",
+        "resumen": "Las {n} cuotas suman {suma} de {pendiente} pendientes."
+      },
+      "detraccion": {
+        "bien": "Bien o servicio sujeto",
+        "catalogo54": "Catálogo 54",
+        "buscarEtiqueta": "Buscar en el catálogo 54",
+        "buscarPlaceholder": "Buscar por código o nombre",
+        "seleccione": "Seleccione",
+        "porcentaje": "Porcentaje",
+        "sugerido": "Sugerido por SUNAT; confírmelo",
+        "segunAnexo": "Escríbalo según el Anexo vigente",
+        "medioPago": "Medio de pago",
+        "catalogo59": "Catálogo 59",
+        "depositoEnCuenta": "{codigo} · Depósito en cuenta",
+        "cuenta": "Cuenta del Banco de la Nación",
+        "cuentaDeLaEmpresa": "La de los datos fiscales de la empresa",
+        "faltaCuenta": "Falta en los datos fiscales:",
+        "configurarla": "configurarla",
+        "montoEnSoles": "Monto a depositar, en soles",
+        "montoEnSolesAyuda": "La factura es en {moneda}: la detracción se deposita siempre en soles (3208)",
+        "resumen": "Se depositan {monto} en la cuenta de detracciones."
+      },
+      "referencias": {
+        "ordenCompra": "Orden de compra",
+        "ordenCompraAyuda": "Hasta {max} caracteres; la imprime el PDF",
+        "guias": "Guías de remisión",
+        "tipoGuia": "Tipo de la guía {n}",
+        "numeroGuia": "Número de la guía {n}",
+        "quitarGuia": "Quitar la guía {n}",
+        "agregarGuia": "Agregar guía",
+        "documentos": "Otros documentos relacionados",
+        "tipoDocumento": "Tipo del documento {n}",
+        "numeroDocumento": "Número del documento {n}",
+        "quitarDocumento": "Quitar el documento {n}",
+        "agregarDocumento": "Agregar documento",
+        "observaciones": "Observaciones",
+        "observacionesAyuda": "Solo en el PDF: no van a SUNAT. Si queda vacío se imprimen las de la empresa"
+      }
+    },
+    "buscador": {
+      "clientes": {
+        "etiqueta": "Buscar un cliente guardado",
+        "placeholder": "Buscar un cliente guardado por documento o nombre",
+        "sinResultados": "Ningún cliente guardado coincide. Escríbelo abajo y márcalo para guardarlo.",
+        "fallo": "No se pudieron buscar tus clientes; escríbelo a mano.",
+        "encontradoUno": "cliente encontrado",
+        "encontradoVarios": "clientes encontrados"
+      },
+      "productos": {
+        "etiqueta": "Buscar un producto guardado",
+        "placeholder": "Agregar un producto o servicio guardado por código o descripción",
+        "sinResultados": "Ningún producto guardado coincide. Escríbelo abajo y guárdalo en «Productos».",
+        "fallo": "No se pudieron buscar tus productos; escríbelo a mano.",
+        "encontradoUno": "producto encontrado",
+        "encontradoVarios": "productos encontrados"
+      }
+    },
+    "consultaRuc": {
+      "consultando": "Consultando SUNAT…",
+      "encontrado": "Encontrado en SUNAT · {estado} · {condicion}",
+      "registraComo": "SUNAT lo registra como",
+      "usarNombre": "Usar este nombre",
+      "noEncontrado": "Este RUC no figura en el padrón de SUNAT, que se actualiza cada día: si lo inscribieron hoy, puede tardar un día en aparecer. SUNAT rechaza los comprobantes a un RUC que no existe, así que confirma el número. Puedes digitar los datos a mano.",
+      "sinPadron": "La consulta de RUC no está disponible por ahora: digita los datos a mano.",
+      "cupo": "Hiciste muchas consultas seguidas. Espera un momento para consultar de nuevo, o digita los datos a mano.",
+      "error": "No se pudo consultar SUNAT. Reintenta o digita los datos a mano.",
+      "reintentar": "Consultar de nuevo"
+    },
+    "vistaPrevia": {
+      "noExiste": "El documento todavía no existe.",
+      "errorHttp": "Error {estado} al obtener el documento.",
+      "tituloCdr": "Constancia de recepción (CDR)",
+      "tituloXml": "XML firmado",
+      "verXml": "Ver XML",
+      "verCdr": "Ver CDR",
+      "descargar": "Descargar {formato}",
+      "cargando": "Cargando documento…"
+    },
+    "dialogo": {
+      "faltantes": {
+        "certificado": "Cargar el certificado digital (.p12 o .pfx) de la empresa.",
+        "certificadoVencido": "Renovar el certificado digital: el cargado ya venció.",
+        "credencialesSol": "Guardar el usuario SOL secundario y su clave."
+      },
+      "ambiente": {
+        "sinConfirmar": "Ambiente sin confirmar",
+        "produccion": "Ambiente: Producción — se emite ante SUNAT",
+        "homologacion": "Ambiente: Homologación (beta de SUNAT)",
+        "cargando": "Cargando ambiente…"
+      },
+      "titulo": "Nuevo comprobante",
+      "noPuedeEmitir": {
+        "titulo": "Esta empresa todavía no puede emitir",
+        "falta": "Para firmar y enviar comprobantes a SUNAT falta:",
+        "ir": "Ir a Fiscal & certificado"
+      },
+      "vencido": {
+        "titulo": "Tu plan venció",
+        "texto": "Tu plan {plan} venció y terminaron sus días de gracia. Vuelves a emitir cuando lo renueves; lo ya emitido lo sigues viendo y puedes darlo de baja."
+      },
+      "verPlan": "Ver plan y consumo",
+      "tope": {
+        "titulo": "Llegaste al tope de documentos del mes",
+        "texto": "Tu plan {plan} permite {maximo} documentos al mes y ya los usaste. Vuelves a emitir el mes que viene, o antes si cambias a un plan más grande."
+      },
+      "sinEmpresa": {
+        "titulo": "No se pudo leer la configuración de la empresa",
+        "texto": "Se emitirá contra el ambiente que tenga configurado y los totales se previsualizan con IGV {general} %: si está en el padrón de tasa especial ({padron} %), no coincidirán con los del comprobante."
+      },
+      "reintentar": "Reintentar",
+      "solRechazadas": {
+        "titulo": "SUNAT rechazó las credenciales SOL de esta empresa",
+        "corregir": "Corregirlas",
+        "texto": "El comprobante se firma y queda guardado, pero SUNAT no lo va a recibir hasta que las corrijas: entonces sale solo."
+      },
+      "cerrar": {
+        "titulo": "¿Descartar lo que escribiste?",
+        "seguir": "Seguir editando",
+        "descartar": "Descartar",
+        "texto": "El comprobante no se ha emitido: si cierras ahora se pierde el cliente y las líneas que cargaste."
+      },
+      "copia": {
+        "titulo": "Se copió el cliente y las líneas, no todo",
+        "omitidos": "No se copió: {omitidos}. Si la nueva operación lo necesita, indícalo de nuevo.",
+        "falloTitulo": "No se pudo copiar el comprobante",
+        "falloTexto": "Puede ser un problema pasajero de conexión, o el comprobante no se puede duplicar (una nota no se copia). Puedes emitir uno nuevo desde cero."
+      },
+      "tipo": "Tipo de comprobante",
+      "series": {
+        "titulo": "No se pudieron cargar tus series",
+        "texto": "Puede ser un problema pasajero de conexión. Tus series y sus correlativos no se tocaron."
+      }
+    },
+    "descargaMasiva": {
+      "archivos": {
+        "pdf": "PDF",
+        "xml": "XML firmado",
+        "cdr": "CDR de SUNAT"
+      },
+      "sinComprobantes": "No hay comprobantes con estos filtros",
+      "tope": "Hay {total}: una descarga admite hasta {maximo}. Acota las fechas.",
+      "boton": "Descargar ZIP",
+      "descripcion": "Los {total} comprobantes que muestra la lista con sus filtros.",
+      "archivosLegend": "Archivos",
+      "descargar": "Descargar",
+      "elegirArchivo": "Elige al menos un archivo"
+    },
+    "exportar": {
+      "formatos": {
+        "xlsx": {
+          "etiqueta": "Excel (.xlsx)",
+          "ayuda": "Para abrirlo en Excel: los importes llegan como números."
+        },
+        "csv": {
+          "etiqueta": "CSV",
+          "ayuda": "Texto separado. Los textos que empiezan por = + - @ llevan delante una comilla ('), para que la hoja de cálculo no los tome como fórmula."
+        }
+      },
+      "motivo": "Hay {total}: una exportación admite hasta {maximo}. Acota las fechas.",
+      "errorRed": "No se pudo exportar: revisa tu conexión y vuelve a intentarlo.",
+      "boton": "Exportar",
+      "descripcion": "Una fila por comprobante de los {total} que muestra la lista con sus filtros: bases, IGV, ICBPER, ISC, cargos, descuentos, anticipos, total, estado y documento modificado. Las notas de crédito salen en negativo; sin filtro de estado no entran los rechazados, inválidos ni descartados.",
+      "formato": "Formato",
+      "separador": "Separador",
+      "coma": "Coma (Excel en Perú)",
+      "puntoYComa": "Punto y coma",
+      "exportando": "Exportando…",
+      "descargar": "Descargar"
+    },
+    "tabla": {
+      "estadoTodos": "Estado SUNAT: Todos",
+      "tipoTodos": "Tipo: Todos",
+      "tipoOpcion": "Tipo: {tipo}",
+      "serieTodas": "Serie: Todas",
+      "serieOpcion": "Serie: {serie}",
+      "errorListar": "Error al listar comprobantes",
+      "aceptadoConCdr": "Aceptado con CDR",
+      "rechazadoCodigo": "Rechazado ({codigo})",
+      "tipo": "Tipo",
+      "serie": "Serie",
+      "cliente": {
+        "etiqueta": "Cliente",
+        "ayuda": "Documento (empieza por) o parte del nombre",
+        "placeholder": "Cliente o documento"
+      },
+      "numero": {
+        "etiqueta": "Número",
+        "ayuda": "Número del comprobante, sin la serie",
+        "placeholder": "N.º"
+      },
+      "fechaTitulo": "Fecha de emisión (inclusive)",
+      "desde": "Desde",
+      "hasta": "Hasta",
+      "refrescar": "Refrescar lista",
+      "columnas": {
+        "comprobante": "Comprobante",
+        "cliente": "Cliente / Receptor",
+        "fecha": "Fecha & Emisión",
+        "importe": "Importe Total",
+        "estado": "Estado SUNAT",
+        "acciones": "Acciones"
+      },
+      "verComprobante": "Ver comprobante {numero}, estado {estado}",
+      "copiarNumero": "Copiar número",
+      "tipoElectronico": "{tipo} electrónica",
+      "docGenerico": "Doc.",
+      "igv": "IGV {monto}",
+      "verPdf": "Ver representación impresa (PDF)",
+      "pdfNoDisponible": "El PDF existe desde que el comprobante está firmado",
+      "descargarXml": "Descargar XML firmado",
+      "descargarCdr": "Descargar constancia CDR",
+      "vacioConFiltros": "No hay comprobantes con esos filtros.",
+      "vacio": "Todavía no emitiste ningún comprobante.",
+      "quitarFiltros": "Quitar filtros",
+      "unidad": "comprobantes",
+      "notaPlazo": "Plazo máx. envío SUNAT: 3 días calendario",
+      "pdf": "PDF",
+      "xml": "XML"
+    },
+    "nota": {
+      "errorMotivos": "No se pudieron cargar los motivos (catálogos 09/10). Reintente.",
+      "documento": {
+        "boleta": "boleta",
+        "factura": "factura"
+      },
+      "documentoPlural": {
+        "boleta": "boletas",
+        "factura": "facturas"
+      },
+      "sinRespuesta": {
+        "tardo": "El servidor tardó demasiado en responder mientras se emitía",
+        "corte": "Se cortó la conexión mientras se emitía",
+        "mensaje": "{causa}. Vuelve a emitir sin cambiar nada: si la nota ya se había emitido, verás la misma, sin duplicarla. Si cambias algo, revisa antes las notas de la {documento} {numero}."
+      },
+      "etiquetaImporte": {
+        "30": "Importe inafecto, sin IGV",
+        "40": "Importe sin IGV, exportación",
+        "17": "Importe con IVAP",
+        "20": "Importe exonerado, sin IGV",
+        "10": "Importe con IGV"
+      },
+      "conceptoTributo": {
+        "10": "gravado + IGV",
+        "20": "exonerado",
+        "30": "inafecto",
+        "40": "exportación",
+        "17": "IVAP"
+      },
+      "avisos": {
+        "importeDecimales": "El importe admite hasta 2 decimales.",
+        "cuotaDecimales": "Cada cuota admite hasta 2 decimales.",
+        "lineaEnCero": "Hay una línea cuyo importe, cargo o impuesto redondea a 0.00: sube la cantidad o ponla en 0.",
+        "bolsas": "Las bolsas del ICBPER se devuelven por unidades enteras (SUNAT 2892).",
+        "sinImporte": "La nota no acredita ningún importe (SUNAT 2062): las líneas gratuitas no se cobran, así que incluye también la línea que devuelves.",
+        "ivapEnCero": "El IVAP de la línea redondearía a 0.00 (SUNAT 3111): el importe debe ser 0.13 o más.",
+        "conceptoCorto": "El concepto necesita al menos 3 caracteres (SUNAT 4084).",
+        "sinCantidad": "Pon una cantidad mayor que 0 en al menos un ítem."
+      },
+      "tipoNota": "Tipo de nota",
+      "tipoNC": "Nota de crédito (07)",
+      "tipoND": "Nota de débito (08)",
+      "serie": "Serie",
+      "notaCredito": "nota de crédito",
+      "notaDebito": "nota de débito",
+      "sinSeries": "No hay series de {nota} sobre {documentos}.",
+      "creeUna": "Cree una",
+      "sinSeriesEjemplo": " (p. ej. {ejemplo}).",
+      "motivo": "Motivo (catálogo {catalogo})",
+      "seleccione": "Seleccione…",
+      "sustento": "Sustento",
+      "sustentoPlaceholder": "Ej.: el cliente devolvió la mercadería completa",
+      "sustentoAyuda": "Hasta 500 caracteres, sin saltos de línea (SUNAT 2135). Va en el XML y en la representación impresa.",
+      "fecha": "Fecha de emisión",
+      "fechaAyuda": "No anterior a la de la {documento} ({fecha}, SUNAT 2885) ni futura.",
+      "observaciones": "Observaciones",
+      "opcional": "(opcional)",
+      "observacionesAyuda": "Solo en el PDF: no van a SUNAT. {n} / 1000",
+      "ajustes": {
+        "titulo": "Descuento global y cargo de la nota",
+        "descuento": "Descuento global de la nota",
+        "cargo": "Cargo global de la nota",
+        "ayuda": "Se aplican sobre las líneas de esta nota (afectan la base del IGV). El importe final lo calcula khipu y SUNAT lo compara con el de la {documento} (3286)."
+      },
+      "totalCopia": "Nota <b>total</b>: khipu copia los ítems, el descuento global y los cargos de la {documento} {numero} ({monto}).",
+      "importe": "Importe de la nota",
+      "tope": "Tope",
+      "yaAcreditadoOtras": " (ya acreditado {monto} en otras notas de crédito)",
+      "superaTopeTotal": " Supera el tope: SUNAT la rechazaría (3286). Solo queda por acreditar {tope}; elige un motivo parcial.",
+      "thItem": "Ítem de la {documento}",
+      "thFacturado": "Facturado",
+      "thCantidad": "Cantidad en la nota",
+      "ariaCantidad": "Cantidad de {item} en la nota",
+      "anticiposNeto": "La factura regularizó anticipos (neto {monto}): ajuste las cantidades para que la nota no supere ese importe. ",
+      "anticiposSinNota": "La factura regularizó anticipos y su neto es {monto}: no hay nota posible (SUNAT rechaza las líneas en cero y una nota por más que el total); anúlela con una baja. ",
+      "descuentoSinBase": "La factura tiene un descuento que no afecta la base del IGV y una nota no puede llevarlo: las líneas con ese descuento van por lo que se pagó (el importe neto) y se muestran sin descuento. ",
+      "ayudaParcial": "Ponga 0 en los ítems que no entran en la nota. Un descuento o cargo de línea en porcentaje acompaña a la cantidad; los de monto fijo solo se conservan con la cantidad facturada.",
+      "importeAntesDeAjustes": " (antes del descuento y el cargo, que khipu aplica al emitir)",
+      "topeMenos": " ({documento} {total} menos {acreditado} ya acreditado)",
+      "superaTopeParcial": "Supera el tope: SUNAT la rechazaría (3286). Baja cantidades, o para anular o devolver todo elige el motivo 01 o 06.",
+      "cuotasAyuda": "Cuotas corregidas de la factura (la nota sale con importe 0; SUNAT 3315). El neto pendiente será la suma de las cuotas.",
+      "cuotaId": "Cuota{n}",
+      "montoCuota": "Monto de la cuota {n}",
+      "vencimientoCuota": "Vencimiento de la cuota {n}",
+      "quitarCuota": "Quitar la cuota {n}",
+      "quitar": "Quitar",
+      "anadirCuota": "Añadir cuota",
+      "concepto": "Concepto",
+      "placeholderNc": "Ej.: descuento por pronto pago",
+      "placeholderNd": "Ej.: intereses por mora de 30 días",
+      "sinTope": "Sin tope: SUNAT exime al motivo 10 del 3286 y del 3503 (filas 111 y 114–122).",
+      "topePorTributo": " (por tributo, 3503: {concepto} de la {documento} {monto})",
+      "topeMenosAcreditado": " (menos {monto} ya acreditado)",
+      "superaTopeImporte": "Supera el tope: SUNAT la rechazaría ({regla}). Baja el importe.",
+      "reglaTributo": "3503, por tributo",
+      "reintentar": "Reintentar",
+      "emitiendo": "Emitiendo y enviando a SUNAT…",
+      "emitir": "Emitir {nota}"
+    }
   }
 }

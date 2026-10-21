@@ -1,3 +1,6 @@
+import type { Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
+
 /**
  * #297: percepción del IGV de un agente de percepción (catálogo 53: régimen 51, 52 o 53; tasas del catálogo 22). Solo con el tipo de operación 2001, en soles y al contado
  * (2788, 3330). El monto lo calcula el backend (base × tasa); aquí se arman los datos de `PercepcionDto` y se avisa lo que ya se sabe que no vale.
@@ -15,20 +18,26 @@ export const PERCEPCION_VACIA: PercepcionForm = { activa: false, regimen: "51", 
 /** Tipo de operación que fija la percepción. */
 export const OPERACION_PERCEPCION = "2001";
 
-export const REGIMENES: { codigo: string; tasa: number; etiqueta: string }[] = [
-  { codigo: "51", tasa: 2, etiqueta: "Percepción venta interna" },
-  { codigo: "52", tasa: 1, etiqueta: "Percepción a la adquisición de combustible" },
-  { codigo: "53", tasa: 0.5, etiqueta: "Percepción realizada al agente de percepción con tasa especial" },
-];
+const TASAS = [
+  { codigo: "51", tasa: 2 },
+  { codigo: "52", tasa: 1 },
+  { codigo: "53", tasa: 0.5 },
+] as const;
+
+/** Los regímenes con su etiqueta en el idioma de `messages` (#25). */
+export const regimenes = (messages: Mensajes = es): { codigo: string; tasa: number; etiqueta: string }[] =>
+  TASAS.map((r) => ({ ...r, etiqueta: messages.documentos.regimenesPercepcion[r.codigo] }));
+export const REGIMENES = regimenes();
 
 /** Por qué la percepción no vale tal como está (con la moneda y la forma de pago del comprobante), o `null`. */
-export function errorDePercepcion(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }): string | null {
+export function errorDePercepcion(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }, messages: Mensajes = es): string | null {
+  const t = messages.comprobantes.validacion.percepcion;
   if (!p.activa) return null;
-  if (contexto.moneda !== "PEN") return "La percepción solo se informa en comprobantes en soles (2788).";
-  if (contexto.alCredito) return "La percepción solo se informa en comprobantes al contado (3330).";
+  if (contexto.moneda !== "PEN") return t.soloSoles;
+  if (contexto.alCredito) return t.soloContado;
   const base = p.base.trim();
   if (base !== "" && (!/^\d*\.?\d+$/.test(base) || Number(base) <= 0 || (base.includes(".") && base.length - base.indexOf(".") - 1 > 2)))
-    return "La base de la percepción es un monto mayor que cero con hasta 2 decimales (3233).";
+    return t.base;
   return null;
 }
 

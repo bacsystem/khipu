@@ -1,6 +1,8 @@
 "use client";
 
+import { useLocale, useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { interpolar } from "@/i18n/mensajes";
 import { AFECTACIONES_ANTICIPO, anticipoInicial, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
@@ -26,19 +28,23 @@ export function AnticiposEditor({
   moneda: string;
   hayCliente: boolean;
 }) {
-  const error = errorDeAnticipos(elegidos, disponibles.candidatos);
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.comprobantes.editores.anticipos;
+  const afectacion = messages.documentos.afectacionAnticipo;
+  const error = errorDeAnticipos(elegidos, disponibles.candidatos, messages);
   const cambiar = (i: number, cambio: Partial<AnticipoForm>) => onCambio(elegidos.map((a, j) => (j === i ? { ...a, ...cambio } : a)));
   return (
     <div className="grid gap-3" data-testid="anticipos-form">
       {!hayCliente ? (
-        <p className={AYUDA_CAMPO}>Indique el documento del cliente para ver sus anticipos.</p>
+        <p className={AYUDA_CAMPO}>{t.sinCliente}</p>
       ) : disponibles.estado === "cargando" ? (
-        <p className={AYUDA_CAMPO} role="status">Buscando anticipos del cliente…</p>
+        <p className={AYUDA_CAMPO} role="status">{t.cargando}</p>
       ) : disponibles.estado === "error" ? (
-        <p className={cn(AYUDA_CAMPO, "text-destructive")} role="alert">No se pudieron cargar los comprobantes. Cierre y vuelva a abrir esta sección para reintentar.</p>
+        <p className={cn(AYUDA_CAMPO, "text-destructive")} role="alert">{t.error}</p>
       ) : disponibles.candidatos.length === 0 ? (
         <p className={AYUDA_CAMPO} data-testid="anticipos-vacio">
-          Este cliente no tiene facturas ni boletas aceptadas en {moneda} con algo por descontar entre las últimas 100 emitidas.
+          {interpolar(t.vacio, { moneda })}
         </p>
       ) : (
         <ul className="grid gap-2">
@@ -56,15 +62,20 @@ export function AnticiposEditor({
                   />
                   <span className="font-mono font-medium">{c.etiqueta}</span>
                   <span className="text-muted-foreground">
-                    {c.fecha} · por descontar {AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0).map((a) => `${formatearMonto(moneda, c.disponible[a])} ${a}`).join(" · ")}
+                    {interpolar(t.porDescontar, {
+                      fecha: c.fecha,
+                      montos: AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0)
+                        .map((a) => `${formatearMonto(moneda, c.disponible[a], locale)} ${afectacion[a]}`)
+                        .join(" · "),
+                    })}
                   </span>
                 </label>
                 {elegido ? (
                   <div className="grid items-start gap-3 sm:grid-cols-[1fr_160px]">
-                    <Campo id={`nc-ant-monto-${c.etiqueta}`} etiqueta={`Valor a descontar de ${c.etiqueta}`} ayuda="Sin IGV">
+                    <Campo id={`nc-ant-monto-${c.etiqueta}`} etiqueta={interpolar(t.valorADescontar, { etiqueta: c.etiqueta })} ayuda={t.sinIgv}>
                       <input id={`nc-ant-monto-${c.etiqueta}`} value={elegido.monto} onChange={(e) => cambiar(i, { monto: e.target.value })} inputMode="decimal" className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                     </Campo>
-                    <Campo id={`nc-ant-afect-${c.etiqueta}`} etiqueta="Afectación">
+                    <Campo id={`nc-ant-afect-${c.etiqueta}`} etiqueta={t.afectacion}>
                       <select
                         id={`nc-ant-afect-${c.etiqueta}`}
                         value={elegido.afectacion}
@@ -72,7 +83,7 @@ export function AnticiposEditor({
                         className={CAMPO_DENSO}
                       >
                         {AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0).map((a) => (
-                          <option key={a} value={a}>{a}</option>
+                          <option key={a} value={a}>{afectacion[a]}</option>
                         ))}
                       </select>
                     </Campo>

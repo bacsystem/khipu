@@ -1,6 +1,8 @@
+import type { Locale } from "@/i18n/config";
+
 /**
  * Países (catálogo 04, ISO 3166-1 alfa-2). La API no sirve este catálogo y valida con la lista de Java (`Locale.getISOCountries()`), que es esta. Los nombres salen del
- * navegador en español, con el código como respaldo si no los tiene.
+ * navegador en el idioma del portal (`locale`, #25), con el código como respaldo si no los tiene.
  */
 export const CODIGOS_PAIS = [
   "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO",
@@ -16,17 +18,17 @@ export const CODIGOS_PAIS = [
 
 export type Pais = { codigo: string; nombre: string };
 
-/** Los países ordenados por su nombre en español; los más habituales en exportaciones del Perú van primero. */
-export function listarPaises(): Pais[] {
+/** Los países ordenados por su nombre en el idioma `locale`; los más habituales en exportaciones del Perú van primero. */
+export function listarPaises(locale: Locale = "es"): Pais[] {
   let nombres: Intl.DisplayNames | null = null;
   try {
-    nombres = new Intl.DisplayNames(["es"], { type: "region" });
+    nombres = new Intl.DisplayNames([locale], { type: "region" });
   } catch {
     nombres = null;
   }
   const todos: Pais[] = CODIGOS_PAIS.map((codigo) => ({ codigo, nombre: nombres?.of(codigo) ?? codigo }));
   const habituales = ["US", "CL", "CO", "EC", "BO", "BR", "MX", "ES", "CN", "CA"];
   const primeros = habituales.map((c) => todos.find((p) => p.codigo === c)).filter((p): p is Pais => p !== undefined);
-  const resto = todos.filter((p) => !habituales.includes(p.codigo)).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const resto = todos.filter((p) => !habituales.includes(p.codigo)).sort((a, b) => a.nombre.localeCompare(b.nombre, locale));
   return [...primeros, ...resto];
 }

@@ -1,3 +1,6 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
+
 /**
  * #300: datos adicionales de un comprobante que la API ya acepta y no cambian importes: orden de compra (`cac:OrderReference`, solo factura), guías de remisión (catálogo 01:
  * 09 y 31), otros documentos relacionados (catálogo 12) y observaciones (solo PDF). Las reglas replican a `Referencias`, `GuiaRelacionada` y `DocumentoRelacionado`.
@@ -14,21 +17,25 @@ export type ReferenciasForm = {
 
 export const REFERENCIAS_VACIAS: ReferenciasForm = { ordenCompra: "", guias: [], documentos: [], observaciones: "" };
 
-export const TIPOS_DE_GUIA: { codigo: string; etiqueta: string }[] = [
-  { codigo: "09", etiqueta: "09 · Guía de remisión remitente" },
-  { codigo: "31", etiqueta: "31 · Guía de remisión transportista" },
-];
+/** Las guías de remisión (catálogo 01: 09 y 31) como las ofrece el selector: «09 · Guía de remisión remitente», en el idioma de `messages` (#25). */
+export const tiposDeGuia = (messages: Mensajes = es): { codigo: string; etiqueta: string }[] =>
+  (["09", "31"] as const).map((codigo) => ({ codigo, etiqueta: `${codigo} · ${messages.documentos.tipos[codigo]}` }));
+export const TIPOS_DE_GUIA = tiposDeGuia();
+
+const DOCUMENTOS = [
+  { codigo: "04" },
+  { codigo: "05" },
+  { codigo: "06", soloFactura: true },
+  { codigo: "07", soloFactura: true },
+  { codigo: "08" },
+  { codigo: "09" },
+  { codigo: "99" },
+] as const;
 
 /** Catálogo 12 que acepta la API; los tipos 06 y 07 solo en factura (4009 en una boleta). */
-export const TIPOS_DE_DOCUMENTO: { codigo: string; etiqueta: string; soloFactura?: boolean }[] = [
-  { codigo: "04", etiqueta: "04 · Ticket de salida ENAPU" },
-  { codigo: "05", etiqueta: "05 · Código SCOP" },
-  { codigo: "06", etiqueta: "06 · Factura electrónica remitente", soloFactura: true },
-  { codigo: "07", etiqueta: "07 · Guía de remisión remitente", soloFactura: true },
-  { codigo: "08", etiqueta: "08 · Declaración de salida del depósito franco" },
-  { codigo: "09", etiqueta: "09 · Declaración simplificada de importación" },
-  { codigo: "99", etiqueta: "99 · Otros" },
-];
+export const tiposDeDocumento = (messages: Mensajes = es): { codigo: string; etiqueta: string; soloFactura?: boolean }[] =>
+  DOCUMENTOS.map((d) => ({ ...d, etiqueta: `${d.codigo} · ${messages.documentos.relacionados[d.codigo]}` }));
+export const TIPOS_DE_DOCUMENTO = tiposDeDocumento();
 
 export const MAX_ORDEN_COMPRA = 20;
 export const MAX_DOCUMENTO = 30;
@@ -47,22 +54,23 @@ function repetidos(lista: Array<{ tipo: string; numero: string }>): boolean {
 }
 
 /** Por qué los datos adicionales no valen tal como están (la primera regla que falla), o `null`. */
-export function errorDeReferencias(r: ReferenciasForm, boleta: boolean): string | null {
+export function errorDeReferencias(r: ReferenciasForm, boleta: boolean, messages: Mensajes = es): string | null {
+  const t = messages.comprobantes.validacion.referencias;
   const oc = r.ordenCompra.trim();
-  if (!boleta && oc !== "" && (oc.length > MAX_ORDEN_COMPRA || /[\u0000-\u001f\u007f-\u009f]/u.test(oc))) return `La orden de compra tiene de 1 a ${MAX_ORDEN_COMPRA} caracteres, sin saltos de línea (4233).`;
+  if (!boleta && oc !== "" && (oc.length > MAX_ORDEN_COMPRA || /[\u0000-\u001f\u007f-\u009f]/u.test(oc))) return interpolar(t.ordenCompra, { max: MAX_ORDEN_COMPRA });
   for (const g of r.guias) {
-    if (g.numero.trim() === "") return "Falta el número de una guía de remisión (serie-número, por ejemplo T001-123).";
-    if (!numeroDeGuiaValido(g.numero)) return `El número de guía «${g.numero.trim()}» no tiene el formato serie-número esperado, por ejemplo T001-123 o EG01-45 (4006).`;
+    if (g.numero.trim() === "") return t.guiaSinNumero;
+    if (!numeroDeGuiaValido(g.numero)) return interpolar(t.guiaFormato, { numero: g.numero.trim() });
   }
-  if (repetidos(r.guias)) return "La misma guía de remisión aparece más de una vez (2364).";
+  if (repetidos(r.guias)) return t.guiaRepetida;
   for (const d of r.documentos) {
     const n = d.numero.trim();
-    if (n === "") return "Falta el número de un documento relacionado.";
-    if (n.length > MAX_DOCUMENTO || !SIN_ESPACIOS_NI_CONTROL.test(n)) return `El número del documento relacionado «${n}» tiene de 1 a ${MAX_DOCUMENTO} caracteres sin espacios (4010).`;
-    if (boleta && TIPOS_DE_DOCUMENTO.some((t) => t.codigo === d.tipo && t.soloFactura)) return `El documento relacionado de tipo ${d.tipo} solo se admite en una factura (4009).`;
+    if (n === "") return t.documentoSinNumero;
+    if (n.length > MAX_DOCUMENTO || !SIN_ESPACIOS_NI_CONTROL.test(n)) return interpolar(t.documentoFormato, { numero: n, max: MAX_DOCUMENTO });
+    if (boleta && DOCUMENTOS.some((x) => x.codigo === d.tipo && "soloFactura" in x)) return interpolar(t.documentoSoloFactura, { tipo: d.tipo });
   }
-  if (repetidos(r.documentos)) return "El mismo documento relacionado aparece más de una vez (2365).";
-  if (r.observaciones.length > MAX_OBSERVACIONES) return `Las observaciones admiten hasta ${MAX_OBSERVACIONES} caracteres.`;
+  if (repetidos(r.documentos)) return t.documentoRepetido;
+  if (r.observaciones.length > MAX_OBSERVACIONES) return interpolar(t.observaciones, { max: MAX_OBSERVACIONES });
   return null;
 }
 

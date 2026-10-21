@@ -9,21 +9,6 @@
       "count": 3
     }
   },
-  "src/app/(privado)/comprobantes/[id]/nota/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/app/(privado)/comprobantes/[id]/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 164
-    }
-  },
-  "src/app/(privado)/comprobantes/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
   "src/app/(privado)/cuenta/accesos-de-soporte/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -262,156 +247,6 @@
   "src/components/clientes/clientes-table.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 17
-    }
-  },
-  "src/components/comprobantes/agente-detalle.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 24
-    }
-  },
-  "src/components/comprobantes/ajuste-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
-    }
-  },
-  "src/components/comprobantes/anticipos-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 9
-    }
-  },
-  "src/components/comprobantes/aviso-boleta-sin-informar.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 10
-    }
-  },
-  "src/components/comprobantes/avisos-de-emision.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/comprobantes/baja-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 33
-    }
-  },
-  "src/components/comprobantes/baja-estado.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 13
-    }
-  },
-  "src/components/comprobantes/buscador-de-clientes.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/comprobantes/buscador-de-productos.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/comprobantes/comprobantes-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 46
-    }
-  },
-  "src/components/comprobantes/correo-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/comprobantes/credito-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/comprobantes/descarga-masiva.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 9
-    }
-  },
-  "src/components/comprobantes/detraccion-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 21
-    }
-  },
-  "src/components/comprobantes/duplicar-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/comprobantes/envio-al-cliente-estado.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 11
-    }
-  },
-  "src/components/comprobantes/estado-badge.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/comprobantes/estado-consulta-ruc.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 9
-    }
-  },
-  "src/components/comprobantes/exportar-comprobantes.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/comprobantes/nota-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 94
-    }
-  },
-  "src/components/comprobantes/nuevo-comprobante-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 45
-    }
-  },
-  "src/components/comprobantes/nuevo-comprobante-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 151
-    }
-  },
-  "src/components/comprobantes/percepcion-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 7
-    }
-  },
-  "src/components/comprobantes/recuperar-cdr-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/comprobantes/reenviar-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/comprobantes/referencias-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/comprobantes/resumen-de-comprobantes.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 29
-    }
-  },
-  "src/components/comprobantes/retencion-editor.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
-    }
-  },
-  "src/components/comprobantes/validez-button.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/comprobantes/vista-previa.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 7
     }
   },
   "src/components/developers/api-reference.tsx": {
@@ -699,11 +534,6 @@
       "count": 10
     }
   },
-  "src/lib/api/facturas.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 46
-    }
-  },
   "src/lib/api/http.ts": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -719,79 +549,9 @@
       "count": 2
     }
   },
-  "src/lib/baja-etiqueta.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 10
-    }
-  },
   "src/lib/bitacora.ts": {
     "khipu/no-literal-de-ui": {
       "count": 1
-    }
-  },
-  "src/lib/comprobantes/ajustes.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
-    }
-  },
-  "src/lib/comprobantes/anticipos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/lib/comprobantes/credito.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 8
-    }
-  },
-  "src/lib/comprobantes/detraccion.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
-    }
-  },
-  "src/lib/comprobantes/documentos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 26
-    }
-  },
-  "src/lib/comprobantes/duplicar.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 10
-    }
-  },
-  "src/lib/comprobantes/monedas.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 17
-    }
-  },
-  "src/lib/comprobantes/operaciones.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 21
-    }
-  },
-  "src/lib/comprobantes/percepcion.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/lib/comprobantes/redondeo.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/lib/comprobantes/referencias.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 19
-    }
-  },
-  "src/lib/comprobantes/retencion.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/lib/comprobantes/tributos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 35
     }
   },
   "src/lib/configuracion-formulario.ts": {

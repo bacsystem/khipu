@@ -9,9 +9,13 @@ import { obtenerEmpresaActual } from "@/lib/api/empresas";
 import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { getServerSession } from "@/lib/session-server";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 
-export const metadata = { title: `Comprobantes · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.comprobantes.pagina.titulo} · ${messages.app.nombre}` };
+}
 
 export default async function ComprobantesPage({
   searchParams,
@@ -26,11 +30,12 @@ export default async function ComprobantesPage({
   const filtros = filtrosDesdeParams(resto);
 
   if (!access || !empresaId) {
+    const t = (await getMessages()).comprobantes.pagina;
     return (
       <p className="text-sm text-muted-foreground">
-        Primero registra una empresa para ver tus comprobantes.{" "}
+        {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
-          Configurar empresa
+          {t.configurarEmpresa}
         </Link>
       </p>
     );

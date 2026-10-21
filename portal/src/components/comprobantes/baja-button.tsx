@@ -1,14 +1,16 @@
 "use client";
 
 import { BanIcon, TriangleAlertIcon } from "lucide-react";
+import { useMessages, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import { type Baja, PLAZO_BAJA_DIAS } from "@/lib/api/facturas";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { diasEntre, hoyLima } from "@/lib/formato";
-import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
 
@@ -40,6 +42,10 @@ export function BajaButton({
   reversion?: boolean;
 }) {
   const soloLectura = useSoloLectura();
+  const messages = useMessages();
+  const t = messages.comprobantes.baja;
+  const tr = useTranslations("comprobantes.baja");
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -75,7 +81,7 @@ export function BajaButton({
     // ciegas. El backend impide una segunda baja mientras haya una en curso. La respuesta que no es JSON cae más
     // abajo a propósito: su mensaje ya trae el HTTP y manda a recargar para ver el estado real.
     if (res.codigo === "RED") {
-      setError(`Se cortó la conexión mientras se enviaba. La baja de ${numero} pudo haber llegado a SUNAT: recarga la ficha y revisa su estado antes de volver a intentarlo.`);
+      setError(interpolar(t.cortaConexion, { numero }));
       return;
     }
     if (res.estado !== "exito" || !res.datos) {
@@ -84,7 +90,7 @@ export function BajaButton({
     }
     if (res.datos.estado === "RECHAZADA") {
       // El 201 no es un éxito: SUNAT ya respondió que no. Se muestra acá, con el CDR, y la ficha lo repite al recargar.
-      setError(`SUNAT rechazó la baja${res.datos.cdr ? ` (${res.datos.cdr.codigo} · ${res.datos.cdr.descripcion})` : ""}. El comprobante ${numero} sigue vigente.`);
+      setError(interpolar(t.rechazada, { cdr: res.datos.cdr ? ` (${res.datos.cdr.codigo} · ${res.datos.cdr.descripcion})` : "", numero }));
       router.refresh();
       return;
     }
@@ -98,7 +104,7 @@ export function BajaButton({
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
         <BanIcon className="size-4" />
-        Dar de baja
+        {t.darDeBaja}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
@@ -108,15 +114,15 @@ export function BajaButton({
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">
-                Dar de baja <span className="font-mono">{numero}</span>
+                {t.darDeBaja} <span className="font-mono">{numero}</span>
               </DialogTitle>
               <DialogDescription className="text-[13px]">
                 {reversion ? (
-                  "Resumen de reversiones ante SUNAT. SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión."
+                  t.reversion
                 ) : (
                   <>
-                    {boleta ? "Resumen diario ante SUNAT con el comprobante anulado" : "Comunicación de baja ante SUNAT"} (regla 2957: hasta {PLAZO_BAJA_DIAS} días desde la emisión).{" "}
-                    {diasRestantes === 0 ? "Hoy es el último día del plazo: si el envío falla y se reintenta mañana, SUNAT la rechazará." : `Quedan ${diasRestantes} ${diasRestantes === 1 ? "día" : "días"} de plazo.`}
+                    {interpolar(t.plazo, { tramite: boleta ? t.resumenDiario : t.comunicacion, dias: PLAZO_BAJA_DIAS })}{" "}
+                    {diasRestantes === 0 ? t.ultimoDia : interpolar(diasRestantes === 1 ? t.quedaUno : t.quedanVarios, { n: diasRestantes })}
                   </>
                 )}
               </DialogDescription>
@@ -128,32 +134,31 @@ export function BajaButton({
           <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
             <p>
-              Si SUNAT la acepta, el comprobante queda <strong className="font-semibold">anulado</strong> y <strong className="font-semibold">no se puede revertir</strong>;
-              su número no se reutiliza.
-              {notasVigentes > 0 ? ` Tiene ${notasVigentes} ${notasVigentes === 1 ? "nota vigente que quedará" : "notas vigentes que quedarán"} sobre un comprobante anulado (SUNAT lo permite).` : ""}
+              {tr.rich("efecto", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}
+              {notasVigentes > 0 ? interpolar(notasVigentes === 1 ? t.notasUno : t.notasVarias, { n: notasVigentes }) : ""}
             </p>
           </div>
           {boleta ? (
             // #362 H8: la baja de una boleta (o de una nota B) es un RC con la línea en estado 3; SUNAT solo la admite si lo emitido no llegó al adquirente.
             <p className="text-[12px] leading-relaxed text-muted-foreground" data-testid="baja-boleta-condicion">
-              Solo se anula lo que no se entregó al adquirente (RS 097-2012, art. 14). Si ya se le entregó, no se anula: emita una nota de crédito.
+              {t.condicionBoleta}
             </p>
           ) : null}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>Motivo</label>
+            <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>{t.motivo}</label>
             <input
               id="baja-motivo"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               maxLength={100}
-              placeholder="Ej.: error en el RUC del cliente"
+              placeholder={t.motivoPlaceholder}
               className={CAMPO}
               autoFocus
             />
             <span className={AYUDA_CAMPO}>
-              3–100 caracteres, sin saltos de línea (SUNAT 2315).{" "}
-              {boleta ? "Queda solo en khipu: el resumen diario no lo lleva." : "Va en el XML y lo ve SUNAT."}
-              {motivo.length >= 100 ? " Llegaste al máximo de 100." : ""}
+              {t.motivoAyuda}{" "}
+              {boleta ? t.motivoSoloKhipu : t.motivoEnXml}
+              {motivo.length >= 100 ? t.motivoMaximo : ""}
             </span>
           </div>
           {error ? <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">{error}</p> : null}
@@ -161,11 +166,11 @@ export function BajaButton({
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
-            Cancelar
+            {messages.comun.cancelar}
           </button>
           <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO}>
             <BanIcon className="size-4" />
-            {enviando ? "Enviando a SUNAT…" : "Confirmar la baja"}
+            {enviando ? t.enviando : t.confirmar}
           </button>
         </div>
       </DialogContent>

@@ -2,6 +2,7 @@
 
 import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -10,9 +11,11 @@ import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { EntradaMonto } from "khipu-design-system/formularios/entrada-monto";
 import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
 import type { Serie } from "@/lib/api/series";
-import { DOCUMENTOS_BOLETA } from "@/lib/comprobantes/documentos";
+import { documentosBoleta } from "@/lib/comprobantes/documentos";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { BuscadorDeClientes } from "./buscador-de-clientes";
@@ -23,16 +26,16 @@ import { fechaMinimaDeEmision, PLAZO_ENVIO, soloPorResumen } from "@/lib/comprob
 import { anticiposAApi, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, type CreditoForm } from "@/lib/comprobantes/credito";
-import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, INCOTERMS, OPERACIONES } from "@/lib/comprobantes/operaciones";
+import { documentosDeExportacion, errorDeExportacion, esExportacion, EXIGE_PAIS_DE_USO, GRUPOS_OPERACION, INCOTERMS, operaciones } from "@/lib/comprobantes/operaciones";
 import { listarPaises } from "@/lib/comprobantes/paises";
 import { avisoDeDetraccion, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { errorDePercepcion, OPERACION_PERCEPCION, PERCEPCION_VACIA, percepcionAApi, type PercepcionForm } from "@/lib/comprobantes/percepcion";
-import { errorDeTipoCambio, MONEDAS, superaElTopeSinDocumento as superaElTope, tipoCambioAApi } from "@/lib/comprobantes/monedas";
+import { errorDeTipoCambio, monedas, superaElTopeSinDocumento as superaElTope, tipoCambioAApi } from "@/lib/comprobantes/monedas";
 import type { Plantilla } from "@/lib/comprobantes/duplicar";
 import { redondeoDe } from "@/lib/comprobantes/redondeo";
 import { errorDeRetencion, RETENCION_VACIA, retencionAApi, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { errorDeReferencias, REFERENCIAS_VACIAS, referenciasAApi, type ReferenciasForm } from "@/lib/comprobantes/referencias";
-import { errorDeIsc, GRUPOS_AFECTACION, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm, etiquetaDelPrecio } from "@/lib/comprobantes/tributos";
+import { errorDeIsc, gruposAfectacion, incompatibilidadDeTributos, ISC_VACIO, iscAApi, type IscForm, etiquetaDelPrecio } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
@@ -40,7 +43,6 @@ import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
-import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
 import { AnticiposEditor } from "./anticipos-editor";
@@ -89,7 +91,6 @@ const COMPRADOR_SIN_DOCUMENTO = "CLIENTES VARIOS";
  * cuenta los espacios, así que «  JP  » pasaba el formulario para volver como 422; el tope de 1500 lo pone `maxLength`.
  */
 const PATRON_NOMBRE = "\\s*\\S.+\\S\\s*";
-const TITULO_NOMBRE = "Al menos 3 caracteres, sin contar los espacios de los extremos";
 /** Espeja `Comprobante.TOPE_BOLETA_SIN_DOCUMENTO`: hasta este total (en soles) la boleta puede no identificar al comprador. */
 const TOPE_SIN_DOCUMENTO = 700;
 
@@ -122,8 +123,13 @@ export function NuevoComprobanteForm({
   onCambioDatos?: (hayDatos: boolean) => void;
 }) {
   const router = useRouter();
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.comprobantes.formulario;
+  const docsBoleta = useMemo(() => documentosBoleta(messages), [messages]);
   const boleta = tipo === "boleta";
-  const nombre = boleta ? "boleta" : "factura";
+  const nombre = t.nombre[tipo];
   const seriesDelTipo = series.filter((s) => s.tipo === TIPO_DE_SERIE[tipo] && s.activa);
 
   const [serie, setSerie] = useState(seriesDelTipo[0]?.serie ?? "");
@@ -173,7 +179,7 @@ export function NuevoComprobanteForm({
   const [pais, setPais] = useState(plantilla?.cliente.pais ?? "");
   const [incoterm, setIncoterm] = useState("");
   const [paisDeUso, setPaisDeUso] = useState("");
-  const paises = useMemo(() => listarPaises(), []);
+  const paises = useMemo(() => listarPaises(locale), [locale]);
   const [detalle, setDetalle] = useState<number | null>(null);
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -216,12 +222,17 @@ export function NuevoComprobanteForm({
 
   /** Rellena al comprador con un cliente guardado. Un documento que este comprobante no admite (un DNI en una factura) no se aplica: se dice por qué. */
   function elegirClienteGuardado(c: ClienteGuardado) {
-    const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === c.tipo_doc);
+    const documento = docsBoleta.find((d) => d.codigo === c.tipo_doc);
     // La factura sólo lleva RUC: el selector de documentos (con DNI y otros) es de la boleta y la exportación.
     const admitido = usaSelectorDeDocumento ? documentosOfrecidos.some((d) => d.codigo === c.tipo_doc) : c.tipo_doc === "6";
     if (!admitido) {
       setAvisoCliente(
-        `«${c.razon_social}» tiene ${documento?.etiqueta ?? `el documento ${c.tipo_doc}`}, que ${exportacion ? "esta exportación" : `una ${nombre}`} no admite${!boleta && !exportacion ? ": la factura necesita un cliente con RUC" : ""}.`,
+        interpolar(t.clienteNoAdmitido, {
+          razon: c.razon_social,
+          documento: documento?.etiqueta ?? interpolar(t.documentoCodigo, { codigo: c.tipo_doc }),
+          destino: exportacion ? t.estaExportacion : t.una[tipo],
+          motivo: !boleta && !exportacion ? t.facturaNecesitaRuc : "",
+        }),
       );
       return;
     }
@@ -281,29 +292,29 @@ export function NuevoComprobanteForm({
   const lineasIncompletas = lineas.length - lineasCompletas.length;
 
   const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
-  const documento = DOCUMENTOS_BOLETA.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_BOLETA[0];
-  const redondeo = redondeoDe(redondeoTexto);
+  const documento = docsBoleta.find((d) => d.codigo === tipoDoc) ?? docsBoleta[0];
+  const redondeo = redondeoDe(redondeoTexto, messages);
   const exportacion = esExportacion(operacion);
   const conDetraccion = detraccion.activa && operacion === "0101";
   const conPercepcion = percepcion.activa && operacion === "0101" && !conDetraccion;
   const conRetencion = retencion.activa && !boleta && operacion === "0101" && !conDetraccion && !conPercepcion;
   const operacionEnviada = conDetraccion ? operacionDeDetraccion(detraccion.codigo) : conPercepcion ? OPERACION_PERCEPCION : operacion;
-  const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda) : null;
-  const errorReferencias = errorDeReferencias(referencias, boleta);
+  const errorDetraccion = conDetraccion ? errorDeDetraccion(detraccion, moneda, messages) : null;
+  const errorReferencias = errorDeReferencias(referencias, boleta, messages);
   const documentoDelCliente = sinDocumento ? "" : numDoc.trim();
   const disponibles = useAnticiposDisponibles(anticiposAbierto || anticiposElegidos.length > 0, documentoDelCliente, moneda);
   // Lo elegido para otro cliente u otra moneda ya no está entre los candidatos y no se manda.
   const anticiposVigentes = disponibles.estado === "listo" ? anticiposElegidos.filter((a) => disponibles.candidatos.some((c) => c.serie === a.serie && c.numero === a.numero)) : [];
-  const errorAnticipos = errorDeAnticipos(anticiposVigentes, disponibles.candidatos);
-  const errorTipoCambio = errorDeTipoCambio(tipoCambio, moneda);
-  const errorRetencion = conRetencion ? errorDeRetencion(retencion) : null;
-  const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }) : null;
-  const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta);
+  const errorAnticipos = errorDeAnticipos(anticiposVigentes, disponibles.candidatos, messages);
+  const errorTipoCambio = errorDeTipoCambio(tipoCambio, moneda, messages);
+  const errorRetencion = conRetencion ? errorDeRetencion(retencion, messages) : null;
+  const errorPercepcion = conPercepcion ? errorDePercepcion(percepcion, { moneda, alCredito: alCredito && !boleta }, messages) : null;
+  const errorExportacion = errorDeExportacion({ operacion, incoterm, paisDeUso, paisDelComprador: pais }, boleta, messages);
   // En una exportación el comprador es del exterior: se elige su documento (como en la boleta) en vez de pedir un RUC.
   const usaSelectorDeDocumento = boleta || exportacion;
   const documentosOfrecidos = exportacion
-    ? [...DOCUMENTOS_BOLETA.filter((d) => documentosDeExportacion(operacion, boleta).includes(d.codigo)), ...(boleta ? DOCUMENTOS_BOLETA.filter((d) => d.codigo === SIN_DOCUMENTO) : [])]
-    : DOCUMENTOS_BOLETA;
+    ? [...docsBoleta.filter((d) => documentosDeExportacion(operacion, boleta).includes(d.codigo)), ...(boleta ? docsBoleta.filter((d) => d.codigo === SIN_DOCUMENTO) : [])]
+    : docsBoleta;
 
   /** Al pasar a una exportación las líneas son de afectación 40, la moneda suele ser extranjera y el comprador no lleva RUC; al volver, todo regresa a la venta interna. */
   function cambiarOperacion(nueva: string) {
@@ -328,10 +339,10 @@ export function NuevoComprobanteForm({
   }
   // Los ajustes mal escritos no se envían ni se calculan: se muestran en su campo y la emisión no sale.
   // #298: tampoco se envía un ISC mal escrito ni una combinación de tributos que el dominio rechaza (IVAP mezclado, ICBPER fuera de NIU o con cantidad fraccionaria).
-  const incompatibilidad = incompatibilidadDeTributos(lineasCompletas, operacion);
+  const incompatibilidad = incompatibilidadDeTributos(lineasCompletas, operacion, messages);
   const hayAjusteInvalido =
-    errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null ||
-    lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento") !== null || errorDeAjuste(l.cargo, "cargo") !== null || errorDeIsc(l.isc) !== null) ||
+    errorDeAjuste(descuentoGlobal, "descuento", messages) !== null || errorDeAjuste(cargoGlobal, "cargo", messages) !== null ||
+    lineasCompletas.some((l) => errorDeAjuste(l.descuento, "descuento", messages) !== null || errorDeAjuste(l.cargo, "cargo", messages) !== null || errorDeIsc(l.isc, messages) !== null) ||
     incompatibilidad !== null || errorExportacion !== null || errorDetraccion !== null || errorPercepcion !== null || errorAnticipos !== null || errorRetencion !== null || errorTipoCambio !== null;
 
   /**
@@ -353,10 +364,13 @@ export function NuevoComprobanteForm({
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
         ? exportacion
-          ? { tipo_doc: "0", num_doc: "EXT123456", razon_social: "Cliente", pais: pais || "US" }
+          ? // eslint-disable-next-line khipu/no-literal-de-ui -- comprador de relleno para /calcular: no se muestra ni se emite
+            { tipo_doc: "0", num_doc: "EXT123456", razon_social: "Cliente", pais: pais || "US" }
           : boleta
-            ? { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
-            : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
+            ? // eslint-disable-next-line khipu/no-literal-de-ui -- comprador de relleno para /calcular: no se muestra ni se emite
+              { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
+            : // eslint-disable-next-line khipu/no-literal-de-ui -- comprador de relleno para /calcular: no se muestra ni se emite
+              { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
         : {
             tipo_doc: tipoDoc,
             num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(),
@@ -395,7 +409,7 @@ export function NuevoComprobanteForm({
   const montoRetencion = calculoBase.estado === "listo" ? (calculoBase.comprobante.retencion_igv?.monto ?? null) : null;
   // La retención se descuenta en la moneda de la factura: el cliente retiene sobre el importe total.
   const netoBase = calculoBase.estado === "listo" ? calculoBase.totales.total - (moneda === "PEN" ? (montoDetraccion ?? 0) : 0) - (conRetencion ? (montoRetencion ?? 0) : 0) : totales.total + (redondeo.valor ?? 0);
-  const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha) : null;
+  const errorCredito = alCredito && !boleta ? errorDeCredito(credito, netoBase, fecha, messages) : null;
   const calculoCredito = useCalculo(completo && alCredito && !boleta && errorCredito === null ? armarCuerpo(true, netoBase) : null);
   const calculo = alCredito && !boleta && calculoCredito.estado !== "inactivo" ? calculoCredito : calculoBase;
   // Lo que se muestra en el pie: los importes del backend cuando respondió; si no, la aproximación local (sin descuentos, cargos, ISC ni redondeo).
@@ -441,22 +455,22 @@ export function NuevoComprobanteForm({
    */
   function agregarProducto(p: ProductoGuardado) {
     if (p.tipo_afectacion_igv === "40" && !exportacion) {
-      setAvisoProducto(`«${p.descripcion}» es de exportación (afectación 40): elige una operación de exportación para usarlo.`);
+      setAvisoProducto(interpolar(t.productoExportacion, { descripcion: p.descripcion }));
       return;
     }
     // Una gratuita no se cobra y la exportación sí: forzarla a 40 la convertiría en una línea cobrada.
     if (exportacion && esGratuita(p.tipo_afectacion_igv)) {
-      setAvisoProducto(`«${p.descripcion}» es gratuito (afectación ${p.tipo_afectacion_igv}) y una exportación cobra todas sus líneas: no se agrega.`);
+      setAvisoProducto(interpolar(t.productoGratuito, { descripcion: p.descripcion, afectacion: p.tipo_afectacion_igv }));
       return;
     }
     const vacia = lineas.length === 1 && lineas[0].descripcion.trim() === "" && lineas[0].precioUnitario === null;
     if (!vacia && lineas.length >= MAX_LINEAS) {
-      setAvisoProducto(`Un comprobante admite hasta ${MAX_LINEAS} ítems.`);
+      setAvisoProducto(interpolar(t.maxItems, { max: MAX_LINEAS }));
       return;
     }
     // En una exportación la línea va sin IGV: un producto gravado conserva su precio tal cual, que ya incluía el impuesto.
     const conIgv = exportacion && (p.tipo_afectacion_igv === "10" || p.tipo_afectacion_igv === "17");
-    setAvisoProducto(conIgv ? `«${p.descripcion}» tiene el IGV dentro de su precio (${p.precio_unitario}); la exportación va sin IGV: revisa el precio de la línea.` : null);
+    setAvisoProducto(conIgv ? interpolar(t.productoConIgv, { descripcion: p.descripcion, precio: p.precio_unitario }) : null);
     const nueva: Linea = {
       ...LINEA_VACIA,
       descripcion: p.descripcion,
@@ -484,11 +498,11 @@ export function NuevoComprobanteForm({
     setError(null);
     setLlevaAlPlan(false);
     if (lineasCompletas.length === 0) {
-      setError("Agrega al menos un ítem con descripción, cantidad y precio.");
+      setError(t.errores.sinItems);
       return;
     }
     if (superaTopeSinDocumento) {
-      setError(`Una boleta de más de S/ ${TOPE_SIN_DOCUMENTO}.00 (o en otra moneda) identifica al comprador con su documento.`);
+      setError(interpolar(t.errores.topeSinDocumento, { tope: TOPE_SIN_DOCUMENTO }));
       return;
     }
 
@@ -502,7 +516,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (hayAjusteInvalido) {
-      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? errorRetencion ?? errorTipoCambio ?? "Corrija los descuentos, cargos o tributos marcados antes de emitir.");
+      setError(incompatibilidad ?? errorExportacion ?? errorDetraccion ?? errorPercepcion ?? errorAnticipos ?? errorRetencion ?? errorTipoCambio ?? t.errores.corrijaAjustes);
       return;
     }
     if (errorCredito) {
@@ -510,7 +524,7 @@ export function NuevoComprobanteForm({
       return;
     }
     if (fechaVencimiento && fechaVencimiento < fecha) {
-      setError("La fecha de vencimiento no puede ser anterior a la de emisión.");
+      setError(t.errores.vencimientoAnterior);
       return;
     }
     const factura = armarCuerpo(false, netoBase);
@@ -534,9 +548,7 @@ export function NuevoComprobanteForm({
     // reintentar sin cambiar nada es seguro: si la factura ya se emitió, el backend devuelve la misma. (El cliente no lanza:
     // devuelve el sobre de error, así que esto no puede ir en un catch.)
     if (noSeSabeSiLlego(res)) {
-      setError(
-        `${seVencioLaEspera(res) ? "El servidor tardó demasiado en responder mientras se emitía" : "Se cortó la conexión mientras se emitía"}. Vuelve a emitir sin cambiar nada: si la ${nombre} ya se había emitido, verás la misma, sin duplicarla.`,
-      );
+      setError(interpolar(t.errores.reintentar, { causa: seVencioLaEspera(res) ? t.errores.esperaVencida : t.errores.conexionCortada, nombre }));
       // El listado de fondo puede tener ya la factura nueva: que se vea sin recargar la página.
       router.refresh();
       return;
@@ -565,11 +577,11 @@ export function NuevoComprobanteForm({
   if (seriesDelTipo.length === 0) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
-        <Alerta tono="aviso" titulo={`No tienes series de ${nombre}`}>
-          Para emitir necesitas al menos una serie de tipo {TIPO_DE_SERIE[tipo]} activa ({boleta ? "B###" : "F###"}).
+        <Alerta tono="aviso" titulo={interpolar(t.sinSeries.titulo, { nombre })}>
+          {interpolar(t.sinSeries.texto, { tipo: TIPO_DE_SERIE[tipo], patron: boleta ? "B###" : "F###" })}
         </Alerta>
         <button type="button" className={cn(ACCION_SECUNDARIA, "self-end")} onClick={() => router.push("/series")}>
-          Ir a series
+          {t.sinSeries.irASeries}
         </button>
       </div>
     );
@@ -581,17 +593,17 @@ export function NuevoComprobanteForm({
           por largo que sea el comprobante. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
-        <Campo id="nc-serie" etiqueta="Serie" ayuda="El correlativo lo asigna khipu al emitir">
+        <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
           <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
             {seriesDelTipo.map((s) => (
               <option key={s.serie} value={s.serie}>
-                {s.serie} · {s.ultimo_numero > 0 ? `último emitido N.º ${s.ultimo_numero}` : "aún sin emitir"}
+                {s.serie} · {s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}
               </option>
             ))}
           </select>
         </Campo>
 
-        <Campo id="nc-fecha" etiqueta="Fecha de emisión" ayuda={`Máx. ${PLAZO_ENVIO[tipo].dias} días`}>
+        <Campo id="nc-fecha" etiqueta={t.fechaEmision} ayuda={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
           {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío: 3 días la factura, 2108; 7 la boleta, 1079), así que
               el calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT (#292). */}
           {/* `||` y no `??`: un input de fecha vaciado emite `""`, no `null`, así que `??` dejaba pasar el vacío
@@ -599,14 +611,14 @@ export function NuevoComprobanteForm({
           <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} variante="filtro" />
           {soloPorResumen(tipo, fecha, hoy) ? (
             <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario" role="status">
-              Pasado el 5.º día SUNAT ya no la recibe sola: khipu la informa en el resumen diario, hasta el 7.º.
+              {t.avisoResumen}
             </p>
           ) : null}
         </Campo>
 
-        <Campo id="nc-moneda" etiqueta="Moneda">
+        <Campo id="nc-moneda" etiqueta={t.moneda}>
           <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={CAMPO_DENSO}>
-            {MONEDAS.map((m) => (
+            {monedas(messages).map((m) => (
               <option key={m.codigo} value={m.codigo}>
                 {m.etiqueta}
               </option>
@@ -614,7 +626,7 @@ export function NuevoComprobanteForm({
           </select>
         </Campo>
         {moneda === "PEN" ? null : (
-          <Campo id="nc-tipo-cambio" etiqueta="Tipo de cambio" opcional ayuda={`Soles por 1 ${moneda}; va al PDF y al registro de ventas, no a SUNAT`} error={errorTipoCambio ?? undefined}>
+          <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional ayuda={interpolar(t.ayudaTipoCambio, { moneda })} error={errorTipoCambio ?? undefined}>
             <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
           </Campo>
         )}
@@ -622,11 +634,11 @@ export function NuevoComprobanteForm({
 
       <section className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className={ETIQUETA_CAMPO}>{boleta ? "Comprador" : "Cliente"}</h3>
+          <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
           {sinDocumento ? null : (
             <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground">
               <input type="checkbox" checked={guardarCliente} onChange={(e) => setGuardarCliente(e.target.checked)} className="size-3.5 accent-primary" />
-              Guardar en mis clientes al emitir
+              {t.guardarCliente}
             </label>
           )}
         </div>
@@ -638,7 +650,7 @@ export function NuevoComprobanteForm({
         ) : null}
         {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
-            <Campo id="nc-tipo-doc" etiqueta="Documento del comprador">
+            <Campo id="nc-tipo-doc" etiqueta={t.documentoComprador}>
               <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO_DENSO}>
                 {documentosOfrecidos.map((d) => (
                   <option key={d.codigo} value={d.codigo}>
@@ -648,9 +660,9 @@ export function NuevoComprobanteForm({
               </select>
             </Campo>
             {sinDocumento ? (
-              <p className={cn(AYUDA_CAMPO, "self-center")}>SUNAT lo admite hasta S/ {TOPE_SIN_DOCUMENTO}.00 de total; en otra moneda, con el tipo de cambio.</p>
+              <p className={cn(AYUDA_CAMPO, "self-center")}>{interpolar(t.sinDocumentoAyuda, { tope: TOPE_SIN_DOCUMENTO })}</p>
             ) : (
-              <Campo id="nc-num-doc" etiqueta="Número de documento">
+              <Campo id="nc-num-doc" etiqueta={t.numeroDocumento}>
                 <input
                   id="nc-num-doc"
                   // `key` por documento: el patrón y el largo cambian con él y el valor anterior ya no aplica.
@@ -666,26 +678,26 @@ export function NuevoComprobanteForm({
                 />
               </Campo>
             )}
-            <Campo id="nc-razon" etiqueta={boleta ? "Nombre del comprador" : "Razón social"}>
+            <Campo id="nc-razon" etiqueta={boleta ? t.nombreComprador : t.razonSocial}>
               <input
                 id="nc-razon"
                 value={razonSocial}
                 onChange={(e) => setRazonSocial(e.target.value)}
-                placeholder="Juan Pérez"
+                placeholder={t.placeholderComprador}
                 required
                 // `Receptor` exige de 3 a 1500 caracteres también en boleta, incluso sin documento (regla 2022).
                 minLength={3}
                 maxLength={1500}
                 pattern={PATRON_NOMBRE}
-                title={TITULO_NOMBRE}
+                title={t.tituloNombre}
                 className={CAMPO_DENSO}
               />
             </Campo>
             {exportacion ? (
               <>
-                <Campo id="nc-pais" etiqueta="País del cliente" ayuda={boleta ? "Opcional en una boleta" : "Obligatorio en una factura de exportación"}>
+                <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
                   <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
-                    <option value="">Seleccione</option>
+                    <option value="">{t.seleccione}</option>
                     {paises.map((p) => (
                       <option key={p.codigo} value={p.codigo}>
                         {p.nombre}
@@ -695,8 +707,8 @@ export function NuevoComprobanteForm({
                 </Campo>
                 {boleta ? null : (
                   <div className="sm:col-span-2">
-                    <Campo id="nc-direccion" etiqueta="Dirección" opcional>
-                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="1200 Main St, Miami" className={CAMPO_DENSO} />
+                    <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
+                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccionExterior} className={CAMPO_DENSO} />
                     </Campo>
                   </div>
                 )}
@@ -714,7 +726,7 @@ export function NuevoComprobanteForm({
             ) : null}
             {superaTopeSinDocumento ? (
               <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
-                Esta boleta pasa de S/ {TOPE_SIN_DOCUMENTO}.00{moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda) === undefined ? " o no es en soles y no indica el tipo de cambio" : ""}: identifica al comprador con su documento.
+                {interpolar(t.avisoTope, { tope: TOPE_SIN_DOCUMENTO, extra: moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda) === undefined ? t.avisoTopeSinTipoCambio : "" })}
               </p>
             ) : null}
           </div>
@@ -732,22 +744,22 @@ export function NuevoComprobanteForm({
               // viajaba al backend para volver como 422 «2017».
               minLength={11}
               pattern="[0-9]{11}"
-              title="RUC de 11 dígitos"
+              title={messages.documentos.formato.ruc}
               className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
             />
           </Campo>
-          <Campo id="nc-razon" etiqueta="Razón social">
+          <Campo id="nc-razon" etiqueta={t.razonSocial}>
             <input
               id="nc-razon"
               value={razonSocial}
               onChange={(e) => setRazonSocial(e.target.value)}
-              placeholder="Comercial Andina SAC"
+              placeholder={t.placeholderRazonSocial}
               required
               // `Receptor` exige de 3 a 1500 caracteres (regla 2022).
               minLength={3}
               maxLength={1500}
               pattern={PATRON_NOMBRE}
-              title={TITULO_NOMBRE}
+              title={t.tituloNombre}
               className={CAMPO_DENSO}
             />
           </Campo>
@@ -760,19 +772,19 @@ export function NuevoComprobanteForm({
             onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
           />
           <div className="sm:col-span-2">
-            <Campo id="nc-direccion" etiqueta="Dirección" opcional>
-              <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Av. Prueba 123" className={CAMPO_DENSO} />
+            <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
+              <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccion} className={CAMPO_DENSO} />
             </Campo>
           </div>
         </div>
         )}
-        <Campo id="nc-email" etiqueta="Correo del cliente" opcional ayuda="Si activaste el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepte">
+        <Campo id="nc-email" etiqueta={t.correo} opcional ayuda={t.ayudaCorreo}>
           <input
             id="nc-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="compras@cliente.pe"
+            placeholder={t.placeholderCorreo}
             // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
             maxLength={150}
             autoComplete="off"
@@ -785,11 +797,11 @@ export function NuevoComprobanteForm({
       <section className="grid gap-3">
         <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
-          <Campo id="nc-operacion" etiqueta="Tipo de operación">
+          <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
             <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO_DENSO}>
-              {(["Venta interna", "Exportación"] as const).map((g) => (
-                <optgroup key={g} label={g}>
-                  {OPERACIONES.filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
+              {GRUPOS_OPERACION.map((g) => (
+                <optgroup key={g} label={messages.documentos.grupoOperacion[g]}>
+                  {operaciones(messages).filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
                     <option key={o.codigo} value={o.codigo}>
                       {o.codigo} · {o.etiqueta}
                     </option>
@@ -799,19 +811,19 @@ export function NuevoComprobanteForm({
             </select>
           </Campo>
           {boleta ? null : (
-            <Campo id="nc-forma-pago" etiqueta="Forma de pago">
+            <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
               <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={CAMPO_DENSO}>
-                <option value="contado">Al contado</option>
-                <option value="credito">Al crédito (cuotas)</option>
+                <option value="contado">{t.alContado}</option>
+                <option value="credito">{t.alCredito}</option>
               </select>
             </Campo>
           )}
         </div>
         {exportacion ? (
           <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
-            <Campo id="nc-incoterm" etiqueta="Incoterm" opcional ayuda="Incoterms 2020; lo exige Aduanas, SUNAT no lo valida">
+            <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
               <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={CAMPO_DENSO}>
-                <option value="">Sin incoterm</option>
+                <option value="">{t.sinIncoterm}</option>
                 {INCOTERMS.map((i) => (
                   <option key={i} value={i}>
                     {i}
@@ -820,9 +832,9 @@ export function NuevoComprobanteForm({
               </select>
             </Campo>
             {EXIGE_PAIS_DE_USO.has(operacion) ? (
-              <Campo id="nc-pais-uso" etiqueta="País de uso del servicio" ayuda="Donde se usa o aprovecha el servicio (3098); distinto de Perú">
+              <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
                 <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={CAMPO_DENSO}>
-                  <option value="">Seleccione</option>
+                  <option value="">{t.seleccione}</option>
                   {paises.filter((p) => p.codigo !== "PE").map((p) => (
                     <option key={p.codigo} value={p.codigo}>
                       {p.nombre}
@@ -849,13 +861,13 @@ export function NuevoComprobanteForm({
                 }}
                 className="size-3.5 accent-primary"
               />
-              Operación sujeta a detracción (SPOT)
+              {t.detraccionCheck}
             </label>
             {detraccion.activa ? (
               <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
             ) : avisoDeDetraccion({ activa: false, moneda, total: mostrados.total, boleta }) ? (
               <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
-                Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, marque la detracción.
+                {t.avisoDetraccion}
               </p>
             ) : null}
             {detraccion.activa ? null : (
@@ -870,7 +882,7 @@ export function NuevoComprobanteForm({
                     }}
                     className="size-3.5 accent-primary"
                   />
-                  Operación con percepción del IGV
+                  {t.percepcionCheck}
                 </label>
                 {percepcion.activa ? (
                   <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
@@ -879,7 +891,7 @@ export function NuevoComprobanteForm({
                   <>
                     <label className="flex items-center gap-2 text-[13px] font-medium">
                       <input type="checkbox" checked={retencion.activa} onChange={(e) => setRetencion((r) => ({ ...r, activa: e.target.checked }))} className="size-3.5 accent-primary" />
-                      El cliente retiene el IGV (agente de retención)
+                      {t.retencionCheck}
                     </label>
                     {retencion.activa ? <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} /> : null}
                   </>
@@ -900,18 +912,18 @@ export function NuevoComprobanteForm({
       <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className={ETIQUETA_CAMPO}>
-            Ítems <span className="font-normal text-muted-foreground">· {lineas.length}</span>
+            {t.items} <span className="font-normal text-muted-foreground">· {lineas.length}</span>
           </h3>
           {/* El número de orden del ítem es de hasta 3 dígitos: pasado el tope el backend responde 422 (2023). */}
           <button
             type="button"
             onClick={() => setLineas((p) => [...p, { ...LINEA_VACIA }])}
             disabled={lineas.length >= MAX_LINEAS}
-            title={lineas.length >= MAX_LINEAS ? `Un comprobante admite hasta ${MAX_LINEAS} ítems` : undefined}
+            title={lineas.length >= MAX_LINEAS ? interpolar(t.maxItemsTitulo, { max: MAX_LINEAS }) : undefined}
             className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
           >
             <PlusIcon className="size-3.5" />
-            Agregar ítem
+            {t.agregarItem}
           </button>
         </div>
         <BuscadorDeProductos onElegir={agregarProducto} />
@@ -925,40 +937,40 @@ export function NuevoComprobanteForm({
             solo para lectores de pantalla. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border">
           <div className="hidden grid-cols-[minmax(0,1fr)_124px_188px_72px] gap-3 border-b border-border/60 bg-muted/40 px-3 py-2 sm:grid">
-            <span className={AYUDA_CAMPO}>Descripción</span>
-            <span className={AYUDA_CAMPO}>Cantidad</span>
-            <span className={AYUDA_CAMPO} data-testid="encabezado-precio">{etiquetaDelPrecio(lineas.every((l) => l.tipoAfectacionIgv === lineas[0].tipoAfectacionIgv) ? lineas[0].tipoAfectacionIgv : "")}</span>
-            <span className="sr-only">Acciones</span>
+            <span className={AYUDA_CAMPO}>{t.descripcion}</span>
+            <span className={AYUDA_CAMPO}>{t.cantidad}</span>
+            <span className={AYUDA_CAMPO} data-testid="encabezado-precio">{etiquetaDelPrecio(lineas.every((l) => l.tipoAfectacionIgv === lineas[0].tipoAfectacionIgv) ? lineas[0].tipoAfectacionIgv : "", messages)}</span>
+            <span className="sr-only">{t.acciones}</span>
           </div>
 
           <div className="min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto">
           {lineas.map((linea, i) => (
             <div key={i} className="px-3 py-2">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_124px_188px_72px] sm:items-center">
-                <Campo id={`nc-desc-${i}`} etiqueta="Descripción" className="[&>label]:sr-only">
+                <Campo id={`nc-desc-${i}`} etiqueta={t.descripcion} className="[&>label]:sr-only">
                   <input
                     id={`nc-desc-${i}`}
                     value={linea.descripcion}
                     onChange={(e) => actualizar(i, { descripcion: e.target.value })}
-                    placeholder="Ej. Servicio de consultoría"
+                    placeholder={t.placeholderDescripcion}
                     maxLength={500}
                     className={CAMPO_DENSO}
                   />
                 </Campo>
-                <Campo id={`nc-cant-${i}`} etiqueta="Cantidad" className="[&>label]:sr-only">
+                <Campo id={`nc-cant-${i}`} etiqueta={t.cantidad} className="[&>label]:sr-only">
                   {/* `paso="any"`: sin él, el input oculto de base-ui queda en `stepMismatch` con cualquier cantidad no
                       entera y el navegador aborta el submit sin decir nada. Kilos, horas y metros son medio SUNAT. */}
                   <StepperNumerico id={`nc-cant-${i}`} valor={linea.cantidad} onCambio={(v) => actualizar(i, { cantidad: v })} min={0} paso="any" variante="filtro" />
                 </Campo>
-                <Campo id={`nc-precio-${i}`} etiqueta={etiquetaDelPrecio(linea.tipoAfectacionIgv)} className="[&>label]:sr-only">
+                <Campo id={`nc-precio-${i}`} etiqueta={etiquetaDelPrecio(linea.tipoAfectacionIgv, messages)} className="[&>label]:sr-only">
                   <EntradaMonto id={`nc-precio-${i}`} valor={linea.precioUnitario} onCambio={(v) => actualizar(i, { precioUnitario: v })} moneda={moneda} variante="filtro" />
                 </Campo>
                 <div className="flex items-center justify-end gap-0.5">
                   <button
                     type="button"
                     onClick={() => setDetalle(detalle === i ? null : i)}
-                    title="Unidad y afectación del IGV"
-                    aria-label={`Más opciones del ítem ${i + 1}`}
+                    title={t.unidadYAfectacion}
+                    aria-label={interpolar(t.masOpcionesItem, { n: i + 1 })}
                     aria-expanded={detalle === i}
                     className={cn(
                       "rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -971,8 +983,8 @@ export function NuevoComprobanteForm({
                     type="button"
                     onClick={() => quitarLinea(i)}
                     disabled={lineas.length === 1}
-                    title={lineas.length === 1 ? "Un comprobante necesita al menos un ítem" : "Quitar ítem"}
-                    aria-label={`Quitar ítem ${i + 1}`}
+                    title={lineas.length === 1 ? t.minimoUnItem : t.quitarItem}
+                    aria-label={interpolar(t.quitarItemN, { n: i + 1 })}
                     className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Trash2Icon className="size-4" />
@@ -982,7 +994,7 @@ export function NuevoComprobanteForm({
 
               {detalle === i ? (
                 <div className="mt-3 grid gap-3 rounded-lg bg-muted/40 px-3 py-3 sm:grid-cols-2">
-                  <Campo id={`nc-unidad-${i}`} etiqueta="Unidad de medida" ayuda="Catálogo 03">
+                  <Campo id={`nc-unidad-${i}`} etiqueta={t.unidadMedida} ayuda={t.catalogo03}>
                     <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(CAMPO_DENSO, "font-mono")}>
                       {(unidades ?? []).length === 0 ? <option value={linea.unidad}>{linea.unidad}</option> : null}
                       {(unidades ?? []).map((u) => (
@@ -992,15 +1004,15 @@ export function NuevoComprobanteForm({
                       ))}
                     </select>
                   </Campo>
-                  <Campo id={`nc-afect-${i}`} etiqueta="Afectación del IGV" ayuda="Catálogo 07">
+                  <Campo id={`nc-afect-${i}`} etiqueta={t.afectacionIgv} ayuda={t.catalogo07}>
                     <select
                       id={`nc-afect-${i}`}
                       value={linea.tipoAfectacionIgv}
                       onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
                       className={CAMPO_DENSO}
                     >
-                      {exportacion ? <option value="40">40 · Exportación de bienes o servicios</option> : null}
-                      {(exportacion ? [] : GRUPOS_AFECTACION).map((g) => (
+                      {exportacion ? <option value="40">{t.exportacion40}</option> : null}
+                      {(exportacion ? [] : gruposAfectacion(messages)).map((g) => (
                         <optgroup key={g.grupo} label={g.grupo}>
                           {g.opciones.map((a) => (
                             <option key={a.codigo} value={a.codigo}>
@@ -1013,32 +1025,32 @@ export function NuevoComprobanteForm({
                   </Campo>
                   {/* #298: ISC (catálogo 08) y bolsas de plástico (ICBPER). El precio que se escribe ya los incluye; el importe de cada tributo lo calcula el backend. */}
                   <fieldset className="grid content-start gap-1.5">
-                    <legend className="mb-1 text-[12px] font-medium text-foreground">ISC del ítem</legend>
-                    <Campo id={`nc-isc-sistema-${i}`} etiqueta="Sistema del ISC" className="[&>label]:sr-only">
+                    <legend className="mb-1 text-[12px] font-medium text-foreground">{t.iscItem}</legend>
+                    <Campo id={`nc-isc-sistema-${i}`} etiqueta={t.sistemaIsc} className="[&>label]:sr-only">
                       <select
                         id={`nc-isc-sistema-${i}`}
                         value={linea.isc.sistema}
                         onChange={(e) => actualizar(i, { isc: { ...ISC_VACIO, sistema: e.target.value as IscForm["sistema"] } })}
                         className={CAMPO_DENSO}
                       >
-                        <option value="">Sin ISC</option>
-                        <option value="01">01 · Al valor (tasa %)</option>
-                        <option value="02">02 · Monto fijo por unidad</option>
-                        <option value="03">03 · Precio de venta al público</option>
+                        <option value="">{t.sinIsc}</option>
+                        <option value="01">{t.isc01}</option>
+                        <option value="02">{t.isc02}</option>
+                        <option value="03">{t.isc03}</option>
                       </select>
                     </Campo>
                     {linea.isc.sistema === "02" ? (
-                      <Campo id={`nc-isc-monto-${i}`} etiqueta="Monto por unidad del ISC" className="[&>label]:sr-only" error={errorDeIsc(linea.isc) ?? undefined}>
-                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder="Monto por unidad, ej. 2.25" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                      <Campo id={`nc-isc-monto-${i}`} etiqueta={t.montoIsc} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
+                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder={t.placeholderMontoIsc} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                       </Campo>
                     ) : linea.isc.sistema !== "" ? (
                       <>
-                        <Campo id={`nc-isc-tasa-${i}`} etiqueta="Tasa del ISC (%)" className="[&>label]:sr-only" error={linea.isc.sistema === "01" ? (errorDeIsc(linea.isc) ?? undefined) : undefined}>
-                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder="Tasa %, ej. 35" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                        <Campo id={`nc-isc-tasa-${i}`} etiqueta={t.tasaIsc} className="[&>label]:sr-only" error={linea.isc.sistema === "01" ? (errorDeIsc(linea.isc, messages) ?? undefined) : undefined}>
+                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder={t.placeholderTasaIsc} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                         </Campo>
                         {linea.isc.sistema === "03" ? (
-                          <Campo id={`nc-isc-pvp-${i}`} etiqueta="Precio de venta al público sugerido" className="[&>label]:sr-only" error={errorDeIsc(linea.isc) ?? undefined}>
-                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder="PVP sugerido por unidad, ej. 3.50" aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                          <Campo id={`nc-isc-pvp-${i}`} etiqueta={t.pvp} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
+                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder={t.placeholderPvp} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                           </Campo>
                         ) : null}
                       </>
@@ -1050,13 +1062,13 @@ export function NuevoComprobanteForm({
                         onChange={(e) => actualizar(i, e.target.checked ? { icbper: true, unidad: "NIU" } : { icbper: false })}
                         className="size-3.5 accent-primary"
                       />
-                      Bolsas de plástico (ICBPER)
+                      {t.bolsas}
                     </label>
-                    <p className={AYUDA_CAMPO}>Una bolsa por unidad: se cobra el impuesto por cada una.</p>
+                    <p className={AYUDA_CAMPO}>{t.bolsasAyuda}</p>
                   </fieldset>
                   {/* #310: descuento y cargo de la línea (catálogo 53: 00/01 y 47/48). */}
-                  <AjusteEditor id={`nc-desc-linea-${i}`} etiqueta="Descuento del ítem" clase="descuento" valor={linea.descuento} onCambio={(a) => actualizar(i, { descuento: a })} />
-                  <AjusteEditor id={`nc-cargo-linea-${i}`} etiqueta="Cargo del ítem" clase="cargo" valor={linea.cargo} onCambio={(a) => actualizar(i, { cargo: a })} />
+                  <AjusteEditor id={`nc-desc-linea-${i}`} etiqueta={t.descuentoItem} clase="descuento" valor={linea.descuento} onCambio={(a) => actualizar(i, { descuento: a })} />
+                  <AjusteEditor id={`nc-cargo-linea-${i}`} etiqueta={t.cargoItem} clase="cargo" valor={linea.cargo} onCambio={(a) => actualizar(i, { cargo: a })} />
                 </div>
               ) : null}
             </div>
@@ -1067,12 +1079,12 @@ export function NuevoComprobanteForm({
 
         {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== ""}>
-          <summary className="cursor-pointer text-[13px] font-medium">Más opciones del comprobante</summary>
+          <summary className="cursor-pointer text-[13px] font-medium">{t.masOpciones}</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Campo id="nc-vencimiento" etiqueta="Fecha de vencimiento" ayuda="Informativa; no anterior a la emisión" opcional>
+            <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
               <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
             </Campo>
-            <Campo id="nc-redondeo" etiqueta="Redondeo" ayuda={redondeo.error ?? "Entre -1.00 y 1.00, p. ej. -0.05 para cobrar en efectivo sin céntimos"}>
+            <Campo id="nc-redondeo" etiqueta={t.redondeo} ayuda={redondeo.error ?? t.ayudaRedondeo}>
               <input
                 id="nc-redondeo"
                 value={redondeoTexto}
@@ -1084,14 +1096,14 @@ export function NuevoComprobanteForm({
               />
             </Campo>
             {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
-            <AjusteEditor id="nc-desc-global" etiqueta="Descuento global" clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
-            <AjusteEditor id="nc-cargo-global" etiqueta="Cargo global" clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
+            <AjusteEditor id="nc-desc-global" etiqueta={t.descuentoGlobal} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
+            <AjusteEditor id="nc-cargo-global" etiqueta={t.cargoGlobal} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
           </div>
         </details>
 
         {/* #312: anticipos. Una factura de anticipo es común; la final descuenta los del mismo cliente. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-[13px] font-medium">Anticipos</summary>
+          <summary className="cursor-pointer text-[13px] font-medium">{t.anticipos}</summary>
           <div className="mt-3 grid gap-3">
             <label className="flex items-center gap-2 text-[13px] font-medium">
               <input
@@ -1101,20 +1113,20 @@ export function NuevoComprobanteForm({
                   setEsAnticipo(e.target.checked);
                   if (e.target.checked) {
                     setAnticiposElegidos([]);
-                    setLineas((prev) => prev.map((l, n) => (n === 0 && l.descripcion.trim() === "" ? { ...l, descripcion: "Anticipo por " } : l)));
+                    setLineas((prev) => prev.map((l, n) => (n === 0 && l.descripcion.trim() === "" ? { ...l, descripcion: t.anticipoPrefijo } : l)));
                   }
                 }}
                 className="size-3.5 accent-primary"
               />
-              Esta {nombre} es un anticipo
+              {interpolar(t.esAnticipo, { nombre })}
             </label>
             {esAnticipo ? (
               <p className={AYUDA_CAMPO} data-testid="anticipo-ayuda">
-                Se emite como cualquier {nombre}. Cuando entregue el bien o servicio, en la {nombre} final elija este anticipo en «Descontar anticipos» para regularizarlo.
+                {interpolar(t.anticipoAyuda, { nombre })}
               </p>
             ) : (
               <div className="grid gap-2">
-                <div className={ETIQUETA_CAMPO}>Descontar anticipos</div>
+                <div className={ETIQUETA_CAMPO}>{t.descontarAnticipos}</div>
                 <AnticiposEditor disponibles={disponibles} elegidos={anticiposVigentes} onCambio={setAnticiposElegidos} moneda={moneda} hayCliente={documentoDelCliente !== ""} />
               </div>
             )}
@@ -1123,7 +1135,7 @@ export function NuevoComprobanteForm({
 
         {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={datosAbiertos} onToggle={(e) => setDatosAbiertos((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-[13px] font-medium">Datos adicionales: guías, documentos relacionados y observaciones</summary>
+          <summary className="cursor-pointer text-[13px] font-medium">{t.datosAdicionales}</summary>
           <div className="mt-3">
             <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
           </div>
@@ -1148,7 +1160,7 @@ export function NuevoComprobanteForm({
               accion={
                 llevaAlPlan ? (
                   <Link href="/cuenta/plan" onClick={onCancelar} className={ACCION_SECUNDARIA}>
-                    Ver plan y consumo
+                    {t.verPlan}
                   </Link>
                 ) : undefined
               }
@@ -1164,23 +1176,23 @@ export function NuevoComprobanteForm({
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <dl className={cn(AYUDA_CAMPO, "flex flex-wrap items-baseline gap-x-4 gap-y-0.5")}>
             {(sinImporteLocal ? [] : [
-              { etiqueta: "Gravado", monto: mostrados.gravado, siempre: true },
-              { etiqueta: "Exonerado", monto: mostrados.exonerado, siempre: false },
-              { etiqueta: "Inafecto", monto: mostrados.inafecto, siempre: false },
-              { etiqueta: "Gratuito", monto: mostrados.gratuito, siempre: false },
+              { etiqueta: t.totales.gravado, monto: mostrados.gravado, siempre: true },
+              { etiqueta: t.totales.exonerado, monto: mostrados.exonerado, siempre: false },
+              { etiqueta: t.totales.inafecto, monto: mostrados.inafecto, siempre: false },
+              { etiqueta: t.totales.gratuito, monto: mostrados.gratuito, siempre: false },
               // Mientras la empresa carga no se sabe si es 18 % o la reducida del padrón: se muestra sin tasa en
               // vez de afirmar una que puede cambiarle los importes bajo los ojos un instante después.
-              { etiqueta: tasaIgv === null ? "IGV" : `IGV (${tasaIgv} %)`, monto: mostrados.igv, siempre: true },
+              { etiqueta: tasaIgv === null ? t.totales.igv : interpolar(t.totales.igvTasa, { tasa: tasaIgv }), monto: mostrados.igv, siempre: true, igv: true },
               // Solo los conoce el backend (#405): aparecen cuando respondió.
-              { etiqueta: "Redondeo", monto: delServidor?.redondeo ?? 0, siempre: false },
+              { etiqueta: t.redondeo, monto: delServidor?.redondeo ?? 0, siempre: false },
             ])
               // Sin importe local (IVAP o exportación mientras el backend no responde) no hay filas que mostrar: todas dirían 0.00.
               // El IGV no se muestra en 0.00 cuando no hay operaciones gravadas (una factura toda exonerada no tiene «IGV (18 %)»).
-              .filter((f) => f.monto !== 0 || (f.siempre && (f.etiqueta.startsWith("IGV") ? lineasCompletas.length === 0 || mostrados.gravado !== 0 || totales.noContempladas.length > 0 : true)))
+              .filter((f) => f.monto !== 0 || (f.siempre && ("igv" in f ? lineasCompletas.length === 0 || mostrados.gravado !== 0 || totales.noContempladas.length > 0 : true)))
               .map((f) => (
                 <Fragment key={f.etiqueta}>
                   <dt className="after:content-[':']">{f.etiqueta}</dt>
-                  <dd className="tabular-nums">{formatearMonto(moneda, f.monto)}</dd>
+                  <dd className="tabular-nums">{formatearMonto(moneda, f.monto, locale)}</dd>
                 </Fragment>
               ))}
           </dl>
@@ -1189,37 +1201,37 @@ export function NuevoComprobanteForm({
               `aria-describedby` para que se lea justo antes de confirmar. */}
           {lineasIncompletas > 0 ? (
             <span id="nc-aviso-incompletos" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
-              {lineasIncompletas === 1 ? "1 ítem incompleto no se emitirá" : `${lineasIncompletas} ítems incompletos no se emitirán`}
+              {lineasIncompletas === 1 ? t.incompletoUno : interpolar(t.incompletosVarios, { n: lineasIncompletas })}
             </span>
           ) : null}
           {conDetraccion && montoDetraccion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="detraccion-pie">
-              Detracción {formatearMonto("PEN", montoDetraccion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0))}
+              {interpolar(t.detraccionPie, { monto: formatearMonto("PEN", montoDetraccion, locale), neto: formatearMonto(moneda, mostrados.total - (moneda === "PEN" ? montoDetraccion : 0), locale) })}
             </span>
           ) : null}
           {moneda !== "PEN" && calculo.estado === "listo" && calculo.totalEnSoles !== null ? (
             <span className={AYUDA_CAMPO} data-testid="total-en-soles">
-              Equivale a {formatearMonto("PEN", calculo.totalEnSoles)} al tipo de cambio {tipoCambio.trim()}
+              {interpolar(t.totalEnSoles, { monto: formatearMonto("PEN", calculo.totalEnSoles, locale), tipoCambio: tipoCambio.trim() })}
             </span>
           ) : null}
           {conRetencion && montoRetencion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="retencion-pie">
-              Retención {formatearMonto(moneda, montoRetencion)} · Neto a cobrar {formatearMonto(moneda, mostrados.total - montoRetencion)}
+              {interpolar(t.retencionPie, { monto: formatearMonto(moneda, montoRetencion, locale), neto: formatearMonto(moneda, mostrados.total - montoRetencion, locale) })}
             </span>
           ) : null}
           {conPercepcion && montoPercepcion !== null ? (
             <span className={AYUDA_CAMPO} data-testid="percepcion-pie">
-              Percepción {formatearMonto("PEN", montoPercepcion)} · Total a cobrar {formatearMonto("PEN", mostrados.total + montoPercepcion)}
+              {interpolar(t.percepcionPie, { monto: formatearMonto("PEN", montoPercepcion, locale), total: formatearMonto("PEN", mostrados.total + montoPercepcion, locale) })}
             </span>
           ) : null}
           <div className="flex items-baseline gap-2">
-            <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>Total a pagar</span>
+            <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>{t.totalAPagar}</span>
             <span className="font-mono text-lg font-semibold tabular-nums" data-testid="total-a-pagar">
-              {sinImporteLocal ? "—" : formatearMonto(moneda, mostrados.total)}
+              {sinImporteLocal ? "—" : formatearMonto(moneda, mostrados.total, locale)}
             </span>
             {sinImporteLocal ? (
               <span className={AYUDA_CAMPO} data-testid="importe-por-calcular">
-                Lo calcula khipu
+                {t.loCalculaKhipu}
               </span>
             ) : null}
           </div>
@@ -1227,17 +1239,17 @@ export function NuevoComprobanteForm({
         <div className="flex items-center gap-2">
         {onCancelar ? (
           <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO}>
-            Cancelar
+            {messages.comun.cancelar}
           </button>
         ) : null}
           <BotonAsync
             type="submit"
             pendiente={enviando}
             className={BOTON_PRIMARIO}
-            textoPendiente="Emitiendo…"
+            textoPendiente={t.emitiendo}
             aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
           >
-            Emitir {nombre}
+            {interpolar(t.emitir, { nombre })}
           </BotonAsync>
         </div>
       </div>

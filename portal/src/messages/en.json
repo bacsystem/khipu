@@ -1991,5 +1991,1154 @@
     "titulo": "Something went wrong",
     "reintentar": "Try again",
     "irAlInicio": "Go to the home page"
+  },
+  "documentos": {
+    "tipos": {
+      "01": "Invoice",
+      "03": "Receipt",
+      "04": "Purchase settlement",
+      "07": "Credit note",
+      "08": "Debit note",
+      "09": "Dispatch guide (shipper)",
+      "20": "Withholding",
+      "31": "Dispatch guide (carrier)",
+      "40": "Perception"
+    },
+    "relacionados": {
+      "04": "ENAPU exit ticket",
+      "05": "SCOP code",
+      "06": "Shipper’s electronic invoice",
+      "07": "Dispatch guide (shipper)",
+      "08": "Free-zone warehouse exit declaration",
+      "09": "Simplified import declaration",
+      "99": "Other"
+    },
+    "identidad": {
+      "1": "DNI",
+      "4": "Foreigner ID card",
+      "6": "RUC",
+      "7": "Passport",
+      "0": "Non-resident tax doc.",
+      "A": "Diplomatic ID card",
+      "B": "ID from country of residence",
+      "C": "TIN (individual)",
+      "D": "IN (legal entity)",
+      "E": "Andean Migration Card",
+      "G": "Safe-conduct",
+      "-": "No document"
+    },
+    "identidadBoleta": {
+      "1": "DNI",
+      "4": "Foreigner ID card",
+      "7": "Passport",
+      "6": "RUC",
+      "0": "Non-resident tax doc. without RUC",
+      "A": "Diplomatic identity card",
+      "B": "ID from country of residence (non-resident)",
+      "C": "TIN — tax doc. of a non-resident individual",
+      "D": "IN — tax doc. of a non-resident legal entity",
+      "E": "Andean Migration Card (TAM)",
+      "F": "Temporary Stay Permit (PTP)",
+      "G": "Safe-conduct",
+      "H": "Temporary stay permit card (CPP)",
+      "-": "No document (up to S/ 700)"
+    },
+    "formato": {
+      "dni": "8-digit DNI",
+      "ruc": "11-digit RUC",
+      "hasta15": "Up to 15 characters, no spaces",
+      "elegirTipo": "Choose the document type"
+    },
+    "afectacion": {
+      "10": "Taxable · Paid op.",
+      "17": "Taxable · IVAP",
+      "11": "Taxable · Withdrawal as prize (free)",
+      "12": "Taxable · Withdrawal as donation (free)",
+      "13": "Taxable · Withdrawal (free)",
+      "14": "Taxable · Withdrawal for advertising (free)",
+      "15": "Taxable · Bonus (free)",
+      "16": "Taxable · Withdrawal for workers (free)",
+      "20": "Exempt · Paid op.",
+      "21": "Exempt · Free transfer",
+      "30": "Unaffected · Paid op.",
+      "31": "Unaffected · Withdrawal as bonus (free)",
+      "32": "Unaffected · Withdrawal (free)",
+      "33": "Unaffected · Medical samples (free)",
+      "34": "Unaffected · Collective agreement (free)",
+      "35": "Unaffected · Withdrawal as prize (free)",
+      "36": "Unaffected · Withdrawal for advertising (free)",
+      "37": "Unaffected · Free transfer",
+      "40": "Export"
+    },
+    "grupoAfectacion": {
+      "onerosas": "Paid",
+      "gratuitasGravadas": "Free, taxable",
+      "gratuitasExoneradas": "Free, exempt",
+      "gratuitasInafectas": "Free, unaffected"
+    },
+    "afectacionCorta": {
+      "10": "Taxable",
+      "20": "Exempt",
+      "30": "Unaffected",
+      "17": "IVAP (milled rice, 4 %)",
+      "11": "Withdrawal as prize",
+      "12": "Withdrawal as donation",
+      "13": "Withdrawal",
+      "14": "Withdrawal for advertising",
+      "15": "Bonus",
+      "16": "Withdrawal for delivery to workers",
+      "21": "Free transfer",
+      "31": "Withdrawal as bonus",
+      "32": "Withdrawal",
+      "33": "Withdrawal as medical samples",
+      "34": "Withdrawal under collective agreement",
+      "35": "Withdrawal as prize",
+      "36": "Withdrawal for advertising",
+      "37": "Free transfer"
+    },
+    "afectacionAnticipo": {
+      "gravado": "taxable",
+      "exonerado": "exempt",
+      "inafecto": "unaffected"
+    },
+    "estados": {
+      "RECIBIDO": "Received",
+      "INVALIDO": "Invalid",
+      "FIRMADO": "Signed",
+      "ERROR_ENVIO": "Sending error",
+      "PENDIENTE_AGRUPACION": "Pending grouping",
+      "ENVIADO": "Sent",
+      "ACEPTADO": "Accepted",
+      "ACEPTADO_CON_OBS": "Accepted with obs.",
+      "RECHAZADO": "Rejected",
+      "ANULADO": "Voided",
+      "FUERA_DE_PLAZO": "Past deadline",
+      "DESCARTADO": "Discarded"
+    },
+    "operaciones": {
+      "0101": "Domestic sale",
+      "0113": "Domestic sale - NRUS",
+      "0200": "Export of goods",
+      "0201": "Export of services performed entirely in Peru",
+      "0203": "Export of services: shipping line transport",
+      "0204": "Export of services to foreign-flagged ships and aircraft",
+      "0206": "Export of services ancillary to freight transport",
+      "0207": "Export of services: electricity to parties domiciled in a SEZ (ZED)",
+      "0208": "Export of services performed partly abroad"
+    },
+    "grupoOperacion": {
+      "interna": "Domestic sale",
+      "exportacion": "Export"
+    },
+    "monedas": {
+      "PEN": "S/ Soles (PEN)",
+      "USD": "$ US dollars (USD)",
+      "EUR": "€ Euros (EUR)",
+      "ARS": "Argentine pesos (ARS)",
+      "AUD": "Australian dollars (AUD)",
+      "BOB": "Bolivianos (BOB)",
+      "BRL": "Brazilian reais (BRL)",
+      "CAD": "Canadian dollars (CAD)",
+      "CHF": "Swiss francs (CHF)",
+      "CLP": "Chilean pesos (CLP)",
+      "CNY": "Yuan (CNY)",
+      "COP": "Colombian pesos (COP)",
+      "GBP": "Pounds sterling (GBP)",
+      "JPY": "Yen (JPY)",
+      "MXN": "Mexican pesos (MXN)",
+      "PYG": "Guaraníes (PYG)",
+      "UYU": "Uruguayan pesos (UYU)"
+    },
+    "regimenesPercepcion": {
+      "51": "Perception on domestic sale",
+      "52": "Perception on fuel purchase",
+      "53": "Perception on a perception agent at a special rate"
+    }
+  },
+  "comprobantes": {
+    "validacion": {
+      "ajuste": {
+        "numero": "Enter a number, for example 10 or 12.50.",
+        "mayorQueCero": "Must be greater than zero.",
+        "porcentajeTope": "The percentage must be less than {tope}.",
+        "porcentajeDecimales": "The percentage allows up to 5 decimal places.",
+        "montoDecimales": "The amount allows up to 2 decimal places."
+      },
+      "anticipo": {
+        "monto": "The amount to deduct from advance payment {etiqueta} is a value before IGV greater than zero, with up to 2 decimal places.",
+        "disponible": "Advance payment {etiqueta} only has {disponible} left to deduct as {afectacion}{ya}.",
+        "ya": " ({monto} already settled)",
+        "repetido": "The same advance payment appears more than once (3215)."
+      },
+      "credito": {
+        "netoPendiente": "The outstanding net amount is an amount greater than zero with up to 2 decimal places.",
+        "sinCuotas": "A credit invoice has at least one installment (3259).",
+        "cuotaMonto": "Installment {n} is an amount greater than zero with up to 2 decimal places (3253).",
+        "cuotaSinVencimiento": "Installment {n} needs a due date.",
+        "vencimientoTrasEmision": "The due date of installment {n} must be after the issue date (3256).",
+        "vencimientoTrasCuota": "The due date of installment {n} must be after that of installment {anterior} (3267).",
+        "suma": "The installments add up to {suma} and the outstanding net is {pendiente}: they must be equal (3250)."
+      },
+      "detraccion": {
+        "sinCodigo": "Choose the good or service subject to detraction (catalog 54).",
+        "porcentaje": "The detraction percentage is a number greater than zero and up to 100, with up to 5 decimal places.",
+        "sinCuenta": "The Banco de la Nación detraction account is missing (3034).",
+        "montoEnSoles": "On an invoice in {moneda}, the detraction amount is entered in soles (3208)."
+      },
+      "tipoCambio": "The exchange rate is soles per 1 {moneda}: a number greater than zero, with up to 3 integer digits and 3 decimal places (for example 3.756).",
+      "exportacion": {
+        "sinPais": "A foreign customer needs their country (required on an export invoice).",
+        "paisDeUso": "This type of service export states the country where the service is used or enjoyed (3098).",
+        "paisDeUsoPeru": "The country where the service is used cannot be Peru (3099)."
+      },
+      "percepcion": {
+        "soloSoles": "Perception is only reported on documents in soles (2788).",
+        "soloContado": "Perception is only reported on cash documents (3330).",
+        "base": "The perception base is an amount greater than zero with up to 2 decimal places (3233)."
+      },
+      "redondeo": {
+        "formato": "Rounding is an amount with up to 2 decimal places, for example -0.05 or 0.02.",
+        "tope": "Rounding cannot exceed 1.00 in absolute value (3303)."
+      },
+      "referencias": {
+        "ordenCompra": "The purchase order has 1 to {max} characters, without line breaks (4233).",
+        "guiaSinNumero": "A dispatch guide number is missing (series-number, for example T001-123).",
+        "guiaFormato": "Guide number “{numero}” does not have the expected series-number format, for example T001-123 or EG01-45 (4006).",
+        "guiaRepetida": "The same dispatch guide appears more than once (2364).",
+        "documentoSinNumero": "A related document number is missing.",
+        "documentoFormato": "Related document number “{numero}” has 1 to {max} characters without spaces (4010).",
+        "documentoSoloFactura": "A related document of type {tipo} is only allowed on an invoice (4009).",
+        "documentoRepetido": "The same related document appears more than once (2365).",
+        "observaciones": "Notes allow up to {max} characters."
+      },
+      "retencion": "The withholding percentage is greater than 0 and less than 100, with up to 3 decimal places (the legal rate is 3).",
+      "isc": {
+        "montoUnitario": "The amount per unit is a number greater than zero, with up to 5 decimal places.",
+        "tasa": "The rate is a percentage greater than zero, with up to 5 decimal places.",
+        "basePvp": "The suggested retail price is a number greater than zero, with up to 5 decimal places."
+      },
+      "tributos": {
+        "icbperNrus": "3240 - ICBPER does not apply to NRUS (0113): remove the plastic bags from the lines or issue as a domestic sale.",
+        "ivapMezcla": "A document with IVAP (17) has all its items under IVAP: it cannot be mixed with taxable, exempt, unaffected or free items.",
+        "itemIvap": "Item {item} is IVAP: it carries no ISC or ICBPER.",
+        "itemIcbperUnidad": "Item {item} carries ICBPER: bags go in units (NIU), one bag per unit.",
+        "itemIcbperCantidad": "Item {item} carries ICBPER: the quantity is the number of bags, a whole number from 1 to 99999.",
+        "nombreItem": "“{descripcion}”",
+        "itemSinNombre": "item"
+      }
+    },
+    "precio": {
+      "sinAfectacion": "Unit price",
+      "conIgv": "Unit price (incl. IGV)",
+      "conIvap": "Unit price (incl. IVAP)",
+      "sinIgv": "Unit price (excl. IGV)"
+    },
+    "duplicar": {
+      "omitidos": {
+        "operacion": "operation type {codigo} (issued as a domestic sale)",
+        "detraccion": "the detraction",
+        "percepcion": "the perception",
+        "retencion": "the IGV withholding",
+        "anticipos": "the deducted advance payments",
+        "credito": "the credit payment terms and their installments",
+        "tipoCambio": "the exchange rate",
+        "referencias": "the purchase order, the dispatch guides and the related documents",
+        "observaciones": "the notes",
+        "cargosGlobales": "global charges beyond the first one",
+        "cargosDeLinea": "line charges beyond the first one",
+        "otrosTributos": "the lines’ other taxes (9999)",
+        "datosDeLinea": "line-specific data (plate, hydrobiological, transport)"
+      }
+    },
+    "estadoBaja": {
+      "estados": {
+        "GENERADA": "Generated, pending submission",
+        "ENVIADA": "Sent: SUNAT is processing it",
+        "ERROR_ENVIO": "Sending error: it will be retried",
+        "ACEPTADA": "Accepted: document voided",
+        "RECHAZADA": "Rejected by SUNAT"
+      },
+      "altaAceptada": "Accepted: {que} reported to SUNAT",
+      "altaRechazada": "Rejected by SUNAT: the {que} was not reported",
+      "que": {
+        "boleta": "receipt",
+        "nota": "note"
+      },
+      "vencida": "Expired: the 7 days to void it have passed",
+      "avisoAltaFueraDePlazo": "Reported late: the 7th day since issue had passed. SUNAT does not reject it, but may flag it with 4443 “The document was reported after the established deadline” (e-beta did not flag it). What counts is SUNAT’s response for the document.",
+      "resumenDiario": "Daily summary",
+      "comunicacion": "Voiding notice",
+      "alta": " (registration)",
+      "sinConexion": "No connection: SUNAT could not be checked. Try again.",
+      "actualizar": "Refresh status",
+      "estado": "Status",
+      "motivo": "Reason",
+      "ticket": "SUNAT ticket",
+      "detalle": "Detail",
+      "cdr": "CDR",
+      "ultimoIntento": "Last attempt",
+      "intentos": " ({n} attempts)",
+      "pendienteAlta": "Past individual sending: SUNAT receives it in the daily summary. Until it responds, the {que} stays sent. This page refreshes itself every 30 s.",
+      "pendiente": "Until SUNAT responds, the document accepts no other voiding or notes. This page refreshes itself every 30 s."
+    },
+    "acciones": {
+      "consultandoSunat": "Checking with SUNAT…"
+    },
+    "baja": {
+      "darDeBaja": "Void",
+      "cortaConexion": "The connection dropped while sending. The voiding of {numero} may have reached SUNAT: reload the page and check its status before trying again.",
+      "rechazada": "SUNAT rejected the voiding{cdr}. Document {numero} remains valid.",
+      "reversion": "Reversal summary to SUNAT. SUNAT does not check it against the issue date; the rules require filing it within 7 calendar days of reporting the reversal.",
+      "resumenDiario": "Daily summary to SUNAT with the document voided",
+      "comunicacion": "Voiding notice to SUNAT",
+      "plazo": "{tramite} (rule 2957: up to {dias} days from issue).",
+      "ultimoDia": "Today is the last day of the deadline: if sending fails and is retried tomorrow, SUNAT will reject it.",
+      "quedaUno": "{n} day left.",
+      "quedanVarios": "{n} days left.",
+      "efecto": "If SUNAT accepts it, the document is <b>voided</b> and <b>cannot be reversed</b>; its number is not reused.",
+      "notasUno": " It has {n} valid note that will remain on a voided document (SUNAT allows this).",
+      "notasVarias": " It has {n} valid notes that will remain on a voided document (SUNAT allows this).",
+      "condicionBoleta": "Only what was not delivered to the buyer can be voided (RS 097-2012, art. 14). If it was already delivered, it is not voided: issue a credit note.",
+      "motivo": "Reason",
+      "motivoPlaceholder": "E.g.: wrong customer RUC",
+      "motivoAyuda": "3–100 characters, no line breaks (SUNAT 2315).",
+      "motivoSoloKhipu": "It stays in khipu only: the daily summary does not include it.",
+      "motivoEnXml": "It goes in the XML and SUNAT sees it.",
+      "motivoMaximo": " You reached the maximum of 100.",
+      "enviando": "Sending to SUNAT…",
+      "confirmar": "Confirm voiding"
+    },
+    "agente": {
+      "documentosPagados": "Documents paid to the supplier",
+      "documentosCobrados": "Documents collected from the customer",
+      "regimen": "Regime {regimen} · {descripcion} · {tasa} %",
+      "columnas": {
+        "documento": "Document",
+        "emision": "Issued",
+        "importeTotal": "Total amount",
+        "pago": "Payment",
+        "cobro": "Collection",
+        "pagado": "Paid",
+        "cobrado": "Collected",
+        "tipoCambio": "Exch. rate",
+        "retenido": "Withheld",
+        "percibido": "Perceived",
+        "neto": "Net"
+      },
+      "ticket": "Ticket",
+      "pago": "No. {numero} · {fecha}",
+      "totalRetenido": "Total amount withheld",
+      "totalPercibido": "Total amount perceived",
+      "redondeo": "Rounding",
+      "totalPagado": "Total amount paid to the supplier",
+      "totalCobrado": "Total amount collected from the customer"
+    },
+    "correo": {
+      "boton": "Send by email",
+      "enviadoA": "Sent to {email}",
+      "dialogo": "Send {numero} by email",
+      "seEnviara": "<n>{numero}</n> will be sent with the PDF, the signed XML and SUNAT’s acknowledgment attached.",
+      "correoCliente": "Customer email",
+      "mensaje": "Message (optional)",
+      "mensajePlaceholder": "Thank you for your purchase.",
+      "enviando": "Sending…",
+      "enviar": "Send"
+    },
+    "validez": {
+      "estados": {
+        "ACEPTADO": "Accepted by SUNAT (0001).",
+        "RECHAZADO": "SUNAT has it as rejected (0002).",
+        "DE_BAJA": "SUNAT has it as voided (0003).",
+        "NO_EXISTE": "SUNAT does not have this document (0011): it did not arrive or the data does not match.",
+        "AJENO": "SUNAT records it under another issuer (0012)."
+      },
+      "estadosApi": {
+        "ACEPTADO": "Accepted by SUNAT.",
+        "DE_BAJA": "SUNAT has it as voided: it was reported in a voiding notice.",
+        "NO_EXISTE": "SUNAT has no record of this document: it did not arrive or the data does not match.",
+        "AUTORIZADO": "Printed document authorized for the print shop.",
+        "NO_AUTORIZADO": "Printed document not authorized for the print shop."
+      },
+      "respondio": "SUNAT responded {codigo} {mensaje}",
+      "observaciones": "Observations: {lista}",
+      "cortado": "The connection dropped while checking with SUNAT. Try again.",
+      "consultar": "Check validity with SUNAT"
+    },
+    "envioAlCliente": {
+      "titulos": {
+        "PENDIENTE": "Sending to customer pending",
+        "ENVIADO": "Sent to the customer",
+        "FALLIDO": "Could not send to the customer",
+        "OMITIDO": "Not sent to the customer"
+      },
+      "salieronA": "The PDF, the XML and SUNAT’s acknowledgment were sent to ",
+      "destinatario": "Recipient: ",
+      "el": " on {fecha}",
+      "falloUno": "1 attempt failed; it retries automatically{cuando}.",
+      "falloVarios": "{n} attempts failed; it retries automatically{cuando}.",
+      "enSegundos": "It goes out in a few seconds.",
+      "aMano": "You can send it manually with “Send by email” or download the PDF."
+    },
+    "avisoBoleta": {
+      "titulo": "This {que} has not been reported to SUNAT yet",
+      "quedaUno": "1 day left",
+      "quedanVarios": "{n} days left",
+      "ultimoDiaIndividual": "Today is the last day to send it on its own; from tomorrow it can only be reported in the daily summary, until {limite}.",
+      "soloResumen": "It can no longer be sent on its own: it is reported in the daily summary until {limite} ({queda}).",
+      "ultimoDiaResumen": "The daily summary deadline expires today ({limite}). After today it is reported late and SUNAT may flag it.",
+      "fueraDePlazo": "The deadline expired on {limite}: when sent, it is reported in a late daily summary and SUNAT may flag it.",
+      "enviala": "Send it now with the button above."
+    },
+    "avisosEmision": {
+      "titulo": "SUNAT will flag this document ({codigo})"
+    },
+    "recuperarCdr": {
+      "cortado": "The connection dropped while checking with SUNAT. Try again: checking changes nothing if SUNAT does not have the acknowledgment.",
+      "sinConstancia": "SUNAT does not have the acknowledgment for this document yet. If some time has passed, resend it.",
+      "boton": "Retrieve SUNAT acknowledgment"
+    },
+    "reenviar": {
+      "etiqueta": "Resend",
+      "enCurso": "Resending…",
+      "cortado": "The connection dropped while resending. The document may have reached SUNAT: refresh the page to see its status before retrying."
+    },
+    "duplicarBoton": {
+      "titulo": "Duplicate: new document with the same data",
+      "aria": "Duplicate {numero}",
+      "boton": "Duplicate"
+    },
+    "resumen": {
+      "meses": [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec"
+      ],
+      "diaYMes": "{mes} {dia}",
+      "esteMes": "This month",
+      "rango": "{desde} – {hasta}",
+      "desde": "From {fecha}",
+      "hasta": "Until {fecha}",
+      "todo": "All history",
+      "sinResumen": "The summary could not be loaded",
+      "region": "Period summary",
+      "totalFacturado": "Total billed",
+      "emitidos": "Issued in the period",
+      "aceptados": "Accepted with CDR",
+      "atencion": "Attention required",
+      "neto": "Net of credit notes · {cuando}",
+      "porcentaje": "{n} % of issued",
+      "sinComprobantes": "No documents"
+    },
+    "pagina": {
+      "titulo": "Documents",
+      "sinEmpresa": "Register a company first to see your documents.",
+      "configurarEmpresa": "Set up company"
+    },
+    "notaPagina": {
+      "titulo": "Credit or debit note",
+      "volverABoleta": "Back to the receipt",
+      "volverAFactura": "Back to the invoice",
+      "emitirSobre": "Issue a note on {numero}",
+      "docGenerico": "Doc.",
+      "tomaDeBoleta": "the note takes the customer and currency of the receipt and is sent to SUNAT when issued.",
+      "tomaDeFactura": "the note takes the customer and currency of the invoice and is sent to SUNAT when issued."
+    },
+    "detalle": {
+      "titulo": "Document",
+      "tiposOperacion": {
+        "0101": "Domestic sale",
+        "0200": "Export of goods",
+        "0201": "Export of services",
+        "0202": "Export · Lodging for non-residents",
+        "0203": "Export · Shipping line transport",
+        "0204": "Export · Services to ships and aircraft",
+        "0205": "Export · Tour package",
+        "0206": "Export · Services ancillary to freight transport",
+        "0207": "Export · Energy supply to a SEZ (ZED)",
+        "0208": "Export · Services rendered partly abroad",
+        "1001": "Operation subject to detraction",
+        "2001": "Operation subject to perception"
+      },
+      "otraOperacion": "Other operation",
+      "monedas": {
+        "PEN": "PEN (Soles · S/)",
+        "USD": "USD (Dollars · $)"
+      },
+      "formaPago": {
+        "titulo": "Payment terms",
+        "credito": "Credit",
+        "contado": "Cash",
+        "netoPendiente": "Outstanding net amount",
+        "cuotaVence": " · due {fecha}"
+      },
+      "exportacion": {
+        "titulo": "Export",
+        "incoterm": "Incoterm",
+        "paisDeUso": "Country where the service is used",
+        "sinIgv": "No IGV (tax 9995): the invoice supports the export before SUNAT and Customs."
+      },
+      "detraccion": {
+        "titulo": "Detraction (SPOT)",
+        "cuenta": "Banco de la Nación account",
+        "deposito": "The buyer deposits this amount in soles and pays the rest to the issuer (payment method {medio})."
+      },
+      "respuesta": {
+        "titulo": "SUNAT response",
+        "sinRespuesta": "No response from SUNAT yet.",
+        "cdr": "SUNAT CDR response",
+        "ultimoErrorUno": "Last sending error ({n} failed)",
+        "ultimoErrorVarios": "Last sending error ({n} failed)",
+        "ultimoEstado": "Last status"
+      },
+      "historial": {
+        "titulo": "History",
+        "desde": "from {estado}",
+        "vacio": "No history."
+      },
+      "volver": "Back to documents",
+      "miga": "Documents",
+      "enviarASunat": "Send to SUNAT",
+      "enviando": "Sending…",
+      "emitirNota": "Issue note",
+      "pdfTitulo": "Printed representation with QR and hash",
+      "verPdf": "View PDF",
+      "tipoElectronico": "Electronic {tipo}",
+      "cdrDelResumen": "Code of the receipt confirmation (CDR) of daily summary {resumen}, in which this document was reported: SUNAT does not issue a CDR per receipt in the summary",
+      "cdrConstancia": "Receipt confirmation (CDR) code",
+      "cdrSinConstancia": "SUNAT response code; no confirmation (CDR) was issued",
+      "etiquetaCdr": "CDR",
+      "etiquetaCodigoSunat": "SUNAT code",
+      "fechaEmision": "Issue date",
+      "vence": "Due {fecha}",
+      "plazoVencidoResumen": "Deadline passed on {fecha}: when sent it is reported in a late daily summary (SUNAT does not reject it; it may flag it with 4443)",
+      "enviarHasta": "Send to SUNAT by {fecha}",
+      "plazoVencido": "Sending deadline passed on {fecha}: issue a new document",
+      "descartado": "Support stopped trying to send it: issue a new document",
+      "moneda": "Currency",
+      "tipoOperacion": "Operation type",
+      "firma": "Digital signature (hash)",
+      "copiarHash": "Copy signature hash",
+      "sinFirmar": "Not signed",
+      "leyendas": "Legends (catalog 52)",
+      "receptor": {
+        "titulo": "Recipient details",
+        "razonSocial": "Business name",
+        "documento": "Identity document",
+        "tipo": "Type {tipo}",
+        "direccion": "Declared address",
+        "pais": "Country",
+        "correo": "Email",
+        "vacio": "No recipient details."
+      },
+      "observaciones": "Notes (PDF only)",
+      "nota": {
+        "creditoSobre": "Credit note on",
+        "debitoSobre": "Debit note on",
+        "boletaModificada": "Modified receipt",
+        "facturaModificada": "Modified invoice",
+        "motivo": "Reason",
+        "sustento": "Justification"
+      },
+      "notas": {
+        "sobreBoleta": "Notes issued on this receipt",
+        "sobreFactura": "Notes issued on this invoice"
+      },
+      "referencias": {
+        "titulo": "Related documents",
+        "ordenCompra": "Purchase order",
+        "guias": "Dispatch guides",
+        "guia": "Guide",
+        "otros": "Other documents",
+        "documento": "Document"
+      },
+      "items": {
+        "titulo": "Goods and services detail",
+        "uno": "{n} item",
+        "varios": "{n} items",
+        "codigo": "Code",
+        "descripcion": "Description",
+        "cantidad": "Qty.",
+        "unidad": "Unit",
+        "afectacion": "IGV treatment",
+        "precioUnitario": "Unit price",
+        "descuento": "Discount",
+        "cargos": "Charges",
+        "subtotal": "Subtotal",
+        "codigoSunat": "SUNAT {codigo}",
+        "hidrobiologico": "Vessel {nombre} (registration {matricula}) · {especie} · {cantidad} t unloaded at {lugar} on {fecha}",
+        "valoresReferenciales": "Reference values: service {servicio} · actual load {efectiva} · payload {util}",
+        "tramoUno": " · {n} leg",
+        "tramoVarios": " · {n} legs",
+        "otraAfectacion": "Other treatment",
+        "iscTitulo": "ISC system {sistema}: {monto}",
+        "icbperTitulo": "Plastic bag tax",
+        "codigoAfecta": "SUNAT code {codigo} · {afecta}",
+        "afectaBase": "affects the IGV base",
+        "noAfectaBase": "does not affect the IGV base",
+        "gratuitaTitulo": "Free operation: not charged",
+        "gratuita": "Free",
+        "vacio": "This document has no items.",
+        "iscTasa": "ISC {tasa}%",
+        "icbperMonto": "ICBPER {monto}"
+      },
+      "tecnica": {
+        "titulo": "SUNAT technical information",
+        "tabla": "Table: documento",
+        "sinObservaciones": "No observations"
+      },
+      "importes": {
+        "titulo": "Amount breakdown",
+        "exportacion": "Total export (excl. IGV)",
+        "sujetoIvap": "Total subject to IVAP",
+        "gravado": "Total taxable",
+        "exonerado": "Total exempt",
+        "inafecto": "Total unaffected",
+        "descuentoGlobal": "Global discount ({codigo}{afecta})",
+        "afectaLaBase": ", affects the base",
+        "cargoGlobal": "Global charge ({codigo}, affects the base)",
+        "isc": "Total ISC",
+        "icbper": "Total ICBPER (bags)",
+        "ivap": "Total IVAP (4 %)",
+        "igvTasa": "Total IGV ({tasa} %)",
+        "igv": "Total IGV",
+        "gratuitas": "Free operations (not charged)",
+        "igvGratuitas": "IGV on free operations (informational)",
+        "precioVenta": "Sale price",
+        "otrosCargos": "Other charges without IGV{codigos}",
+        "descuentos": "Discounts that do not affect IGV",
+        "anticipos": "Advance payments already paid (incl. IGV)",
+        "redondeo": "Rounding",
+        "totalAPagar": "Total payable",
+        "netoFinal": "Final net amount",
+        "equivale": "Equals {monto} at exchange rate {tipoCambio} (informational only: SUNAT does not receive it)"
+      },
+      "anticipos": {
+        "titulo": "Settled advance payments",
+        "pagado": " · paid on {fecha}",
+        "sinIgv": " ({monto} excl. IGV)"
+      },
+      "retencion": {
+        "titulo": "IGV withholding ({porcentaje}%)",
+        "neto": "Net to collect (the customer pays the withholding to SUNAT)"
+      },
+      "percepcion": {
+        "titulo": "Perception {regimen} ({porcentaje}%)",
+        "total": "Total with perception (what the customer pays)"
+      },
+      "documentoId": "documento_id:"
+    },
+    "formulario": {
+      "nombre": {
+        "factura": "invoice",
+        "boleta": "receipt"
+      },
+      "una": {
+        "factura": "an invoice",
+        "boleta": "a receipt"
+      },
+      "clienteNoAdmitido": "“{razon}” has {documento}, which {destino} does not accept{motivo}.",
+      "documentoCodigo": "document {codigo}",
+      "estaExportacion": "this export",
+      "facturaNecesitaRuc": ": an invoice needs a customer with a RUC",
+      "productoExportacion": "“{descripcion}” is an export product (code 40): choose an export operation to use it.",
+      "productoGratuito": "“{descripcion}” is free (code {afectacion}) and an export charges all its lines: it is not added.",
+      "maxItems": "A document allows up to {max} items.",
+      "maxItemsTitulo": "A document allows up to {max} items",
+      "productoConIgv": "“{descripcion}” includes IGV in its price ({precio}); exports carry no IGV: check the line price.",
+      "errores": {
+        "sinItems": "Add at least one item with a description, quantity and price.",
+        "topeSinDocumento": "A receipt over S/ {tope}.00 (or in another currency) identifies the buyer with their document.",
+        "corrijaAjustes": "Fix the highlighted discounts, charges or taxes before issuing.",
+        "vencimientoAnterior": "The due date cannot be earlier than the issue date.",
+        "esperaVencida": "The server took too long to respond while issuing",
+        "conexionCortada": "The connection dropped while issuing",
+        "reintentar": "{causa}. Issue again without changing anything: if the {nombre} had already been issued, you will see the same one, not a duplicate."
+      },
+      "sinSeries": {
+        "titulo": "You have no {nombre} series",
+        "texto": "To issue you need at least one active series of type {tipo} ({patron}).",
+        "irASeries": "Go to series"
+      },
+      "serie": "Series",
+      "ayudaSerie": "khipu assigns the number when issuing",
+      "ultimoEmitido": "last issued No. {n}",
+      "sinEmitir": "none issued yet",
+      "fechaEmision": "Issue date",
+      "ayudaFecha": "Max. {dias} days",
+      "avisoResumen": "After the 5th day SUNAT no longer accepts it on its own: khipu reports it in the daily summary, up to the 7th.",
+      "moneda": "Currency",
+      "tipoCambio": "Exchange rate",
+      "ayudaTipoCambio": "Soles per 1 {moneda}; goes on the PDF and the sales ledger, not to SUNAT",
+      "comprador": "Buyer",
+      "cliente": "Customer",
+      "guardarCliente": "Save to my customers when issuing",
+      "documentoComprador": "Buyer’s document",
+      "sinDocumentoAyuda": "SUNAT allows it up to a total of S/ {tope}.00; in another currency, using the exchange rate.",
+      "numeroDocumento": "Document number",
+      "nombreComprador": "Buyer’s name",
+      "razonSocial": "Business name",
+      "placeholderComprador": "Jane Doe",
+      "tituloNombre": "At least 3 characters, not counting leading or trailing spaces",
+      "paisCliente": "Customer’s country",
+      "paisOpcionalBoleta": "Optional on a receipt",
+      "paisObligatorio": "Required on an export invoice",
+      "seleccione": "Select",
+      "direccion": "Address",
+      "placeholderDireccionExterior": "1200 Main St, Miami",
+      "placeholderDireccion": "123 Sample Ave.",
+      "placeholderRazonSocial": "Comercial Andina SAC",
+      "avisoTope": "This receipt exceeds S/ {tope}.00{extra}: identify the buyer with their document.",
+      "avisoTopeSinTipoCambio": " or is not in soles and has no exchange rate",
+      "correo": "Customer’s email",
+      "ayudaCorreo": "If you turned on automatic sending, they get the PDF and the XML once SUNAT accepts it",
+      "placeholderCorreo": "purchasing@customer.com",
+      "tipoOperacion": "Operation type",
+      "formaPago": "Payment terms",
+      "alContado": "Cash",
+      "alCredito": "Credit (installments)",
+      "incoterm": "Incoterm",
+      "ayudaIncoterm": "Incoterms 2020; required by Customs, not validated by SUNAT",
+      "sinIncoterm": "No incoterm",
+      "paisUso": "Country where the service is used",
+      "ayudaPaisUso": "Where the service is used or enjoyed (3098); other than Peru",
+      "detraccionCheck": "Operation subject to detraction (SPOT)",
+      "avisoDetraccion": "This invoice exceeds S/ 700.00. If it is a service subject to SPOT, check detraction.",
+      "percepcionCheck": "Operation with IGV perception",
+      "retencionCheck": "The customer withholds IGV (withholding agent)",
+      "items": "Items",
+      "agregarItem": "Add item",
+      "descripcion": "Description",
+      "cantidad": "Quantity",
+      "acciones": "Actions",
+      "placeholderDescripcion": "E.g. Consulting service",
+      "unidadYAfectacion": "Unit and IGV treatment",
+      "masOpcionesItem": "More options for item {n}",
+      "minimoUnItem": "A document needs at least one item",
+      "quitarItem": "Remove item",
+      "quitarItemN": "Remove item {n}",
+      "unidadMedida": "Unit of measure",
+      "catalogo03": "Catalog 03",
+      "afectacionIgv": "IGV treatment",
+      "catalogo07": "Catalog 07",
+      "exportacion40": "40 · Export of goods or services",
+      "iscItem": "Item ISC",
+      "sistemaIsc": "ISC system",
+      "sinIsc": "No ISC",
+      "isc01": "01 · Ad valorem (rate %)",
+      "isc02": "02 · Fixed amount per unit",
+      "isc03": "03 · Retail price",
+      "montoIsc": "ISC amount per unit",
+      "placeholderMontoIsc": "Amount per unit, e.g. 2.25",
+      "tasaIsc": "ISC rate (%)",
+      "placeholderTasaIsc": "Rate %, e.g. 35",
+      "pvp": "Suggested retail price",
+      "placeholderPvp": "Suggested retail price per unit, e.g. 3.50",
+      "bolsas": "Plastic bags (ICBPER)",
+      "bolsasAyuda": "One bag per unit: the tax is charged for each one.",
+      "descuentoItem": "Item discount",
+      "cargoItem": "Item charge",
+      "masOpciones": "More document options",
+      "vencimiento": "Due date",
+      "ayudaVencimiento": "For information; not earlier than the issue date",
+      "redondeo": "Rounding",
+      "ayudaRedondeo": "Between -1.00 and 1.00, e.g. -0.05 to collect cash without cents",
+      "descuentoGlobal": "Global discount",
+      "cargoGlobal": "Global charge",
+      "anticipos": "Advance payments",
+      "anticipoPrefijo": "Advance payment for ",
+      "esAnticipo": "This {nombre} is an advance payment",
+      "anticipoAyuda": "It is issued like any {nombre}. When you deliver the good or service, choose this advance payment under “Deduct advance payments” on the final {nombre} to settle it.",
+      "descontarAnticipos": "Deduct advance payments",
+      "datosAdicionales": "Additional data: dispatch guides, related documents and notes",
+      "verPlan": "View plan and usage",
+      "totales": {
+        "gravado": "Taxable",
+        "exonerado": "Exempt",
+        "inafecto": "Unaffected",
+        "gratuito": "Free",
+        "igv": "IGV",
+        "igvTasa": "IGV ({tasa} %)"
+      },
+      "incompletoUno": "1 incomplete item will not be issued",
+      "incompletosVarios": "{n} incomplete items will not be issued",
+      "detraccionPie": "Detraction {monto} · Net to collect {neto}",
+      "totalEnSoles": "Equals {monto} at an exchange rate of {tipoCambio}",
+      "retencionPie": "Withholding {monto} · Net to collect {neto}",
+      "percepcionPie": "Perception {monto} · Total to collect {total}",
+      "totalAPagar": "Total to pay",
+      "loCalculaKhipu": "khipu calculates it",
+      "emitiendo": "Issuing…",
+      "emitir": "Issue {nombre}"
+    },
+    "editores": {
+      "ajuste": {
+        "tipo": "{etiqueta}: type",
+        "valor": "{etiqueta}: value",
+        "porcentaje": "Percentage",
+        "monto": "Amount",
+        "reduceBase": "Reduces the IGV base",
+        "pagaIgv": "Subject to IGV",
+        "recargoConsumo": "Consumption surcharge (restaurants, no IGV)"
+      },
+      "montoAlEmitir": "khipu calculates the amount when issuing.",
+      "retencion": {
+        "porcentaje": "Withholding percentage",
+        "ayuda": "The legal rate is 3 %",
+        "resumen": "The customer withholds {monto} and pays it to SUNAT; the invoice amounts do not change."
+      },
+      "percepcion": {
+        "regimen": "Perception regime",
+        "regimenAyuda": "Catalog 53; the rate is set by the regime (catalog 22)",
+        "base": "Perception base",
+        "baseAyuda": "Defaults to the total amount",
+        "resumen": "{monto} of perception is charged on top of the total."
+      },
+      "anticipos": {
+        "sinCliente": "Enter the customer’s document to see their advance payments.",
+        "cargando": "Looking for the customer’s advance payments…",
+        "error": "The documents could not be loaded. Close and reopen this section to retry.",
+        "vacio": "This customer has no accepted invoices or receipts in {moneda} with anything left to deduct among the last 100 issued.",
+        "porDescontar": "{fecha} · left to deduct {montos}",
+        "valorADescontar": "Value to deduct from {etiqueta}",
+        "sinIgv": "Before IGV",
+        "afectacion": "Tax treatment"
+      },
+      "credito": {
+        "netoPendiente": "Outstanding net",
+        "netoPendienteAyuda": "Defaults to the total ({total}); with detraction or withholding, what is left to collect",
+        "repartirEn": "Split into",
+        "cuotasIguales": "{n} equal installments",
+        "repartir": "Split",
+        "cuotaMonto": "Installment {n}: amount",
+        "cuotaVencimiento": "Installment {n}: due date",
+        "quitarCuota": "Remove installment {n}",
+        "agregarCuota": "Add installment",
+        "resumen": "The {n} installments add up to {suma} of {pendiente} outstanding."
+      },
+      "detraccion": {
+        "bien": "Good or service subject to it",
+        "catalogo54": "Catalog 54",
+        "buscarEtiqueta": "Search catalog 54",
+        "buscarPlaceholder": "Search by code or name",
+        "seleccione": "Select",
+        "porcentaje": "Percentage",
+        "sugerido": "Suggested by SUNAT; please confirm it",
+        "segunAnexo": "Enter it according to the current Annex",
+        "medioPago": "Payment method",
+        "catalogo59": "Catalog 59",
+        "depositoEnCuenta": "{codigo} · Account deposit",
+        "cuenta": "Banco de la Nación account",
+        "cuentaDeLaEmpresa": "The one in the company’s tax details",
+        "faltaCuenta": "Missing from the tax details:",
+        "configurarla": "set it up",
+        "montoEnSoles": "Amount to deposit, in soles",
+        "montoEnSolesAyuda": "The invoice is in {moneda}: the detraction is always deposited in soles (3208)",
+        "resumen": "{monto} is deposited in the detraction account."
+      },
+      "referencias": {
+        "ordenCompra": "Purchase order",
+        "ordenCompraAyuda": "Up to {max} characters; printed on the PDF",
+        "guias": "Dispatch guides",
+        "tipoGuia": "Type of guide {n}",
+        "numeroGuia": "Number of guide {n}",
+        "quitarGuia": "Remove guide {n}",
+        "agregarGuia": "Add guide",
+        "documentos": "Other related documents",
+        "tipoDocumento": "Type of document {n}",
+        "numeroDocumento": "Number of document {n}",
+        "quitarDocumento": "Remove document {n}",
+        "agregarDocumento": "Add document",
+        "observaciones": "Notes",
+        "observacionesAyuda": "PDF only: not sent to SUNAT. If left empty, the company’s notes are printed"
+      }
+    },
+    "buscador": {
+      "clientes": {
+        "etiqueta": "Search a saved customer",
+        "placeholder": "Search a saved customer by document or name",
+        "sinResultados": "No saved customer matches. Type it below and check the box to save it.",
+        "fallo": "Your customers could not be searched; type it in manually.",
+        "encontradoUno": "customer found",
+        "encontradoVarios": "customers found"
+      },
+      "productos": {
+        "etiqueta": "Search a saved product",
+        "placeholder": "Add a saved product or service by code or description",
+        "sinResultados": "No saved product matches. Type it below and save it in “Products”.",
+        "fallo": "Your products could not be searched; type it in manually.",
+        "encontradoUno": "product found",
+        "encontradoVarios": "products found"
+      }
+    },
+    "consultaRuc": {
+      "consultando": "Checking SUNAT…",
+      "encontrado": "Found in SUNAT · {estado} · {condicion}",
+      "registraComo": "SUNAT has it registered as",
+      "usarNombre": "Use this name",
+      "noEncontrado": "This RUC is not in the SUNAT registry, which is updated daily: if it was registered today, it may take a day to appear. SUNAT rejects documents to a RUC that does not exist, so confirm the number. You can type the details in manually.",
+      "sinPadron": "RUC lookup is not available right now: type the details in manually.",
+      "cupo": "You made many lookups in a row. Wait a moment to look it up again, or type the details in manually.",
+      "error": "SUNAT could not be checked. Retry or type the details in manually.",
+      "reintentar": "Check again"
+    },
+    "vistaPrevia": {
+      "noExiste": "The document does not exist yet.",
+      "errorHttp": "Error {estado} while fetching the document.",
+      "tituloCdr": "Receipt confirmation (CDR)",
+      "tituloXml": "Signed XML",
+      "verXml": "View XML",
+      "verCdr": "View CDR",
+      "descargar": "Download {formato}",
+      "cargando": "Loading document…"
+    },
+    "dialogo": {
+      "faltantes": {
+        "certificado": "Upload the company’s digital certificate (.p12 or .pfx).",
+        "certificadoVencido": "Renew the digital certificate: the uploaded one has expired.",
+        "credencialesSol": "Save the secondary SOL user and its password."
+      },
+      "ambiente": {
+        "sinConfirmar": "Environment not confirmed",
+        "produccion": "Environment: Production — issued to SUNAT",
+        "homologacion": "Environment: Testing (SUNAT beta)",
+        "cargando": "Loading environment…"
+      },
+      "titulo": "New document",
+      "noPuedeEmitir": {
+        "titulo": "This company cannot issue yet",
+        "falta": "To sign and send documents to SUNAT, this is missing:",
+        "ir": "Go to Tax & certificate"
+      },
+      "vencido": {
+        "titulo": "Your plan expired",
+        "texto": "Your {plan} plan expired and its grace days are over. You can issue again once you renew it; you can still see what you already issued and void it."
+      },
+      "verPlan": "View plan and usage",
+      "tope": {
+        "titulo": "You reached this month’s document limit",
+        "texto": "Your {plan} plan allows {maximo} documents a month and you already used them. You can issue again next month, or sooner if you switch to a bigger plan."
+      },
+      "sinEmpresa": {
+        "titulo": "The company settings could not be read",
+        "texto": "It will be issued against whichever environment is configured and totals are previewed with IGV {general} %: if the company is on the special-rate registry ({padron} %), they will not match the document’s."
+      },
+      "reintentar": "Retry",
+      "solRechazadas": {
+        "titulo": "SUNAT rejected this company’s SOL credentials",
+        "corregir": "Fix them",
+        "texto": "The document is signed and saved, but SUNAT will not receive it until you fix them: then it goes out on its own."
+      },
+      "cerrar": {
+        "titulo": "Discard what you entered?",
+        "seguir": "Keep editing",
+        "descartar": "Discard",
+        "texto": "The document has not been issued: if you close now, the customer and lines you entered are lost."
+      },
+      "copia": {
+        "titulo": "The customer and lines were copied, not everything",
+        "omitidos": "Not copied: {omitidos}. If the new operation needs it, enter it again.",
+        "falloTitulo": "The document could not be copied",
+        "falloTexto": "It may be a temporary connection problem, or the document cannot be duplicated (a note is not copied). You can issue a new one from scratch."
+      },
+      "tipo": "Document type",
+      "series": {
+        "titulo": "Your series could not be loaded",
+        "texto": "It may be a temporary connection problem. Your series and their sequence numbers were not touched."
+      }
+    },
+    "descargaMasiva": {
+      "archivos": {
+        "pdf": "PDF",
+        "xml": "Signed XML",
+        "cdr": "SUNAT CDR"
+      },
+      "sinComprobantes": "There are no documents with these filters",
+      "tope": "There are {total}: a download allows up to {maximo}. Narrow the dates.",
+      "boton": "Download ZIP",
+      "descripcion": "The {total} documents the list shows with its filters.",
+      "archivosLegend": "Files",
+      "descargar": "Download",
+      "elegirArchivo": "Choose at least one file"
+    },
+    "exportar": {
+      "formatos": {
+        "xlsx": {
+          "etiqueta": "Excel (.xlsx)",
+          "ayuda": "To open it in Excel: amounts arrive as numbers."
+        },
+        "csv": {
+          "etiqueta": "CSV",
+          "ayuda": "Delimited text. Values that start with = + - @ get a leading single quote, so the spreadsheet does not treat them as a formula."
+        }
+      },
+      "motivo": "There are {total}: an export allows up to {maximo}. Narrow the dates.",
+      "errorRed": "Could not export: check your connection and try again.",
+      "boton": "Export",
+      "descripcion": "One row per document of the {total} the list shows with its filters: bases, IGV, ICBPER, ISC, charges, discounts, advance payments, total, status and modified document. Credit notes come out negative; without a status filter, rejected, invalid and discarded ones are left out.",
+      "formato": "Format",
+      "separador": "Separator",
+      "coma": "Comma (Excel in Peru)",
+      "puntoYComa": "Semicolon",
+      "exportando": "Exporting…",
+      "descargar": "Download"
+    },
+    "tabla": {
+      "estadoTodos": "SUNAT status: All",
+      "tipoTodos": "Type: All",
+      "tipoOpcion": "Type: {tipo}",
+      "serieTodas": "Series: All",
+      "serieOpcion": "Series: {serie}",
+      "errorListar": "Error listing documents",
+      "aceptadoConCdr": "Accepted with CDR",
+      "rechazadoCodigo": "Rejected ({codigo})",
+      "tipo": "Type",
+      "serie": "Series",
+      "cliente": {
+        "etiqueta": "Customer",
+        "ayuda": "Document (starts with) or part of the name",
+        "placeholder": "Customer or document"
+      },
+      "numero": {
+        "etiqueta": "Number",
+        "ayuda": "Document number, without the series",
+        "placeholder": "No."
+      },
+      "fechaTitulo": "Issue date (inclusive)",
+      "desde": "From",
+      "hasta": "To",
+      "refrescar": "Refresh list",
+      "columnas": {
+        "comprobante": "Document",
+        "cliente": "Customer / Recipient",
+        "fecha": "Issue date",
+        "importe": "Total amount",
+        "estado": "SUNAT status",
+        "acciones": "Actions"
+      },
+      "verComprobante": "View document {numero}, status {estado}",
+      "copiarNumero": "Copy number",
+      "tipoElectronico": "Electronic {tipo}",
+      "docGenerico": "Doc.",
+      "igv": "IGV {monto}",
+      "verPdf": "View printed version (PDF)",
+      "pdfNoDisponible": "The PDF exists once the document is signed",
+      "descargarXml": "Download signed XML",
+      "descargarCdr": "Download CDR receipt",
+      "vacioConFiltros": "There are no documents matching those filters.",
+      "vacio": "You have not issued any documents yet.",
+      "quitarFiltros": "Clear filters",
+      "unidad": "documents",
+      "notaPlazo": "Max. SUNAT submission period: 3 calendar days",
+      "pdf": "PDF",
+      "xml": "XML"
+    },
+    "nota": {
+      "errorMotivos": "The reasons could not be loaded (catalogs 09/10). Try again.",
+      "documento": {
+        "boleta": "receipt",
+        "factura": "invoice"
+      },
+      "documentoPlural": {
+        "boleta": "receipts",
+        "factura": "invoices"
+      },
+      "sinRespuesta": {
+        "tardo": "The server took too long to respond while issuing",
+        "corte": "The connection dropped while issuing",
+        "mensaje": "{causa}. Issue again without changing anything: if the note had already been issued, you will see the same one, not a duplicate. If you change anything, first check the notes of {documento} {numero}."
+      },
+      "etiquetaImporte": {
+        "30": "Unaffected amount, excl. IGV",
+        "40": "Amount excl. IGV, export",
+        "17": "Amount incl. IVAP",
+        "20": "Exempt amount, excl. IGV",
+        "10": "Amount incl. IGV"
+      },
+      "conceptoTributo": {
+        "10": "taxable + IGV",
+        "20": "exempt",
+        "30": "unaffected",
+        "40": "export",
+        "17": "IVAP"
+      },
+      "avisos": {
+        "importeDecimales": "The amount allows up to 2 decimal places.",
+        "cuotaDecimales": "Each installment allows up to 2 decimal places.",
+        "lineaEnCero": "A line’s amount, charge or tax rounds to 0.00: raise the quantity or set it to 0.",
+        "bolsas": "ICBPER bags are returned in whole units (SUNAT 2892).",
+        "sinImporte": "The note credits no amount (SUNAT 2062): free lines are not charged, so also include the line you are returning.",
+        "ivapEnCero": "The line’s IVAP would round to 0.00 (SUNAT 3111): the amount must be 0.13 or more.",
+        "conceptoCorto": "The concept needs at least 3 characters (SUNAT 4084).",
+        "sinCantidad": "Enter a quantity greater than 0 for at least one item."
+      },
+      "tipoNota": "Note type",
+      "tipoNC": "Credit note (07)",
+      "tipoND": "Debit note (08)",
+      "serie": "Series",
+      "notaCredito": "credit note",
+      "notaDebito": "debit note",
+      "sinSeries": "There are no {nota} series for {documentos}.",
+      "creeUna": "Create one",
+      "sinSeriesEjemplo": " (e.g. {ejemplo}).",
+      "motivo": "Reason (catalog {catalogo})",
+      "seleccione": "Select…",
+      "sustento": "Justification",
+      "sustentoPlaceholder": "E.g.: the customer returned all the goods",
+      "sustentoAyuda": "Up to 500 characters, no line breaks (SUNAT 2135). It goes in the XML and the printed version.",
+      "fecha": "Issue date",
+      "fechaAyuda": "Not earlier than the {documento} date ({fecha}, SUNAT 2885) nor in the future.",
+      "observaciones": "Notes",
+      "opcional": "(optional)",
+      "observacionesAyuda": "Only on the PDF: not sent to SUNAT. {n} / 1000",
+      "ajustes": {
+        "titulo": "Global discount and charge of the note",
+        "descuento": "Global discount of the note",
+        "cargo": "Global charge of the note",
+        "ayuda": "They apply to this note’s lines (they affect the IGV base). khipu calculates the final amount and SUNAT compares it with the {documento} amount (3286)."
+      },
+      "totalCopia": "<b>Full</b> note: khipu copies the items, the global discount and the charges of {documento} {numero} ({monto}).",
+      "importe": "Note amount",
+      "tope": "Cap",
+      "yaAcreditadoOtras": " ({monto} already credited in other credit notes)",
+      "superaTopeTotal": " It exceeds the cap: SUNAT would reject it (3286). Only {tope} remains to be credited; choose a partial reason.",
+      "thItem": "{documento} item",
+      "thFacturado": "Invoiced",
+      "thCantidad": "Quantity in the note",
+      "ariaCantidad": "Quantity of {item} in the note",
+      "anticiposNeto": "The invoice settled advance payments (net {monto}): adjust the quantities so the note does not exceed that amount. ",
+      "anticiposSinNota": "The invoice settled advance payments and its net is {monto}: no note is possible (SUNAT rejects zero lines and a note above the total); void it instead. ",
+      "descuentoSinBase": "The invoice has a discount that does not affect the IGV base and a note cannot carry it: lines with that discount go for what was paid (the net amount) and are shown without the discount. ",
+      "ayudaParcial": "Enter 0 for the items not included in the note. A percentage line discount or charge follows the quantity; fixed-amount ones are kept only with the invoiced quantity.",
+      "importeAntesDeAjustes": " (before the discount and charge, which khipu applies when issuing)",
+      "topeMenos": " ({documento} {total} minus {acreditado} already credited)",
+      "superaTopeParcial": "It exceeds the cap: SUNAT would reject it (3286). Lower the quantities, or to void or return everything choose reason 01 or 06.",
+      "cuotasAyuda": "Corrected installments of the invoice (the note is issued with amount 0; SUNAT 3315). The outstanding net will be the sum of the installments.",
+      "cuotaId": "Cuota{n}",
+      "montoCuota": "Amount of installment {n}",
+      "vencimientoCuota": "Due date of installment {n}",
+      "quitarCuota": "Remove installment {n}",
+      "quitar": "Remove",
+      "anadirCuota": "Add installment",
+      "concepto": "Concept",
+      "placeholderNc": "E.g.: early payment discount",
+      "placeholderNd": "E.g.: 30 days of late-payment interest",
+      "sinTope": "No cap: SUNAT exempts reason 10 from 3286 and 3503 (rows 111 and 114–122).",
+      "topePorTributo": " (per tax, 3503: {concepto} of the {documento} {monto})",
+      "topeMenosAcreditado": " (minus {monto} already credited)",
+      "superaTopeImporte": "It exceeds the cap: SUNAT would reject it ({regla}). Lower the amount.",
+      "reglaTributo": "3503, per tax",
+      "reintentar": "Retry",
+      "emitiendo": "Issuing and sending to SUNAT…",
+      "emitir": "Issue {nota}"
+    }
   }
 }

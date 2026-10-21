@@ -1,14 +1,16 @@
 "use client";
 
 import { BanIcon, RefreshCwIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "khipu-design-system/ui/button";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
-import { AVISO_ALTA_FUERA_DE_PLAZO, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
+import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
 import { TITULO_SECCION } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +19,9 @@ import { cn } from "@/lib/utils";
  * está procesando» para siempre y nada en el portal volvía a preguntar.
  */
 export function BajaEstado({ baja }: { baja: Baja }) {
+  const messages = useMessages();
+  const t = messages.comprobantes.estadoBaja;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [consultando, setConsultando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +32,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   const resumenDiario = baja.identificador.startsWith("RC-");
   const que = baja.tipo_comprobante === "03" ? "boleta" : "nota";
   const vencida = bajaVencida(baja);
-  const etiqueta = etiquetaDeBaja(baja, que);
+  const etiqueta = etiquetaDeBaja(baja, que, messages);
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -36,12 +41,12 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       const res = await apiRequest<Baja>(`/api/proxy/bajas/${baja.id}`, { method: "GET" });
       if (res.estado !== "exito") setError(res.mensaje ?? mensajeError(res.codigo));
     } catch {
-      setError("Sin conexión: no se pudo consultar a SUNAT. Vuelve a intentarlo.");
+      setError(t.sinConexion);
     } finally {
       setConsultando(false);
       router.refresh();
     }
-  }, [baja.id, router]);
+  }, [baja.id, router, mensajeError, t.sinConexion]);
 
   useEffect(() => {
     if (!pendiente) return;
@@ -60,44 +65,42 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
           <BanIcon className="size-4" />
-          {resumenDiario ? "Resumen diario" : "Comunicación de baja"} {baja.identificador}
-          {alta ? " (alta)" : null}
+          {resumenDiario ? t.resumenDiario : t.comunicacion} {baja.identificador}
+          {alta ? t.alta : null}
         </span>
         {pendiente ? (
           <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
             <RefreshCwIcon className={cn("size-3.5", consultando ? "animate-spin" : "")} />
-            {consultando ? "Consultando a SUNAT…" : "Actualizar estado"}
+            {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
           </button>
         ) : null}
       </div>
       <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Estado</span>
+          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.estado}</span>
           <span className="font-semibold text-foreground" role="status">{etiqueta}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Motivo</span>
+          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.motivo}</span>
           <p className="leading-snug text-foreground/80">{baja.motivo}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Ticket SUNAT</span>
+          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.ticket}</span>
           <span className="font-mono text-foreground/80">{baja.ticket ?? "—"}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{vencida ? "Detalle" : baja.cdr ? "CDR" : "Último intento"}</span>
-          <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? ` (${baja.intentos} intentos)` : ""}</span>
+          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento}</span>
+          <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? interpolar(t.intentos, { n: baja.intentos }) : ""}</span>
         </div>
       </div>
       {alta && baja.fuera_de_plazo ? (
         <p className="mt-3 text-[12px] text-warning-foreground" data-testid="aviso-fuera-de-plazo">
-          {AVISO_ALTA_FUERA_DE_PLAZO}
+          {avisoAltaFueraDePlazo(messages)}
         </p>
       ) : null}
       {pendiente ? (
         <p className="mt-3 text-[12px] text-muted-foreground">
-          {alta
-            ? `Pasó el envío individual: SUNAT la recibe en el resumen diario. Mientras no responda, la ${que} queda enviada. Esta ficha se actualiza sola cada 30 s.`
-            : "Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s."}
+          {alta ? interpolar(t.pendienteAlta, { que: t.que[que] }) : t.pendiente}
         </p>
       ) : null}
       {error ? <p className="mt-2 text-sm text-destructive" role="alert">{error}</p> : null}
