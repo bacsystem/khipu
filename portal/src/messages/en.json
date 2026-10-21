@@ -14,7 +14,11 @@
     "cancelar": "Cancel",
     "cerrarSesion": "Sign out",
     "cargandoAccesible": "Loading",
-    "paso": "Step {numero} of {total}"
+    "paso": "Step {numero} of {total}",
+    "opcional": "(optional)",
+    "moneda": "Currency",
+    "disminuir": "Decrease",
+    "aumentar": "Increase"
   },
   "auth": {
     "marca": {
@@ -2961,7 +2965,11 @@
       "sinPadron": "RUC lookup is not available right now: type the details in manually.",
       "cupo": "You made many lookups in a row. Wait a moment to look it up again, or type the details in manually.",
       "error": "SUNAT could not be checked. Retry or type the details in manually.",
-      "reintentar": "Check again"
+      "reintentar": "Check again",
+      "observaciones": {
+        "noActivo": "The RUC is not active at SUNAT ({estado}). SUNAT will accept the document with an observation (4013).",
+        "noHabido": "The RUC is listed as not located (no habido) at SUNAT. SUNAT will accept the document with an observation (4014)."
+      }
     },
     "vistaPrevia": {
       "noExiste": "The document does not exist yet.",

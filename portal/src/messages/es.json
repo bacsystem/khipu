@@ -14,7 +14,11 @@
     "cancelar": "Cancelar",
     "cerrarSesion": "Cerrar sesión",
     "cargandoAccesible": "Cargando",
-    "paso": "Paso {numero} de {total}"
+    "paso": "Paso {numero} de {total}",
+    "opcional": "(opcional)",
+    "moneda": "Moneda",
+    "disminuir": "Disminuir",
+    "aumentar": "Aumentar"
   },
   "auth": {
     "marca": {
@@ -2961,7 +2965,11 @@
       "sinPadron": "La consulta de RUC no está disponible por ahora: digita los datos a mano.",
       "cupo": "Hiciste muchas consultas seguidas. Espera un momento para consultar de nuevo, o digita los datos a mano.",
       "error": "No se pudo consultar SUNAT. Reintenta o digita los datos a mano.",
-      "reintentar": "Consultar de nuevo"
+      "reintentar": "Consultar de nuevo",
+      "observaciones": {
+        "noActivo": "El RUC no está activo en SUNAT ({estado}). SUNAT aceptará el comprobante con una observación (4013).",
+        "noHabido": "El RUC figura como no habido en SUNAT. SUNAT aceptará el comprobante con una observación (4014)."
+      }
     },
     "vistaPrevia": {
       "noExiste": "El documento todavía no existe.",

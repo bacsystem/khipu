@@ -27,7 +27,8 @@ export function EstadoConsultaRuc({
   onUsarNombre: (nombre: string) => void;
   className?: string;
 }) {
-  const t = useMessages().comprobantes.consultaRuc;
+  const messages = useMessages();
+  const t = messages.comprobantes.consultaRuc;
   if (consultando) {
     return (
       <p role="status" data-testid="consulta-ruc" data-estado="consultando" className={cn(AYUDA_CAMPO, className)}>
@@ -40,7 +41,7 @@ export function EstadoConsultaRuc({
   switch (resultado.tipo) {
     case "encontrado": {
       const c = resultado.contribuyente;
-      const observaciones = observacionesDeSunat(c);
+      const observaciones = observacionesDeSunat(c, messages);
       const otroNombre = nombreActual.trim() !== "" && nombreActual.trim() !== c.razon_social;
       return (
         <div className={cn("grid gap-2", className)} data-testid="consulta-ruc" data-estado="encontrado">

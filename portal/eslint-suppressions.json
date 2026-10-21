@@ -1,19 +1,4 @@
 {
-  "src/components/formularios/campo.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/formularios/entrada-monto.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/formularios/stepper-numerico.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
   "src/lib/api/browser.ts": {
     "khipu/no-literal-de-ui": {
       "count": 6
@@ -27,11 +12,6 @@
   "src/lib/api/client.ts": {
     "khipu/no-literal-de-ui": {
       "count": 2
-    }
-  },
-  "src/lib/api/consulta-ruc.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
     }
   },
   "src/lib/api/http.ts": {
