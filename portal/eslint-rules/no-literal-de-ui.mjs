@@ -1,15 +1,18 @@
 /**
  * `khipu/no-literal-de-ui` (#25): un texto que ve el usuario no se escribe en el componente, se lee de `src/messages/<locale>.json`.
  *
- * Marca tres cosas:
+ * Marca cinco cosas:
  *  1. Texto JSX con alguna letra (`<p>Hola</p>`).
- *  2. Un string con forma de texto humano dentro de JSX: el valor de un atributo (`placeholder="Buscar"`, `titulo="Planes"`)
- *     o una expresión hija (`{vacio ? "Sin datos" : null}`).
+ *  2. Un string con forma de texto humano dentro de JSX: el valor de un atributo (`placeholder="Buscar"`, `titulo="Planes"`,
+ *     el `value` de un `<input type="submit">`) o una expresión hija (`{vacio ? "Sin datos" : null}`).
  *  3. Fuera de JSX, un string con forma de frase en castellano (`toast("Guardado.")`, `{ label: "Fecha de emisión" }`).
+ *  4. Fuera de JSX, el texto que sigue a una interpolación en un template (`` `${n} facturas pendientes` ``).
+ *  5. El mensaje de un `Error` en castellano (`new Error("No se pudo guardar")`): su `.message` termina en pantalla.
  *
  * «Forma de texto humano» es una heurística, no un análisis: tiene una letra y además empieza en mayúscula seguida de minúscula,
  * lleva tilde/ñ/¿/¡, o tiene un espacio entre palabras. Lo técnico no cuenta: clases de Tailwind, rutas, URLs, códigos en
- * MAYÚSCULAS, identificadores, `data-testid`, comparaciones, `case`, claves de objeto, `import`, `console.*` y `new Error()`.
+ * MAYÚSCULAS, identificadores, `data-testid`, comparaciones, `case`, claves de objeto, `import`, `console.*` y los `Error` con
+ * mensaje técnico (sin forma de frase en castellano). Pruebas: `no-literal-de-ui.test.mjs`.
  *
  * Los textos que ya existen viven en la línea base `eslint-suppressions.json` (supresiones masivas de ESLint), que solo puede bajar:
  * un literal nuevo falla `npm run lint`, y migrar uno sin podar la línea base también (ver portal/README.md, «Textos e idiomas»).
@@ -130,6 +133,31 @@ function nombreDeLlamada(callee) {
 
 const LLAMADAS_TECNICAS = /^(cn|cva|clsx|twMerge|require|console\.\w+|Error|TypeError|RangeError|t|t\.raw|t\.rich|t\.markup|useTranslations|getTranslations|fetch|Symbol|describe|it|test|expect|vi\.\w+|redirect|notFound|encodeURIComponent|new URL|URL|URLSearchParams|headers\.(get|set)|cookies\.\w+|\w+\.(get|set|has|delete|append|startsWith|endsWith|includes|split|replace|replaceAll|padStart|match|test|setAttribute|getAttribute|querySelector|querySelectorAll|localeCompare|toLocaleString|toLocaleDateString)|searchParams\.\w+)$/;
 
+// Palabras de función del castellano: separan «No se pudo guardar el cliente» de «Invalid response» o «API_BASE_URL missing».
+const FRASE_EN_CASTELLANO = /(^|\s)(no|se|de|del|la|el|los|las|que|un|una|para|con|sin|por|al|su|hay|ya|es|está|están)(\s|$)/iu;
+
+/** ¿El string es el mensaje de un `Error` (con o sin `new`)? Ese `.message` suele terminar en pantalla (`setError(e.message)`). */
+function esMensajeDeError(node) {
+  const padre = node.parent;
+  if (!padre || (padre.type !== "NewExpression" && padre.type !== "CallExpression") || padre.arguments[0] !== node) return false;
+  return /^(Error|TypeError|RangeError)$/.test(nombreDeLlamada(padre.callee));
+}
+
+/** Un mensaje de error en castellano es texto de UI: tiene forma de frase y lleva tilde o palabras de función del castellano. */
+function pareceMensajeDeErrorEnCastellano(valor) {
+  const s = valor.trim();
+  return ESPACIO_ENTRE_PALABRAS.test(s) && (CASTELLANO.test(s) || FRASE_EN_CASTELLANO.test(s));
+}
+
+/** ¿El atributo es el `value` de un botón nativo (`<input type="submit" value="Guardar">`)? Ese `value` es la etiqueta del botón. */
+function esValueDeBoton(attr) {
+  if (nombreDeAtributo(attr) !== "value") return false;
+  const elemento = attr.parent;
+  if (elemento?.type !== "JSXOpeningElement" || elemento.name.type !== "JSXIdentifier" || elemento.name.name !== "input") return false;
+  const tipo = elemento.attributes.find((a) => a.type === "JSXAttribute" && nombreDeAtributo(a) === "type");
+  return tipo?.value?.type === "Literal" && ["submit", "button", "reset"].includes(tipo.value.value);
+}
+
 /** ¿El string está en un sitio donde no es texto de UI aunque lo parezca? */
 function esContextoTecnico(node) {
   const padre = node.parent;
@@ -224,7 +252,7 @@ const regla = {
       },
       JSXAttribute(node) {
         const nombre = nombreDeAtributo(node);
-        if (!node.value || esAtributoTecnico(nombre)) {
+        if (!node.value || (esAtributoTecnico(nombre) && !esValueDeBoton(node))) {
           if (node.value) dentroDeJsx.add(node.value);
           return;
         }
@@ -242,16 +270,30 @@ const regla = {
       Literal(node) {
         if (typeof node.value !== "string" || reportados.has(node) || dentroDeJsx.has(node)) return;
         if (node.parent?.type?.startsWith("JSX")) return;
+        if (esMensajeDeError(node)) {
+          if (pareceMensajeDeErrorEnCastellano(node.value)) reportar(node, node.value);
+          return;
+        }
         if (esContextoTecnico(node)) return;
         if (pareceTextoDeUi(node.value, { estricto: true })) reportar(node, node.value);
       },
       TemplateLiteral(node) {
         if (node.parent?.type === "JSXExpressionContainer" || node.parent?.type === "TaggedTemplateExpression") return;
-        if (esContextoTecnico(node)) return;
-        for (const q of node.quasis) {
-          const valor = q.value.cooked ?? q.value.raw;
-          if (!reportados.has(q) && pareceTextoDeUi(valor, { estricto: true })) reportar(q, valor);
+        if (esMensajeDeError(node)) {
+          node.quasis.forEach((q) => {
+            const valor = q.value.cooked ?? q.value.raw;
+            if (pareceMensajeDeErrorEnCastellano(valor)) reportar(q, valor);
+          });
+          return;
         }
+        if (esContextoTecnico(node)) return;
+        node.quasis.forEach((q, i) => {
+          const valor = q.value.cooked ?? q.value.raw;
+          if (reportados.has(q)) return;
+          // Lo que sigue a una interpolación (`${n} facturas pendientes`) no tiene mayúscula inicial aunque sea una frase: ahí vale
+          // la heurística de JSX (varias palabras que no son clases de Tailwind).
+          if (pareceTextoDeUi(valor, { estricto: i === 0 })) reportar(q, valor);
+        });
       },
     };
   },
