@@ -12,13 +12,15 @@
     "cargando": "Loading…",
     "guardar": "Save",
     "cancelar": "Cancel",
-    "cerrarSesion": "Sign out",
-    "cargandoAccesible": "Loading",
-    "paso": "Step {numero} of {total}",
-    "opcional": "(optional)",
-    "moneda": "Currency",
-    "disminuir": "Decrease",
-    "aumentar": "Increase"
+    "cerrarSesion": "Sign out"
+  },
+  "referenciaTecnica": {
+    "abrir": "Technical reference",
+    "entendido": "Got it",
+    "clavePrimaria": "Primary key",
+    "campo": "Field",
+    "tipo": "Type",
+    "descripcion": "Description"
   },
   "auth": {
     "marca": {
@@ -1838,12 +1840,6 @@
     "empresas": {
       "cambiar": "Switch company",
       "ruc": "RUC {ruc}"
-    },
-    "tema": {
-      "titulo": "Interface theme",
-      "claro": "Light",
-      "oscuro": "Dark",
-      "sistema": "System"
     },
     "perfil": {
       "menu": "User menu",

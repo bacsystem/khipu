@@ -31,8 +31,7 @@ const eslintConfig = [
     ignores: [
       "**/*.test.{ts,tsx}",
       "**/*.d.ts",
-      // Vendorizado del design system (#16): sus textos los pasa el portal por props.
-      "src/components/ui/**",
+      // Los componentes del design system llegan del paquete khipu-design-system (#16), fuera de src/: no los cubre esta regla.
       // Rutas del BFF: sus strings son códigos de error y cabeceras para la API, no texto que se pinta.
       "src/app/api/**",
     ],

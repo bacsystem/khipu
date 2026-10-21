@@ -43,6 +43,10 @@ Guardas:
   reemplaza en `vitest.setup.ts` por traductores reales sobre el locale de prueba (`fijarLocaleDePrueba("en")`, ver `src/i18n/prueba.ts`).
 - Para ver el portal en inglés: cookie `khipu_locale=en` (p. ej. desde las devtools). `e2e/idioma.spec.ts` lo comprueba de punta a punta.
 
+Los componentes genéricos vienen del paquete `khipu-design-system` (#16), fuera de `src/`: la regla no los cubre y sus textos propios
+(el `aria-label` del spinner, «(opcional)» de `Campo`, «Paso n de m», los botones de `StepperNumerico`, el selector de tema…) siguen
+en castellano con `en` hasta que el paquete los reciba por props o los traduzca. Lo que el portal les pasa (títulos, etiquetas) sí sale de messages.
+
 Agregar un texto: la clave en `es.json` y en `en.json` (si falta en `en`, `paridad.test.ts` falla) y leerla como arriba.
 
 ## Acceso desde otro equipo de la red local

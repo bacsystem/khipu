@@ -12,13 +12,15 @@
     "cargando": "Cargando…",
     "guardar": "Guardar",
     "cancelar": "Cancelar",
-    "cerrarSesion": "Cerrar sesión",
-    "cargandoAccesible": "Cargando",
-    "paso": "Paso {numero} de {total}",
-    "opcional": "(opcional)",
-    "moneda": "Moneda",
-    "disminuir": "Disminuir",
-    "aumentar": "Aumentar"
+    "cerrarSesion": "Cerrar sesión"
+  },
+  "referenciaTecnica": {
+    "abrir": "Referencia técnica",
+    "entendido": "Entendido",
+    "clavePrimaria": "Clave primaria",
+    "campo": "Campo",
+    "tipo": "Tipo",
+    "descripcion": "Descripción"
   },
   "auth": {
     "marca": {
@@ -1838,12 +1840,6 @@
     "empresas": {
       "cambiar": "Cambiar de empresa",
       "ruc": "RUC {ruc}"
-    },
-    "tema": {
-      "titulo": "Tema de la interfaz",
-      "claro": "Claro",
-      "oscuro": "Oscuro",
-      "sistema": "Sistema"
     },
     "perfil": {
       "menu": "Menú de usuario",
