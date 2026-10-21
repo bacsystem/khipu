@@ -2,13 +2,15 @@
 
 import { BanIcon, ChevronDownIcon, KeyRoundIcon, PlayIcon, PowerIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { Webhook } from "@/lib/api/webhooks";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { PAUSA_TRAS_FALLOS, resumenDeEventos } from "@/lib/webhooks/eventos";
@@ -20,11 +22,12 @@ const ACCION =
 const ACCION_NEUTRA = cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted");
 
 function EstadoBadge({ webhook }: { webhook: Webhook }) {
+  const t = useMessages().webhooks.tarjeta;
   if (webhook.activo)
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
         <span className="size-1.5 rounded-full bg-success-solid" />
-        Activo
+        {t.activo}
       </span>
     );
   const pausadoPorKhipu = Boolean(webhook.pausado_motivo);
@@ -36,7 +39,7 @@ function EstadoBadge({ webhook }: { webhook: Webhook }) {
       )}
     >
       <span className={cn("size-1.5 rounded-full", pausadoPorKhipu ? "bg-warning-solid" : "bg-muted-foreground/60")} />
-      {pausadoPorKhipu ? "Pausado por khipu" : "Apagado"}
+      {pausadoPorKhipu ? t.pausado : t.apagado}
     </span>
   );
 }
@@ -44,6 +47,10 @@ function EstadoBadge({ webhook }: { webhook: Webhook }) {
 /** Un endpoint de webhooks (#19): su estado, sus eventos y las acciones (probar, apagar o activar, rotar el secreto, eliminar) más el log de entregas. */
 export function WebhookCard({ webhook }: { webhook: Webhook }) {
   const soloLectura = useSinPermisoDeConfigurar();
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.webhooks.tarjeta;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [verEntregas, setVerEntregas] = useState(false);
   const [versionLog, setVersionLog] = useState(0);
@@ -69,7 +76,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
   async function probar() {
     const res = await llamar("probar", `/api/proxy/webhooks/${webhook.id}/prueba`, "POST");
     if (!res) return;
-    setAviso("Prueba en cola: sale en unos segundos y aparece en las entregas.");
+    setAviso(t.pruebaEnCola);
     setVerEntregas(true);
     setVersionLog((n) => n + 1);
     // El trabajo de entrega corre cada pocos segundos: se vuelve a leer el log para ver cómo terminó.
@@ -96,7 +103,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
   const bloqueado = soloLectura !== null || trabajando !== null;
 
   return (
-    <article data-testid="webhook" aria-label={`Webhook ${webhook.url}`} className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
+    <article data-testid="webhook" aria-label={interpolar(t.aria, { url: webhook.url })} className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
       <div className="grid gap-3 px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
@@ -106,7 +113,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
             </div>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
               {webhook.descripcion ? <>{webhook.descripcion} · </> : null}
-              {resumenDeEventos(webhook.eventos)} · creado {formatearFechaHora(webhook.creado_en)}
+              {interpolar(t.creado, { eventos: resumenDeEventos(webhook.eventos, messages), fecha: formatearFechaHora(webhook.creado_en, locale) })}
             </p>
           </div>
         </div>
@@ -115,59 +122,58 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
           <div role="status" className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning px-3 py-2 text-[12px] leading-relaxed text-warning-foreground">
             <BanIcon className="mt-0.5 size-4 shrink-0" />
             <p>
-              {webhook.pausado_motivo}. khipu lo apaga tras {PAUSA_TRAS_FALLOS} intentos fallidos seguidos. Corrige tu servidor y actívalo: las entregas pendientes salen enseguida.
+              {interpolar(t.pausa, { motivo: webhook.pausado_motivo, n: PAUSA_TRAS_FALLOS })}
             </p>
           </div>
         ) : webhook.activo && webhook.fallos_consecutivos > 0 ? (
           <p className="text-[12px] text-warning-foreground">
-            {webhook.fallos_consecutivos} intento{webhook.fallos_consecutivos === 1 ? "" : "s"} fallido{webhook.fallos_consecutivos === 1 ? "" : "s"} seguido
-            {webhook.fallos_consecutivos === 1 ? "" : "s"}; a los {PAUSA_TRAS_FALLOS} khipu lo apaga.
+            {interpolar(webhook.fallos_consecutivos === 1 ? t.falloUno : t.fallosVarios, { n: webhook.fallos_consecutivos, max: PAUSA_TRAS_FALLOS })}
           </p>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <button type="button" disabled={bloqueado || !webhook.activo} title={soloLectura ?? (webhook.activo ? undefined : "Actívalo para enviar una prueba")} onClick={probar} className={ACCION_NEUTRA}>
+          <button type="button" disabled={bloqueado || !webhook.activo} title={soloLectura ?? (webhook.activo ? undefined : t.activaloParaProbar)} onClick={probar} className={ACCION_NEUTRA}>
             <PlayIcon className="size-3.5" />
-            {trabajando === "probar" ? "Enviando…" : "Enviar prueba"}
+            {trabajando === "probar" ? t.enviando : t.enviarPrueba}
           </button>
           <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={alternarActivo} className={ACCION_NEUTRA}>
             <PowerIcon className="size-3.5" />
-            {webhook.activo ? "Apagar" : "Activar"}
+            {webhook.activo ? t.apagar : t.activar}
           </button>
           {confirmando === "rotar" ? (
             <>
-              <span className="text-[11px] text-muted-foreground">¿Rotar? El secreto actual deja de valer ya.</span>
+              <span className="text-[11px] text-muted-foreground">{t.confirmarRotar}</span>
               <button type="button" disabled={bloqueado} onClick={rotar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                Sí, rotar
+                {t.siRotar}
               </button>
               <button type="button" onClick={() => setConfirmando(null)} className={ACCION_NEUTRA}>
-                Cancelar
+                {messages.comun.cancelar}
               </button>
             </>
           ) : (
             <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("rotar")} className={ACCION_NEUTRA}>
               <KeyRoundIcon className="size-3.5" />
-              Rotar secreto
+              {t.rotar}
             </button>
           )}
           {confirmando === "eliminar" ? (
             <>
-              <span className="text-[11px] text-muted-foreground">¿Eliminar con su log de entregas?</span>
+              <span className="text-[11px] text-muted-foreground">{t.confirmarEliminar}</span>
               <button type="button" disabled={bloqueado} onClick={eliminar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                Sí, eliminar
+                {t.siEliminar}
               </button>
               <button type="button" onClick={() => setConfirmando(null)} className={ACCION_NEUTRA}>
-                Cancelar
+                {messages.comun.cancelar}
               </button>
             </>
           ) : (
             <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("eliminar")} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
               <Trash2Icon className="size-3.5" />
-              Eliminar
+              {t.eliminar}
             </button>
           )}
           <button type="button" aria-expanded={verEntregas} onClick={() => setVerEntregas((v) => !v)} className={cn(ACCION_NEUTRA, "ml-auto")}>
-            Entregas
+            {t.entregas}
             <ChevronDownIcon className={cn("size-3.5 transition-transform", verEntregas && "rotate-180")} />
           </button>
         </div>
@@ -189,13 +195,13 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
       <Dialog open={secretoNuevo !== null} onOpenChange={(abierto) => !abierto && setSecretoNuevo(null)}>
         <DialogContent className="gap-0 p-0">
           <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <DialogTitle className="text-base font-semibold tracking-tight">Nuevo secreto de firma</DialogTitle>
-            <DialogDescription className="text-[13px]">El anterior ya no vale: actualiza tu servidor con este</DialogDescription>
+            <DialogTitle className="text-base font-semibold tracking-tight">{t.nuevoSecreto}</DialogTitle>
+            <DialogDescription className="text-[13px]">{t.nuevoSecretoDescripcion}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 px-5 py-4">{secretoNuevo ? <SecretoWebhookRevelado secreto={secretoNuevo} /> : null}</div>
           <div className="flex justify-end border-t border-border/60 px-5 py-3">
             <button type="button" onClick={() => setSecretoNuevo(null)} className={BOTON_PRIMARIO}>
-              Listo, lo guardé
+              {messages.webhooks.listo}
             </button>
           </div>
         </DialogContent>

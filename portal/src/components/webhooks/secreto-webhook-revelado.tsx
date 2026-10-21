@@ -1,5 +1,6 @@
 "use client";
 
+import { useMessages, useTranslations } from "next-intl";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
 
 /**
@@ -7,14 +8,18 @@ import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
  * Reutiliza el tratamiento de la API key (caja, copiar, aviso) con su propio texto.
  */
 export function SecretoWebhookRevelado({ secreto }: { secreto: string }) {
+  const t = useMessages().webhooks.secreto;
+  const tr = useTranslations("webhooks.secreto");
   return (
     <ApiKeyRevelada
       apiKey={secreto}
-      etiqueta="Secreto de firma"
+      etiqueta={t.etiqueta}
       aviso={
         <p>
-          Guárdalo ahora en un lugar seguro: <strong className="font-semibold">no volverá a mostrarse</strong>. Con él tu servidor verifica la cabecera{" "}
-          <code className="font-mono">X-Khipu-Signature</code> de cada entrega. Si lo pierdes, rota el secreto y actualiza tu servidor.
+          {tr.rich("aviso", {
+            b: (texto) => <strong className="font-semibold">{texto}</strong>,
+            code: (texto) => <code className="font-mono">{texto}</code>,
+          })}
         </p>
       }
     />

@@ -1,23 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
+import { interpolar } from "@/i18n/mensajes";
 import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
 import { obtenerMiCuenta } from "@/lib/api/cuenta";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha, formatearFechaDeLima, formatearMes, ultimoDiaCubierto } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: `Plan y consumo · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.nav.items.plan} · ${messages.app.nombre}` };
+}
 
-const ESTADO: Record<string, { texto: string; clase: string }> = {
-  VIGENTE: { texto: "Al día", clase: "border-success-border bg-success text-success-foreground" },
-  EN_GRACIA: { texto: "Pago vencido, en gracia", clase: "border-warning-border bg-warning text-warning-foreground" },
-  VENCIDA: { texto: "Vencido", clase: "border-destructive/40 bg-destructive/10 text-destructive" },
-};
+/** El color de cada estado de pago; su texto está en `messages.cuenta.plan.estados`. */
+const ESTADO = {
+  VIGENTE: "border-success-border bg-success text-success-foreground",
+  EN_GRACIA: "border-warning-border bg-warning text-warning-foreground",
+  VENCIDA: "border-destructive/40 bg-destructive/10 text-destructive",
+} as const;
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
@@ -36,35 +42,47 @@ export default async function PlanPage() {
   const { access } = await getServerSession();
   if (!access) redirect("/login");
 
+  const messages = await getMessages();
+  const locale = await getLocale();
+  const t = messages.cuenta.plan;
+  const tr = await getTranslations("cuenta.plan");
+
   const cuenta = await obtenerMiCuenta(access).catch(() => null);
   if (!cuenta) {
     return (
       <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-        <Alerta tono="error" titulo="No se pudo leer tu plan">
-          Puede ser un problema pasajero de conexión: tu plan y tu consumo no cambiaron. <Link href="/cuenta/plan" className="underline">Volver a intentar</Link>
+        <Alerta tono="error" titulo={t.errorTitulo}>
+          {tr.rich("errorDetalle", {
+            link: (texto) => (
+              <Link href="/cuenta/plan" className="underline">
+                {texto}
+              </Link>
+            ),
+          })}
         </Alerta>
       </div>
     );
   }
 
   const { plan, consumo } = cuenta;
-  const r = resumenDePlan(cuenta);
+  const r = resumenDePlan(cuenta, messages, locale);
   // Un estado que el portal no conoce se muestra tal cual, en neutro: caer en «Al día» afirmaría lo que no se sabe (265-H4).
-  const estado = ESTADO[plan.estado] ?? { texto: plan.estado, clase: "border-border bg-muted text-muted-foreground" };
-  const pagadoHasta = plan.vence_en ? formatearFecha(ultimoDiaCubierto(plan.vence_en)) : null;
-  const cubreHasta = plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(plan.hasta_cuando_cubre)) : null;
+  const estado =
+    plan.estado in ESTADO
+      ? { texto: t.estados[plan.estado as keyof typeof ESTADO], clase: ESTADO[plan.estado as keyof typeof ESTADO] }
+      : { texto: plan.estado, clase: "border-border bg-muted text-muted-foreground" };
+  const pagadoHasta = plan.vence_en ? formatearFecha(ultimoDiaCubierto(plan.vence_en), locale) : null;
+  const cubreHasta = plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(plan.hasta_cuando_cubre), locale) : null;
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <p className="text-sm text-muted-foreground">
-        Tu plan, hasta cuándo está pagado y lo que llevas consumido este mes. Para cambiar de plan o renovarlo, comunícate con el equipo de khipu.
-      </p>
+      <p className="text-sm text-muted-foreground">{t.descripcion}</p>
       {/* #250: «comunícate» tiene que decir por dónde. */}
       <AyudaDeSoporte />
 
       {r.aviso ? (
         <Alerta tono={r.tono === "error" ? "error" : "aviso"} titulo={r.aviso}>
-          Para renovar tu plan o pasar a uno con más documentos, comunícate con el equipo de khipu.
+          {t.avisoRenovar}
         </Alerta>
       ) : null}
 
@@ -72,22 +90,26 @@ export default async function PlanPage() {
         <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-plan">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
             <h2 id="titulo-plan" className={TITULO_SECCION}>
-              Plan {plan.plan.nombre}
+              {interpolar(messages.nav.plan.etiqueta, { plan: plan.plan.nombre })}
             </h2>
             <span className={cn("rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium", estado.clase)}>{estado.texto}</span>
           </div>
           <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-            <Dato etiqueta="Precio">{plan.plan.precio_mensual === 0 ? "Gratis" : `${precioEnSoles(plan.plan.precio_mensual)} al mes`}</Dato>
-            <Dato etiqueta="Pagado hasta">{pagadoHasta ?? "No vence"}</Dato>
-            {plan.vence_en ? <Dato etiqueta="Días de gracia">{plan.dias_de_gracia === 1 ? "1 día" : `${plan.dias_de_gracia} días`}</Dato> : null}
-            {cubreHasta ? <Dato etiqueta="Se sirve hasta">{cubreHasta}, gracia incluida</Dato> : null}
+            <Dato etiqueta={t.precio}>{plan.plan.precio_mensual === 0 ? t.gratis : interpolar(t.alMes, { precio: precioEnSoles(plan.plan.precio_mensual, messages, locale) })}</Dato>
+            <Dato etiqueta={t.pagadoHasta}>{pagadoHasta ?? t.noVence}</Dato>
+            {plan.vence_en ? <Dato etiqueta={t.diasDeGracia}>{plan.dias_de_gracia === 1 ? t.unDia : interpolar(t.dias, { n: plan.dias_de_gracia })}</Dato> : null}
+            {cubreHasta ? <Dato etiqueta={t.seSirveHasta}>{interpolar(t.graciaIncluida, { fecha: cubreHasta })}</Dato> : null}
             <div className="sm:col-span-2">
-              <Dato etiqueta="Límites del plan">{limitesEnPalabras(plan.plan.limites)}</Dato>
+              <Dato etiqueta={t.limites}>{limitesEnPalabras(plan.plan.limites, messages)}</Dato>
             </div>
           </div>
           {plan.programado ? (
             <p className="mt-4 rounded-lg border border-border/80 bg-muted p-3 text-[12px] text-muted-foreground">
-              Desde el {formatearFechaDeLima(plan.programado.aplica_desde)} pasas al plan <strong className="text-foreground">{plan.programado.plan.nombre}</strong>.
+              {tr.rich("programado", {
+                fecha: formatearFechaDeLima(plan.programado.aplica_desde, locale),
+                plan: plan.programado.plan.nombre,
+                b: (texto) => <strong className="text-foreground">{texto}</strong>,
+              })}
             </p>
           ) : null}
         </section>
@@ -95,23 +117,21 @@ export default async function PlanPage() {
         <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-consumo">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
             <h2 id="titulo-consumo" className={TITULO_SECCION}>
-              Consumo de {formatearMes(consumo.mes)}
+              {interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}
             </h2>
             <span className="font-mono text-[13px] font-semibold text-foreground" data-testid="consumo-del-mes">
               {r.consumo}
             </span>
           </div>
           {r.porcentaje !== null ? (
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.porcentaje} aria-label="Consumo del tope del mes">
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.porcentaje} aria-label={t.consumoTope}>
               <div
                 className={cn("h-full rounded-full", r.tono === "ok" && "bg-primary", r.tono === "aviso" && "bg-warning-solid", r.tono === "error" && "bg-destructive")}
                 style={{ width: `${r.porcentaje}%` }}
               />
             </div>
           ) : null}
-          <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-            Cuenta lo que SUNAT aceptó este mes en todas tus empresas, aunque después se anule, por su fecha de emisión (hora de Lima).
-          </p>
+          <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">{t.nota}</p>
         </section>
       </div>
     </div>

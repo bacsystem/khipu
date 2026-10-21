@@ -2,13 +2,14 @@
 
 import { PlusIcon, WebhookIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { WebhookCreado } from "@/lib/api/webhooks";
 import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { errorDeUrlWebhook, EVENTOS_WEBHOOK } from "@/lib/webhooks/eventos";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,9 @@ const TODOS = EVENTOS_WEBHOOK.map((e) => e.evento) as string[];
 /** Registra un endpoint de webhooks y muestra su secreto de firma una sola vez; al cerrar, refresca la lista del servidor. */
 export function NuevoWebhookDialog({ className }: { className?: string }) {
   const soloLectura = useSinPermisoDeConfigurar();
+  const messages = useMessages();
+  const t = messages.webhooks.nuevo;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [url, setUrl] = useState("");
@@ -31,7 +35,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
   // Cada apertura del diálogo es una «sesión»: la respuesta de un registro que llega después de cerrarlo ya no es de este diálogo.
   const sesion = useRef(0);
 
-  const errorUrl = errorDeUrlWebhook(url);
+  const errorUrl = errorDeUrlWebhook(url, messages);
   const sinEventos = eventos.length === 0;
 
   function cambiarAbierto(valor: boolean) {
@@ -80,7 +84,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className ?? cn(ACCION_PRINCIPAL, "self-start md:self-auto")}>
         <PlusIcon className="size-4" />
-        Nuevo webhook
+        {t.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
@@ -89,8 +93,8 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
               <WebhookIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">Nuevo webhook</DialogTitle>
-              <DialogDescription className="text-[13px]">khipu avisa a esta URL cada vez que un comprobante cambia de estado</DialogDescription>
+              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -100,26 +104,26 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
             <SecretoWebhookRevelado secreto={secreto} />
           ) : (
             <>
-              <Campo id="webhook-url" etiqueta="URL del endpoint" ayuda="https://… · un servidor público; cada entrega llega firmada" error={intento ? errorUrl : null}>
+              <Campo id="webhook-url" etiqueta={t.url} ayuda={t.urlAyuda} error={intento ? errorUrl : null}>
                 <input id="webhook-url" type="url" inputMode="url" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mi-sistema.pe/khipu/webhook" className={cn(CAMPO, "font-mono text-[13px]")} />
               </Campo>
-              <Campo id="webhook-descripcion" etiqueta="Descripción" opcional>
-                <input id="webhook-descripcion" maxLength={100} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="ERP producción" className={CAMPO} />
+              <Campo id="webhook-descripcion" etiqueta={t.descripcionCampo} opcional>
+                <input id="webhook-descripcion" maxLength={100} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={t.descripcionEjemplo} className={CAMPO} />
               </Campo>
               <fieldset className="grid gap-1.5">
-                <legend className="mb-1 text-[12px] font-medium text-foreground">Eventos</legend>
+                <legend className="mb-1 text-[12px] font-medium text-foreground">{t.eventos}</legend>
                 {EVENTOS_WEBHOOK.map((e) => (
                   <label key={e.evento} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-[13px] hover:bg-muted/60">
                     <input type="checkbox" checked={eventos.includes(e.evento)} onChange={() => alternar(e.evento)} className="mt-0.5 size-3.5 accent-primary" />
                     <span>
-                      <span className="font-medium text-foreground">{e.etiqueta}</span>
-                      <span className="text-muted-foreground"> · {e.detalle}</span>
+                      <span className="font-medium text-foreground">{messages.webhooks.eventos[e.clave].etiqueta}</span>
+                      <span className="text-muted-foreground"> · {messages.webhooks.eventos[e.clave].detalle}</span>
                     </span>
                   </label>
                 ))}
                 {intento && sinEventos ? (
                   <p role="alert" className="text-[12px] text-destructive">
-                    Elige al menos un evento
+                    {t.sinEventos}
                   </p>
                 ) : null}
               </fieldset>
@@ -135,15 +139,15 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
           {secreto ? (
             <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO}>
-              Listo, lo guardé
+              {messages.webhooks.listo}
             </button>
           ) : (
             <>
               <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
-                Cancelar
+                {messages.comun.cancelar}
               </button>
               <button type="button" disabled={creando} onClick={crear} className={BOTON_PRIMARIO}>
-                {creando ? "Registrando…" : "Registrar webhook"}
+                {creando ? t.registrando : t.registrar}
               </button>
             </>
           )}

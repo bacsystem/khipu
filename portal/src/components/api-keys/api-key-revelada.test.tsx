@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { ApiKeyRevelada } from "./api-key-revelada";
 
 afterEach(() => {
@@ -56,5 +57,15 @@ describe("ApiKeyRevelada", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: "Copiar" })).toBeTruthy();
     expect(screen.getByTestId("api-key-nueva").textContent).toBe("fk_abc123");
+  });
+
+  it("en inglés, la etiqueta, el aviso y el botón salen de en.json (#25)", () => {
+    fijarLocaleDePrueba("en");
+    render(<ApiKeyRevelada apiKey="fk_abc123" />);
+
+    expect(screen.getByText("Your API key")).toBeTruthy();
+    expect(screen.getByText("it won’t be shown again")).toBeTruthy();
+    expect(screen.getByText(/Only a hash is kept/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
   });
 });

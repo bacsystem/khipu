@@ -1624,7 +1624,9 @@
       "noSalio": "The invitation was saved, but the email was not sent. Resend it from the list in a few minutes."
     },
     "reenviada": "We sent a new link to {email}. The previous one no longer works.",
-    "reenviadaSinCorreo": "We generated a new link, but the email was not sent. Try again in a few minutes."
+    "reenviadaSinCorreo": "We generated a new link, but the email was not sent. Try again in a few minutes.",
+    "resumenUsuarios": "{activos} active · {total} total",
+    "pendientes": "{n} pending"
   },
   "soporte": {
     "soloLectura": "Support mode: view only, nothing can be changed.",
@@ -5346,6 +5348,281 @@
         "**Environments:** integrate and test everything in `BETA`; what SUNAT accepts in BETA it accepts in production under the same rules.",
         "**Secrets:** the API key identifies your company; keep it in a secrets manager and revoke it from the portal if it leaks."
       ]
+    }
+  },
+  "apiKeys": {
+    "pagina": {
+      "titulo": "API keys and integration",
+      "sinEmpresa": "Set up a company first to create API keys.",
+      "configurarEmpresa": "Set up company",
+      "activas": "Active keys",
+      "activasSinComprobar": "They authenticate; we couldn’t check whether the company can issue yet",
+      "faltaCertificado": "A valid digital certificate is missing to issue",
+      "faltaSol": "They sign, but don’t send to SUNAT until you save the SOL credentials",
+      "listas": "Ready to issue via API",
+      "sinAcceso": "No API access yet",
+      "creadas": "/ {total} created",
+      "ultima": "Latest key created",
+      "ultimaVacia": "Create the first one with “Create API key”",
+      "revocadas": "Revoked keys",
+      "revocadasAyuda": "They no longer authenticate any request",
+      "ningunaRevocada": "None revoked so far",
+      "autenticacion": "Authentication",
+      "autenticacionAyuda": "HTTP header · one key per integration"
+    },
+    "tabla": {
+      "filtro": {
+        "todas": "Status: All",
+        "activas": "Active",
+        "revocadas": "Revoked"
+      },
+      "activa": "Active",
+      "revocada": "Revoked",
+      "confirmarRevocar": "Revoke permanently?",
+      "siRevocar": "Yes, revoke",
+      "revocar": "Revoke",
+      "titulo": "Access keys",
+      "subtitulo": "Only the hash is stored · the secret is shown once, when it’s created",
+      "refrescar": "Refresh list",
+      "columnas": {
+        "llave": "Key",
+        "creada": "Created",
+        "revocada": "Revoked",
+        "estado": "Status",
+        "acciones": "Actions"
+      },
+      "copiarPrefijo": "Copy prefix",
+      "id": "id: {id}",
+      "vacia": "You don’t have any API keys yet. Create the first one with “Create API key”.",
+      "sinResultados": "No keys match the selected filter.",
+      "unidad": "keys",
+      "nota": "Revoking is irreversible: the key stops authenticating immediately"
+    },
+    "revelada": {
+      "etiqueta": "Your API key",
+      "aviso": "Save it somewhere safe now: <b>it won’t be shown again</b>. Only a hash is kept, so if you lose it you’ll have to revoke it and create another one.",
+      "copiada": "Copied",
+      "copiar": "Copy"
+    },
+    "nueva": {
+      "boton": "Create API key",
+      "titulo": "New API key",
+      "descripcion": "Credential to authenticate your integration with the X-Api-Key header",
+      "explicacion": "A random key will be generated for the active company. Each integration (ERP, e-commerce, point of sale) should use its own key, so you can revoke it without affecting the others.",
+      "listo": "Done, I saved it",
+      "generando": "Generating…",
+      "generar": "Generate key"
+    },
+    "ejemplo": {
+      "boton": "Test issuance",
+      "titulo": "Test issuance via API",
+      "descripcion": "XML-DSig signing, XSD validation and submission to SUNAT in a single call",
+      "notaCodigo": "Replace <code>fk_TU_API_KEY</code> with an active key. If you omit <code>correlativo</code>, the series assigns the number sequentially.",
+      "respuesta": "Response",
+      "notaRespuesta": "<code>estado_documento</code> stays <estado>ENVIADO</estado> if SUNAT is slow; the CDR arrives through automatic retries and you can see it in Documents.",
+      "referencia": "Full API reference",
+      "entendido": "Got it"
+    },
+    "referencia": {
+      "titulo": "API keys technical reference",
+      "descripcion": "Data model of the ‘api_key’ entity and authentication rules",
+      "documentacion": "Full API documentation",
+      "entidad": "‘api_key’ entity",
+      "entidadSubtitulo": "api_key table · several keys per company",
+      "notaTabla": "unique key_hash · the plain key is never stored",
+      "reglasTitulo": "Authentication rules",
+      "reglasSubtitulo": "routes /v1/facturas, /v1/series and /v1/empresa",
+      "campos": {
+        "id": "Key identifier (the one the revocation endpoint uses)",
+        "tenant_id": "Issuing company that owns the key",
+        "key_hash": "SHA-256 of the key + server pepper; never leaves through the API",
+        "prefijo": "First 10 characters, to recognize it in listings",
+        "activa": "false once revoked; the API responds 401 with that key",
+        "created_at": "Creation time",
+        "revoked_at": "Revocation time, null while it’s active"
+      },
+      "reglas": {
+        "header": {
+          "titulo": "Authentication header",
+          "detalle": "One key per request, no Bearer scheme",
+          "codigo": "X-Api-Key"
+        },
+        "formato": {
+          "titulo": "Key format",
+          "detalle": "fk_ prefix + 40 random characters (base64url)",
+          "codigo": "fk_…"
+        },
+        "alcance": {
+          "titulo": "Scope",
+          "detalle": "Each key belongs to a single company (RUC); X-Empresa isn’t needed",
+          "codigo": "tenant"
+        },
+        "gestion": {
+          "titulo": "Managed only from the portal",
+          "detalle": "Creating, listing and revoking keys requires a session; with X-Api-Key it responds 403",
+          "codigo": "session"
+        },
+        "revocacion": {
+          "titulo": "Revocation",
+          "detalle": "Irreversible: the key stops authenticating immediately, with no grace period",
+          "codigo": "DELETE"
+        }
+      },
+      "nota": "The portal doesn’t use API keys: it signs in with your session (JWT) and the <b>X-Empresa</b> header. Keys are for external systems that issue through an integration; a compromised key is revoked here and replaced with a new one."
+    }
+  },
+  "webhooks": {
+    "listo": "Done, I saved it",
+    "seccion": {
+      "titulo": "Webhooks",
+      "descripcion": "Get a signed notification on your server when a document changes status, without polling the API.",
+      "comoVerificar": "How to verify the signature",
+      "errorLectura": "We couldn’t load the webhooks. Reload the page to try again.",
+      "vacia": "You don’t have any webhooks yet. Register your system’s URL with “New webhook”."
+    },
+    "nuevo": {
+      "boton": "New webhook",
+      "titulo": "New webhook",
+      "descripcion": "khipu notifies this URL every time a document changes status",
+      "url": "Endpoint URL",
+      "urlAyuda": "https://… · a public server; every delivery arrives signed",
+      "descripcionCampo": "Description",
+      "descripcionEjemplo": "Production ERP",
+      "eventos": "Events",
+      "sinEventos": "Choose at least one event",
+      "registrando": "Registering…",
+      "registrar": "Register webhook"
+    },
+    "secreto": {
+      "etiqueta": "Signing secret",
+      "aviso": "Save it somewhere safe now: <b>it won’t be shown again</b>. Your server uses it to verify the <code>X-Khipu-Signature</code> header of each delivery. If you lose it, rotate the secret and update your server."
+    },
+    "tarjeta": {
+      "activo": "Active",
+      "pausado": "Paused by khipu",
+      "apagado": "Off",
+      "aria": "Webhook {url}",
+      "creado": "{eventos} · created {fecha}",
+      "pruebaEnCola": "Test queued: it goes out in a few seconds and shows up in the deliveries.",
+      "pausa": "{motivo}. khipu turns it off after {n} consecutive failed attempts. Fix your server and turn it on: pending deliveries go out right away.",
+      "falloUno": "{n} consecutive failed attempt; at {max} khipu turns it off.",
+      "fallosVarios": "{n} consecutive failed attempts; at {max} khipu turns it off.",
+      "activaloParaProbar": "Turn it on to send a test",
+      "enviando": "Sending…",
+      "enviarPrueba": "Send test",
+      "apagar": "Turn off",
+      "activar": "Turn on",
+      "confirmarRotar": "Rotate? The current secret stops working right away.",
+      "siRotar": "Yes, rotate",
+      "rotar": "Rotate secret",
+      "confirmarEliminar": "Delete it along with its delivery log?",
+      "siEliminar": "Yes, delete",
+      "eliminar": "Delete",
+      "entregas": "Deliveries",
+      "nuevoSecreto": "New signing secret",
+      "nuevoSecretoDescripcion": "The previous one no longer works: update your server with this one"
+    },
+    "entregas": {
+      "titulo": "Deliveries",
+      "filtrar": "Filter deliveries by status",
+      "filtro": {
+        "todas": "All",
+        "pendientes": "Pending",
+        "entregadas": "Delivered",
+        "fallidas": "Failed"
+      },
+      "refrescar": "Refresh deliveries",
+      "columnas": {
+        "creada": "Created",
+        "evento": "Event",
+        "estado": "Status",
+        "intentos": "Attempts",
+        "ultimoResultado": "Last result",
+        "acciones": "Actions"
+      },
+      "reintenta": "retries {fecha}",
+      "enCola": "queued",
+      "reenviar": "Resend",
+      "sinResultados": "No deliveries with that status.",
+      "vacia": "No deliveries yet. Send a test or issue a document.",
+      "cargando": "Loading deliveries…",
+      "unidad": "deliveries",
+      "nota": "Kept for 30 days",
+      "errorLectura": "We couldn’t read the delivery log",
+      "errorRed": "We couldn’t read the delivery log. Check your connection and try again."
+    },
+    "eventos": {
+      "aceptado": {
+        "etiqueta": "Accepted",
+        "detalle": "SUNAT accepted the document"
+      },
+      "aceptadoConObs": {
+        "etiqueta": "Accepted with observations",
+        "detalle": "SUNAT accepted it and left observations"
+      },
+      "rechazado": {
+        "etiqueta": "Rejected",
+        "detalle": "SUNAT rejected it: it has to be corrected and a new one issued"
+      },
+      "errorEnvio": {
+        "etiqueta": "Sending error",
+        "detalle": "It couldn’t be sent to SUNAT; khipu retries"
+      },
+      "fueraDePlazo": {
+        "etiqueta": "Past deadline",
+        "detalle": "The sending deadline passed: it has to be issued again"
+      },
+      "anulado": {
+        "etiqueta": "Voided",
+        "detalle": "It was voided with SUNAT"
+      },
+      "descartado": {
+        "etiqueta": "Discarded",
+        "detalle": "An administrator stopped trying to send it"
+      }
+    },
+    "eventoPrueba": "Test",
+    "todosLosEventos": "All events",
+    "estadoEntrega": {
+      "PENDIENTE": "Pending",
+      "EXITOSA": "Delivered",
+      "FALLIDA": "Failed"
+    },
+    "url": {
+      "vacia": "Enter the URL that will receive the events",
+      "larga": "The URL can’t be longer than 500 characters",
+      "invalida": "That’s not a valid URL; for example https://mi-sistema.pe/khipu",
+      "https": "The URL must start with https://",
+      "credenciales": "The URL can’t include a username or password; use the signing secret",
+      "fragmento": "The URL can’t include a fragment (#)"
+    }
+  },
+  "cuenta": {
+    "plan": {
+      "estados": {
+        "VIGENTE": "Up to date",
+        "EN_GRACIA": "Payment overdue, in grace period",
+        "VENCIDA": "Expired"
+      },
+      "errorTitulo": "We couldn’t load your plan",
+      "errorDetalle": "It may be a temporary connection problem: your plan and usage haven’t changed. <link>Try again</link>",
+      "descripcion": "Your plan, how long it’s paid for and what you’ve used this month. To change or renew your plan, contact the khipu team.",
+      "avisoRenovar": "To renew your plan or move to one with more documents, contact the khipu team.",
+      "precio": "Price",
+      "gratis": "Free",
+      "alMes": "{precio} per month",
+      "pagadoHasta": "Paid until",
+      "noVence": "Doesn’t expire",
+      "diasDeGracia": "Grace days",
+      "unDia": "1 day",
+      "dias": "{n} days",
+      "seSirveHasta": "Service continues until",
+      "graciaIncluida": "{fecha}, grace period included",
+      "limites": "Plan limits",
+      "programado": "Starting {fecha} you move to the <b>{plan}</b> plan.",
+      "consumoDe": "Usage for {mes}",
+      "consumoTope": "Usage of the monthly cap",
+      "nota": "Counts what SUNAT accepted this month across all your companies, even if it’s voided later, by issue date (Lima time)."
     }
   }
 }

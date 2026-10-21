@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCwIcon, RotateCwIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
@@ -9,11 +10,12 @@ import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
 import { listarEntregas } from "@/lib/api/webhooks-browser";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
-import { ETIQUETA_ESTADO_ENTREGA, etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
+import { etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
 
 const ESTILO_ESTADO: Record<EstadoEntrega, string> = {
   EXITOSA: "border-success-border bg-success text-success-foreground",
@@ -22,7 +24,8 @@ const ESTILO_ESTADO: Record<EstadoEntrega, string> = {
 };
 
 function EstadoEntregaBadge({ estado }: { estado: EstadoEntrega }) {
-  return <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium", ESTILO_ESTADO[estado])}>{ETIQUETA_ESTADO_ENTREGA[estado]}</span>;
+  const etiquetas = useMessages().webhooks.estadoEntrega;
+  return <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium", ESTILO_ESTADO[estado])}>{etiquetas[estado]}</span>;
 }
 
 /**
@@ -31,6 +34,10 @@ function EstadoEntregaBadge({ estado }: { estado: EstadoEntrega }) {
  */
 export function EntregasWebhook({ webhookId, version }: { webhookId: string; version: number }) {
   const soloLectura = useSinPermisoDeConfigurar();
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.webhooks.entregas;
+  const mensajeError = useMensajeError();
   const [estado, setEstado] = useState<EstadoEntrega | "">("");
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState<number>(POR_PAGINA_DEFECTO);
@@ -46,7 +53,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
   const cargar = useCallback(async () => {
     const mia = ++ultimaLectura.current;
     setLeyendo(true);
-    const res = await listarEntregas(webhookId, { estado: estado || undefined, pagina, porPagina });
+    const res = await listarEntregas(webhookId, { estado: estado || undefined, pagina, porPagina }, messages);
     if (mia !== ultimaLectura.current) return;
     setLeyendo(false);
     if (res.estado === "exito") {
@@ -56,7 +63,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
     } else {
       setError(res.mensaje);
     }
-  }, [webhookId, estado, pagina, porPagina]);
+  }, [webhookId, estado, pagina, porPagina, messages]);
 
   useEffect(() => {
     // La lectura es asíncrona: el estado se escribe cuando responde, no durante el efecto.
@@ -83,10 +90,10 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
   return (
     <div className="grid gap-3 border-t border-border/70 px-4 py-3" data-testid="entregas-webhook">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[12px] font-semibold text-foreground">Entregas</h3>
+        <h3 className="text-[12px] font-semibold text-foreground">{t.titulo}</h3>
         <div className="flex items-center gap-2">
           <select
-            aria-label="Filtrar entregas por estado"
+            aria-label={t.filtrar}
             value={estado}
             onChange={(e) => {
               setEstado(e.target.value as EstadoEntrega | "");
@@ -94,12 +101,12 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             }}
             className={cn(CONTROL_FILTRO, "px-2.5")}
           >
-            <option value="">Todas</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="EXITOSA">Entregadas</option>
-            <option value="FALLIDA">Fallidas</option>
+            <option value="">{t.filtro.todas}</option>
+            <option value="PENDIENTE">{t.filtro.pendientes}</option>
+            <option value="EXITOSA">{t.filtro.entregadas}</option>
+            <option value="FALLIDA">{t.filtro.fallidas}</option>
           </select>
-          <button type="button" title="Refrescar entregas" aria-label="Refrescar entregas" onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground hover:text-foreground")}>
+          <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground hover:text-foreground")}>
             <RefreshCwIcon className={cn("size-4", leyendo && "animate-spin")} />
           </button>
         </div>
@@ -115,23 +122,23 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Creada</TableHead>
-              <TableHead className={CABECERA_TABLA}>Evento</TableHead>
-              <TableHead className={CABECERA_TABLA}>Estado</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "text-right")}>Intentos</TableHead>
-              <TableHead className={CABECERA_TABLA}>Último resultado</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.creada}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.evento}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.estado}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "text-right")}>{t.columnas.intentos}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.ultimoResultado}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
             {(entregas ?? []).map((e) => (
               <TableRow key={e.id} data-testid="entrega" className="border-b border-border/60 hover:bg-muted/80">
-                <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px] whitespace-nowrap tabular-nums">{formatearFechaHora(e.creada_en)}</TableCell>
-                <TableCell className="px-3 py-2">{etiquetaDeEvento(e.evento)}</TableCell>
+                <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px] whitespace-nowrap tabular-nums">{formatearFechaHora(e.creada_en, locale)}</TableCell>
+                <TableCell className="px-3 py-2">{etiquetaDeEvento(e.evento, messages)}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <EstadoEntregaBadge estado={e.estado} />
                   {e.estado === "PENDIENTE" && e.siguiente_intento ? (
-                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{e.intentos > 0 ? `reintenta ${formatearFechaHora(e.siguiente_intento)}` : "en cola"}</div>
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{e.intentos > 0 ? interpolar(t.reintenta, { fecha: formatearFechaHora(e.siguiente_intento, locale) }) : t.enCola}</div>
                   ) : null}
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.intentos}</TableCell>
@@ -148,7 +155,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
                       className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCwIcon className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
-                      Reenviar
+                      {t.reenviar}
                     </button>
                   )}
                 </TableCell>
@@ -157,14 +164,14 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             {entregas !== null && entregas.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-8 text-center text-[13px] text-muted-foreground">
-                  {estado ? "No hay entregas con ese estado." : "Todavía no hay entregas. Envía una prueba o emite un comprobante."}
+                  {estado ? t.sinResultados : t.vacia}
                 </TableCell>
               </TableRow>
             ) : null}
             {entregas === null && !error ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-8 text-center text-[13px] text-muted-foreground">
-                  Cargando entregas…
+                  {t.cargando}
                 </TableCell>
               </TableRow>
             ) : null}
@@ -174,13 +181,13 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="entregas"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Se guardan 30 días"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

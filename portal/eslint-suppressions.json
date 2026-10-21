@@ -1,54 +1,4 @@
 {
-  "src/app/(privado)/api-keys/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 19
-    }
-  },
-  "src/app/(privado)/cuenta/accesos-de-soporte/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/(privado)/cuenta/equipo/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/app/(privado)/cuenta/plan/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 26
-    }
-  },
-  "src/components/api-keys/api-key-revelada.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/api-keys/api-keys-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 22
-    }
-  },
-  "src/components/api-keys/ejemplo-integracion.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 27
-    }
-  },
-  "src/components/api-keys/nueva-api-key-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 8
-    }
-  },
-  "src/components/api-keys/referencia-api-keys.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 27
-    }
-  },
-  "src/components/equipo/equipo-view.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
   "src/components/formularios/campo.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -62,31 +12,6 @@
   "src/components/formularios/stepper-numerico.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
-    }
-  },
-  "src/components/webhooks/entregas-webhook.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 20
-    }
-  },
-  "src/components/webhooks/nuevo-webhook-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/webhooks/secreto-webhook-revelado.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/webhooks/webhook-card.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 30
-    }
-  },
-  "src/components/webhooks/webhooks-section.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
     }
   },
   "src/lib/api/browser.ts": {
@@ -112,16 +37,6 @@
   "src/lib/api/http.ts": {
     "khipu/no-literal-de-ui": {
       "count": 1
-    }
-  },
-  "src/lib/api/webhooks-browser.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/lib/webhooks/eventos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 25
     }
   }
 }

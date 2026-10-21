@@ -3,6 +3,7 @@
 import { BanIcon, ChevronDownIcon, MailIcon, RefreshCwIcon, RotateCcwIcon, SendIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useMessages } from "next-intl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
 import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
@@ -10,12 +11,10 @@ import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
 import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { mensajeError, messages } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
-
-const t = messages.equipo;
-const etiquetas = messages.roles.etiquetas;
 
 const ACCION =
   "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -23,6 +22,7 @@ const PASTILLA = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py
 
 /** Una acción de fila que llama a la API y refresca: el error queda debajo de la fila. */
 function useAccion() {
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -44,6 +44,7 @@ function useAccion() {
 }
 
 function EstadoDelMiembro({ m }: { m: MiembroDelEquipo }) {
+  const t = useMessages().equipo;
   if (!m.activo) return <span className={cn(PASTILLA, "border-border bg-secondary text-muted-foreground")}>{t.desactivado}</span>;
   if (!m.correo_verificado) return <span className={cn(PASTILLA, "border-warning-border bg-warning text-warning-foreground")}>{t.sinVerificar}</span>;
   return (
@@ -55,6 +56,9 @@ function EstadoDelMiembro({ m }: { m: MiembroDelEquipo }) {
 }
 
 function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
+  const messages = useMessages();
+  const t = messages.equipo;
+  const etiquetas = messages.roles.etiquetas;
   const sinPermiso = useSinPermisoDeConfigurar();
   const { error, pendiente, ejecutar } = useAccion();
   const [confirmando, setConfirmando] = useState(false);
@@ -173,6 +177,10 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
 }
 
 function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.equipo;
+  const etiquetas = messages.roles.etiquetas;
   const sinPermiso = useSinPermisoDeConfigurar();
   const { error, aviso, pendiente, ejecutar } = useAccion();
   const [confirmando, setConfirmando] = useState(false);
@@ -186,7 +194,7 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
         {i.vencida ? (
           <span className={cn(PASTILLA, "border-warning-border bg-warning text-warning-foreground")}>{t.vencida}</span>
         ) : (
-          <span className="font-mono text-[12px] text-muted-foreground tabular-nums">{t.venceEl.replace("{fecha}", formatearFechaHora(i.expira_en))}</span>
+          <span className="font-mono text-[12px] text-muted-foreground tabular-nums">{t.venceEl.replace("{fecha}", formatearFechaHora(i.expira_en, locale))}</span>
         )}
         <div className="font-mono text-[11px] text-muted-foreground/80">{t.envios.replace("{n}", String(i.envios))}</div>
       </TableCell>
@@ -243,11 +251,12 @@ function Encabezado({ icono: Icono, titulo, detalle }: { icono: typeof UsersIcon
 
 /** #21: los usuarios de la cuenta con su rol, y las invitaciones pendientes. */
 export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEquipo[]; invitaciones: InvitacionAlEquipo[] }) {
+  const t = useMessages().equipo;
   const activos = miembros.filter((m) => m.activo).length;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.usuarios}>
-        <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={`${activos} activos · ${miembros.length} en total`} />
+        <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} />
         <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
           <Table>
             <TableHeader>
@@ -268,7 +277,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
       </section>
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
-        <Encabezado icono={MailIcon} titulo={t.invitaciones} detalle={`${invitaciones.length} pendientes`} />
+        <Encabezado icono={MailIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
         <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
           <Table>
             <TableHeader>

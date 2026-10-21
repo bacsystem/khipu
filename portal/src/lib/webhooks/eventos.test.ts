@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fijarLocaleDePrueba, mensajesDePrueba } from "@/i18n/prueba";
 import { errorDeUrlWebhook, ETIQUETA_ESTADO_ENTREGA, etiquetaDeEvento, EVENTOS_WEBHOOK, resultadoDelIntento, resumenDeEventos } from "./eventos";
 
 describe("eventos de webhook (#19)", () => {
@@ -52,6 +53,14 @@ describe("errorDeUrlWebhook (misma regla de forma que UrlDeWebhook)", () => {
     expect(errorDeUrlWebhook("https://user:clave@mi-sistema.pe/h")).toMatch(/usuario ni contraseña/);
     expect(errorDeUrlWebhook("https://user@mi-sistema.pe/h")).toMatch(/usuario ni contraseña/);
     expect(errorDeUrlWebhook("https://mi-sistema.pe/h#frag")).toMatch(/fragmento/);
+  });
+
+  it("da los mensajes y las etiquetas en el idioma de `messages` (#25)", () => {
+    fijarLocaleDePrueba("en");
+    const en = mensajesDePrueba();
+    expect(errorDeUrlWebhook("http://mi-sistema.pe/h", en)).toBe("The URL must start with https://");
+    expect(etiquetaDeEvento("comprobante.rechazado", en)).toBe("Rejected");
+    expect(resumenDeEventos(EVENTOS_WEBHOOK.map((e) => e.evento), en)).toBe("All events");
   });
 
   it("tiene el mismo tope de largo que el backend", () => {

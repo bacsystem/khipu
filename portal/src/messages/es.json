@@ -1624,7 +1624,9 @@
       "noSalio": "La invitación quedó guardada, pero el correo no salió. Reenvíala desde la lista en unos minutos."
     },
     "reenviada": "Enviamos un enlace nuevo a {email}. El anterior ya no sirve.",
-    "reenviadaSinCorreo": "Generamos un enlace nuevo, pero el correo no salió. Inténtalo de nuevo en unos minutos."
+    "reenviadaSinCorreo": "Generamos un enlace nuevo, pero el correo no salió. Inténtalo de nuevo en unos minutos.",
+    "resumenUsuarios": "{activos} activos · {total} en total",
+    "pendientes": "{n} pendientes"
   },
   "soporte": {
     "soloLectura": "Modo soporte: solo se puede mirar, no cambiar nada.",
@@ -5346,6 +5348,281 @@
         "**Entornos:** integre y pruebe todo en `BETA`; lo que SUNAT acepta en BETA lo acepta en producción con las mismas reglas.",
         "**Secretos:** la API key identifica a su empresa; guárdela en un gestor de secretos y revóquela desde el portal si se filtra."
       ]
+    }
+  },
+  "apiKeys": {
+    "pagina": {
+      "titulo": "API keys e integración",
+      "sinEmpresa": "Configura primero una empresa para crear API keys.",
+      "configurarEmpresa": "Configurar empresa",
+      "activas": "Llaves activas",
+      "activasSinComprobar": "Autentican; no se pudo comprobar si la empresa ya puede emitir",
+      "faltaCertificado": "Falta el certificado digital vigente para emitir",
+      "faltaSol": "Firman, pero no envían a SUNAT hasta guardar las credenciales SOL",
+      "listas": "Listas para emitir por API",
+      "sinAcceso": "Sin acceso por API todavía",
+      "creadas": "/ {total} creadas",
+      "ultima": "Última llave creada",
+      "ultimaVacia": "Crea la primera con «Crear API key»",
+      "revocadas": "Llaves revocadas",
+      "revocadasAyuda": "Ya no autentican ninguna petición",
+      "ningunaRevocada": "Ninguna revocada hasta ahora",
+      "autenticacion": "Autenticación",
+      "autenticacionAyuda": "Header HTTP · una llave por integración"
+    },
+    "tabla": {
+      "filtro": {
+        "todas": "Estado: Todas",
+        "activas": "Activas",
+        "revocadas": "Revocadas"
+      },
+      "activa": "Activa",
+      "revocada": "Revocada",
+      "confirmarRevocar": "¿Revocar de forma permanente?",
+      "siRevocar": "Sí, revocar",
+      "revocar": "Revocar",
+      "titulo": "Llaves de acceso",
+      "subtitulo": "Solo se guarda el hash · el secreto se muestra una vez, al crearla",
+      "refrescar": "Refrescar lista",
+      "columnas": {
+        "llave": "Llave",
+        "creada": "Creada",
+        "revocada": "Revocada",
+        "estado": "Estado",
+        "acciones": "Acciones"
+      },
+      "copiarPrefijo": "Copiar prefijo",
+      "id": "id: {id}",
+      "vacia": "Todavía no tienes API keys. Crea la primera con «Crear API key».",
+      "sinResultados": "No hay llaves con el filtro seleccionado.",
+      "unidad": "llaves",
+      "nota": "Revocar es irreversible: la llave deja de autenticar al instante"
+    },
+    "revelada": {
+      "etiqueta": "Tu API key",
+      "aviso": "Guárdala ahora en un lugar seguro: <b>no volverá a mostrarse</b>. Solo se conserva un hash, así que si la pierdes tendrás que revocarla y crear otra.",
+      "copiada": "Copiada",
+      "copiar": "Copiar"
+    },
+    "nueva": {
+      "boton": "Crear API key",
+      "titulo": "Nueva API key",
+      "descripcion": "Credencial para autenticar tu integración con el header X-Api-Key",
+      "explicacion": "Se generará una llave aleatoria para la empresa activa. Cada integración (ERP, e-commerce, punto de venta) debería usar su propia llave, así puedes revocarla sin afectar a las demás.",
+      "listo": "Listo, la guardé",
+      "generando": "Generando…",
+      "generar": "Generar llave"
+    },
+    "ejemplo": {
+      "boton": "Prueba de emisión",
+      "titulo": "Prueba de emisión por API",
+      "descripcion": "Firma XML-DSig, validación XSD y envío a SUNAT en una sola llamada",
+      "notaCodigo": "Reemplaza <code>fk_TU_API_KEY</code> por una llave activa. Si omites <code>correlativo</code>, el número lo asigna la serie de forma secuencial.",
+      "respuesta": "Respuesta",
+      "notaRespuesta": "<code>estado_documento</code> queda en <estado>ENVIADO</estado> si SUNAT demora; el CDR llega por reintentos automáticos y lo ves en Comprobantes.",
+      "referencia": "Referencia completa de la API",
+      "entendido": "Entendido"
+    },
+    "referencia": {
+      "titulo": "Referencia técnica de API keys",
+      "descripcion": "Modelo de datos de la entidad ‘api_key’ y reglas de autenticación",
+      "documentacion": "Documentación completa de la API",
+      "entidad": "Entidad ‘api_key’",
+      "entidadSubtitulo": "tabla api_key · varias llaves por empresa",
+      "notaTabla": "key_hash único · la llave en claro no se almacena",
+      "reglasTitulo": "Reglas de autenticación",
+      "reglasSubtitulo": "rutas /v1/facturas, /v1/series y /v1/empresa",
+      "campos": {
+        "id": "Identificador de la llave (el que usa el endpoint de revocación)",
+        "tenant_id": "Empresa emisora dueña de la llave",
+        "key_hash": "SHA-256 de la llave + pepper del servidor; nunca sale por la API",
+        "prefijo": "Primeros 10 caracteres, para reconocerla en listados",
+        "activa": "false una vez revocada; la API responde 401 con esa llave",
+        "created_at": "Momento de creación",
+        "revoked_at": "Momento de revocación, nulo mientras esté activa"
+      },
+      "reglas": {
+        "header": {
+          "titulo": "Header de autenticación",
+          "detalle": "Una llave por request, sin esquema Bearer",
+          "codigo": "X-Api-Key"
+        },
+        "formato": {
+          "titulo": "Formato de la llave",
+          "detalle": "Prefijo fk_ + 40 caracteres aleatorios (base64url)",
+          "codigo": "fk_…"
+        },
+        "alcance": {
+          "titulo": "Alcance",
+          "detalle": "Cada llave pertenece a una sola empresa (RUC); no hace falta X-Empresa",
+          "codigo": "tenant"
+        },
+        "gestion": {
+          "titulo": "Gestión solo desde el portal",
+          "detalle": "Crear, listar y revocar llaves exige sesión; con X-Api-Key responde 403",
+          "codigo": "sesión"
+        },
+        "revocacion": {
+          "titulo": "Revocación",
+          "detalle": "Irreversible: la llave deja de autenticar al instante, sin período de gracia",
+          "codigo": "DELETE"
+        }
+      },
+      "nota": "El portal no usa API keys: entra con tu sesión (JWT) y el header <b>X-Empresa</b>. Las llaves son para sistemas externos que emiten por integración; una llave comprometida se revoca aquí y se reemplaza por una nueva."
+    }
+  },
+  "webhooks": {
+    "listo": "Listo, lo guardé",
+    "seccion": {
+      "titulo": "Webhooks",
+      "descripcion": "Recibe un aviso firmado en tu servidor cuando un comprobante cambia de estado, sin consultar la API.",
+      "comoVerificar": "Cómo verificar la firma",
+      "errorLectura": "No se pudieron leer los webhooks. Recarga la página para intentarlo de nuevo.",
+      "vacia": "Todavía no tienes webhooks. Registra la URL de tu sistema con «Nuevo webhook»."
+    },
+    "nuevo": {
+      "boton": "Nuevo webhook",
+      "titulo": "Nuevo webhook",
+      "descripcion": "khipu avisa a esta URL cada vez que un comprobante cambia de estado",
+      "url": "URL del endpoint",
+      "urlAyuda": "https://… · un servidor público; cada entrega llega firmada",
+      "descripcionCampo": "Descripción",
+      "descripcionEjemplo": "ERP producción",
+      "eventos": "Eventos",
+      "sinEventos": "Elige al menos un evento",
+      "registrando": "Registrando…",
+      "registrar": "Registrar webhook"
+    },
+    "secreto": {
+      "etiqueta": "Secreto de firma",
+      "aviso": "Guárdalo ahora en un lugar seguro: <b>no volverá a mostrarse</b>. Con él tu servidor verifica la cabecera <code>X-Khipu-Signature</code> de cada entrega. Si lo pierdes, rota el secreto y actualiza tu servidor."
+    },
+    "tarjeta": {
+      "activo": "Activo",
+      "pausado": "Pausado por khipu",
+      "apagado": "Apagado",
+      "aria": "Webhook {url}",
+      "creado": "{eventos} · creado {fecha}",
+      "pruebaEnCola": "Prueba en cola: sale en unos segundos y aparece en las entregas.",
+      "pausa": "{motivo}. khipu lo apaga tras {n} intentos fallidos seguidos. Corrige tu servidor y actívalo: las entregas pendientes salen enseguida.",
+      "falloUno": "{n} intento fallido seguido; a los {max} khipu lo apaga.",
+      "fallosVarios": "{n} intentos fallidos seguidos; a los {max} khipu lo apaga.",
+      "activaloParaProbar": "Actívalo para enviar una prueba",
+      "enviando": "Enviando…",
+      "enviarPrueba": "Enviar prueba",
+      "apagar": "Apagar",
+      "activar": "Activar",
+      "confirmarRotar": "¿Rotar? El secreto actual deja de valer ya.",
+      "siRotar": "Sí, rotar",
+      "rotar": "Rotar secreto",
+      "confirmarEliminar": "¿Eliminar con su log de entregas?",
+      "siEliminar": "Sí, eliminar",
+      "eliminar": "Eliminar",
+      "entregas": "Entregas",
+      "nuevoSecreto": "Nuevo secreto de firma",
+      "nuevoSecretoDescripcion": "El anterior ya no vale: actualiza tu servidor con este"
+    },
+    "entregas": {
+      "titulo": "Entregas",
+      "filtrar": "Filtrar entregas por estado",
+      "filtro": {
+        "todas": "Todas",
+        "pendientes": "Pendientes",
+        "entregadas": "Entregadas",
+        "fallidas": "Fallidas"
+      },
+      "refrescar": "Refrescar entregas",
+      "columnas": {
+        "creada": "Creada",
+        "evento": "Evento",
+        "estado": "Estado",
+        "intentos": "Intentos",
+        "ultimoResultado": "Último resultado",
+        "acciones": "Acciones"
+      },
+      "reintenta": "reintenta {fecha}",
+      "enCola": "en cola",
+      "reenviar": "Reenviar",
+      "sinResultados": "No hay entregas con ese estado.",
+      "vacia": "Todavía no hay entregas. Envía una prueba o emite un comprobante.",
+      "cargando": "Cargando entregas…",
+      "unidad": "entregas",
+      "nota": "Se guardan 30 días",
+      "errorLectura": "No se pudo leer el log de entregas",
+      "errorRed": "No se pudo leer el log de entregas. Revisa tu conexión e intenta de nuevo."
+    },
+    "eventos": {
+      "aceptado": {
+        "etiqueta": "Aceptado",
+        "detalle": "SUNAT aceptó el comprobante"
+      },
+      "aceptadoConObs": {
+        "etiqueta": "Aceptado con observaciones",
+        "detalle": "SUNAT lo aceptó y dejó observaciones"
+      },
+      "rechazado": {
+        "etiqueta": "Rechazado",
+        "detalle": "SUNAT lo rechazó: hay que corregir y emitir otro"
+      },
+      "errorEnvio": {
+        "etiqueta": "Error de envío",
+        "detalle": "No se pudo enviar a SUNAT; khipu reintenta"
+      },
+      "fueraDePlazo": {
+        "etiqueta": "Fuera de plazo",
+        "detalle": "Pasó el plazo de envío: hay que emitir de nuevo"
+      },
+      "anulado": {
+        "etiqueta": "Anulado",
+        "detalle": "Se dio de baja ante SUNAT"
+      },
+      "descartado": {
+        "etiqueta": "Descartado",
+        "detalle": "Un administrador dejó de intentar el envío"
+      }
+    },
+    "eventoPrueba": "Prueba",
+    "todosLosEventos": "Todos los eventos",
+    "estadoEntrega": {
+      "PENDIENTE": "Pendiente",
+      "EXITOSA": "Entregada",
+      "FALLIDA": "Fallida"
+    },
+    "url": {
+      "vacia": "Escribe la URL que recibirá los eventos",
+      "larga": "La URL no puede pasar de 500 caracteres",
+      "invalida": "No es una URL válida; por ejemplo https://mi-sistema.pe/khipu",
+      "https": "La URL debe empezar con https://",
+      "credenciales": "La URL no puede llevar usuario ni contraseña; usa el secreto de firma",
+      "fragmento": "La URL no puede llevar fragmento (#)"
+    }
+  },
+  "cuenta": {
+    "plan": {
+      "estados": {
+        "VIGENTE": "Al día",
+        "EN_GRACIA": "Pago vencido, en gracia",
+        "VENCIDA": "Vencido"
+      },
+      "errorTitulo": "No se pudo leer tu plan",
+      "errorDetalle": "Puede ser un problema pasajero de conexión: tu plan y tu consumo no cambiaron. <link>Volver a intentar</link>",
+      "descripcion": "Tu plan, hasta cuándo está pagado y lo que llevas consumido este mes. Para cambiar de plan o renovarlo, comunícate con el equipo de khipu.",
+      "avisoRenovar": "Para renovar tu plan o pasar a uno con más documentos, comunícate con el equipo de khipu.",
+      "precio": "Precio",
+      "gratis": "Gratis",
+      "alMes": "{precio} al mes",
+      "pagadoHasta": "Pagado hasta",
+      "noVence": "No vence",
+      "diasDeGracia": "Días de gracia",
+      "unDia": "1 día",
+      "dias": "{n} días",
+      "seSirveHasta": "Se sirve hasta",
+      "graciaIncluida": "{fecha}, gracia incluida",
+      "limites": "Límites del plan",
+      "programado": "Desde el {fecha} pasas al plan <b>{plan}</b>.",
+      "consumoDe": "Consumo de {mes}",
+      "consumoTope": "Consumo del tope del mes",
+      "nota": "Cuenta lo que SUNAT aceptó este mes en todas tus empresas, aunque después se anule, por su fecha de emisión (hora de Lima)."
     }
   }
 }
