@@ -1,9 +1,11 @@
+import { tecnico } from "@/lib/developers/tecnico";
+
 /**
  * Los ejemplos de la sección «Webhooks» de la guía (#19). El cuerpo de ejemplo tiene la forma real de `PayloadDeWebhook` (backend), en una sola línea como se envía, y su firma está
  * calculada con el secreto `whsec_ejemplo`; los verificadores recalculan la firma
  * como `FirmaWebhook`: HMAC-SHA256 con el secreto sobre «t.cuerpo». `webhooks.test.ts` comprueba el algoritmo contra el mismo vector que el test del backend.
  */
-export const EJEMPLO_ENTREGA = `POST /khipu/webhook HTTP/1.1
+export const EJEMPLO_ENTREGA = tecnico`POST /khipu/webhook HTTP/1.1
 Content-Type: application/json; charset=utf-8
 User-Agent: khipu-webhooks/1
 X-Khipu-Event: comprobante.aceptado
@@ -12,7 +14,7 @@ X-Khipu-Signature: t=1792339200,v1=031e06e16dee2de83f1074a4f61cc270225c618400e33
 
 {"evento":"comprobante.aceptado","creado_en":"2026-10-18T16:00:00.512Z","datos":{"id":"5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f","tipo":"01","serie":"F001","numero":125,"fecha_emision":"2026-10-18","estado":"ACEPTADO","estado_anterior":"ENVIADO","detalle":"0 - La Factura numero F001-125, ha sido aceptada","cdr":{"codigo":"0","descripcion":"La Factura numero F001-125, ha sido aceptada","observaciones":[]},"ultimo_error":null}}`;
 
-export const VERIFICAR_NODE = `import crypto from "node:crypto";
+export const VERIFICAR_NODE = tecnico`import crypto from "node:crypto";
 
 // Use el cuerpo CRUDO de la petición (los bytes tal como llegaron), no el JSON ya parseado y vuelto a escribir.
 export function verificarKhipu(cuerpoCrudo, cabeceraFirma, secreto, toleranciaSegundos = 300) {
@@ -25,7 +27,7 @@ export function verificarKhipu(cuerpoCrudo, cabeceraFirma, secreto, toleranciaSe
   return recibida.length === calculada.length && crypto.timingSafeEqual(recibida, calculada);
 }`;
 
-export const VERIFICAR_PYTHON = `import hashlib, hmac, time
+export const VERIFICAR_PYTHON = tecnico`import hashlib, hmac, time
 
 def verificar_khipu(cuerpo_crudo: bytes, cabecera_firma: str, secreto: str, tolerancia_segundos: int = 300) -> bool:
     # cuerpo_crudo: los bytes tal como llegaron, no el JSON vuelto a escribir.
@@ -39,7 +41,7 @@ def verificar_khipu(cuerpo_crudo: bytes, cabecera_firma: str, secreto: str, tole
     esperada = hmac.new(secreto.encode(), f"{t}.".encode() + cuerpo_crudo, hashlib.sha256).hexdigest()
     return hmac.compare_digest(esperada.encode(), partes.get("v1", "").encode())  # en bytes: un v1 no ASCII no debe lanzar`;
 
-export const VERIFICAR_PHP = `<?php
+export const VERIFICAR_PHP = tecnico`<?php
 function verificarKhipu(string $cuerpoCrudo, string $cabeceraFirma, string $secreto, int $toleranciaSegundos = 300): bool {
     // $cuerpoCrudo: file_get_contents('php://input'), tal como llegó.
     $partes = [];
@@ -53,7 +55,7 @@ function verificarKhipu(string $cuerpoCrudo, string $cabeceraFirma, string $secr
     return hash_equals($esperada, $partes['v1'] ?? '');
 }`;
 
-export const RESPUESTA_CREAR_WEBHOOK = `{
+export const RESPUESTA_CREAR_WEBHOOK = tecnico`{
   "estado": "exito",
   "datos": {
     "webhook": {

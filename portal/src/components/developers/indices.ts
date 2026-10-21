@@ -1,24 +1,34 @@
-import { CASOS } from "./guia/casos-emision";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
+import { casos } from "./guia/casos-emision";
 
 /**
  * Los índices laterales de la guía y de la página de errores, aparte de sus páginas (que no pueden exportar nada más que su componente) para que el buscador de la documentación
- * (#26) lleve a las mismas anclas que ellas muestran: una prueba renderiza las páginas y comprueba que cada ancla exista.
+ * (#26) lleve a las mismas anclas que ellas muestran: una prueba renderiza las páginas y comprueba que cada ancla exista. Los nombres están en `messages.developers` (#25).
  */
-export const INDICE_GUIA = [
-  { id: "inicio-rapido", label: "Inicio rápido" },
-  { id: "anatomia", label: "Anatomía de un comprobante" },
-  { id: "casos", label: "Casos de emisión" },
-  ...CASOS.map((c) => ({ id: c.id, label: `· ${c.titulo}` })),
-  { id: "respuesta", label: "Cómo leer la respuesta" },
-  { id: "errores", label: "Errores" },
-  { id: "webhooks", label: "Webhooks" },
-  { id: "sire", label: "Registro de ventas (SIRE)" },
-  { id: "buenas-practicas", label: "Buenas prácticas" },
-];
+export type EntradaDeIndice = { id: string; label: string; esCaso?: boolean };
 
-export const INDICE_ERRORES = [
-  { id: "estados", label: "Estados del comprobante" },
-  { id: "http", label: "Códigos HTTP" },
-  { id: "codigos", label: "Códigos de error de khipu" },
-  { id: "sunat", label: "Códigos de SUNAT" },
-];
+export function indiceGuia(messages: Mensajes = es): EntradaDeIndice[] {
+  const t = messages.developers.guia.indice;
+  return [
+    { id: "inicio-rapido", label: t.inicioRapido },
+    { id: "anatomia", label: t.anatomia },
+    { id: "casos", label: t.casos },
+    ...casos(messages).map((c) => ({ id: c.id, label: interpolar(t.caso, { titulo: c.titulo }), esCaso: true })),
+    { id: "respuesta", label: t.respuesta },
+    { id: "errores", label: t.errores },
+    { id: "webhooks", label: t.webhooks },
+    { id: "sire", label: t.sire },
+    { id: "buenas-practicas", label: t.buenasPracticas },
+  ];
+}
+
+export function indiceErrores(messages: Mensajes = es): EntradaDeIndice[] {
+  const t = messages.developers.errores.indice;
+  return [
+    { id: "estados", label: t.estados },
+    { id: "http", label: t.http },
+    { id: "codigos", label: t.codigos },
+    { id: "sunat", label: t.sunat },
+  ];
+}

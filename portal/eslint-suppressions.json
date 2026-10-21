@@ -84,31 +84,6 @@
       "count": 1
     }
   },
-  "src/app/developers/catalogos/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/app/developers/entornos/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 32
-    }
-  },
-  "src/app/developers/errores/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 51
-    }
-  },
-  "src/app/developers/guia/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 413
-    }
-  },
-  "src/app/developers/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 8
-    }
-  },
   "src/components/admin/acciones-de-baja.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
@@ -204,71 +179,6 @@
       "count": 27
     }
   },
-  "src/components/developers/api-reference.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/developers/buscar-en-la-documentacion.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/developers/catalogos-view.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 22
-    }
-  },
-  "src/components/developers/developers-header.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/developers/developers-nav.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/developers/developers-view.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 11
-    }
-  },
-  "src/components/developers/entornos-datos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 51
-    }
-  },
-  "src/components/developers/errores-datos.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 160
-    }
-  },
-  "src/components/developers/generar-key-prueba.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 5
-    }
-  },
-  "src/components/developers/guia/casos-emision.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 257
-    }
-  },
-  "src/components/developers/guia/indice-activo.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/developers/guia/webhooks.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/developers/indices.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
   "src/components/equipo/equipo-view.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -362,11 +272,6 @@
   "src/lib/configuracion-formulario.ts": {
     "khipu/no-literal-de-ui": {
       "count": 3
-    }
-  },
-  "src/lib/developers/entradas.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 18
     }
   },
   "src/lib/webhooks/eventos.ts": {

@@ -4000,5 +4000,1281 @@
         }
       }
     }
+  },
+  "developers": {
+    "meta": {
+      "referencia": "Developers · {app}",
+      "catalogos": "SUNAT catalogs · {app}",
+      "guia": "Issuing guide · {app}",
+      "errores": "Errors and statuses · {app}",
+      "entornos": "Environments and limits · {app}"
+    },
+    "cabecera": {
+      "precios": "Pricing",
+      "irAlPanel": "Go to dashboard",
+      "iniciarSesion": "Sign in"
+    },
+    "nav": {
+      "aria": "Developer portal sections",
+      "referencia": "API reference",
+      "guia": "Issuing guide",
+      "catalogos": "SUNAT catalogs",
+      "errores": "Errors and statuses",
+      "entornos": "Environments and limits"
+    },
+    "buscador": {
+      "etiqueta": "Search the documentation",
+      "placeholder": "Search: ERROR_ENVIO, 2108, receipt…",
+      "sinResultados": "Nothing matches. Try an error code, a status or the name of a case.",
+      "fallo": "The search failed.",
+      "encontrados": [
+        "result",
+        "results"
+      ],
+      "secciones": {
+        "guia": "Issuing guide",
+        "caso": "Guide · issuing case",
+        "entornos": "Environments and limits",
+        "entornosFila": "Environments · BETA and production",
+        "limite": "Environments · limits and quotas",
+        "reintento": "Environments · retries and validity periods",
+        "errores": "Errors and statuses",
+        "estado": "Document status",
+        "http": "HTTP code",
+        "codigo": "Error code · HTTP {http}"
+      },
+      "temas": {
+        "verificarFirma": [
+          "Verify a webhook signature",
+          "X-Khipu-Signature HMAC SHA-256 signature delivery secret Node Python PHP"
+        ],
+        "idempotency": [
+          "Idempotency-Key: safe retry",
+          "Idempotency-Key retry timeout duplicate 24 hours"
+        ],
+        "correo": [
+          "Email the document to the customer",
+          "email PDF XML CDR buyer /correo"
+        ],
+        "emitirSinEnviar": [
+          "Issue now and send later",
+          "enviar_automatico false FIRMADO POST send batch"
+        ],
+        "conciliarRvie": [
+          "Reconcile with the SIRE proposal",
+          "RVIE SIRE proposal sales register reconciliation LE 140400 period"
+        ]
+      }
+    },
+    "indice": {
+      "aria": "Contents",
+      "enEstaPagina": "On this page"
+    },
+    "referencia": {
+      "sinSpec": {
+        "titulo": "API documentation",
+        "texto": "The interactive reference is generated from the API, which is not available right now. Meanwhile you can read the [integration guide](/developers/guia), the [SUNAT catalogs](/developers/catalogos) and the [error codes](/developers/errores)."
+      },
+      "titulo": "API reference",
+      "intro": "The `/v1` endpoints with their fields and responses. Issuing and query endpoints authenticate with an API key in the `X-Api-Key` header; the one you generate here is filled in automatically in the reference’s authentication field.",
+      "masDocumentacion": "More documentation",
+      "guia": "Integration guide"
+    },
+    "generarKey": {
+      "cargada": "It is already filled in the authentication field below. Save it now: it will not be shown in full again.",
+      "copiar": "Copy",
+      "intro": "Try the endpoints below with a real API key from your account.",
+      "generando": "Generating…",
+      "generar": "Generate test API key"
+    },
+    "catalogos": {
+      "titulo": "SUNAT catalogs",
+      "noDisponible": "We could not load the catalogs: they are served by the API, which is not available right now. Try again in a moment; the rest of the documentation does not depend on them.",
+      "buscarPlaceholder": "Search code or text…",
+      "buscarAria": "Search the catalogs",
+      "intro": "Official codes expected by the API fields (Annex 8 of SUNAT’s validation rules, version 2026-08-26). The same data is available through the API, without credentials: `GET /v1/catalogos/{id}`.",
+      "sinCoincidencias": "No matches for “{filtro}”.",
+      "catalogo": "Catalog {id}",
+      "codigos": "{n} codes",
+      "uso": {
+        "01": "Document type (`tipo` in responses) and `guias[].tipo` (only `09` and `31`).",
+        "02": "The document’s `moneda`.",
+        "03": "`items[].unidad`. The full UN/ECE rec 20, with the most used units first (column “Más usada”); a code outside the catalog responds `422` (2936) before using up a number.",
+        "05": "Taxes khipu writes in the XML according to each item’s tax treatment; not sent through the API.",
+        "06": "`cliente.tipo_doc`. In a domestic sale invoice, `6` (RUC); in exports, the foreign customer’s document. In a receipt any of them, or `-` with no document: only in soles and up to S/ 700.00.",
+        "07": "`items[].tipo_afectacion_igv`. Paid 10/20/30; free 11–16, 21, 31–37 (price = reference value, not charged). 17 IVAP (milled rice, 4 % instead of IGV; the whole document); 40 export (no IGV, only with operation type 0200–0208). Extra column: tax code it generates.",
+        "08": "`items[].isc.sistema`.",
+        "09": "`motivo` of a credit note (`POST /v1/notas` with `tipo: 07`); `13` reschedules installments with a 0 amount.",
+        "10": "`motivo` of a debit note (`POST /v1/notas` with `tipo: 08`).",
+        "12": "`documentos_relacionados[].tipo` (`04`–`09`, `99`; a receipt does not accept `06` or `07`); khipu writes `02` for advance payment invoices (`anticipos`).",
+        "16": "Line price type: `01` sale price, `02` reference value for free items. Assigned by khipu.",
+        "22": "`percepcion.regimen`.",
+        "23": "Withholding regime.",
+        "25": "`items[].codigo_sunat` (8-digit UNSPSC). Only lists 25.1 (mandatory register), 25.2 (detracciones) and 25.3 (perceptions); the API accepts any 8-digit code and SUNAT flags those not in its full catalog.",
+        "51": "`tipo_operacion`. Extra column: documents it applies to; a code outside the catalog, or one khipu does not issue yet for that document, responds `422` (the list is in the issuing guide).",
+        "52": "Legends khipu adds to the XML (amount in words 1000, free items 1002, detracción 2006…). Not sent through the API.",
+        "53": "Assigned by khipu: discounts 00–03 and charges 46–50 according to `afecta_base_igv` and `motivo` (46 = `recargo_consumo`), withholding 62, perception 51–53 and advance payments 04–06; the response returns the derived `codigo`. Extra column: level (line or global).",
+        "54": "`detraccion.codigo_bien_servicio`.",
+        "59": "`detraccion.medio_pago`.",
+        "60": "Issuer address type."
+      }
+    },
+    "entornos": {
+      "titulo": "Environments and limits",
+      "resumen": "How BETA and production differ, what caps the API has and how long to wait before trying again. Everything on this page is what khipu does today; what is not published yet is at the end.",
+      "indice": {
+        "entornos": "BETA and production",
+        "limites": "Limits and quotas",
+        "reintentos": "Retries and validity periods",
+        "pendiente": "What is not published yet"
+      },
+      "intro": "Each company has its environment, set when it is registered. The API URL and the API key are the same in both: what changes is where khipu sends the document and what validity it has. The move from BETA to production is done by the platform, on request to support, once SUNAT has approved the certification: there is no control to do it in the portal or the API, and it is rejected (409) while the company has pending submissions.",
+      "notaBeta": "Integrate and test everything in `BETA`: what SUNAT accepts there it accepts in production under the same content rules. The cases khipu verified against e-beta are in the [issuing guide](/developers/guia).",
+      "cabeceras": {
+        "limites": [
+          "What",
+          "Limit",
+          "When exceeded"
+        ],
+        "reintentos": [
+          "What",
+          "How long"
+        ]
+      },
+      "emisionSimultanea": "Issuing has no requests-per-second cap: what bounds it is the plan’s monthly cap. Simultaneous issues on **the same series** are handled one after another, because SUNAT requires consecutive numbering with no gaps; spreading the load across several series parallelizes them.",
+      "pendienteIntro": "This has not been defined yet, which is why it does not appear above with a number; once it exists it will be published here:",
+      "pendientes": [
+        "khipu’s **outbound IPs** to your server (for those who filter webhooks by IP). Meanwhile, verify each delivery with the `X-Khipu-Signature` signature, which does not depend on the IP: see [Webhooks](/developers/guia#webhooks).",
+        "Availability and response time **SLA**. What is measured is the cost of preparing a document without SUNAT (around 30 ms at the 95th percentile with 50 documents per second in the load test, measured in development: it is not a commitment); the total time depends on SUNAT.",
+        "Official **SDKs and connectors**: they do not exist yet. The API is REST with JSON and the snippets in the [quick start guide](/developers/guia#inicio-rapido) are the starting point."
+      ],
+      "filas": {
+        "entornos": [
+          [
+            "Destination",
+            "SUNAT’s test environment (e-beta).",
+            "SUNAT in production."
+          ],
+          [
+            "Tax validity",
+            "None: they are test documents.",
+            "Full: the accepted CDR is the legal proof."
+          ],
+          [
+            "SOL credentials",
+            "SUNAT’s test ones (user MODDATOS).",
+            "The company’s secondary user."
+          ],
+          [
+            "Querying a document’s CDR or validity",
+            "Not the CDR: SUNAT does not publish that service in e-beta (422 NO_DISPONIBLE_EN_BETA). Validity yes, if the company loaded its SUNAT API credentials (query through SUNAT’s REST API).",
+            "Available (POST /v1/facturas/{id}/cdr/recuperar and GET /v1/consultas/validez, through the REST API with SUNAT API credentials or with the SOL password)."
+          ],
+          [
+            "Validation rules",
+            "The same. e-beta does not cross-check the taxpayer register: for example, it accepted an invoice with the reduced IGV rate without observation 4439, which SUNAT can raise in production.",
+            "The same, plus the cross-check with the register."
+          ]
+        ],
+        "limites": [
+          [
+            "Items per document",
+            "999 lines (SUNAT 2023; 2137 in notes).",
+            "422 ITEM_INVALIDO."
+          ],
+          [
+            "Item description",
+            "From 1 to 500 characters (2026, 2027).",
+            "422 ITEM_INVALIDO."
+          ],
+          [
+            "Buyer’s name or business name",
+            "From 3 to 1500 characters, not counting leading and trailing spaces (2022).",
+            "422 RECEPTOR_INVALIDO."
+          ],
+          [
+            "Receipt without the buyer’s document",
+            "Up to S/ 700.00 total amount: in PEN, or in another currency with tipo_cambio if the total in soles does not exceed S/ 700.00.",
+            "422 RECEPTOR_INVALIDO."
+          ],
+          [
+            "Documents per month",
+            "The account plan’s cap, adding up invoices, receipts and notes of all its companies.",
+            "429 LIMITE_PLAN; 402 PLAN_VENCIDO when the plan expired and its grace days have passed."
+          ],
+          [
+            "Listings",
+            "From 1 to 100 results per page (20 by default); the total comes in the X-Total-Count header.",
+            "The documents listing clamps the value to the range; the customers, products and webhook deliveries listings respond 422 PAGINACION_INVALIDA."
+          ],
+          [
+            "RUC lookup (GET /v1/consultas/ruc/{ruc})",
+            "60 per minute and 5,000 per day, per company.",
+            "429 DEMASIADAS_CONSULTAS."
+          ],
+          [
+            "Digital certificate",
+            "A .p12 or .pfx file of up to 1 MB.",
+            "422 ARCHIVO_DEMASIADO_GRANDE."
+          ],
+          [
+            "Portal sign-in",
+            "Failed attempts are limited by email and by IP for 15 minutes.",
+            "429 DEMASIADOS_INTENTOS_LOGIN."
+          ]
+        ],
+        "reintentos": [
+          [
+            "Idempotency-Key",
+            "24 hours: repeating the same key with the same request returns 200 with the same document; with different content it responds 422 IDEMPOTENCIA_INVALIDA."
+          ],
+          [
+            "Resending a document in ERROR_ENVIO",
+            "khipu retries on its own with increasing waits, up to 20 attempts (about 74 hours). A receipt is not abandoned while it is still within the daily summary deadline (up to the 7th day)."
+          ],
+          [
+            "Checking the ticket of a voiding or a daily summary",
+            "Every 30 seconds at first, with an increasing interval up to 5 minutes, with no limit on attempts while SUNAT does not respond."
+          ],
+          [
+            "Webhook delivery",
+            "If your server does not respond 2xx, khipu retries at 1, 5 and 15 minutes and at 1, 3, 6 and 12 hours. That is 8 attempts in total (about 22 hours); after 10 failures in a row the webhook is turned off and the account is notified by email."
+          ],
+          [
+            "Webhook delivery log",
+            "30 days (GET /v1/webhooks/{id}/entregas)."
+          ],
+          [
+            "Deadline to send to SUNAT",
+            "Invoice and its notes: 3 calendar days from issue. Receipt and its notes: on its own up to the 5th day and through the daily summary up to the 7th; after the 7th it is reported late. Receipt credit note 10 and debit note 03 do not go in the summary: they expire on the 5th and end up in FUERA_DE_PLAZO."
+          ],
+          [
+            "Voiding (baja)",
+            "Up to 7 calendar days from issue, in Lima time (rule 2957)."
+          ]
+        ]
+      }
+    },
+    "errores": {
+      "estados": {
+        "RECIBIDO": [
+          "Data validated and number assigned; the XML is not signed yet.",
+          "Transient, lasts milliseconds."
+        ],
+        "FIRMADO": [
+          "XML signed and validated against SUNAT’s schemas; not sent.",
+          "Only persists with enviar_automatico: false. Send it with POST /v1/facturas/{id}/enviar before fecha_limite_envio: invoice and its notes, 3 days; receipt and receipt note, like the receipt, on its own up to the 5th day and through the daily summary up to the 7th (receipt credit note 10 and debit note 03 do not go in the summary: up to the 5th). After the 7th day a receipt does not expire: it is reported in a late daily summary; SUNAT may flag it with 4443 (ACEPTADO_CON_OBS), and in e-beta it accepted it with no observations."
+        ],
+        "ENVIADO": [
+          "SUNAT received the document and there is no final answer yet.",
+          "Check later; khipu updates it when the CDR arrives."
+        ],
+        "ACEPTADO": [
+          "SUNAT accepted it (CDR with code 0). Valid document.",
+          "Download the CDR (enlaces.cdr) and deliver the document to your customer."
+        ],
+        "ACEPTADO_CON_OBS": [
+          "Accepted with observations (codes 4xxx). It is valid.",
+          "Read cdr.observaciones and fix the cause in later issues: SUNAT turns observations into rejections over time. A receipt sent after the 7th day may end up like this with 4443 (reported late; baja.fuera_de_plazo: true): send receipts on time."
+        ],
+        "RECHAZADO": [
+          "SUNAT rejected it (2000–3999) or an issuer error prevented receiving it (1000–1999).",
+          "Final. Fix what cdr.descripcion says and issue a new document, with another number: the rejected one keeps its own (on a 2000–3999 rejection SUNAT considers it used) and khipu never reassigns a number; a repeated sequence number responds 409 DUPLICADO."
+        ],
+        "ERROR_ENVIO": [
+          "SUNAT was not available or communication failed.",
+          "It is not a rejection. khipu retries on its own with increasing waits (up to 20 attempts); you can force it with POST /v1/facturas/{id}/enviar."
+        ],
+        "INVALIDO": [
+          "The XML did not pass local (schema) validation.",
+          "Contact support with the id: it should not happen with data the API accepted."
+        ],
+        "ANULADO": [
+          "Voiding accepted by SUNAT: in a voiding communication (invoice and its notes) or in the daily summary (receipt and its notes).",
+          "Final: the number is used up."
+        ],
+        "FUERA_DE_PLAZO": [
+          "It did not reach SUNAT within the sending deadline and has no channel left (fecha_limite_envio, calendar days from issue: 3 for invoice and its notes —2108—; 5 for receipt credit note 10 and debit note 03, which do not go in the daily summary —1079—). It is marked when trying to send it or in the hourly sweep. A receipt, or a receipt note that goes in the summary, no longer reaches this status: after the 7th day it is reported in a late daily summary: SUNAT does not reject it and may flag it with 4443.",
+          "Final; the number is used up: issue a new document with a current date. A manual send responds 409 FUERA_DE_PLAZO. A receipt that was already in this status before the change is not reopened: contact support."
+        ],
+        "DESCARTADO": [
+          "khipu support stopped trying to send it: it was in ERROR_ENVIO and was not recovering.",
+          "Final: issue a new document; the number is used up. A manual send responds 409 ESTADO_NO_ENVIABLE."
+        ]
+      },
+      "http": {
+        "200": "Success. 201 on create (invoice, note, series, API key); 200 when repeating an issue request with the same Idempotency-Key (the document already issued); 204 with no body (certificate, credentials, revoke).",
+        "400": "Malformed request: invalid JSON (JSON_INVALIDO) or a parameter with the wrong format (PARAMETRO_INVALIDO).",
+        "401": "No valid credentials: the X-Api-Key is missing or invalid (NO_AUTORIZADO), or the portal session expired.",
+        "403": "Operation reserved for the portal (REQUIERE_SESION: API key management), a company of another account (EMPRESA_AJENA) or, with a portal session, a role that does not allow it (ROL_INSUFICIENTE). With X-Api-Key there are no roles.",
+        "404": "Does not exist or belongs to another company (NO_ENCONTRADO); proof not available yet (SIN_CDR); route does not exist (RUTA_INEXISTENTE).",
+        "409": "Conflict: repeated sequence number (DUPLICADO), document that cannot be sent (ESTADO_NO_ENVIABLE), past the sending deadline (FUERA_DE_PLAZO), not accepted yet for sending by email (NO_ACEPTADO) or branch with active series (ESTABLECIMIENTO_EN_USO).",
+        "422": "Data valid in form but not in substance: field validation (VALIDACION, details in errores) or a business rule (codigo says which).",
+        "500": "Internal error; the message includes a trace_id for support.",
+        "502": "Outgoing email failure when sending a document: the mail server rejected it (502 CORREO_NO_ENVIADO) or it is not enabled (503 CORREO_NO_CONFIGURADO)."
+      },
+      "codigos": {
+        "VALIDACION": [
+          "One or more fields do not meet format or required rules; errores lists field → messages.",
+          "Fix the fields indicated."
+        ],
+        "SERIE_INVALIDA": [
+          "The series does not have its type’s format: invoice (01) F + 3 alphanumeric characters; receipt (03) B + 3; note (07/08) F or B + 3 (FC01, BC01). When registering it in POST /v1/series, the type does not match the letter. In a note, the series does not start with the letter of the document it modifies (F on an invoice, B on a receipt: 2399/2400).",
+          "Use F### for invoices and their notes, B### for receipts and their notes, registered with their type."
+        ],
+        "SERIE_NO_CONFIGURADA": [
+          "The series is not registered in the company.",
+          "Create it with POST /v1/series or in the portal."
+        ],
+        "DUPLICADO": [
+          "A document with that series and sequence number already exists (or the series already exists).",
+          "Safe retry: nothing new was issued."
+        ],
+        "IDEMPOTENCIA_INVALIDA": [
+          "The Idempotency-Key of POST /v1/facturas or POST /v1/notas was already used with different content in the last 24 hours, or it does not have the format (8 to 100 letters, digits, - or _). Invoice and note keys are independent.",
+          "Use a new key (a UUID) per invoice or note; repeat the same key only to retry the same request, which responds 200 with the same document."
+        ],
+        "NUMERO_YA_ASIGNADO": [
+          "Tried to assign a number to a document that already has one.",
+          "Should not happen through the API; contact support."
+        ],
+        "FECHA_INVALIDA": [
+          "fecha_emision in the future, with the sending deadline already past (invoice and its notes: more than 3 calendar days back, 2108; receipt and its notes: more than 7, 1079; receipt credit note 10 and debit note 03: more than 5, 1079), or fecha_vencimiento before the issue date. Only when issuing: a receipt already issued that is sent after the 7th day does not give this error, it is reported late (4443).",
+          "Use an issue date of today or of the previous days within the deadline (3 for invoice and its notes, 7 for receipt and its notes, 5 for receipt credit note 10 and debit note 03) and a due date equal to or later."
+        ],
+        "MONEDA_INVALIDA": [
+          "Catalog 02 currency that khipu does not issue (3088): PEN, USD, EUR, GBP, CAD, AUD, CHF, JPY, CNY, MXN, BRL, CLP, COP, ARS, BOB, UYU and PYG are accepted.",
+          "Use one of those currencies in uppercase."
+        ],
+        "TIPO_CAMBIO_INVALIDO": [
+          "tipo_cambio in a PEN document, or not positive, or with more than 3 integer digits or 3 decimals.",
+          "Send soles per unit of the currency (for example 3.756) only when the currency is not PEN."
+        ],
+        "TIPO_OPERACION_INVALIDO": [
+          "tipo_operacion does not exist in catalog 51 or does not apply to the document type (rule 3206); in a receipt, khipu only issues 0101, 0113 (NRUS), 0200/0201/0203/0204/0206/0207/0208 (export), 0401, 1001–1004 (detracción) and 2001 (perception); in an invoice, 0101, 0200/0201/0203/0204/0206/0207/0208 (export), 0401, 1001–1004 and 2001. The others (0112, 0301, 0302, 2002, 2100–2104, 2106) are not issued yet, and 0202/0205 (lodging and tour package for non-residents) require the guest’s data per line and are not issued either.",
+          "Use one of the types khipu issues for that document (the ones above); being in catalog 51 with “Factura” or “Boleta” is not enough. Export and 0401 go in an invoice or a receipt (in a receipt with a buyer without RUC: RECEPTOR_INVALIDO, 2800)."
+        ],
+        "RECEPTOR_INVALIDO": [
+          "The buyer does not meet the rules of its document. Domestic sale invoice: tipo_doc 6 and a valid RUC (11 digits starting with 10/15/16/17/20 and a correct check digit, 2017). Export (0200–0208): a catalog 06 document with its format (2800–2802), `pais` required (ISO 3166-1) and no RUC in 0200/0201/0204 (2800). Receipt: any catalog 06 document —8-digit DNI (4207), RUC with check digit (2017), the others up to 15 characters without spaces (4208)— or tipo_doc and num_doc “-” with no document, in PEN or in another currency with `tipo_cambio`, and with a total amount (in soles) of up to S/ 700.00; in an export receipt (0200–0208) or one to non-residents (0401) the buyer has no RUC (2800). A note follows the rule of the document it modifies (it takes its buyer). In all of them, business name or name of 3 to 1500 characters not counting leading and trailing spaces and without line breaks (2022; in a receipt, an error at SUNAT from 2027-01-01). A RUC that is not in SUNAT’s register (1083, in invoices, receipts with RUC and notes), while the register is up to date: SUNAT would reject the document. A deregistered RUC (4013) or one not located (4014) is not an error: it is issued and the response carries `avisos`. Also a `cliente.email` that is not an email address or exceeds 150 characters.",
+          "Fix cliente.tipo_doc / num_doc / razon_social / email. With no document, use “CLIENTES VARIOS” as the name; above S/ 700 or in another currency, identify the buyer. With 1083, confirm the RUC at SUNAT; if it belongs to a newly registered company, retry the next day, when the register includes it. It is detected before using up a number."
+        ],
+        "RUC_INVALIDO": [
+          "The company’s RUC does not have 11 digits with prefix 10/15/16/17/20 or its check digit does not match.",
+          "Copy the RUC exactly as it appears in the RUC record."
+        ],
+        "SIN_ITEMS": [
+          "Document with no items. It is not seen through the API: in invoices and receipts an empty items responds VALIDACION, and a note without items is a full note (it copies the document’s items).",
+          "Send at least one item."
+        ],
+        "FORMA_PAGO_INVALIDA": [
+          "Payment method rule not met; the message starts with the SUNAT code (3244–3267, 3319). A receipt on credit: the receipt is issued as cash.",
+          "Adjust installments, pending amount or dates as the message says; a credit sale goes in an invoice."
+        ],
+        "DESCUENTO_INVALIDO": [
+          "SUNAT rule on discounts, charges, detracción, withholding or perception not met; the message starts with the SUNAT code (e.g. 2954, 3127, 3263, 3308). RETENCION_INVALIDA also rejects a withholding in a receipt (it is applied by an agent with RUC: it goes in an invoice). It includes the sector data of the detracción: 1002 requires `hidrobiologico` on each item (3063, 3130–3135) and 1004 `transporte` (3116–3126); outside those operations they are not accepted.",
+          "Fix the data indicated; see the corresponding case in the guide (detracción, hydrobiological products, freight transport)."
+        ],
+        "ITEM_INVALIDO": [
+          "Item without a description or with more than 500 characters (2026/2027), unit of measure that does not exist in catalog 03 (2936; blank responds VALIDACION), quantity zero or with more than 12 integer digits / 10 decimals (2024/2025), negative or zero price (2369; the reference value of a free item, 2367) or a line whose sale value ends up at 0.00 (2370), ICBPER bags with a non-integer quantity or of more than 5 digits (2892) or with a unit other than NIU in a new document (SUNAT only flags 4320; khipu rejects it because ICBPER is per bag), ICBPER in an NRUS receipt (operation type 0113, 3240), more than 999 lines (2023; 2137 in notes), internal code of more than 30 characters, SUNAT product code or GTIN with an invalid format (3496, 4334, 4335), or rounding outside ±1.00 (3303).",
+          "Fix the field indicated; see the case “Due date, product code, GTIN and rounding” in the guide."
+        ],
+        "AFECTACION_INVALIDA": [
+          "Document subject to IVAP (tax treatment 17, milled rice) with items of another treatment (10/20/30 or free), or an IVAP line with ISC or ICBPER (2650, 3223). Export (operation type 0200–0208) with items that are not `40` (2642), item `40` in a domestic sale (3107), or a `40` line with ISC/ICBPER (3223).",
+          "Issue the IVAP document only with `17` items and the export only with `40` items, without `isc` or `icbper`; the other sales go in another document."
+        ],
+        "EXPORTACION_INVALIDA": [
+          "`exportacion` in a domestic sale; Incoterm outside Incoterms 2020; `pais_uso` missing in 0201/0208 (3098), equal to PE or outside catalog 04 (3099), or present in a type that does not accept it (4041).",
+          "Send `exportacion` only with `tipo_operacion` 0200–0208, with a valid Incoterm and `pais_uso` only in 0201/0208."
+        ],
+        "LEYENDA_INVALIDA": [
+          "Legend that does not exist in catalog 52 (3027), that khipu generates on its own (1000, 1002, 2000, 2006, 2007), or 2001/2002/2003/2008 in an invoice without an exempt total (3283–3285, 3289).",
+          "Send in `leyendas` only zone or regime codes from catalog 52 (`GET /v1/catalogos/52`) and, for the Amazon or Tacna ones, exempt items."
+        ],
+        "NOMBRE_COMERCIAL_INVALIDO": [
+          "The company’s trade name exceeds 1500 characters or has line breaks (rule 4092).",
+          "Fix it in `PUT /v1/empresa/datos-fiscales` or on the Company page."
+        ],
+        "NOTA_INVALIDA": [
+          "The modified invoice or receipt does not exist, is not accepted or is voided (2119/2120); the note’s date is before the document’s (2885); the reason is not in catalog 09/10 (2172); credit note 13 on a receipt (3259); credit note 04, 05 or 08 on a receipt (4367: a discount or bonus to an end consumer goes in the same receipt, RCP art. 10 num. 1.4); in a credit note on a receipt the total allows S/ 1 extra; the credit note exceeds the invoice amounts, or the balance left after previous credit notes (3286/3503 — SUNAT compares note by note; khipu also accumulates, so two full notes do not credit the same invoice twice); credit note 13 on a cash invoice or one without installments (3257/3260/3320/3321); full note (without items) on an invoice with advance payments, or with its own descuento_global/cargos; forma_pago outside credit note 13.",
+          "Issue the note on an ACEPTADA invoice with a reason from the catalog; in partial notes check quantities and amounts; on invoices with advance payments send items for the net amount."
+        ],
+        "BAJA_INVALIDA": [
+          "The document is not accepted by SUNAT (2398; in a receipt and its notes, 2663), more than 7 calendar days have passed since its issue, in Lima time (2957; not counted from SUNAT’s acceptance), the reason does not have 3–100 characters (2315) or there is already a voiding in progress.",
+          "Void only ACEPTADO documents within the deadline; outside it issue a credit note. A receipt reported late is already past the 7 days: it is not voided, it is corrected with a credit note."
+        ],
+        "DOCUMENTO_RELACIONADO_INVALIDO": [
+          "Purchase order, dispatch guide or other related document with an invalid or repeated format (rules 4233, 4005, 4006, 4009, 4010, 2364, 2365). In a receipt, a related document of type 06 or 07 (4009: the receipt only accepts 04, 05, 08, 09 and 99).",
+          "Check the number (series-number for a guide, no spaces in other documents) and the catalog type; advance payment invoices go in `anticipos`. Remove the 06 or 07 document from the receipt (an invoice does accept them)."
+        ],
+        "OTROS_TRIBUTOS_INVALIDO": [
+          "The `otros_tributos` rate is not a positive percentage of up to 3 integer digits and 5 decimals (3102); or they are combined with a global discount (02) or a global charge (49) that affects the base, which is not supported yet. In free items and in exports it responds AFECTACION_INVALIDA (3223, 3107).",
+          "Send a rate between 0.00001 and 999.99999 and remove the global discount or charge, or move it to the lines."
+        ],
+        "ANTICIPO_INVALIDO": [
+          "The advance payment invoice (series F) or receipt (series B) does not exist in the company, is not accepted by SUNAT (3218), belongs to another customer or currency (2071), is repeated (3215) or the amount exceeds what was invoiced.",
+          "Issue the advance payment invoice or receipt and wait for its acceptance; use its series-number and the value without IGV."
+        ],
+        "FUERA_DE_PLAZO": [
+          "Asked to send a document whose deadline expired with no channel to reach SUNAT: an invoice or invoice note after the 3rd day (2108), a receipt credit note 10 or debit note 03 after the 5th (1079). The document stays in the FUERA_DE_PLAZO status. A receipt, or a receipt note that goes in the daily summary, never: after the 5th day it is reported in a daily summary (up to the 7th on time, then late, which SUNAT may flag with 4443).",
+          "Issue a new document with a current date; the expired one’s number is used up."
+        ],
+        "CDR_YA_DISPONIBLE": [
+          "Asked to recover from SUNAT the CDR of a document that already has it.",
+          "Download it with GET /v1/facturas/{id}/cdr."
+        ],
+        "CDR_NO_CONSULTABLE": [
+          "Asked to recover the CDR of a receipt or a receipt note (series B) with POST /v1/facturas/{id}/cdr/recuperar. According to SUNAT’s programmer manual, getStatusCdr only covers invoices and credit and debit notes (01, 07, 08) of series F; the receipt and its notes are left out. The hourly recovery sweep does not query them either. What SUNAT would answer to that query is not documented, and in e-beta it cannot be checked because the query service is not published there.",
+          "Its proof is the one from the individual submission or from the daily summary that reported it: if it was reported in a summary, see it in GET /v1/facturas/{id}/bajas and check its ticket with GET /v1/bajas/{id}; if it was sent on its own and ended up in ERROR_ENVIO, retry the submission with POST /v1/facturas/{id}/enviar. If it already has its CDR, download it with GET /v1/facturas/{id}/cdr (CDR_YA_DISPONIBLE)."
+        ],
+        "NO_DISPONIBLE_EN_BETA": [
+          "CDR or validity query with a company in the BETA environment: SUNAT does not publish billConsultService or billValidService in e-beta.",
+          "For validity, load the company’s SUNAT API credentials (PUT /v1/empresa/credenciales-api-sunat): SUNAT’s REST API does work in beta. For the CDR, use a company in PRODUCCION."
+        ],
+        "CREDENCIALES_SUNAT_NO_CARGADAS": [
+          "A document’s validity was queried and the company has neither SUNAT API credentials nor a SOL password.",
+          "Load the SUNAT API credentials (client_id and client_secret from “Credenciales de API SUNAT” in SOL) or the SOL credentials."
+        ],
+        "CREDENCIALES_API_SUNAT_INVALIDAS": [
+          "When saving the SUNAT API credentials, the client_id has spaces or other characters that do not belong in an identifier, or does not start with a letter or digit. If either of the two is missing, it responds 422 VALIDACION.",
+          "Copy the “Id” and the “Clave” exactly as SOL shows them."
+        ],
+        "CREDENCIALES_API_SUNAT_RECHAZADAS": [
+          "SUNAT did not accept the client_id/client_secret (or the application is not allowed to query) and the company has no SOL password to query another way.",
+          "Check the application in SOL (“Credenciales de API SUNAT”), generate a new secret if needed and save them again."
+        ],
+        "CONSULTA_RECHAZADA": [
+          "SUNAT rejected the data of the validity query (series format, number, date or amount). It is not retried through another channel: the answer would be the same.",
+          "Fix the data indicated in the message."
+        ],
+        "SUNAT_NO_DISPONIBLE": [
+          "Neither SUNAT’s REST API nor billValidService answered the validity query (timeout, 5xx error).",
+          "Retry later; the query does not change anything."
+        ],
+        "RVIE_SIN_TIPO_CAMBIO": [
+          "Sales register (GET /v1/sire/rvie): there are documents of the period in another currency without an exchange rate, which field 28 of the RVIE requires. The message names the first ones.",
+          "Request it with permitir_sin_tipo_cambio=true (the field comes out empty and the count goes in X-Rvie-Sin-Tipo-Cambio) and fill in the exchange rate in the file before uploading it to SIRE."
+        ],
+        "RVIE_EXCEDE_EL_TOPE": [
+          "The period has more than 100,000 documents, or the proposal sent for reconciliation more than 100,000 rows.",
+          "Ask support for the file or the reconciliation."
+        ],
+        "RVIE_ARCHIVO_INVALIDO": [
+          "The proposal sent to POST /v1/sire/rvie/conciliacion cannot be read: empty or without data rows, a row with a field out of format, from another RUC or another period, a repeated document, a line of more than 16 KB, or a damaged ZIP or one without a .txt. The message gives the line and the field.",
+          "Send the proposal exactly as you downloaded it from SIRE, for the same period and the same company."
+        ],
+        "RVIE_PROPUESTA_DEMASIADO_GRANDE": [
+          "The proposal sent for reconciliation weighs more than 20 MB, or its text more than 64 MB uncompressed.",
+          "Send it compressed as .zip; if it still does not fit, ask support for the reconciliation."
+        ],
+        "ESTABLECIMIENTO_INVALIDO": [
+          "Branch code that is not 4 digits (3030), `0000` sent as an annex (it is the tax address), annex that does not exist or was deregistered when creating a series or issuing, or route code different from the body.",
+          "Register the annex in `POST /v1/empresa/establecimientos` with the code from the RUC record and assign it to the series; 0000 is edited in the tax data."
+        ],
+        "ESTABLECIMIENTO_EN_USO": [
+          "Tried to deregister a branch that still has active series.",
+          "Create the replacement series in another branch before deregistering it."
+        ],
+        "DOMICILIO_INVALIDO": [
+          "Company tax data out of format: ubigeo not in catalog 13 (4093), address with line breaks or outside 3–200 characters (4094), annex branch that is not 4 digits (3030), Banco de la Nación account with invalid characters.",
+          "Fix it in PUT /v1/empresa/datos-fiscales or on the portal’s Company page."
+        ],
+        "CREDENCIALES_SOL_NO_CARGADAS": [
+          "The company has no SOL user/password and sending to SUNAT was requested.",
+          "Load them in the portal or issue with enviar_automatico: false."
+        ],
+        "CERTIFICADO_NO_CARGADO": [
+          "No certificate, expired, or its OU does not contain the RUC.",
+          "Load a valid certificate of the company."
+        ],
+        "LIMITE_PLAN": [
+          "The account reached its plan’s monthly document cap (invoices, receipts and notes of all its companies). Nothing is issued and no number is used.",
+          "Issue again next month or ask for a plan change; the voiding communication does not count."
+        ],
+        "PLAN_VENCIDO": [
+          "The account’s plan expired and its grace days have passed (during grace, issuing continues). It applies to invoices, receipts and notes; nothing is issued and no number is used.",
+          "Renew the plan to issue again; querying what was already issued and the voiding communication keep working."
+        ],
+        "XSD_INVALIDO": [
+          "The generated XML did not validate or could not be signed.",
+          "Contact support with the id; it is usually a value outside a catalog."
+        ],
+        "NO_ACEPTADO": [
+          "Asked to send by email a document that SUNAT has not accepted yet (FIRMADO, ERROR_ENVIO, RECHAZADO or ANULADO).",
+          "Wait for acceptance; the PDF can be downloaded from FIRMADO."
+        ],
+        "CORREO_NO_ENVIADO": [
+          "The mail server rejected or did not accept the delivery to the buyer (SMTP down, invalid mailbox).",
+          "Retry later; the document does not change status."
+        ],
+        "CORREO_NO_CONFIGURADO": [
+          "The server does not have email sending enabled: nothing was sent to the buyer, or automatic sending to the customer cannot be turned on (PUT /v1/empresa/envio-al-cliente).",
+          "Retrying does not help until it is enabled; deliver the PDF yourself or contact support."
+        ],
+        "PERSONALIZACION_INVALIDA": [
+          "PDF design out of format (unknown template, non-hexadecimal color, footer of more than 300 characters or with line breaks, observations of more than 1000), logo that is not PNG/JPEG or weighs more than 200 KB, or document observations with control characters.",
+          "Fix the value indicated in the message; the PDF texts do not affect the XML or SUNAT."
+        ],
+        "EXPORTACION_EXCEDE_EL_TOPE": [
+          "An export (GET /v1/facturas/exportacion) allows up to 5000 documents and the filters return more; the message says how many there are.",
+          "Narrow the dates and export in batches."
+        ],
+        "SIN_FIRMA": [
+          "The PDF was requested for a document that is not numbered and signed yet.",
+          "Only happens with INVALIDO documents; fix and issue again."
+        ],
+        "ESTADO_NO_ENVIABLE": [
+          "Tried to send an ACEPTADO, RECHAZADO or ANULADO document.",
+          "Only FIRMADO and ERROR_ENVIO are sent."
+        ],
+        "ESTADO_CONFLICTO": [
+          "Two operations changed the status at the same time.",
+          "Query the document again."
+        ],
+        "SIN_CDR": [
+          "SUNAT has not issued the proof yet.",
+          "Wait for ACEPTADO/RECHAZADO."
+        ],
+        "CDR_CORRUPTO": [
+          "The stored proof cannot be read.",
+          "Contact support."
+        ],
+        "NO_ENCONTRADO": [
+          "The resource does not exist or belongs to another company.",
+          "Check the id."
+        ],
+        "NO_AUTORIZADO": [
+          "X-Api-Key missing, invalid or revoked.",
+          "Generate a new key in the portal."
+        ],
+        "REQUIERE_SESION": [
+          "Creating, listing or revoking API keys only from the portal.",
+          "Do it from the portal with your session."
+        ],
+        "ROL_INSUFICIENTE": [
+          "Only with a portal session: the user’s role does not allow the operation. LECTURA only queries; EMISOR issues, sends, voids and shares documents and saves customers and products, but does not change companies, series, certificate, SOL credentials, branches, API keys, webhooks or the team; ADMIN can do everything. A request with X-Api-Key does not depend on roles: the key belongs to the company and only an ADMIN creates it. In the portal, what the role does not allow appears disabled with the reason (not hidden); the API keys and Team sections are only shown to administrators.",
+          "Ask an administrator of the account to perform the operation, or to change your role."
+        ],
+        "DEMASIADAS_INVITACIONES": [
+          "Only with a portal session, when inviting or resending an invitation: the account has 20 pending invitations, or in the last 24 hours it already sent 30 invitation emails, or that address already received 3 (from any account). Inviting and resending count, including invitations that were later revoked.",
+          "Revoke the pending ones you do not need or try again the next day."
+        ],
+        "PARAMETRO_INVALIDO": [
+          "A route or query parameter does not have the expected format (e.g. an id that is not a UUID, the CDR format).",
+          "Fix the URL."
+        ],
+        "JSON_INVALIDO": [
+          "The body is not valid JSON.",
+          "Check quotes, commas and UTF-8 encoding."
+        ],
+        "RUTA_INEXISTENTE": [
+          "The route does not exist in this API version.",
+          "Check the path and the version."
+        ],
+        "INTERNO": [
+          "Unhandled error.",
+          "Retry; if it persists, send the trace_id to support."
+        ]
+      },
+      "titulo": "Errors and statuses",
+      "resumen": "What each document status, each HTTP code and each API error code means, and what to do in each case. When the rule comes from SUNAT, the message carries its official code.",
+      "indice": {
+        "estados": "Document statuses",
+        "http": "HTTP codes",
+        "codigos": "khipu error codes",
+        "sunat": "SUNAT codes"
+      },
+      "ciclo": "The normal cycle is `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO`. The other statuses are detours with a specific action:",
+      "cabeceras": {
+        "estados": [
+          "Status",
+          "Meaning",
+          "What to do"
+        ],
+        "http": [
+          "HTTP",
+          "When"
+        ],
+        "codigos": [
+          "Code",
+          "HTTP",
+          "Meaning",
+          "What to do"
+        ],
+        "sunat": [
+          "Range",
+          "Type",
+          "What to do"
+        ]
+      },
+      "notaErrorEnvio": "`ERROR_ENVIO` does not mean SUNAT rejected anything: the document already has a number and a signature, and khipu will deliver it. Only `RECHAZADO` requires fixing and issuing again.",
+      "codigosIntro": "They go in the response envelope’s `codigo` and are stable: code against them, not against the text of `mensaje`.",
+      "sunatIntro": "SUNAT responds with a numeric code that khipu keeps in `cdr.codigo` (SUNAT’s response) or at the start of `mensaje` (when khipu applies the same rule before sending). The ranges:",
+      "sunatFilas": [
+        [
+          "0",
+          "Accepted.",
+          "Nothing: valid document."
+        ],
+        [
+          "0100 – 0999",
+          "SUNAT service or authentication failure (0100 system not available, 0102 wrong SOL user or password, 0111 no profile to issue).",
+          "khipu retries on its own (ERROR_ENVIO). If it is a 010x credentials code, fix the SOL user/password in the portal."
+        ],
+        [
+          "1000 – 1999",
+          "Issuer error in the submission: file name, empty XML, document already registered with other data (1033), issuer not authorized (1078).",
+          "The document stays RECHAZADO with no retries; check the message and issue again."
+        ],
+        [
+          "2000 – 3999",
+          "Rejection due to content validation (amounts, catalogs, payment method, buyer…).",
+          "RECHAZADO: the number is used up. Fix the data indicated and issue a new document, with another number."
+        ],
+        [
+          "4000 – 4999",
+          "Observation: accepted, but some data should be fixed. For example 4443, which SUNAT may give to a receipt reported in the daily summary after the 7th day (in e-beta it did not).",
+          "ACEPTADO_CON_OBS: valid; fix it in future issues (for 4443, send receipts on time)."
+        ]
+      ],
+      "sunatEjemplos": "Examples of rules khipu checks locally with the same code: `3244` payment method missing, `3249` credit without installments, `3319` installments do not add up to the pending amount, `3267` installment due before the issue date. SUNAT publishes the full table of return codes in its validation rules; the code catalogs are in [SUNAT catalogs](/developers/catalogos)."
+    },
+    "casos": {
+      "gravada-contado": {
+        "titulo": "Taxable cash sale (the base case)",
+        "cuando": "Sale of goods or services with IGV, paid at issue. It is the most common invoice.",
+        "notas": [
+          "`precio_unitario` is the price **with IGV**: khipu calculates the unit value (1 000.00), the IGV (18 %, or 10.5 % if the company is in the Special Rate Register for restaurants and hotels — enabled in `PUT /v1/empresa/datos-fiscales`) and the totals; `totales.tasa_igv` shows the rate applied. Do not send amounts without IGV.",
+          "`correlativo` omitted: khipu assigns the next number of series F001 atomically (no gaps or duplicates even if you issue in parallel).",
+          "`tipo_operacion` omitted = `0101` (domestic sale). `forma_pago` omitted = cash.",
+          "Units: `ZZ` for services, `NIU` for countable goods; others in catalog 03.",
+          "Line rules rejected before numbering (`422 ITEM_INVALIDO`, the message starts with the SUNAT code): `precio_unitario` greater than zero (2369; in a free item, its reference value, 2367) and a line whose sale value does not end up at `0.00` (2370); up to **999 lines** per document (2023; `2137` in notes), because the item’s line number has up to 3 digits. The same in invoices, receipts and notes.",
+          "Response `201` with `estado_documento` `ACEPTADO` if SUNAT answered in the same call.",
+          "Buyer’s RUC, against SUNAT’s register (the same in invoices, receipts with RUC and notes): if the RUC **is not listed**, `422 RECEPTOR_INVALIDO` (1083) before numbering, because SUNAT would reject the document; a newly registered RUC may take a day to be listed. If it is listed but **deregistered** (4013) or **not located** (4014), SUNAT accepts the document with an observation: khipu issues it anyway and the response carries `avisos` (`codigo` and `mensaje`; the field is absent when there is nothing to warn about). If the register is not loaded or is more than 3 days old, nothing is rejected."
+        ]
+      },
+      "mixta": {
+        "titulo": "Taxable, exempt and non-taxable items in the same invoice",
+        "cuando": "A sale that combines products with IGV, exempt by law (Appendix I: e.g. books, certain foods) and non-taxable (outside the scope of IGV).",
+        "notas": [
+          "For `20` and `30` the `precio_unitario` **does not include IGV** (there is none): value = price.",
+          "khipu groups the totals by tax treatment (`totales.gravado`, `exonerado`, `inafecto`) and builds a `TaxSubtotal` for each tax (IGV 1000, EXO 9997, INA 9998) as SUNAT requires.",
+          "Use `20` only if the good or service is in Appendix I of the IGV Law; `30` for operations outside its scope (e.g. sale of land, fees). Using the wrong code is not detected locally but it is a tax contingency."
+        ]
+      },
+      "dolares": {
+        "titulo": "Invoice in dollars",
+        "cuando": "Operations agreed in a foreign currency. All the document’s amounts are in that currency.",
+        "notas": [
+          "Accepted currencies (catalog 02, ISO 4217): `PEN`, `USD`, `EUR`, `GBP`, `CAD`, `AUD`, `CHF`, `JPY`, `CNY`, `MXN`, `BRL`, `CLP`, `COP`, `ARS`, `BOB`, `UYU` and `PYG`; another one responds `422 MONEDA_INVALIDA` (3088) without using up a number. Currencies are not mixed in a document (SUNAT 2071).",
+          "The amount in words in the XML is generated in the given currency (\"… CON 00/100 DÓLARES AMERICANOS\").",
+          "`tipo_cambio` (optional, only outside `PEN`): soles per unit of the currency, with up to 3 integer digits and 3 decimals. SUNAT does not receive it in the XML: khipu stores it with the document for the sales register (SIRE) and the PDF, which shows the equivalent in soles. The response carries `tipo_cambio` and `total_en_soles` (443.21 in the example); a note inherits its document’s. In `PEN` it responds `422 TIPO_CAMBIO_INVALIDO`.",
+          "With `tipo_cambio`, a receipt in a foreign currency can be issued without the buyer’s document if its total in soles is up to S/ 700.00; without it the document is still required."
+        ]
+      },
+      "credito": {
+        "titulo": "On credit with installments",
+        "cuando": "The customer pays after issue, in one or several installments. Declaring it has been mandatory since 2022 (RS 193-2020); it enables factoring of the invoice.",
+        "notas": [
+          "`monto_pendiente` is what is left to pay at issue (it can be less than the total if there was a down payment) and **must equal the sum of the installments** (SUNAT 3319).",
+          "Each installment is due **after** the issue date (3267). khipu numbers the installments `Cuota001`, `Cuota002`… in the order sent.",
+          "If you send `\"tipo\": \"contado\"` with installments or `monto_pendiente`, the API responds `422 FORMA_PAGO_INVALIDA` with `3252 - …`.",
+          "The response returns `forma_pago` with SUNAT’s identifiers for each installment."
+        ]
+      },
+      "calcular": {
+        "titulo": "Calculate the totals without issuing",
+        "cuando": "You want to show the user the exact amounts before issuing (discounts, charges, ISC, advance payments, rounding…) without reimplementing the calculation in your system.",
+        "notas": [
+          "It takes **the same body as `POST /v1/facturas`** (invoice or receipt, depending on the series) and responds `200` with the same object as issuing: `items` and `totales` with what khipu would calculate. **It does not number, sign, store or send anything** and does not use up the plan’s quota.",
+          "It builds the document with the same domain rules as issuing: whatever issuing would reject by a rule (`ITEM_INVALIDO`, `DESCUENTO_INVALIDO`, `MONEDA_INVALIDA`…) responds here with the same `422` with its `codigo` and `mensaje`.",
+          "It does not check what depends on stored data: that the advance payment invoice exists and is accepted, the RUC register, the plan, the series or the certificate. Issuing validates that.",
+          "The response’s `id` does not exist, `numero` is `null` and it has no `enlaces`: it is only for showing amounts."
+        ]
+      },
+      "sin-enviar": {
+        "titulo": "Issue without sending and send later",
+        "cuando": "Batch issuing outside business hours, or when you want to review the signed XML before it reaches SUNAT.",
+        "notas": [
+          "The document stays `FIRMADO` with its number assigned and its XML downloadable (`GET /v1/facturas/{id}/xml`).",
+          "Remember the deadline (`fecha_limite_envio` in the response): an invoice must reach SUNAT within the **3 calendar days** after `fecha_emision`; a receipt goes on its own up to the **5th day** and after that khipu reports it in a daily summary (see “Receipt sent after the 5th day”).",
+          "`POST /v1/facturas/{id}/enviar` also works to retry an `ERROR_ENVIO` without waiting for the automatic retry."
+        ]
+      },
+      "correlativo": {
+        "titulo": "With your own sequence number (idempotency)",
+        "cuando": "Your system already keeps the numbering and you want khipu to respect it, or you need to retry a call without the risk of issuing twice.",
+        "notas": [
+          "If `F001-125` already exists the API responds `409 DUPLICADO` and issues nothing: you can safely retry the same call after a timeout.",
+          "Without `correlativo`, khipu uses the next number of the series; do not mix both modes in the same series or you will leave gaps."
+        ]
+      },
+      "idempotency-key": {
+        "titulo": "Safe retry with Idempotency-Key (invoices, receipts and notes)",
+        "cuando": "Your call may be cut off after khipu issued (timeout, network down) and you need to repeat it without the risk of issuing twice, even if khipu numbers the series for you. It works the same in `POST /v1/facturas` (invoice and receipt) and in `POST /v1/notas` (credit or debit note, on an invoice or a receipt); below, a note.",
+        "notas": [
+          "Generate **one key per document** (a UUID, or any text of 8 to 100 letters, digits, `-` or `_`) and store it with your internal document until you have the response. Repeat the call with the same key **and the same body**: if it had already been issued, it responds `200` with the document as it is now (for example `ACEPTADO`), without issuing another. Without the header, each call issues a new document.",
+          "The same key with **different content** responds `422 IDEMPOTENCIA_INVALIDA` and issues nothing: for another document, another key. A malformed key responds the same code. Two bodies that differ only in spaces or line breaks are the same request.",
+          "The key is valid for your company for **24 hours** and is specific to each endpoint: the same string in `POST /v1/facturas` and in `POST /v1/notas` are different keys. If the call failed with an error (`422`, `429`…) the key is released: fix the body and retry, with the same key or another one.",
+          "Khipu answers the retry **before validating**: even if in the meantime the sending deadline (2108/1079) or the certificate expired, or the invoice the note modifies was voided or had a voiding in progress, you get the note already issued. For a receipt’s note it works exactly the same.",
+          "When you number yourself (`correlativo`, see the previous case) the retry is already safe thanks to `409 DUPLICADO`; the key is what covers the issues where khipu assigns the number, which is the recommended way."
+        ]
+      },
+      "descuentos": {
+        "titulo": "Item and global discounts",
+        "cuando": "Promotions or negotiations that lower a line or the total without touching the unit price. Each discount is a percentage or an amount (on the value without IGV) and decides whether it affects the IGV base.",
+        "notas": [
+          "Item `descuento`: `porcentaje` **or** `monto` (never both), on the line’s sale value without IGV. `afecta_base_igv` (default `true`) → code **00**: IGV is calculated on the reduced base; `false` → code **01**: financial discount, IGV does not change and only the amount to pay goes down.",
+          "`descuento_global`: same format. `afecta_base_igv: true` → code **02**, applied on the taxable base (requires taxable items); `false` → **03**, subtracted from the amount to pay.",
+          "The response returns per item `valor_venta`, `igv` and `descuento.monto`, and in `totales`: `total_valor_venta`, `total_precio_venta`, `total_descuentos` (those that do not affect the base) and `total` (to pay).",
+          "In the XML: `cac:AllowanceCharge` with factor, amount and base (rules 3052, 2955, 3290 per line; 3025, 2968, 3016 global) and `AllowanceTotalAmount` in the totals (3300)."
+        ]
+      },
+      "cargos": {
+        "titulo": "Item and global charges",
+        "cuando": "Items charged on top of the price: freight, packaging, administrative fees, consumption surcharge or tips. Each charge is a percentage or an amount (on the value without IGV) and its catalog 53 code decides whether it pays IGV.",
+        "notas": [
+          "`items[].cargos[]`: same format as `descuento` — `porcentaje` **or** `monto` (never both) on the line’s sale value without IGV. `afecta_base_igv` (default `true`) → code **47**: added to the sale value and pays IGV (taxable freight); `false` → **48**: charged without IGV (expense reimbursement). Not accepted on free lines.",
+          "Global `cargos[]`: `afecta_base_igv: true` → **49**, added to the taxable base and to IGV (requires taxable items); `false` → **50**, without IGV; `motivo: \"recargo_consumo\"` → **46**, consumption surcharge and/or tips, which under Law 25988 never affects the base (does not accept `afecta_base_igv: true`). The percentage applies on the taxable base (49) or on the whole paid base (46/50).",
+          "The response returns per item `cargos[]` with `monto`, `afecta_base_igv`, `motivo` and the derived SUNAT `codigo`, and in `totales`: global `cargos[]`, `total_cargos` (those that do not affect the base: 48 + 46/50) and `total` = sale price + `total_cargos` − discounts − advance payments. In the example: sale value 1 550.00, IGV 279.00, charges without IGV 20.00 + 155.00 → total 2 004.00.",
+          "In the XML: `cac:AllowanceCharge` with `ChargeIndicator true`, factor, amount and base (rules 3114, 3052, 2955, 3290 per line; 3025, 2968, 3016, 3307 global), the IGV base includes 47/49 (3277, 3291) and `ChargeTotalAmount` in the totals (3301, 3280). FISE (45) is not supported."
+        ]
+      },
+      "documentos-relacionados": {
+        "titulo": "Purchase order, dispatch guides and other documents",
+        "cuando": "The invoice goes with a shipment with a dispatch guide, answers a customer’s purchase order or supports a procedure (SCOP code, ENAPU ticket, import declaration…). They are informational data: they do not change amounts.",
+        "notas": [
+          "`orden_compra`: 1–20 characters (spaces allowed, no line breaks) → `cac:OrderReference` (rule 4233).",
+          "`guias[]`: `tipo` **09** (shipper’s dispatch guide) or **31** (carrier’s), `numero` series-number with the format SUNAT requires: electronic `T001-123` / `V001-45`, paper `0001-123`, `EG01-45`… (rules 4005, 4006); repeated ones are not accepted (2364) → `cac:DespatchDocumentReference`.",
+          "`documentos_relacionados[]`: `tipo` from catalog 12 —**04** ENAPU ticket, **05** SCOP code, **06** shipper’s electronic invoice, **07** shipper’s guide, **08** free-zone warehouse exit, **09** simplified import declaration, **99** others— and `numero` of up to 30 characters without spaces (rules 4009, 4010, 2365) → `cac:AdditionalDocumentReference`. Advance payment invoices (02) go in `anticipos`, not here. A **receipt** does not accept **06** or **07**: SUNAT flags them with 4009 (Boleta2_0 only accepts 04, 05, 08, 09 and 99) and khipu rejects them with 422 `DOCUMENTO_RELACIONADO_INVALIDO` before numbering.",
+          "The response returns the `referencias { orden_compra, guias[], documentos_relacionados[] }` block only when one of them was sent; the portal’s detail shows it as \"Documentos relacionados\". Error `DOCUMENTO_RELACIONADO_INVALIDO` (422) with the SUNAT rule in the message."
+        ]
+      },
+      "campos-opcionales": {
+        "titulo": "Due date, product code, GTIN and rounding",
+        "cuando": "Data the customer or SUNAT may expect without changing the calculation: the payment due date, the SUNAT product code (mandatory for issuers in the register: mining, fuels, explosives…), the product’s GTIN and rounding to collect cash without cents.",
+        "notas": [
+          "`fecha_vencimiento` → `cbc:DueDate`; it cannot be before `fecha_emision` (`FECHA_INVALIDA`). It is informational: on credit the `forma_pago` installments still rule.",
+          "`items[].codigo_sunat`: 8-digit UNSPSC (catalog 25) → `cac:CommodityClassification`. khipu validates the format (rule 3496); SUNAT flags —does not reject— those not in its list (4332) or not reaching the third level (ending in 0000, 4337). `GET /v1/catalogos/25` returns lists 25.1 (mandatory register), 25.2 (detracciones) and 25.3 (perceptions); SUNAT publishes the full catalog.",
+          "`items[].gtin { tipo, codigo }`: `GTIN-8`, `GTIN-12`, `GTIN-13` or `GTIN-14` with the matching length (rules 4333–4335) → `cac:StandardItemIdentification/cbc:ID@schemeID`.",
+          "`redondeo`: between −1.00 and 1.00, added to the total to pay (`PayableRoundingAmount`, rule 3303; `total` = sale price + charges − discounts − advance payments + rounding, rule 3280); the amount in words uses the rounded total. In the example: 7 × 16.91 = 118.37 → total 118.00. Error `REDONDEO_INVALIDO`.",
+          "The issuer’s trade name does not go in each invoice: it is configured once in `PUT /v1/empresa/datos-fiscales` (`nombre_comercial`) or on the portal’s Company page and khipu writes it in `cac:PartyName` (rule 4092).",
+          "`observaciones` (up to 1000 characters, line breaks allowed) is printed in the PDF’s «Observaciones» block and does **not** go to the XML or SUNAT. If omitted, the company’s default observations are printed (`PUT /v1/empresa/personalizacion-pdf`), which also sets the PDF’s template, color, logo and footer. Error `OBSERVACIONES_INVALIDAS`."
+        ]
+      },
+      "gratuitas": {
+        "titulo": "Bonuses and samples (free operations)",
+        "cuando": "You deliver goods or services without charging: volume bonus, samples, advertising, withdrawal for employees. SUNAT requires reporting them with their reference value and, if taxable, with the IGV they would have generated.",
+        "notas": [
+          "Free tax treatments from catalog 07: `11`–`16` (taxable: prize withdrawal, donation, withdrawal, advertising, bonus, delivery to employees), `21` (exempt) and `31`–`37` (non-taxable). On these lines `precio_unitario` is the **reference value without IGV**, not a sale price, and must be greater than zero (`422 ITEM_INVALIDO`, 2367): SUNAT does not accept a free item without a reference value.",
+          "The line does not add to the amount to pay: the response carries `gratuita: true`, `precio_venta: 0.00` and, for taxable ones, the informational `igv`. In `totales`, `gratuito` and `igv_gratuitas` go apart from `total`.",
+          "In the XML: `PriceTypeCode 02` (reference value), `Price/PriceAmount 0`, tax `9996` (GRA) per line and in its own global subtotal, and the mandatory legend `1002`. Rules 2640, 3110, 3111, 3224, 3234, 3276, 3302.",
+          "An invoice with only free items has `total` 0.00. Free items are not mixed with IVAP (`17`) or with exports (`40`): see their cases."
+        ]
+      },
+      "detraccion": {
+        "titulo": "Operation subject to detracción (SPOT)",
+        "cuando": "Services and goods in the detracciones annex (freight transport, construction, business services, leasing…) for more than S/ 700: the customer deposits the percentage into your Banco de la Nación account and pays you the rest.",
+        "notas": [
+          "`tipo_operacion` **1001** (subject to detracción; 1002 hydrobiological resources, 1003 passenger transport, 1004 freight transport, which set code 004/028/027). With 1001–1004 the detracción is mandatory (3127) and with any other type it is forbidden (3128).",
+          "`codigo_bien_servicio` from catalog 54 and `porcentaje` according to the current SPOT table for that good/service (khipu does not enforce it: check RS 183-2004 and its amendments).",
+          "`monto` always in **soles**: in PEN invoices you can omit it and khipu calculates it (total × %, rounded to the sol, as SPOT requires); in USD/EUR you must send it converted at the day’s exchange rate.",
+          "`cuenta_banco_nacion` is the issuer’s detracciones account; it can be omitted if the company has it configured (`PUT /v1/empresa/datos-fiscales` or the portal’s Company page), otherwise `422 DETRACCION_INVALIDA` (3034). `medio_pago` from catalog 59 (default `001` account deposit).",
+          "The detracción does not change the totals: the response carries `detraccion` with the catalog description and the amount; the XML carries `PaymentMeans`/`PaymentTerms` with the `Detraccion` indicator and legend 2006.",
+          "**1002 hydrobiological resources** and **1004 freight transport** also require sector data on each item: see the next two cases."
+        ]
+      },
+      "hidrobiologicos": {
+        "titulo": "Detracción 1002: sale of hydrobiological resources",
+        "cuando": "You sell fish or other hydrobiological resources with detracción (code 004): SUNAT requires on each item the vessel, the species, the landing place and date and the quantity (fields 107–112).",
+        "notas": [
+          "With `tipo_operacion` 1002 the `codigo_bien_servicio` must be `004` (rule 3129) and **each item** carries a full `hidrobiologico`: `matricula` (1–15 characters), `nombre_embarcacion` (≤100), `especie` (≤150), `lugar_descarga` (≤100), `fecha_descarga` (`YYYY-MM-DD`) and `cantidad` in tonnes (up to 2 decimals). If any is missing, `422 DETRACCION_INVALIDA` with the rule (3063, 3130–3135).",
+          "In the XML they go as `cac:AdditionalItemProperty` with concepts `3001`–`3006` from catalog 55: the date in `UsabilityPeriod/StartDate` and the quantity in `ValueQuantity` with `unitCode=\"TNE\"` (rule 3115). Legend 2006 is added automatically (4265).",
+          "`hidrobiologico` is not accepted in other operation types. The response and the portal’s detail show the vessel data per item."
+        ]
+      },
+      "transporte-carga": {
+        "titulo": "Detracción 1004: freight transport service",
+        "cuando": "You provide road freight transport with detracción (code 027): SUNAT requires on each item the origin and destination with ubigeo, the trip detail and the three reference values of D.S. 010-2006-MTC (fields 113–118); legs and vehicles are optional (119–127).",
+        "notas": [
+          "With `tipo_operacion` 1004 the `codigo_bien_servicio` must be `027` (3129) and **each item** carries `transporte` with `origen` and `destino` (`ubigeo` from catalog 13 and a `direccion` of 3–200 characters: 3116–3119), `detalle_viaje` (3–500: 3120) and `valor_referencial` with the three amounts in soles —`servicio` (01), `carga_efectiva` (02) and `carga_util_nominal` (03)—, which SUNAT requires exactly once each (3122–3126, 3208). If any is missing, `422 DETRACCION_INVALIDA` with the rule.",
+          "`tramos[]` and their `vehiculos[]` are optional (only observations 4200, 4270–4278): origin/destination ubigeos of the leg, `descripcion` (3–100), `valor_carga_efectiva`, `valor_carga_util_nominal` (with more than one vehicle), and per vehicle `configuracion` (D.S. 058-2003-MTC, no spaces), `carga_util_tm` and `carga_efectiva_tm`.",
+          "In the XML: `cac:Delivery` per line with `DeliveryLocation` (destination), `Despatch` (detail and origin), three `DeliveryTerms` (01/02/03 in PEN) and `Shipment/Consignment` per leg with `TransportHandlingUnit` per vehicle. `transporte` is not accepted in other operation types."
+        ]
+      },
+      "retencion": {
+        "titulo": "With IGV withholding (customer is a withholding agent)",
+        "cuando": "Your customer is a withholding agent designated by SUNAT: it withholds 3 % of the total amount and pays it to SUNAT on your behalf. It is reported in the invoice; it does not change the totals.",
+        "notas": [
+          "`retencion_igv: {}` is enough: khipu applies the legal 3 % rate on the total amount (`porcentaje` and `monto` are optional; if you send `monto`, it must match base × % within ±1, rule 3263).",
+          "The response carries `retencion_igv.monto` and `neto_cobrar` (total − withholding). If the invoice is on credit, set `monto_pendiente` = net to collect.",
+          "XML: global `cac:AllowanceCharge` with `ChargeIndicator false`, code **62**, factor 0.03, amount and base = total amount (rules 3114, 3262–3264). SUNAT also checks that the customer is in the withholding agents register and you are not (3262/3269): that cannot be validated locally."
+        ]
+      },
+      "percepcion": {
+        "titulo": "With IGV perception (you are a perception agent)",
+        "cuando": "Your company is designated a perception agent (domestic sale of goods in the annex, fuels) and collects the perception on top of the invoice amount.",
+        "notas": [
+          "It requires `tipo_operacion` **2001**, **cash** payment and **PEN** currency (rules 3308, 3330, 2788); with 2001 in cash the perception is mandatory (3093).",
+          "`regimen` from catalog 53: `51` domestic sale (2 %), `52` fuel (1 %), `53` agent with a special rate (0.5 %). The rate is set by the regime (catalog 22); `base` (by default the total amount) and `monto` are optional and validated with a ±1 tolerance (2797, 2798).",
+          "The document’s amount to pay (`totales.total`) does **not** include the perception; the response carries `percepcion.total_con_percepcion`, which is what you collect from the customer, and the XML carries the `AllowanceCharge` 51/52/53 (`ChargeIndicator true`), a `PaymentTerms` with the `Percepcion` indicator and legend 2000."
+        ]
+      },
+      "anticipos": {
+        "titulo": "Advance payments (advance invoice and final invoice)",
+        "cuando": "The customer pays in advance (fully or partially) before delivery: first an invoice for the advance payment is issued and, on delivery, the final invoice for the whole operation deducting what was already paid.",
+        "notas": [
+          "`anticipos[].serie` and `numero` identify the advance payment invoice (series `F###`, type 02) or receipt (series `B###`, type 03); a final receipt also accepts them, from the same buyer: it must be from this same company, to the same customer, in the same currency and be `ACEPTADO` or `ACEPTADO_CON_OBS` (SUNAT looks it up in its records: rule 3218). If not, `422 ANTICIPO_INVALIDO`.",
+          "`monto` is the **value without IGV** being settled (3000.00 in the example). khipu calculates the amount paid with IGV (3540.00); it cannot exceed what was invoiced in the advance payment nor what is invoiced in this invoice for the same tax treatment.",
+          "`afectacion` (optional): `gravado` (code 04, default), `exonerado` (05) or `inafecto` (06). It decides which base it is deducted from: a taxable advance payment reduces the IGV base (rules 3277, 3291); an exempt/non-taxable one reduces that base without IGV.",
+          "Example calculation: operation 10000.00 + IGV 1800.00 = 11800.00; advance payment 3000.00 → taxable base 7000.00, IGV 1260.00; `total_anticipos` 3540.00; `total` to pay 11800.00 − 3540.00 = 8260.00. `total_valor_venta` and `total_precio_venta` remain the gross amounts (10000.00 and 11800.00, rules 3278/3279).",
+          "In the XML each advance payment goes as `AdditionalDocumentReference` (type 02 or 03 depending on the series, issuer’s RUC, payment identifier), `PrepaidPayment` (amount with IGV) and `AllowanceCharge` 04/05/06; the totals carry `PrepaidAmount` (rules 2503, 2509, 3211–3220, 3282, 3287).",
+          "A 100 % advance payment leaves base, IGV and total at 0.00: the final invoice is still mandatory to document the delivery. With credit payment, `monto_pendiente` and the installments are validated against the balance after advance payments.",
+          "The response returns `anticipos[]` with `comprobante`, `monto`, `importe_pagado`, `afectacion`, `codigo_sunat` and `fecha_pago`, and in `totales` the `total_anticipos` field."
+        ]
+      },
+      "isc-icbper": {
+        "titulo": "ISC and ICBPER",
+        "cuando": "Goods subject to the Selective Consumption Tax (alcoholic drinks, soft drinks, fuels, vehicles, cigarettes…) or plastic bags (ICBPER, a fixed amount per bag depending on the year).",
+        "notas": [
+          "`isc.sistema` from catalog 08: `01` ad valorem carries `tasa` (%) on the sale value; `02` fixed amount carries `monto_unitario`; `03` ad valorem on the retail price carries `tasa` and `base_pvp` (suggested unit retail price without IGV: beers, cigarettes, soft drinks), and the ISC base in the XML is `base_pvp × cantidad`, not the sale value (rule 3108). `precio_unitario` always includes ISC and IGV: khipu separates value, ISC and IGV (159.30 = 100 × 1.35 × 1.18; 3.599 = (2.00 + 3.50 × 30 %) × 1.18). `base_pvp` cannot be less than the unit value.",
+          "ISC is part of the IGV base (rule 204) and is reported in a `TaxSubtotal` 2000 per line (with `TierRange` = system) and globally (rules 3108, 2373, 3210).",
+          "`icbper: true` marks plastic bags: one bag per unit (`unidad` NIU), fixed amount in force per year (S/ 0.50 since 2023, Law 30884) included in the price; it is reported as tax 7152 with no base or rate (rules 3236–3238).",
+          "With `icbper: true` the `cantidad` is the number of bags: an **integer from 1 to 99999** (`422 ITEM_INVALIDO` with 2892 if it is 1.5 or 100000, without rounding it) and the `unidad` is **NIU**: ICBPER is the amount per bag × `cantidad`, so with dozens or kilos you would undercharge. SUNAT only flags that unit (4320, on the `BaseUnitMeasure`, which khipu always issues as NIU); khipu rejects it in a new document (`422 ITEM_INVALIDO`), not in the full note that copies one already issued. `precio_unitario` includes ICBPER, so it must exceed it (0.50 per bag in 2023 or later): otherwise the line’s sale value ends up at `0.00` and it is rejected with 2370. A receipt with `tipo_operacion` `0113` (NRUS) does not accept `icbper` (3240).",
+          "The response carries per item `isc {sistema, tasa, monto, base, base_pvp}` and `icbper`, and in `totales` `isc` and `icbper`; `total_precio_venta` includes them (rule 55)."
+        ]
+      },
+      "otros-tributos-placa": {
+        "titulo": "Other taxes (9999) and vehicle plate",
+        "cuando": "A line carries a sector-specific tax on top of IGV (tax 9999 «OTROS», for example a per-tonne charge or a municipal tax with a percentage rate) or the sale is fuel and the vehicle plate is reported (property 7000, catalog 55).",
+        "notas": [
+          "`otros_tributos.tasa` is a percentage (up to 3 integer digits and 5 decimals, rule 3102) on the line’s **sale value** (rule 3109). It is reported as `TaxSubtotal` 9999 per line and globally, with no IGV treatment (3050).",
+          "`precio_unitario` includes IGV (and ISC, if any) but **not** the other taxes: they are charged on top. They do not enter the IGV base; they do add to `total_precio_venta` and to `total` (rule 3279). In the example: value 100.00, IGV 18.00, other taxes 3.50, total 121.50.",
+          "They are not accepted on free or export lines (3223, 3107), and cannot yet be combined with a global discount (02) or a global charge (49) that affects the base: `422 OTROS_TRIBUTOS_INVALIDO`. They work in receipts (the daily summary reports them) and a full note keeps them.",
+          "`placa` (up to 8 characters) goes as the item’s property 7000 («Gastos Art. 37 Renta: Número de Placa»); an empty plate or one of more than 8 characters responds `422 ITEM_INVALIDO` (3064).",
+          "The response carries per item `otros_tributos {tasa, monto}` and `placa`, and in `totales` `otros_tributos`."
+        ]
+      },
+      "ivap": {
+        "titulo": "Milled rice (IVAP)",
+        "cuando": "You sell milled rice: the first sale in the country is subject to the Milled Rice Sales Tax (Law 28211), 4 % instead of IGV. Mills, traders and any issuer selling milled rice.",
+        "notas": [
+          "`tipo_afectacion_igv: \"17\"` (catalog 07): `precio_unitario` includes IVAP (3.12 = 3.00 + 4 %). khipu calculates tax `1016` at 4 % per line and in its own global subtotal, and adds legend `2007` (Operación sujeta al IVAP).",
+          "The whole document is IVAP: SUNAT calculates its sale price **without IGV** (field 55), so it does not accept `10`, `20`, `30` or free items in the same invoice (`422 AFECTACION_INVALIDA`); the other sales go in another document. Nor does it accept `isc` or `icbper` on the line (rules 2650, 3223).",
+          "The reduced rate of the restaurants and hotels register does not apply to IVAP: the line always carries `Percent 4.00`.",
+          "The response carries in `totales` `gravado` (IVAP base), `ivap` and `igv` at 0.00; `total_precio_venta` = base + IVAP. Credit notes on an IVAP invoice are limited by its base and IVAP (rule 3503, tax 1016)."
+        ]
+      },
+      "exportacion": {
+        "titulo": "Export of goods or services",
+        "cuando": "You sell to a foreign customer: goods leaving the country (DAM) or services used outside Peru. Without IGV (tax 9995) and in the agreed currency; the invoice supports the export before SUNAT and Customs.",
+        "notas": [
+          "`tipo_operacion` from catalog 51: `0200` goods, `0201` services provided entirely in the country (SUNAT requires being in the Register of service exporters, rule 3097), `0203`/`0204`/`0206`/`0207` services to shipping companies, ships, cargo and ZED, `0208` services provided partly abroad. `0202` (lodging) and `0205` (tour package) require the guest’s data and are not supported yet.",
+          "All items carry `tipo_afectacion_igv: \"40\"` (rule 2642) and `precio_unitario` is the sale value, without IGV; they are not mixed with `10`/`20`/`30`/`17` or free items and do not carry `isc`/`icbper` (3107, 3223): `422 AFECTACION_INVALIDA`. The response carries `totales.exportacion` and `igv` 0.00.",
+          "`cliente`: the foreign customer’s catalog 06 document —`0` non-resident tax document without RUC, `1` DNI, `4` foreigner’s card, `7` passport, `A`…`G`— and `pais` (ISO 3166-1, catalog 04) required. A RUC (`6`) is not accepted in `0200`/`0201`/`0204` (rule 2800): `422 RECEPTOR_INVALIDO`.",
+          "`exportacion.incoterm` (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP) goes in `cac:DeliveryTerms`: SUNAT does not validate it, Customs does ask for it. In `0201`/`0208` `exportacion.pais_uso` is required (country where the service is used, other than PE, rules 3098/3099); in the other types it is not accepted.",
+          "Credit payment, discounts that do not affect the base (`03`) and charges `46`/`50` work the same; discount `02` and charge `49` do not (there is no taxable base). No detracción or perception (they do not apply to exports). Credit notes inherit the invoice’s operation type, currency, Incoterm and buyer."
+        ]
+      },
+      "boleta-dni": {
+        "titulo": "Receipt to a buyer with DNI",
+        "cuando": "Sale to an end consumer (a person, or a company that does not ask for an invoice). It is issued through the same endpoint as the invoice: the letter `B` of the series decides it is a receipt (type 03).",
+        "notas": [
+          "The `B###` series is registered with type **03** (`POST /v1/series` or the Series page; registering it as an invoice, `01`, responds `422 SERIE_INVALIDA`, and issuing with a `B` series not registered as a receipt —unregistered, or registered as a `07`/`08` note— responds `422 SERIE_NO_CONFIGURADA`). Items, prices with IGV, tax treatments, discounts, charges, free items, ISC/ICBPER and IVAP work the same as in the invoice; the response is the same document with `tipo: \"03\"`.",
+          "`cliente`: any catalog 06 document. DNI (`1`) of **8 digits** (4207), RUC (`6`) with check digit (2017), foreigner’s card (`4`), passport (`7`) and the others up to 15 characters without spaces (4208). SUNAT only flags 4207/4208; khipu rejects them (`422 RECEPTOR_INVALIDO`) so as not to issue to a wrongly identified buyer. `razon_social` is the buyer’s name: from 3 to 1500 characters not counting leading and trailing spaces (2022).",
+          "What the receipt does not accept: credit sale (`FORMA_PAGO_INVALIDA`), IGV withholding (`RETENCION_INVALIDA`): `tipo_operacion` only `0101` (default), `0113` (NRUS), `0200`–`0208` export (without `0202` or `0205`), `0401` (non-residents), `1001`–`1004` (detracción) or `2001` (perception); another one responds `422 TIPO_OPERACION_INVALIDO` (3206). In exports and in `0401` the buyer has no RUC (`422 RECEPTOR_INVALIDO`, 2800): use their foreign document, their DNI or, in soles and up to S/ 700, «sin documento». Everything is rejected before using up a number.",
+          "**Deadlines** (calendar days from `fecha_emision`): khipu sends it **on its own** (`sendBill`, with its own CDR) in the same call, like an invoice, up to the **5th day**; on the 6th and 7th it reports it in a daily summary (see “Receipt sent after the 5th day”). A `fecha_emision` more than 7 days back responds `422 FECHA_INVALIDA` (1079).",
+          "It is voided with `POST /v1/facturas/{id}/baja` (see “Void a receipt”) and corrected with a `BC##`/`BD##` note (see “Credit and debit notes on a receipt”)."
+        ]
+      },
+      "boleta-sin-documento": {
+        "titulo": "Receipt without the buyer’s document (up to S/ 700)",
+        "cuando": "Small sale to a consumer who does not give their document: corner shops, restaurants, walk-in sales. SUNAT allows it only up to S/ 700.00 total amount.",
+        "notas": [
+          "`tipo_doc` and `num_doc` both go as `-` (no document, catalog 06); a `tipo_doc` `-` with a number responds `422 RECEPTOR_INVALIDO`.",
+          "In **soles**, or in another currency with `tipo_cambio`, and with a total amount (`totales.total`, with IGV, converted to soles) of up to **S/ 700.00**. Above that, or in another currency without `tipo_cambio` (there is no way to compare it with the cap), `422 RECEPTOR_INVALIDO`: identify the buyer with their document, as in the previous case. It is validated before using up a number.",
+          "The name is also required without a document and has at least 3 characters (2022, an error at SUNAT from 2027-01-01): use `CLIENTES VARIOS`. A shorter name (`-`, `CV`) responds `422 RECEPTOR_INVALIDO`.",
+          "Otherwise it is a receipt like the previous one: same deadlines, same voiding. Its notes take this same buyer without a document."
+        ]
+      },
+      "boleta-alta-tardia": {
+        "titulo": "Receipt sent after the 5th day (reported in the daily summary)",
+        "cuando": "A receipt issued with `enviar_automatico: false` that is sent late, or that stayed in `ERROR_ENVIO` until after the 5th day. SUNAT no longer accepts it on its own (1079): khipu reports it in a daily summary with its line in status 1 (new).",
+        "notas": [
+          "There is nothing different to do: the same `POST /v1/facturas/{id}/enviar`, the automatic retry of an `ERROR_ENVIO` or issuing with a `fecha_emision` 6 or 7 days back decide the channel on their own. The summary (`SummaryDocuments`, `RC-yyyymmdd-N`) travels through `sendSummary`: if SUNAT already answered the ticket, the receipt comes back `ACEPTADO`; if not, it stays `ENVIADO` and khipu checks again.",
+          "The summary comes in the response’s `baja` and in `GET /v1/facturas/{id}/bajas`, with `condicion: \"ALTA\"` (in a voiding it is `BAJA`). Late receipts **with the same issue date** are reported together in a single summary, up to 500 lines: they share `identificador`, `ticket` and CDR, and each one carries its `linea` and the summary’s `lineas`. A voiding (`BAJA`) is always its own summary. If SUNAT rejects a multi-line summary (2987, one line with an error rejects the whole of it), no receipt ends up rejected because of that: each one is reported again on its own and only the faulty one ends `RECHAZADO`.",
+          "**The receipt’s CDR**: SUNAT does not issue a CDR per receipt within a summary; the receipt’s CDR is the summary’s (`El Resumen diario RC-…, ha sido aceptado`). `GET /v1/facturas/{id}` says so in `cdr.resumen` and `GET /v1/facturas/{id}/cdr` in the `X-Cdr-Resumen` header; the file is still named `R-<RUC>-03-<serie>-<número>` so as not to change what integrators already use, but its content is the summary’s. A receipt sent on its own (on time) has its own CDR and carries neither the field nor the header.",
+          "**Up to the 7th day** (`fecha_limite_envio`) it is on time. **After the 7th day** it is not lost: it goes anyway, in a summary separate from the ones on time (they are not mixed) with `fuera_de_plazo: true`. SUNAT does not reject it: the rules provide that it flags it with **4443** («El comprobante fue informado fuera del plazo establecido»), and then the receipt ends up `ACEPTADO_CON_OBS`; in the test against its test environment (e-beta, 8 and 30 days late) it accepted it with no observations and it ended up `ACEPTADO`. What rules is the document’s `cdr.observaciones`, not `fuera_de_plazo`. The sale is reported, but late: send receipts on time. SUNAT counts the deadline up to the day it receives the summary.",
+          "A receipt reported late is already past the 7 days for voiding (2957): it is not voided, it is corrected with a credit note.",
+          "The same applies to a note on a receipt, except credit note **10** and debit note **03**, which do not go in the daily summary: after the 5th day they end up `FUERA_DE_PLAZO` (1079) and sending responds `409 FUERA_DE_PLAZO`."
+        ]
+      },
+      "notas": {
+        "titulo": "Credit and debit notes",
+        "cuando": "Correct or cancel an invoice already accepted: returns (full or per item), later discounts, cancellation due to an error, rescheduling installments (credit note); late-payment interest, penalties or value increases (debit note).",
+        "notas": [
+          "`tipo` **07** credit note / **08** debit note; `serie` registered with that type and starting with `F` (e.g. `FC01`, `FD01`; rule 1001; on a receipt, `B`: see the next case). `documento_afectado` must be an invoice of the company **accepted** by SUNAT and not voided (rules 2119, 2120); the note takes its customer, currency and operation type, and its date cannot be earlier (2885).",
+          "`motivo` from catalog **09** (credit note: `01` cancellation, `02` error in the RUC, `04`/`05` discounts, `06`/`07` returns, `09` decrease, `13` installment correction…) or **10** (debit note: `01` late-payment interest, `02` value increase, `03` penalties…); `descripcion` is the justification (1–500 characters, rule 2135).",
+          "**Full note**: without `items`, khipu copies the invoice’s items, global discount and charges (do not send your own `descuento_global` or `cargos`: they are rejected). If the invoice settled advance payments, send `items` for the net amount: advance payments do not travel in a note. If the net is 0.00 (the advance payments cover the invoice) no note is possible, because SUNAT rejects zero lines and a note for more than the total: it is voided with the voiding communication. **Partial note**: send `items` with the same format as in the invoice (e.g. one laptop of the two invoiced). A credit note never exceeds the invoice amounts, neither in total (3286) nor per tax (3503), and khipu deducts what previous credit notes already credited: several partial ones can add up to the invoice, but a second full note is rejected (SUNAT would accept it, because it compares note by note). A debit note has no cap.",
+          "**Discounts and charges in a note**: SUNAT does not accept `AllowanceCharge` in a note and requires each line’s value to be unit value × quantity (3271) and the IGV base to be the sum of the lines (3277). khipu applies the discount (`00`/`02`) and the charge (`47`/`49`) to the line’s value —the global one, spread across the taxable lines— and the note goes out without them: the base, the IGV and the total are the same, but the discount detail does not travel and the line’s unit value is the net one. A full note of an invoice with discounts adds up to the same as the invoice. A discount that does not affect the base (`afecta_base_igv: false`, codes `01`/`03`) does not fit in a note (3280: the note’s total does not subtract discounts) and responds `422 DESCUENTO_INVALIDO` before numbering: give the note’s `items` at their net amount. Charges that do not affect the base (`48`, `46`, `50`) do go.",
+          "**Credit note 13** (reschedule installments of a credit invoice): send `forma_pago` on credit with the corrected installments; the note goes out with amount 0 (rule 3315; `items` is ignored) and the installments are validated against the invoice (3320, 3321). In any other note `forma_pago` is rejected.",
+          "**Retries**: if the network drops after the `POST`, repeat the same call with the same `Idempotency-Key` (see “Safe retry with Idempotency-Key”): it responds `200` with the same note, without duplicating it or using up another number. It works the same on an invoice and on a receipt.",
+          "The response is the same document as for invoices plus the `nota { tipo_afectado, documento_afectado, motivo, motivo_descripcion, descripcion }` block; query, XML, CDR and resending go through `GET /v1/facturas/{id}`…, and the invoice lists its notes in `notas[]`. In the XML: `CreditNote`/`DebitNote` with `cac:DiscrepancyResponse` and `cac:BillingReference`. Error `NOTA_INVALIDA` (422) with the SUNAT rule in the message. Certified in e-beta: full, partial and 13 credit notes and debit note."
+        ]
+      },
+      "notas-boleta": {
+        "titulo": "Credit and debit notes on a receipt",
+        "cuando": "Return or correct a sale to an end consumer already accepted: full return or of one product, cancellation due to an error, value decrease (credit note); interest or value increases (debit note).",
+        "notas": [
+          "Same endpoint and body as on an invoice, with the letter **B**: the note’s `serie` starts with `B` (e.g. `BC01` for credit, `BD01` for debit, registered with type 07/08) and `documento_afectado` is a `B…` receipt of the company **accepted** by SUNAT and not voided (rules 2399, 2400, 2119, 2120). An `F` note on a receipt, or a `B` note on an invoice, is rejected with `SERIE_INVALIDA`.",
+          "The note takes the receipt’s buyer, which can be «sin documento» (`-`): no RUC is required. **Full note**: omit `items` and khipu copies the receipt’s; **partial note**: send the items being returned.",
+          "Reasons not accepted on a receipt: credit note **13** (the receipt has no installments, rule 3259) and credit note **04**, **05** or **08**: a discount or bonus to an end consumer is applied in the same receipt (RCP art. 10 num. 1.4; SUNAT only flags it with 4367, khipu rejects it so it does not pile up observations). Use `01`, `06`, `07` or `09` to return or correct the amount.",
+          "A credit note does not exceed the receipt: the total allows **S/ 1** extra (rule 3286, an error from 2027-01-01 and khipu already applies it) and each tax, S/ 1 (3503). As in the invoice, what previous credit notes already credited is deducted.",
+          "**Deadlines** (the receipt’s, calendar days in Lima time): on its own with `sendBill` up to the **5th day**; on the 6th and 7th, khipu reports it in a **daily summary** with its line in status 1 and the receipt it modifies (`cac:BillingReference`); after the 7th, also in a daily summary, **late**: SUNAT does not reject it and may flag it with **4443** (then it ends up `ACEPTADO_CON_OBS`; in e-beta it accepted it with no observations). Credit note **10** and debit note **03** do not go in the daily summary: they expire on the 5th day (`FUERA_DE_PLAZO`).",
+          "To void it, `POST /v1/facturas/{id}/baja` on the note: it goes in a daily summary (`RC-…`, status 3), never in a voiding communication (2310). The receipt lists its notes in `notas[]` of `GET /v1/facturas/{id}`."
+        ]
+      },
+      "liquidacion-compra": {
+        "titulo": "Purchase settlement (buying from someone without RUC)",
+        "cuando": "The company buys from a person without RUC —a farmer, an artisanal fisher, a gatherer— who cannot give it an invoice or a receipt: the company issues the purchase settlement (type 04) and withholds the IGV and the Income Tax.",
+        "notas": [
+          "**Who is who**: the company is the buyer and the issuer; the `vendedor` is a person without RUC with a DNI (`1`), foreigner’s card (`4`) or passport (`7`). A seller with RUC is rejected (`422 RECEPTOR_INVALIDO`, 2800): they issue their own invoice or receipt. Their address is required (address, ubigeo from catalog 13 and `condicion` from catalog 60: `01` point of sale, `02` production, `03` extraction, `04` exploitation, `05` others), as is the `lugar_operacion`. The `L###` series is registered in `POST /v1/series` with type `04`.",
+          "**Withholdings**: the buyer withholds the IGV of the taxable lines and **1.5 %** of each line’s sale value as a payment on account of the seller’s Income Tax (tax 3000), and declares and pays them. That is why `totales.total` —and `liquidacion.neto_pagar`— is what is paid to the seller: subtotal − IGV − income tax + rounding (rule 4312). A taxable line’s `precio_unitario` includes IGV, as in the invoice; in the example, 100 kg at S/ 11.80: value 1 000.00, IGV 180.00, income tax 15.00, net 985.00.",
+          "Each line carries the **SUNAT product code** (`codigo_sunat`, catalog 25: required, 3506) and a tax treatment `10`, `20` (e.g. agricultural products exempt under Appendix I) or `30`. `tipo_operacion` `0501` domestic purchase (default) or `0502` advance payments. **Not yet**: gold purchase (`0503`, requires the mining right data), free purchases, other taxes (9999) and settling advance payments.",
+          "**Deadline**: SUNAT accepts it up to the **day after** its issue (2108); it has no daily summary. **Voiding**: SUNAT does not accept it in a voiding communication (2308) but in a reversals summary, which khipu does not issue yet: `POST /v1/facturas/{id}/baja` responds `422 BAJA_INVALIDA`.",
+          "That the DNI exists, does not belong to a minor or a deceased person (2450, 2460–2462) and that the seller does not exceed **75 UIT** of sales through purchase settlements in the year (2451) is validated by SUNAT with data khipu does not have: if it fails, the settlement ends up `RECHAZADO` with the number used up.",
+          "Query, XML (`SelfBilledInvoice` UBL 2.1), CDR, PDF and resending go through `GET /v1/facturas/{id}`…; the listing filters it with `tipo=04`, and `POST /v1/liquidaciones-compra/calcular` responds with the amounts without issuing. It accepts `Idempotency-Key`. Certified in e-beta: taxable, exempt and non-taxable, in dollars and by advance payment (`0502`) with a foreigner’s card."
+        ]
+      },
+      "comprobante-retencion": {
+        "titulo": "Withholding certificate (withholding agent)",
+        "cuando": "The company was designated by SUNAT as an IGV withholding agent: when paying a supplier’s invoices it withholds 3 % and issues the withholding certificate (type 20). Only for companies that khipu support enabled with the designation resolution.",
+        "notas": [
+          "**Who can**: only a company designated as a withholding agent by SUNAT. khipu does not query the registers: support records the designation after checking the resolution; without it the `R###` series (type `20` in `POST /v1/series`) and issuing respond `422 AGENTE_NO_DESIGNADO` (2617). The `proveedor` always has a RUC, different from the company’s (2620).",
+          "**Amounts**: per document, withheld = payment × rate (and × exchange rate outside soles) and net paid = payment − withheld, **always in soles**. `totales.total` is the total amount withheld; `agente.importe_neto`, what is paid to the supplier. In the example, 3 % of 1 180.00: 35.40 withheld and 1 144.60 paid. A document in dollars carries `\"tipo_cambio\": { \"factor\": 3.756 }` (and its `fecha`, by default the payment’s).",
+          "`regimen` from catalog 23: `01` 3 % rate (the current one) or `02` 6 % rate, which only applies to documents issued up to 28/02/2014 (2985). Each document is an invoice (`01`), debit note (`08`) or ticket (`12`) with its payment; a document paid in installments goes once per installment, with another `pago.numero` (2626). All payments are from the certificate’s month (2625). **Not yet**: the credit note (`07`) and another withholding as a related document.",
+          "**Deadline**: SUNAT accepts it up to **7 calendar days** from the day after its issue (2600). It goes to SUNAT’s withholdings and perceptions service; a rejection does not use up the number for SUNAT, but khipu considers it used: fix it and issue another. **Reversal**: `POST /v1/facturas/{id}/baja` reverses it in a reversals summary (`RR-…`): SUNAT does not validate it against the issue; the rules require submitting it within 7 calendar days from when the reversal was communicated.",
+          "Query, XML (`Retention` UBL 2.0), CDR, PDF and resending go through `GET /v1/facturas/{id}`…; the listing filters it with `tipo=20` and it does not add to what was invoiced. `POST /v1/retenciones/calcular` responds with the amounts without issuing. It accepts `Idempotency-Key`. Certified in e-beta in soles and in dollars; e-beta does not check the agent designation."
+        ]
+      },
+      "comprobante-percepcion": {
+        "titulo": "Perception certificate (perception agent)",
+        "cuando": "The company was designated by SUNAT as an IGV perception agent: when collecting a customer’s invoices it collects an additional percentage and issues the perception certificate (type 40). Only for companies enabled with the designation resolution.",
+        "notas": [
+          "**Who can**: only a company designated as a perception agent by SUNAT and enabled by support (otherwise, `422 AGENTE_NO_DESIGNADO`, 4285). The `cliente` can have a RUC, DNI or another catalog 06 document (2511, 2680).",
+          "`regimen` from catalog 22: `01` domestic sale 2 %, `02` fuel purchase 1 %, `03` perception agent with a special rate 0.5 %. Per document, perceived = collection × rate (in soles) and net collected = collection + perceived; `agente.importe_neto` is what the customer pays. The collected documents are invoices (`01`), receipts (`03`), debit notes (`08`) or tickets (`12`) of the company, collected in the certificate’s month (2612).",
+          "**What SUNAT validates with data khipu does not have** (e-beta does not apply it): that the collected invoice exists at SUNAT (2609) with its date (2610), is **on credit** (3329) and has not already reported the perception with operation type 2001 (3312). If the perception was collected in cash in the same invoice (`percepcion` in `POST /v1/facturas`), this certificate is not issued.",
+          "Deadline, reversal, query and downloads as in the withholding: 7 days (2600), `RR-…` (SUNAT does not validate its deadline against the issue), `tipo=40` in the listing, `POST /v1/percepciones/calcular` and `Idempotency-Key`. **Not yet**: exceptional issuing (`sac:ExceptionalIndicator`) or the credit note as a related document."
+        ]
+      },
+      "baja": {
+        "titulo": "Voiding communication (void a document)",
+        "cuando": "Void before SUNAT an invoice, receipt or note already accepted that was issued by mistake (customer, amounts, duplicate) within the 7 calendar days after its issue. After the deadline, or if the document was already delivered, a credit note is the way.",
+        "notas": [
+          "`{id}` is the document to void (invoice, receipt or note), which must be **ACEPTADO** or **ACEPTADO_CON_OBS** (2398) and have been issued **7 calendar days ago or less** (2957), counted in Lima time from the issue date, not from SUNAT’s acceptance: on day 7 it is accepted until 23:59, on day 8 no longer. It is the rule SUNAT applies to receipts and their notes from 2027-01-01 (RS 000048-2026; until then it counts from the CDR, which is never earlier than the issue): khipu already applies it and so meets both. SUNAT measures the deadline by the day it receives the communication: if sending fails (`ERROR_ENVIO`) and the retry reaches it after day 7, it rejects it with 2957 even if khipu accepted it (the retry resends the same `RA`/`RC`, with its original generation date); on the last day, request it early. `motivo` of 3 to 100 characters (2315). It responds **201** with the communication `{ id, identificador \"RA-20260918-1\", estado, ticket, cdr }`.",
+          "SUNAT processes voidings asynchronously: khipu sends the summary (`sendSummary`), receives a **ticket** and checks it (`getStatus`). If SUNAT already answered, the voiding comes back `ACEPTADA` (or `RECHAZADA`) in the same call; if it is still in process it stays `ENVIADA` and the worker checks it again after 30 s. Query `GET /v1/bajas/{id}` (it also checks the ticket again) or `GET /v1/facturas/{id}`, which carries the latest voiding in `baja`.",
+          "When SUNAT accepts the communication, the document becomes **ANULADO** and no longer accepts notes or resending. There can be only one voiding in progress per document; if SUNAT rejects it, it can be requested again. Error `BAJA_INVALIDA` (422) with the SUNAT rule in the message.",
+          "In the XML: `VoidedDocuments` (UBL 2.0, `RA-yyyymmdd-N`) signed like the documents; it is stored with its CDR. Certified in e-beta.",
+          "A **receipt**, or a note on a receipt, does not go in a voiding communication (2308/2310): it is voided through this same endpoint in a daily summary; see the next case."
+        ]
+      },
+      "boleta-baja": {
+        "titulo": "Void a receipt (voiding in the daily summary)",
+        "cuando": "Void before SUNAT a receipt, or a note on a receipt, already accepted that was issued by mistake, within the 7 calendar days after its issue. After the deadline, or if it was already delivered, a credit note is the way.",
+        "notas": [
+          "Same endpoint, same rules and same cycle as voiding an invoice: **ACEPTADO** or **ACEPTADO_CON_OBS** (otherwise, `422 BAJA_INVALIDA` with 2663), issued **7 calendar days ago or less** counted in Lima time from `fecha_emision` (2957), `motivo` of 3 to 100 characters (2315) and a single voiding in progress.",
+          "What changes is the document: SUNAT does not accept receipts in a voiding communication (2308), so khipu voids it in a **daily summary** (`SummaryDocuments` UBL 2.0, `RC-yyyymmdd-N`) with the receipt’s line in status 3. The `identificador` starts with `RC` and the response carries `condicion: \"BAJA\"`. The reason stays in khipu: the summary does not carry it.",
+          "If SUNAT already answered the ticket the voiding comes back `ACEPTADA` and the receipt becomes **ANULADO**; if not, it stays `ENVIADA` and khipu checks it again (`GET /v1/bajas/{id}`). The number is used up: the corrected sale is a new receipt.",
+          "The receipt’s **free items** (bonuses, samples) are not reported in the summary: SUNAT accepts no code for them there (e-beta rejects `05` and `06` with 2256) and accepts the same summary without them. The summary carries what was sold; the amount to pay and the voiding do not change.",
+          "A receipt reported in a late summary (see “Receipt sent after the 5th day”) is already past the 7 days: it is not voided, it is corrected with a `BC##` credit note."
+        ]
+      },
+      "boleta-alcance": {
+        "titulo": "Receipt: what khipu covers compared to what SUNAT allows",
+        "cuando": "Before integrating the receipt, to know which daily summary and buyer identification cases khipu covers and which are solved another way.",
+        "notas": [
+          "**Daily summary in status 2 (modify): not implemented.** SUNAT allows it, but khipu only reports new ones (status 1) and voidings (status 3). An accepted receipt that went out with wrong data is corrected with a `BC##`/`BD##` credit or debit note, which is what the domestic rules recommend; that way the original document stays as SUNAT saw it and the correction leaves a trail.",
+          "**NRUS (`tipo_operacion` `0113`): it is issued.** The line carries the tax treatment and the IGV required by rules 3111, 2993, 4290 and 4310, and e-beta accepts the receipt. An `icbper` on any line of a receipt with `tipo_operacion` `0113` responds `422 ITEM_INVALIDO` (3240) because the NRUS taxpayer does not collect that tax. The invoice does not accept `0113`.",
+          "**Identifying the buyer: khipu validates the S/ 700.00 cap.** A receipt without a document (`tipo_doc` and `num_doc` as `-`) only goes through up to that total amount, in soles or converted with `tipo_cambio`. SUNAT also requires identifying the buyer when the receipt goes with a dispatch guide, in the Jungle region (from S/ 350.00) and in Tacna (from US$ 25.00). Those cases **are not validated**: khipu does not know the sale’s physical destination or the guide that goes with it. If your operation falls into one of them, always send the buyer’s document.",
+          "**Consolidated receipt of up to S/ 5.00: not offered.** The rules allow not issuing a receipt for each small sale and summarizing them in a single one per day, but it is a decision of your operation, not data khipu can deduce. Each sale is issued as its own receipt; if you need a consolidated one, issue it yourself as a receipt with one item per tax treatment (taxable, exempt, non-taxable) and a buyer without a document, and remember the total cannot exceed S/ 700.00 (`422 RECEPTOR_INVALIDO`)."
+        ]
+      },
+      "guia-remision-remitente": {
+        "titulo": "Shipper’s dispatch guide (09) in private transport — EXPERIMENTAL",
+        "cuando": "You move the goods of a sale in your own vehicle and with your own driver. It is the guide issued by whoever ships the goods; the letter `T` of the series decides it is a shipper’s guide.",
+        "notas": [
+          "**EXPERIMENTAL.** The contract with SUNAT’s REST API for the GRE comes from its manual and has not been tested against SUNAT yet: **sending is turned off** on the server and responds `422 GRE_NO_DISPONIBLE` before numbering until the operator turns it on after a controlled run. Meanwhile issue with `enviar_automatico: false` to review the XML and the PDF. The API’s shape may change.",
+          "**Requirements**: the `T###` series registered with type **09** (`POST /v1/series`), the certificate, the SOL credentials **and** the SUNAT API credentials (`PUT /v1/empresa/credenciales-api-sunat`, the `client_id` and `client_secret` of the application you register in SOL, option «Credenciales de API SUNAT»). The GRE goes through **SUNAT’s REST API**, not SOAP: without the API credentials, the guide is rejected before numbering (`422 CREDENCIALES_API_SUNAT_NO_CARGADAS`) except with `enviar_automatico: false`.",
+          "`motivo` from catalog 20 (`01` sale, `02` purchase, `03` sale with delivery to third parties, `04` transfer between branches of the same company, `05` consignment, `06` return, `07` pickup of transformed goods, `13` others —with `descripcion_motivo`—, `14` sale subject to confirmation, `17` transfer for transformation). Import (`08`), export (`09`) and itinerant issuer (`18`) not yet: `422 TRASLADO_INVALIDO`. In a sale the recipient cannot be the shipper itself (2555); in `04` it must be (2554), and the departure and arrival are branches of the company (3365, 3369).",
+          "`modalidad` **02** (private): `vehiculos` and `conductores`, the first of each list is the main one and up to two secondary ones (4389, 4376); plate of 6 to 8 letters or digits (2567), license of 9 to 10 (2573). With the `vehiculo_m1_o_l` indicator (cars or motorcycles) they are not needed. **01** (public): `transportista` with its RUC, business name and, optionally, `registro_mtc`, and without vehicles or drivers (2774) except with the `vehiculos_conductores_transportista` indicator.",
+          "`partida`/`llegada`: ubigeo (catalog 13) and detailed address; a branch of the company goes only with its code (`establecimiento`, from `GET /v1/empresa/establecimientos`; `0000` the tax address) and khipu fills in ubigeo and address. One that does not exist or was deregistered responds `422 TRASLADO_INVALIDO` (3366/3370). `fecha_inicio` cannot be before the issue date (3343) and `peso_bruto` goes in `KGM` or `TNE` (2880, 2881).",
+          "SUNAT processes the GRE asynchronously: khipu sends the ZIP, receives a **ticket** and checks it. The `201` response carries `estado` `ACEPTADO` if SUNAT already processed it, or `ENVIADO_PENDIENTE_TICKET` and khipu keeps checking on its own (increasingly spaced, for ~24 h; also `POST /v1/guias-remision/{id}/ticket`). If SUNAT did not answer it stays `ERROR_ENVIO` and is retried on its own; if it rejected the credentials or the file, `reintento_automatico: false`: fix it and resend with `POST /v1/guias-remision/{id}/enviar`.",
+          "Before calling SUNAT the guide moves to `ENVIANDO`: two simultaneous sends do not send the same number. One that stayed `ENVIANDO` without an answer (`409 ENVIO_EN_CURSO`) is resumed with `POST /v1/guias-remision/{id}/enviar?forzar=true` after 10 min and only after checking in SOL that it did not arrive. If SUNAT rejects the credentials, the company does not request the token again with the same ones for an hour (`422 CREDENCIALES_GRE_RECHAZADAS`); saving others releases it.",
+          "SUNAT does not publish a test API for the GRE: a company in `BETA` does not send guides (`422 GRE_NO_DISPONIBLE`), but it can issue them with `enviar_automatico: false` to review the XML (`GET /v1/guias-remision/{id}/xml`). The PDF (`/pdf`) carries the full shipment and the QR with the query URL SUNAT puts in the CDR."
+        ]
+      },
+      "guia-remision-transportista": {
+        "titulo": "Carrier’s dispatch guide (31) — EXPERIMENTAL",
+        "cuando": "You are a transport company and carry a shipper’s goods. The letter `V` of the series decides it is a carrier’s guide; it usually goes with the customer’s shipper guide.",
+        "notas": [
+          "The `V###` series is registered with type **31**. It carries `remitente` (whoever ships the goods, it cannot be you: 2560) and their `registro_mtc` (required, 4391), and always the main vehicle and driver (2566, 3357). It does not carry `motivo`, `modalidad` or `transportista`: sending them responds `422 GUIA_INVALIDA`.",
+          "`documentos_relacionados`: the shipper’s guide it goes with (`09`), the invoice, the DAM or the transport authorizations from catalog 61 (`65`–`69`, `82`); those the catalog marks «solo remitente» (`49`, `71`–`78`, `81`) are rejected (3445).",
+          "Sending, ticket, retries, PDF and credential requirements: the same as the shipper’s guide (previous case). It is the **least backed** of the two: where the shipper and the MTC registration go in the XML has no source in the SUNAT documentation at hand."
+        ]
+      }
+    },
+    "guia": {
+      "indice": {
+        "inicioRapido": "Quick start",
+        "anatomia": "Anatomy of a document",
+        "casos": "Issuing cases",
+        "caso": "· {titulo}",
+        "respuesta": "How to read the response",
+        "errores": "Errors",
+        "webhooks": "Webhooks",
+        "sire": "Sales register (SIRE)",
+        "buenasPracticas": "Good practices"
+      },
+      "titulo": "Guide to issuing invoices and receipts",
+      "resumen": "Everything you need to issue electronic invoices and receipts that are valid before SUNAT with a single call: what to send in each case, what khipu calculates for you, what it returns and how to act on each status or error.",
+      "inicioRapido": {
+        "pasos": [
+          "**Create your account and your company** in the portal (RUC and business name). Start in the `BETA` environment: it is SUNAT’s certification, documents have no tax validity and you can test without risk.",
+          "**Upload the digital certificate** (`.p12`/`.pfx`) and the **SOL credentials** (secondary user) in *Company*. In BETA, SUNAT’s test ones work (user `MODDATOS`).",
+          "**Complete the tax data** in *Company* (or with `PUT /v1/empresa/datos-fiscales`): tax address with a catalog 13 ubigeo, which goes in each XML as the issuer’s address, and the detracciones account if you will issue invoices subject to SPOT.",
+          "**Create a series** in *Series*: for invoices (type 01, `F001`) or for receipts (type 03, `B001`).",
+          "**Generate an API key** in *API keys*. It is shown only once: keep it as a secret.",
+          "**Issue your first invoice** with the base case below against `{base}`. The response carries the SUNAT status and the links to the XML and the CDR.",
+          "**Go to production**: once SUNAT has approved your certification, ask support to change the company’s environment to `PRODUCCION` (the environment is set when the company is registered and the change is made by the platform). The URL and the API key do not change."
+        ],
+        "curl": "cURL — first invoice",
+        "node": "Node.js — first invoice",
+        "python": "Python — first invoice"
+      },
+      "anatomia": {
+        "intro": "An electronic invoice or receipt is a signed UBL 2.1 XML, and both are issued with `POST /v1/facturas`: the series letter decides which. You send the business data; khipu handles the rest: sequential numbering, IGV and totals calculation, amount in words, catalogs, XML-DSig signature, validation against the official schemas, SOAP submission to SUNAT, reading the CDR and retries.",
+        "cabeceras": [
+          "Field",
+          "What it is",
+          "Values / catalog"
+        ],
+        "filas": [
+          [
+            "serie",
+            "Numbering series registered in the company.",
+            "`F` + 3 alphanumeric characters issues an invoice (`F001`); `B` + 3, a receipt (`B001`)."
+          ],
+          [
+            "correlativo",
+            "Number within the series. Optional.",
+            "Omit it so khipu assigns the next one; send it if your system keeps the numbering."
+          ],
+          [
+            "fecha_emision",
+            "Date of the document.",
+            "`YYYY-MM-DD`, not in the future. SUNAT must receive the invoice within 3 calendar days; the receipt, on its own up to the 5th day and in the daily summary up to the 7th."
+          ],
+          [
+            "moneda",
+            "Currency of the whole document.",
+            "`PEN`, `USD`, `EUR` — [catalog 02](/developers/catalogos#cat-02)."
+          ],
+          [
+            "tipo_operacion",
+            "Nature of the operation.",
+            "`0101` domestic sale (default), `1001` subject to detracción, `0200`–`0208` export (`40` items, foreign customer with `pais`; without `0202` or `0205`), `0401` non-residents and `2001` perception; a type khipu does not issue yet responds `422` before numbering — [catalog 51](/developers/catalogos#cat-51)."
+          ],
+          [
+            "cliente.tipo_doc",
+            "Buyer’s document type.",
+            "In a domestic sale invoice, `6` (RUC); in exports, the foreign customer’s document; in a receipt, any from the catalog, or `-` with no document (only in soles and up to S/ 700) —[catalog 06](/developers/catalogos#cat-06)."
+          ],
+          [
+            "cliente.num_doc",
+            "Document number.",
+            "11-digit RUC; in a receipt, 8-digit DNI, the others up to 15 characters, or `-`."
+          ],
+          [
+            "cliente.email",
+            "Buyer’s email. Optional.",
+            "Up to 150 characters; it does not go to the XML. With automatic sending turned on (`PUT /v1/empresa/envio-al-cliente`), they receive the PDF, the XML and the CDR when SUNAT accepts. Malformed: `422 RECEPTOR_INVALIDO` without using up a number."
+          ],
+          [
+            "items[].unidad",
+            "Unit of measure.",
+            "`NIU` unit (goods), `ZZ` unit (services), `KGM`, `HUR`… — [catalog 03](/developers/catalogos#cat-03)."
+          ],
+          [
+            "items[].precio_unitario",
+            "Unit sale price.",
+            "With IGV included for taxable items; khipu derives the unit value and the IGV."
+          ],
+          [
+            "items[].tipo_afectacion_igv",
+            "How the item is taxed.",
+            "`10` taxable, `20` exempt, `30` non-taxable; free 11–17/21/31–37 — [catalog 07](/developers/catalogos#cat-07)."
+          ],
+          [
+            "forma_pago",
+            "Cash or credit with installments.",
+            "Cash by default. On credit: `monto_pendiente` + `cuotas[]`."
+          ],
+          [
+            "enviar_automatico",
+            "Send to SUNAT in the same call.",
+            "`true` by default; `false` leaves the document FIRMADO."
+          ]
+        ],
+        "nota": "The codes come from SUNAT’s official catalogs. You can look them up in the [SUNAT catalogs](/developers/catalogos) section or through the API (`GET /v1/catalogos/07`, without credentials). A `tipo_operacion`, `tipo_afectacion_igv`, `tipo_doc`, `moneda` or `unidad` outside the catalog responds `422` before using up a number. Catalog 03 has the full UN/ECE list, with the most used units first."
+      },
+      "casos": {
+        "intro": "Each case shows the exact JSON for `POST /v1/facturas` (or the endpoint it indicates) and the rules that apply. The invoice cases also hold for the receipt except for what its own cases say: buyer, accepted operations, deadlines and voiding.",
+        "marcadosAntes": "Cases marked",
+        "enDesarrollo": "in development",
+        "marcadosDespues": "describe the planned contract so you can plan your integration; the API will reject them until they are available.",
+        "cuando": "When:",
+        "request": "request · POST {endpoint}",
+        "requestPrevisto": "request (planned contract) · POST {endpoint}"
+      },
+      "respuesta": {
+        "intro": "Every response comes in the `{sobre}` envelope. In a successful issue `datos` is the full document:",
+        "cabeceras": [
+          "Field",
+          "What to look at"
+        ],
+        "filas": [
+          [
+            "estado_documento",
+            "Where the document is. `ACEPTADO` is the happy ending; see [all statuses](/developers/errores#estados)."
+          ],
+          [
+            "cdr.codigo",
+            "`0` accepted · 2000–3999 rejected (fix and reissue) · 4000+ accepted with observations · 1000–1999 issuer error with no proof."
+          ],
+          [
+            "cdr.descripcion / observaciones",
+            "SUNAT’s official text. Observations do not invalidate the invoice, but you should fix the cause in the next one."
+          ],
+          [
+            "ultimo_error",
+            "Only in `ERROR_ENVIO`: code and message of the communication failure with SUNAT; khipu retries on its own."
+          ],
+          [
+            "totales",
+            "What khipu calculated: use it to reconcile with your system (SUNAT tolerance ±1)."
+          ],
+          [
+            "hash",
+            "Signature digest: it is printed on the printed representation and in the QR."
+          ],
+          [
+            "enlaces.xml / enlaces.pdf / enlaces.cdr",
+            "Downloads: signed XML, printed representation (PDF with QR and hash, available from `FIRMADO`) and CDR. `cdr` only appears when SUNAT issued the proof."
+          ]
+        ]
+      },
+      "errores": {
+        "intro": "Errors carry a stable `codigo` to code against and a `mensaje` for people; when the rule is SUNAT’s the message starts with the official code, the same one SUNAT would return if the document had reached it:",
+        "lista": "The full list of khipu codes, SUNAT’s ranges and what to do in each case is in [Errors and statuses](/developers/errores)."
+      },
+      "webhooks": {
+        "intro": "Instead of polling `GET /v1/facturas/{id}` until SUNAT answers, register a URL and khipu notifies you with a signed `POST` every time a document changes status. They are registered from the portal (*API keys and webhooks*) or through the API; up to 5 per company.",
+        "registro": [
+          "The URL must be `https` and point to a public server: an internal address (localhost, private networks, `169.254.x.x`) responds `422 WEBHOOK_INVALIDO`. khipu does not follow redirects.",
+          "**The signing secret** (`whsec_…`) is shown **only once**, when creating the endpoint or rotating it (`POST /v1/webhooks/{id}/secreto`, the previous one stops working instantly). Creating, changing, rotating and deleting require the portal session, not an API key: a leaked key must not be able to redirect the events. Listing and viewing the log work with an API key."
+        ],
+        "eventosTitulo": "Events",
+        "eventosCabeceras": [
+          "Event",
+          "When"
+        ],
+        "eventos": [
+          [
+            "comprobante.aceptado",
+            "SUNAT accepted the document (with CDR 0)."
+          ],
+          [
+            "comprobante.aceptado_con_obs",
+            "SUNAT accepted it and left observations (CDR 4000+); the invoice is valid."
+          ],
+          [
+            "comprobante.rechazado",
+            "SUNAT rejected it (2000–3999): fix it and issue a new one."
+          ],
+          [
+            "comprobante.error_envio",
+            "It could not be sent to SUNAT; khipu retries. It arrives when failures start, not on each retry."
+          ],
+          [
+            "comprobante.fuera_de_plazo",
+            "The sending deadline passed: it has to be issued again."
+          ],
+          [
+            "comprobante.anulado",
+            "It was voided before SUNAT."
+          ],
+          [
+            "comprobante.descartado",
+            "An administrator stopped trying to send it."
+          ]
+        ],
+        "notaEstados": "Transient statuses (`RECIBIDO`, `FIRMADO`, `ENVIADO`) are not published. An endpoint you turn off does not receive the events that happen while it is off; one that khipu pauses due to failures keeps storing them (up to 30 days) and sends them when it is reactivated. `GET /v1/webhooks/eventos` lists the names; `[\"*\"]` subscribes to all of them.",
+        "recibeTitulo": "What your server receives",
+        "entrega": "A delivery (the body goes on one line, exactly as it is signed)",
+        "cabecerasCabeceras": [
+          "Header",
+          "What for"
+        ],
+        "cabeceras": [
+          [
+            "X-Khipu-Event",
+            "The event, same as the body’s evento field."
+          ],
+          [
+            "X-Khipu-Delivery",
+            "The delivery id. **It does not change between retries**: use it to avoid processing the same event twice."
+          ],
+          [
+            "X-Khipu-Signature",
+            "`t=<Unix seconds>,v1=<hex>`: HMAC-SHA256 of the secret over `t.cuerpo`."
+          ]
+        ],
+        "verificarTitulo": "Verify the signature",
+        "verificar": "Compute `HMAC-SHA256(secreto, t + \".\" + cuerpo)` with the **raw body** —the bytes exactly as they arrived, without re-serializing the JSON— and compare it in constant time with `v1`. Discard the delivery if `t` is more than a few minutes old: without that limit, whoever captures a delivery could replay it. Respond `2xx` in less than 10 seconds and process the event afterwards.",
+        "reintentosTitulo": "Retries, pausing and log",
+        "reintentos": [
+          "It is **at least once**: a retry (or a manual resend) arrives with the same body and the same `X-Khipu-Delivery`. The order between different events is not guaranteed; if it matters, compare with the current `estado` using `GET /v1/facturas/{id}`.",
+          "Any response that is not `2xx` (or a timeout, or a network failure) counts as a failure and is retried with increasing waits: 1 min, 5 min, 15 min, 1 h, 3 h, 6 h and 12 h; after the eighth attempt the delivery ends up `FALLIDA` and can be resent by hand.",
+          "After **10 failed attempts in a row** khipu turns off the endpoint (`pausado_motivo` says why) and notifies the account by email. Turn the endpoint back on with `PATCH /v1/webhooks/{id}` `{ \"activo\": true }` or from the portal; pending deliveries go out right away.",
+          "`GET /v1/webhooks/{id}/entregas` is the log (30 days): status, attempts, last HTTP code or error. `POST /v1/webhooks/{id}/prueba` sends a signed `webhook.prueba` event, and `POST /v1/webhooks/entregas/{id}/reenviar` repeats a closed delivery; both, like everything that writes, require the portal session."
+        ]
+      },
+      "sire": {
+        "experimental": "**Experimental: reconstructed format.** It follows Annex III of RS 000138-2023 (which sets only part of the fields) and the change log of the SIRE Client Application, and it has not yet been validated with the SIRE Validator Program (PVSIRE) or with SIRE: do not use it to replace a real proposal before validating it with PVSIRE.",
+        "intro": "SUNAT builds the proposal of SIRE’s Electronic Sales and Income Register (RVIE) from your electronic documents. khipu gives you two things to work with it: the period’s replacement file, built from what you issued, and the reconciliation of that register with the proposal you download from SIRE. khipu does not connect to SIRE: you (or your accountant) upload the file in SUNAT Operaciones en Línea.",
+        "curlRegistro": "cURL — October 2026 sales register",
+        "archivo": [
+          "A ZIP `LE<RUC><AAAAMM>00140400021112.zip` with the `.txt` of the same name: one row per document SUNAT has (accepted, with or without observations, or voided later), 40 fields separated by `|`, dates `dd/mm/aaaa` and amounts with 2 decimals in the document’s currency, with its exchange rate in field 28 (`0.000` in soles).",
+          "The credit note goes in negative and carries the document it modifies (fields 29–32) and its reason (34); a voided one goes with status `2` and amounts at zero; each receipt goes on its own row.",
+          "**It only covers what was issued in khipu** (header `X-Rvie-Alcance: solo-khipu`): replacing the proposal with it removes the sales issued by other means (SEE-SOL, paper documents, another provider). Before replacing, reconcile and require an empty `solo_en_sunat`.",
+          "What is still on its way to SUNAT is not included: the `X-Rvie-Pendientes-Sunat` header says how many there are. Wait for SUNAT to resolve them before using the file.",
+          "Errors arrive before the file, in JSON: `404 NO_ENCONTRADO` with no documents in the period and `422 RVIE_SIN_TIPO_CAMBIO` if there are documents in another currency without an exchange rate (with `permitir_sin_tipo_cambio=true` they come out with the field empty, to fill it in by hand)."
+        ],
+        "curlConciliar": "cURL — reconcile with the proposal downloaded from SIRE",
+        "conciliacion": "The response says whether the register `cuadra` (matches) and, if not, which documents are only in SUNAT (`solo_en_sunat`), only in khipu (`solo_en_khipu`) or in both with a different value (`difieren`: date, currency, status, taxable base, IGV, exempt, non-taxable or total). It stores nothing.",
+        "consolidadas": "The proposal’s consolidated rows (a range of the day’s receipts in one row) are not reconciled one by one: they are counted in `filas_consolidadas_no_conciliadas`. Review the file with your accountant before replacing a proposal. If the reconciliation shows the same difference in all documents of one type (for example, all credit notes), it is the format and not your sales: let us know."
+      },
+      "buenasPracticas": [
+        "**Idempotency:** if your system may retry a call (timeouts), send an `Idempotency-Key` (one UUID per document) in `POST /v1/facturas` and in `POST /v1/notas`: repeating the same request with the same key returns `200` with the same document, without issuing another. If you number yourself, `correlativo` also prevents it: a duplicate responds `409`. See [Safe retry with Idempotency-Key](#idempotency-key).",
+        "**Store the `id`** khipu returns along with your internal document; with it you query the status and download XML, PDF and CDR.",
+        "**Deliver the document to the customer** with `POST /v1/facturas/{id}/correo` `{ email, mensaje? }`: khipu attaches PDF, XML and CDR. Only accepted documents (`409 NO_ACEPTADO`); the PDF’s QR encodes `RUC|tipo|serie|número|IGV|total|fecha|tipo y nº de documento del cliente|hash`.",
+        "**Or have it go out on its own:** turn on `PUT /v1/empresa/envio-al-cliente` `{ \"enviar_automaticamente\": true }` and issue with `cliente.email`. When SUNAT accepts, khipu sends the email only once (a note goes to the email of the document it modifies; a receipt in the daily summary, when SUNAT accepts the summary) and retries up to 5 times if the mail server fails. `envio_al_cliente` in `GET /v1/facturas/{id}` says whether it went out (`ENVIADO`), is still `PENDIENTE`, ended up `FALLIDO` or `OMITIDO`, with the reason. Without email configured on the server it cannot be turned on (`503 CORREO_NO_CONFIGURADO`).",
+        "**For the accountant:** `GET /v1/facturas/exportacion?formato=xlsx` (or `csv`) with the same filters as the listing gives one row per document —type, series, number, date, customer, currency, exchange rate, bases, IGV, ICBPER, ISC, IVAP, other taxes, discounts, charges, advance payments, rounding, total, status and modified document—, up to 5000 per export (`422 EXPORTACION_EXCEDE_EL_TOPE`). Credit notes come out **in negative** (debit notes, in positive) and, without the `estado` filter, `RECHAZADO`, `INVALIDO` and `DESCARTADO` are left out. For Excel use `xlsx`; the CSV is UTF-8 with BOM, comma-separated (`separador=punto_y_coma` if your Excel asks for it), with a decimal point and a quote in front of texts that start with `= + - @`. If the connection drops, the file arrives incomplete: request it again.",
+        "**Do not poll in a loop:** register a [webhook](#webhooks) and khipu notifies you when SUNAT answers.",
+        "**Do not treat `ERROR_ENVIO` as a final failure:** it means SUNAT is unavailable; check the status later or force a resend. `RECHAZADO` is final: fix it and issue a new document, with another number. The rejected one keeps its own: on a 2000–3999 rejection SUNAT considers the number used, and khipu never reassigns a number (a repeated `correlativo` responds `409 DUPLICADO`).",
+        "**Deadline:** issue on the same day as the operation. SUNAT rejects invoices received more than 3 calendar days after the issue date (2108); a receipt goes on its own up to the 5th day, in the daily summary up to the 7th and after that it is reported late: SUNAT does not reject it and may flag it with 4443.",
+        "**Environments:** integrate and test everything in `BETA`; what SUNAT accepts in BETA it accepts in production under the same rules.",
+        "**Secrets:** the API key identifies your company; keep it in a secrets manager and revoke it from the portal if it leaks."
+      ]
+    }
   }
 }

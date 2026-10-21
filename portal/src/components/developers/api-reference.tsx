@@ -4,6 +4,7 @@ import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
 import { useTheme } from "next-themes";
 import { type ComponentProps, useEffect } from "react";
+import { tecnico } from "@/lib/developers/tecnico";
 
 // "agent" (botón "Ask AI") no está en los tipos de @scalar/types@0.19.0, pero @scalar/api-reference@1.68.0
 // (la versión real que trae api-reference-react@0.9.67) sí lo lee en tiempo de ejecución: revisamos el
@@ -13,7 +14,7 @@ type ScalarConfiguration = ComponentProps<typeof ApiReferenceReact>["configurati
   agent?: { disabled?: boolean };
 };
 
-const CUSTOM_CSS = `
+const CUSTOM_CSS = tecnico`
 :root {
   --scalar-font: var(--font-sans);
   --scalar-font-code: var(--font-mono);

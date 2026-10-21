@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { useCallback, useMemo } from "react";
 import { BuscadorConLista, type ResultadoDeLaBusqueda } from "@/components/formularios/buscador-con-lista";
 import { buscarEnLaDocumentacion, type EntradaDeBusqueda, indexar } from "@/lib/developers/indice";
@@ -11,13 +12,14 @@ import { buscarEnLaDocumentacion, type EntradaDeBusqueda, indexar } from "@/lib/
  */
 export function BuscarEnLaDocumentacion({ entradas }: { entradas: readonly EntradaDeBusqueda[] }) {
   const router = useRouter();
+  const t = useMessages().developers.buscador;
   const indice = useMemo(() => indexar(entradas), [entradas]);
   // Estable mientras no cambien las entradas: el buscador genérico vuelve a buscar cuando cambia `buscar`, y una función nueva en cada render lo haría en bucle.
   const buscar = useCallback(async (texto: string): Promise<ResultadoDeLaBusqueda<EntradaDeBusqueda>> => ({ estado: "exito", items: buscarEnLaDocumentacion(texto, indice) }), [indice]);
   return (
     <BuscadorConLista<EntradaDeBusqueda>
-      etiqueta="Buscar en la documentación"
-      placeholder="Buscar: ERROR_ENVIO, 2108, boleta…"
+      etiqueta={t.etiqueta}
+      placeholder={t.placeholder}
       testId="buscador-de-la-documentacion"
       buscar={buscar}
       fila={(e) => (
@@ -26,9 +28,9 @@ export function BuscarEnLaDocumentacion({ entradas }: { entradas: readonly Entra
           <span className="truncate text-[11px] text-muted-foreground">{e.seccion}</span>
         </span>
       )}
-      sinResultados="Nada coincide. Pruebe con un código de error, un estado o el nombre de un caso."
-      mensajeDeFallo="No se pudo buscar."
-      encontrados={["resultado", "resultados"]}
+      sinResultados={t.sinResultados}
+      mensajeDeFallo={t.fallo}
+      encontrados={[t.encontrados[0], t.encontrados[1]]}
       onElegir={(e) => router.push(e.href)}
     />
   );
