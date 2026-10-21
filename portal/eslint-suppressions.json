@@ -49,11 +49,6 @@
       "count": 16
     }
   },
-  "src/app/(privado)/inicio/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 8
-    }
-  },
   "src/app/(privado)/productos/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 3
@@ -411,7 +406,7 @@
   },
   "src/components/comprobantes/resumen-de-comprobantes.tsx": {
     "khipu/no-literal-de-ui": {
-      "count": 31
+      "count": 29
     }
   },
   "src/components/comprobantes/retencion-editor.tsx": {
@@ -519,11 +514,6 @@
       "count": 8
     }
   },
-  "src/components/empresa/guia-para-emitir.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
   "src/components/empresa/nueva-empresa-dialog.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 3
@@ -592,21 +582,6 @@
   "src/components/formularios/stepper-numerico.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
-    }
-  },
-  "src/components/inicio/alertas-del-panel.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/inicio/grafico-de-emision.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 9
-    }
-  },
-  "src/components/inicio/kpis-del-mes.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 18
     }
   },
   "src/components/landing/como-funciona.tsx": {
@@ -857,16 +832,6 @@
   "src/lib/developers/entradas.ts": {
     "khipu/no-literal-de-ui": {
       "count": 18
-    }
-  },
-  "src/lib/empresa/guia-emision.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 21
-    }
-  },
-  "src/lib/inicio/panel.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 30
     }
   },
   "src/lib/webhooks/eventos.ts": {

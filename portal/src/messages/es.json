@@ -1792,5 +1792,176 @@
     "pagoVencidoHasta": "Pago vencido: se sirve hasta el {fecha}",
     "pagoVencido": "Pago vencido",
     "cerca": "Cerca del tope de documentos del mes"
+  },
+  "inicio": {
+    "sinEmpresa": "Primero registra una empresa para ver tu panel.",
+    "configurarEmpresa": "Configurar empresa",
+    "periodo": {
+      "meses": [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "setiembre",
+        "octubre",
+        "noviembre",
+        "diciembre"
+      ],
+      "texto": "{mes} de {anio}, {dias}",
+      "primerDia": "el 1",
+      "rango": "del 1 al {dia}"
+    },
+    "sinEmision": {
+      "titulo": "Aún no emites comprobantes",
+      "irAComprobantes": "Ir a Comprobantes",
+      "conGuia": "Completa los pasos de «Para empezar a emitir» y emite tu primer comprobante con «Nuevo comprobante», arriba a la derecha.",
+      "sinGuia": "Emite tu primer comprobante con «Nuevo comprobante», arriba a la derecha, o desde tu sistema con la API. Aquí verás cómo va el mes."
+    },
+    "graficoTitulo": "Emisión por día",
+    "kpis": {
+      "titulo": "Indicadores del mes",
+      "sinDatos": "No se pudo cargar el resumen del mes",
+      "netoPorMoneda": "Neto, por moneda",
+      "netoDeNotas": "Neto de notas de crédito",
+      "facturado": "Facturado",
+      "emitidos": "Emitidos",
+      "aceptados": "Aceptados con CDR",
+      "pendientes": "Pendientes",
+      "atencion": "Atención requerida",
+      "esteMes": "Este mes",
+      "porcentajeEmitido": "{n} % de lo emitido",
+      "sinComprobantes": "Sin comprobantes",
+      "pendientesAyuda": "En camino a SUNAT (incluye boletas sin enviar)"
+    },
+    "variacion": {
+      "igual": "igual que el mes pasado",
+      "cambio": "{signo}{n} % vs. el mes pasado"
+    },
+    "grafico": {
+      "subtitulo": "Comprobantes emitidos por día",
+      "error": "No se pudo cargar la emisión por día. Los indicadores y los avisos de arriba siguen al día.",
+      "vacio": "Todavía no hay comprobantes emitidos este mes.",
+      "verTabla": "Ver como tabla",
+      "dia": "Día",
+      "emitidos": "Emitidos",
+      "facturadoMoneda": "Facturado {moneda}",
+      "comprobanteUno": "{n} comprobante",
+      "comprobanteVarios": "{n} comprobantes",
+      "emitidoUno": "{n} comprobante emitido",
+      "emitidoVarios": "{n} comprobantes emitidos",
+      "resumen": "{emitidos} en {conEmision} de {dias} días, del {desde} al {hasta}. El día de más emisión fue el {pico}, con {picoEmitidos}."
+    },
+    "avisos": {
+      "titulo": "Avisos",
+      "incompleto": "No se pudo revisar todo: puede haber avisos que no se ven aquí. Vuelve a cargar la página en un momento.",
+      "sinAvisos": "Sin avisos: certificado, credenciales SOL y comprobantes recientes en orden."
+    },
+    "alertas": {
+      "dia": "día",
+      "dias": "días",
+      "certificadoAusente": {
+        "titulo": "No hay certificado digital",
+        "detalle": "Sin certificado no se firma ningún comprobante. Carga el .p12 o .pfx de la empresa.",
+        "accion": "Cargar certificado"
+      },
+      "certificadoVencido": {
+        "titulo": "El certificado digital venció el {fecha}",
+        "detalle": "Ya no firma: hasta que cargues uno vigente no puedes emitir.",
+        "accion": "Renovar certificado"
+      },
+      "certificadoPorVencer": {
+        "hoy": "El certificado digital vence hoy",
+        "enDias": "El certificado digital vence en {dias}",
+        "detalle": "Vence el {fecha}. Renuévalo antes para no cortar la emisión.",
+        "accion": "Renovar certificado"
+      },
+      "solRechazadas": {
+        "titulo": "SUNAT rechazó las credenciales SOL",
+        "detalle": "{motivo}. Los envíos esperan hasta que las corrijas.",
+        "accion": "Corregir credenciales"
+      },
+      "solAusentes": {
+        "titulo": "Faltan las credenciales SOL",
+        "detalle": "Sin el usuario SOL secundario los comprobantes se firman pero no llegan a SUNAT.",
+        "accion": "Guardar credenciales"
+      },
+      "fueraDePlazo": {
+        "uno": "comprobante quedó",
+        "varios": "comprobantes quedaron",
+        "titulo": "{cuantos} fuera de plazo",
+        "detalle": "No llegaron a SUNAT a tiempo y ya no se pueden enviar: hay que emitirlos de nuevo.",
+        "accion": "Ver fuera de plazo"
+      },
+      "rechazados": {
+        "uno": "comprobante",
+        "varios": "comprobantes",
+        "titulo": "SUNAT rechazó {cuantos}",
+        "detalle": "Revisa el motivo de cada uno, corrígelo y emite de nuevo.",
+        "accion": "Ver rechazados"
+      },
+      "erroresDeEnvio": {
+        "uno": "comprobante tiene",
+        "varios": "comprobantes tienen",
+        "titulo": "{cuantos} error de envío",
+        "detalle": "Se reintentan solos; si el error sigue, revisa el detalle o reenvíalos.",
+        "accion": "Ver errores de envío"
+      },
+      "boletasSinEnviar": {
+        "uno": "boleta sigue",
+        "varios": "boletas siguen",
+        "titulo": "{cuantos} sin enviar",
+        "detalle": "Ya pasaron 5 días o más desde su emisión: envíalas antes del 7.º, cuando cierra su plazo. La cuenta incluye las notas de esas boletas, que se ven filtrando por nota.",
+        "accion": "Ver boletas firmadas"
+      }
+    }
+  },
+  "atencion": {
+    "rechazadoUno": "{n} rechazado",
+    "rechazadoVarios": "{n} rechazados",
+    "errorDeEnvio": "{n} con error de envío",
+    "fueraDePlazo": "{n} fuera de plazo",
+    "boletaUno": "{n} boleta sin enviar",
+    "boletaVarios": "{n} boletas sin enviar",
+    "todoEnOrden": "Todo en orden"
+  },
+  "guiaEmision": {
+    "titulo": "Para empezar a emitir",
+    "avance": "{listos} de {total} listos",
+    "listo": ", listo",
+    "pendiente": ", pendiente",
+    "recomendado": "recomendado",
+    "certificado": {
+      "titulo": "Certificado digital",
+      "listo": "Cargado y vigente.",
+      "vencido": "El certificado venció: carga uno vigente (.p12 o .pfx).",
+      "falta": "Carga el certificado digital (.p12 o .pfx) con el que se firman los comprobantes.",
+      "renovar": "Renovar certificado",
+      "cargar": "Cargar certificado"
+    },
+    "sol": {
+      "titulo": "Credenciales SOL",
+      "listo": "Usuario secundario configurado.",
+      "rechazada": "SUNAT rechazó las credenciales guardadas: corrígelas para que se reanuden los envíos.",
+      "falta": "Guarda el usuario SOL secundario y su clave para enviar a SUNAT.",
+      "corregir": "Corregir credenciales",
+      "guardar": "Guardar credenciales"
+    },
+    "domicilio": {
+      "titulo": "Domicilio fiscal",
+      "listo": "Registrado.",
+      "falta": "Va como dirección del emisor en el XML y en la representación impresa; SUNAT no bloquea la emisión sin ella.",
+      "accion": "Completar domicilio"
+    },
+    "series": {
+      "titulo": "Series de comprobantes",
+      "listo": "Hay una serie activa de factura o de boleta.",
+      "inactivas": "Tus series de factura y boleta están inactivas: crea una con otro número (por ejemplo F002 o B002).",
+      "falta": "Crea al menos una serie de factura (F001) o de boleta (B001).",
+      "accion": "Crear serie"
+    }
   }
 }

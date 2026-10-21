@@ -1,6 +1,8 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { Metrica } from "@/components/compartidos/metrica";
 import type { PeriodoDelResumen, ResumenDeFacturas } from "@/lib/api/facturas";
 import { formatearMonto } from "@/lib/formato";
+import es from "@/messages/es.json";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
 
@@ -20,14 +22,15 @@ export function periodoEnPalabras(p: PeriodoDelResumen): string {
 }
 
 /** Lo que pide atención, con las clases que haya: «3 rechazados · 2 con error de envío · 1 fuera de plazo · 4 boletas sin enviar»; sin nada, «Todo en orden». */
-export function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"]): string {
+export function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"], messages: Mensajes = es): string {
+  const t = messages.atencion;
   const partes = [
-    a.rechazados > 0 ? `${a.rechazados} ${a.rechazados === 1 ? "rechazado" : "rechazados"}` : null,
-    a.errores_de_envio > 0 ? `${a.errores_de_envio} con error de envío` : null,
-    a.fuera_de_plazo > 0 ? `${a.fuera_de_plazo} fuera de plazo` : null,
-    a.boletas_sin_enviar > 0 ? `${a.boletas_sin_enviar} ${a.boletas_sin_enviar === 1 ? "boleta" : "boletas"} sin enviar` : null,
+    a.rechazados > 0 ? interpolar(a.rechazados === 1 ? t.rechazadoUno : t.rechazadoVarios, { n: a.rechazados }) : null,
+    a.errores_de_envio > 0 ? interpolar(t.errorDeEnvio, { n: a.errores_de_envio }) : null,
+    a.fuera_de_plazo > 0 ? interpolar(t.fueraDePlazo, { n: a.fuera_de_plazo }) : null,
+    a.boletas_sin_enviar > 0 ? interpolar(a.boletas_sin_enviar === 1 ? t.boletaUno : t.boletaVarios, { n: a.boletas_sin_enviar }) : null,
   ].filter((p): p is string => p !== null);
-  return partes.length > 0 ? partes.join(" · ") : "Todo en orden";
+  return partes.length > 0 ? partes.join(" · ") : t.todoEnOrden;
 }
 
 /**

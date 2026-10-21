@@ -1,8 +1,11 @@
+import type { Locale } from "@/i18n/config";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { EmisionPorDia, EstadoDocumento, ResumenDeFacturas } from "@/lib/api/facturas";
 import type { IdPaso, PasoGuia } from "@/lib/empresa/guia-emision";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { diasEntre, formatearFecha, sumarDias } from "@/lib/formato";
+import es from "@/messages/es.json";
 
 /** Un rango de fechas de emisión `YYYY-MM-DD`, inclusive en los dos extremos. */
 export type Rango = { desde: string; hasta: string };
@@ -90,9 +93,10 @@ export function variacion(actual: number, anterior: number | null | undefined): 
 }
 
 /** La variación en palabras: «+12 % vs. el mes pasado», «−5 % vs. …», «igual que …». */
-export function variacionEnPalabras(v: number): string {
-  if (v === 0) return "igual que el mes pasado";
-  return `${v > 0 ? "+" : "−"}${Math.abs(v)} % vs. el mes pasado`;
+export function variacionEnPalabras(v: number, messages: Mensajes = es): string {
+  const t = messages.inicio.variacion;
+  if (v === 0) return t.igual;
+  return interpolar(t.cambio, { signo: v > 0 ? "+" : "−", n: Math.abs(v) });
 }
 
 /** Lo facturado de una moneda en un resumen (0 si no tiene esa moneda). */
@@ -119,36 +123,37 @@ export function enlaceAComprobantes(estado: EstadoDocumento, rango: Rango, tipo?
 }
 
 /** Lo que la empresa tiene que mirar por su certificado y sus credenciales SOL. `hoy` en `YYYY-MM-DD` (Lima); el certificado que vence hoy todavía firma. */
-export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string): AlertaDelPanel[] {
+export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string, messages: Mensajes = es, locale: Locale = "es"): AlertaDelPanel[] {
+  const t = messages.inicio.alertas;
   const alertas: AlertaDelPanel[] = [];
   const vence = empresa.certificado_vigencia_hasta;
   if (!empresa.tiene_certificado) {
     alertas.push({
       id: "certificado-ausente",
       tono: "error",
-      titulo: "No hay certificado digital",
-      detalle: "Sin certificado no se firma ningún comprobante. Carga el .p12 o .pfx de la empresa.",
+      titulo: t.certificadoAusente.titulo,
+      detalle: t.certificadoAusente.detalle,
       enlace: enlaceASeccion("certificado"),
-      accion: "Cargar certificado",
+      accion: t.certificadoAusente.accion,
     });
   } else if (vence && vence < hoy) {
     alertas.push({
       id: "certificado-vencido",
       tono: "error",
-      titulo: `El certificado digital venció el ${formatearFecha(vence)}`,
-      detalle: "Ya no firma: hasta que cargues uno vigente no puedes emitir.",
+      titulo: interpolar(t.certificadoVencido.titulo, { fecha: formatearFecha(vence, locale) }),
+      detalle: t.certificadoVencido.detalle,
       enlace: enlaceASeccion("certificado"),
-      accion: "Renovar certificado",
+      accion: t.certificadoVencido.accion,
     });
   } else if (vence && diasEntre(hoy, vence) < DIAS_AVISO_CERTIFICADO) {
     const dias = diasEntre(hoy, vence);
     alertas.push({
       id: "certificado-por-vencer",
       tono: "aviso",
-      titulo: dias === 0 ? "El certificado digital vence hoy" : `El certificado digital vence en ${plural(dias, "día", "días")}`,
-      detalle: `Vence el ${formatearFecha(vence)}. Renuévalo antes para no cortar la emisión.`,
+      titulo: dias === 0 ? t.certificadoPorVencer.hoy : interpolar(t.certificadoPorVencer.enDias, { dias: plural(dias, t.dia, t.dias) }),
+      detalle: interpolar(t.certificadoPorVencer.detalle, { fecha: formatearFecha(vence, locale) }),
       enlace: enlaceASeccion("certificado"),
-      accion: "Renovar certificado",
+      accion: t.certificadoPorVencer.accion,
     });
   }
 
@@ -156,64 +161,65 @@ export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string): AlertaD
     alertas.push({
       id: "sol-rechazadas",
       tono: "error",
-      titulo: "SUNAT rechazó las credenciales SOL",
-      detalle: `${empresa.credenciales_sol_rechazadas.motivo}. Los envíos esperan hasta que las corrijas.`,
+      titulo: t.solRechazadas.titulo,
+      detalle: interpolar(t.solRechazadas.detalle, { motivo: empresa.credenciales_sol_rechazadas.motivo }),
       enlace: enlaceASeccion("sol"),
-      accion: "Corregir credenciales",
+      accion: t.solRechazadas.accion,
     });
   } else if (!empresa.tiene_credenciales_sol) {
     alertas.push({
       id: "sol-ausentes",
       tono: "aviso",
-      titulo: "Faltan las credenciales SOL",
-      detalle: "Sin el usuario SOL secundario los comprobantes se firman pero no llegan a SUNAT.",
+      titulo: t.solAusentes.titulo,
+      detalle: t.solAusentes.detalle,
       enlace: enlaceASeccion("sol"),
-      accion: "Guardar credenciales",
+      accion: t.solAusentes.accion,
     });
   }
   return alertas;
 }
 
 /** Lo que pide atención en los comprobantes del rango (el del resumen), cada clase con su enlace al listado filtrado. */
-export function alertasDeComprobantes(atencion: ResumenDeFacturas["atencion_requerida"], rango: Rango): AlertaDelPanel[] {
+export function alertasDeComprobantes(atencion: ResumenDeFacturas["atencion_requerida"], rango: Rango, messages: Mensajes = es): AlertaDelPanel[] {
+  const t = messages.inicio.alertas;
   const alertas: AlertaDelPanel[] = [];
   if (atencion.fuera_de_plazo > 0)
     alertas.push({
       id: "fuera-de-plazo",
       tono: "error",
-      titulo: `${plural(atencion.fuera_de_plazo, "comprobante quedó", "comprobantes quedaron")} fuera de plazo`,
-      detalle: "No llegaron a SUNAT a tiempo y ya no se pueden enviar: hay que emitirlos de nuevo.",
+      titulo: interpolar(t.fueraDePlazo.titulo, { cuantos: plural(atencion.fuera_de_plazo, t.fueraDePlazo.uno, t.fueraDePlazo.varios) }),
+      detalle: t.fueraDePlazo.detalle,
       enlace: enlaceAComprobantes("FUERA_DE_PLAZO", rango),
-      accion: "Ver fuera de plazo",
+      accion: t.fueraDePlazo.accion,
     });
   if (atencion.rechazados > 0)
     alertas.push({
       id: "rechazados",
       tono: "error",
-      titulo: `SUNAT rechazó ${plural(atencion.rechazados, "comprobante", "comprobantes")}`,
-      detalle: "Revisa el motivo de cada uno, corrígelo y emite de nuevo.",
+      titulo: interpolar(t.rechazados.titulo, { cuantos: plural(atencion.rechazados, t.rechazados.uno, t.rechazados.varios) }),
+      detalle: t.rechazados.detalle,
       enlace: enlaceAComprobantes("RECHAZADO", rango),
-      accion: "Ver rechazados",
+      accion: t.rechazados.accion,
     });
   if (atencion.errores_de_envio > 0)
     alertas.push({
       id: "errores-de-envio",
       tono: "aviso",
-      titulo: `${plural(atencion.errores_de_envio, "comprobante tiene", "comprobantes tienen")} error de envío`,
-      detalle: "Se reintentan solos; si el error sigue, revisa el detalle o reenvíalos.",
+      titulo: interpolar(t.erroresDeEnvio.titulo, { cuantos: plural(atencion.errores_de_envio, t.erroresDeEnvio.uno, t.erroresDeEnvio.varios) }),
+      detalle: t.erroresDeEnvio.detalle,
       enlace: enlaceAComprobantes("ERROR_ENVIO", rango),
-      accion: "Ver errores de envío",
+      accion: t.erroresDeEnvio.accion,
     });
   if (atencion.boletas_sin_enviar > 0)
     alertas.push({
       id: "boletas-sin-enviar",
       tono: "aviso",
-      titulo: `${plural(atencion.boletas_sin_enviar, "boleta sigue", "boletas siguen")} sin enviar`,
+      titulo: interpolar(t.boletasSinEnviar.titulo, { cuantos: plural(atencion.boletas_sin_enviar, t.boletasSinEnviar.uno, t.boletasSinEnviar.varios) }),
       // El número cuenta también las notas que modifican una boleta (van en el mismo resumen diario); el enlace lista las boletas: el listado no filtra por «nota de boleta».
-      detalle: "Ya pasaron 5 días o más desde su emisión: envíalas antes del 7.º, cuando cierra su plazo. La cuenta incluye las notas de esas boletas, que se ven filtrando por nota.",
+      detalle: t.boletasSinEnviar.detalle,
       // Solo las FIRMADAS que ya cuentan (emitidas hasta `BoletasPorInformar.corte`: hoy − 5), no las de esta semana, que todavía no piden nada.
       enlace: enlaceAComprobantes("FIRMADO", { desde: rango.desde, hasta: sumarDias(rango.hasta, -DIAS_ENVIO_INDIVIDUAL_BOLETA) }, "03"),
-      accion: "Ver boletas firmadas",
+      accion: t.boletasSinEnviar.accion,
     });
   return alertas;
 }
@@ -237,7 +243,17 @@ export function sinLoQueYaDiceLaGuia(alertas: AlertaDelPanel[], pasos: Pick<Paso
 }
 
 /** Todas las alertas del panel: primero las de error y después los avisos, cada grupo en el orden en que se arman. Lo que no se pudo leer (`null`) no avisa nada. */
-export function alertasDelPanel(empresa: EstadoEmpresa | null, resumen: Pick<ResumenDeFacturas, "atencion_requerida"> | null, rango: Rango, hoy: string): AlertaDelPanel[] {
-  const todas = [...(empresa ? alertasDeLaEmpresa(empresa, hoy) : []), ...(resumen ? alertasDeComprobantes(resumen.atencion_requerida, rango) : [])];
+export function alertasDelPanel(
+  empresa: EstadoEmpresa | null,
+  resumen: Pick<ResumenDeFacturas, "atencion_requerida"> | null,
+  rango: Rango,
+  hoy: string,
+  messages: Mensajes = es,
+  locale: Locale = "es",
+): AlertaDelPanel[] {
+  const todas = [
+    ...(empresa ? alertasDeLaEmpresa(empresa, hoy, messages, locale) : []),
+    ...(resumen ? alertasDeComprobantes(resumen.atencion_requerida, rango, messages) : []),
+  ];
   return [...todas.filter((a) => a.tono === "error"), ...todas.filter((a) => a.tono === "aviso")];
 }

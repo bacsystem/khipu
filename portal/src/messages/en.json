@@ -1792,5 +1792,176 @@
     "pagoVencidoHasta": "Payment overdue: service continues until {fecha}",
     "pagoVencido": "Payment overdue",
     "cerca": "Close to this month’s document limit"
+  },
+  "inicio": {
+    "sinEmpresa": "First register a company to see your dashboard.",
+    "configurarEmpresa": "Set up company",
+    "periodo": {
+      "meses": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ],
+      "texto": "{mes} {anio}, {dias}",
+      "primerDia": "day 1",
+      "rango": "days 1 to {dia}"
+    },
+    "sinEmision": {
+      "titulo": "You have not issued any documents yet",
+      "irAComprobantes": "Go to Documents",
+      "conGuia": "Complete the steps in “Get ready to issue” and issue your first document with “New document”, top right.",
+      "sinGuia": "Issue your first document with “New document”, top right, or from your system through the API. Here you will see how the month is going."
+    },
+    "graficoTitulo": "Documents per day",
+    "kpis": {
+      "titulo": "This month’s indicators",
+      "sinDatos": "Could not load this month’s summary",
+      "netoPorMoneda": "Net, per currency",
+      "netoDeNotas": "Net of credit notes",
+      "facturado": "Invoiced",
+      "emitidos": "Issued",
+      "aceptados": "Accepted with CDR",
+      "pendientes": "Pending",
+      "atencion": "Needs attention",
+      "esteMes": "This month",
+      "porcentajeEmitido": "{n} % of issued",
+      "sinComprobantes": "No documents",
+      "pendientesAyuda": "On the way to SUNAT (includes unsent receipts)"
+    },
+    "variacion": {
+      "igual": "same as last month",
+      "cambio": "{signo}{n} % vs. last month"
+    },
+    "grafico": {
+      "subtitulo": "Documents issued per day",
+      "error": "Could not load documents per day. The indicators and notices above are still up to date.",
+      "vacio": "No documents issued this month yet.",
+      "verTabla": "View as table",
+      "dia": "Day",
+      "emitidos": "Issued",
+      "facturadoMoneda": "Invoiced {moneda}",
+      "comprobanteUno": "{n} document",
+      "comprobanteVarios": "{n} documents",
+      "emitidoUno": "{n} document issued",
+      "emitidoVarios": "{n} documents issued",
+      "resumen": "{emitidos} on {conEmision} of {dias} days, from {desde} to {hasta}. The busiest day was {pico}, with {picoEmitidos}."
+    },
+    "avisos": {
+      "titulo": "Notices",
+      "incompleto": "Not everything could be checked: there may be notices not shown here. Reload the page in a moment.",
+      "sinAvisos": "No notices: certificate, SOL credentials and recent documents are in order."
+    },
+    "alertas": {
+      "dia": "day",
+      "dias": "days",
+      "certificadoAusente": {
+        "titulo": "There is no digital certificate",
+        "detalle": "Without a certificate no document can be signed. Upload the company’s .p12 or .pfx.",
+        "accion": "Upload certificate"
+      },
+      "certificadoVencido": {
+        "titulo": "The digital certificate expired on {fecha}",
+        "detalle": "It no longer signs: you cannot issue until you upload a valid one.",
+        "accion": "Renew certificate"
+      },
+      "certificadoPorVencer": {
+        "hoy": "The digital certificate expires today",
+        "enDias": "The digital certificate expires in {dias}",
+        "detalle": "It expires on {fecha}. Renew it before then so issuing is not interrupted.",
+        "accion": "Renew certificate"
+      },
+      "solRechazadas": {
+        "titulo": "SUNAT rejected the SOL credentials",
+        "detalle": "{motivo}. Submissions wait until you fix them.",
+        "accion": "Fix credentials"
+      },
+      "solAusentes": {
+        "titulo": "SOL credentials are missing",
+        "detalle": "Without the secondary SOL user, documents are signed but never reach SUNAT.",
+        "accion": "Save credentials"
+      },
+      "fueraDePlazo": {
+        "uno": "document was left",
+        "varios": "documents were left",
+        "titulo": "{cuantos} past the deadline",
+        "detalle": "They did not reach SUNAT in time and can no longer be sent: they must be issued again.",
+        "accion": "View past deadline"
+      },
+      "rechazados": {
+        "uno": "document",
+        "varios": "documents",
+        "titulo": "SUNAT rejected {cuantos}",
+        "detalle": "Check the reason for each one, fix it and issue again.",
+        "accion": "View rejected"
+      },
+      "erroresDeEnvio": {
+        "uno": "document has",
+        "varios": "documents have",
+        "titulo": "{cuantos} a submission error",
+        "detalle": "They are retried automatically; if the error persists, check the details or resend them.",
+        "accion": "View submission errors"
+      },
+      "boletasSinEnviar": {
+        "uno": "receipt is still",
+        "varios": "receipts are still",
+        "titulo": "{cuantos} unsent",
+        "detalle": "5 or more days have passed since they were issued: send them before day 7, when their deadline closes. The count includes the notes of those receipts, which you can see by filtering by note.",
+        "accion": "View signed receipts"
+      }
+    }
+  },
+  "atencion": {
+    "rechazadoUno": "{n} rejected",
+    "rechazadoVarios": "{n} rejected",
+    "errorDeEnvio": "{n} with a submission error",
+    "fueraDePlazo": "{n} past the deadline",
+    "boletaUno": "{n} unsent receipt",
+    "boletaVarios": "{n} unsent receipts",
+    "todoEnOrden": "All in order"
+  },
+  "guiaEmision": {
+    "titulo": "Get ready to issue",
+    "avance": "{listos} of {total} done",
+    "listo": ", done",
+    "pendiente": ", pending",
+    "recomendado": "recommended",
+    "certificado": {
+      "titulo": "Digital certificate",
+      "listo": "Uploaded and valid.",
+      "vencido": "The certificate expired: upload a valid one (.p12 or .pfx).",
+      "falta": "Upload the digital certificate (.p12 or .pfx) used to sign documents.",
+      "renovar": "Renew certificate",
+      "cargar": "Upload certificate"
+    },
+    "sol": {
+      "titulo": "SOL credentials",
+      "listo": "Secondary user set up.",
+      "rechazada": "SUNAT rejected the saved credentials: fix them so submissions resume.",
+      "falta": "Save the secondary SOL user and its password to send to SUNAT.",
+      "corregir": "Fix credentials",
+      "guardar": "Save credentials"
+    },
+    "domicilio": {
+      "titulo": "Tax address",
+      "listo": "Registered.",
+      "falta": "It is used as the issuer address in the XML and the printed version; SUNAT does not block issuing without it.",
+      "accion": "Complete address"
+    },
+    "series": {
+      "titulo": "Document series",
+      "listo": "There is an active invoice or receipt series.",
+      "inactivas": "Your invoice and receipt series are inactive: create one with another number (for example F002 or B002).",
+      "falta": "Create at least one invoice (F001) or receipt (B001) series.",
+      "accion": "Create series"
+    }
   }
 }
