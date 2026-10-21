@@ -16,8 +16,8 @@ const nextConfig: NextConfig = {
   // Permite levantar un segundo dev server (p. ej. con mocks en otro puerto) sin pisar el .next del principal.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   // `next build` lintea con la API de ESLint, que no lee la línea base eslint-suppressions.json (solo la CLI la aplica): fallaría
-  // en los literales ya registrados ahí y tumbaría el build de Docker. El lint, con su línea base, es `npm run lint` (make verificar
-  // y el pre-commit).
+  // en los literales ya registrados ahí. El lint con su línea base lo corre la CLI en el script `build` del package.json
+  // (`eslint && next build`), así que `npm run build` y el Dockerfile siguen fallando con un literal nuevo.
   eslint: { ignoreDuringBuilds: true },
   ...(devOrigins.length > 0 ? { allowedDevOrigins: devOrigins } : {}),
 };
