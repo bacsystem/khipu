@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { diasEntre, formatearFecha, formatearFechaDeLima, formatearFechaHora, formatearMes, formatearMonto, formatearNumero, formatearPrecioUnitario, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "./formato";
 
 describe("formatearPrecioUnitario", () => {
@@ -188,6 +188,18 @@ describe("con locale (#25)", () => {
     expect(formatearNumero(1234567.5, "en")).toBe("1,234,567.50");
     expect(formatearPrecioUnitario(0.0123, "en")).toBe("0.0123");
     expect(formatearMonto("USD", 5, "en")).toBe("$ 5.00");
+  });
+
+  it("en castellano los números se formatean con en-US, no con es-PE: no dependen de que el navegador traiga datos de Perú (H7)", () => {
+    const espia = vi.spyOn(Number.prototype, "toLocaleString");
+    try {
+      formatearNumero(1234.5, "es");
+      formatearPrecioUnitario(0.5, "es");
+      formatearMonto("PEN", 1, "es");
+      expect(espia.mock.calls.map(([locale]) => locale)).toEqual(["en-US", "en-US", "en-US"]);
+    } finally {
+      espia.mockRestore();
+    }
   });
 
   it("una fecha ilegible se devuelve tal cual en cualquier idioma", () => {

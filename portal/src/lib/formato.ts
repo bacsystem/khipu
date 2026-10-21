@@ -17,6 +17,13 @@ const SIMBOLOS: Record<string, string> = { PEN: "S/", USD: "$", EUR: "€" };
  */
 const INTL: Record<Locale, string> = { es: "es-PE", en: "en-US" };
 
+/**
+ * Los números van con el formato de SUNAT (1,234.56) en todos los idiomas, por eso `es` también usa `en-US` (H7). Con `es-PE` el
+ * resultado es el mismo solo si el navegador trae los datos de Perú: si cae a los de `es`, los montos salen «1234,50». La tabla
+ * queda por locale para que se vea la decisión y un idioma nuevo la tome a conciencia.
+ */
+const NUMEROS: Record<Locale, string> = { es: "en-US", en: "en-US" };
+
 // Intl en `es-PE` da «sept.» y en minúscula; el portal (y la representación impresa) usan la abreviatura peruana de tres letras.
 // eslint-disable-next-line khipu/no-literal-de-ui -- datos del locale, no copia de UI
 const MESES_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
@@ -26,9 +33,9 @@ function mesCorto(mes: number, locale: Locale): string {
   return new Intl.DateTimeFormat(INTL[locale], { month: "short", timeZone: "UTC" }).format(Date.UTC(2000, mes - 1, 1));
 }
 
-/** Número con separador de miles y 2 decimales (formato SUNAT: 1,234.56; `es-PE` y `en-US` coinciden). */
+/** Número con separador de miles y 2 decimales, formato SUNAT (1,234.56) en cualquier idioma (ver `NUMEROS`). */
 export function formatearNumero(valor: number, locale: Locale): string {
-  return Number(valor).toLocaleString(INTL[locale], {
+  return Number(valor).toLocaleString(NUMEROS[locale], {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -36,7 +43,7 @@ export function formatearNumero(valor: number, locale: Locale): string {
 
 /** Un precio unitario: al menos 2 decimales y los que traiga de más (hasta 10), sin redondear: 0.0123 es un precio válido y no debe verse como 0.01. */
 export function formatearPrecioUnitario(valor: number, locale: Locale): string {
-  return Number(valor).toLocaleString(INTL[locale], {
+  return Number(valor).toLocaleString(NUMEROS[locale], {
     minimumFractionDigits: 2,
     maximumFractionDigits: 10,
   });
