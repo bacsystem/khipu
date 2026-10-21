@@ -18,6 +18,11 @@ function Con({ inicial = 3 }: { inicial?: number | null }) {
   );
 }
 
+/**
+ * Estas pruebas viven en el portal aunque el componente sea del paquete `khipu-design-system`: el paquete no tiene suite propia, y aquí fijan lo que el portal
+ * decidió en #117 y no debe cambiar al subir la versión. La decisión: los botones ± quedan FUERA del orden de Tab (`tabindex="-1"`) pero con nombre accesible,
+ * porque el campo ya se cambia con las flechas del teclado y dos paradas de Tab más por cada línea de un comprobante hacían la emisión lenta con teclado.
+ */
 describe("StepperNumerico — accesibilidad por teclado (#117)", () => {
   it("el campo se cambia con las flechas sin pasar por los botones", () => {
     render(<Con />);
@@ -47,7 +52,7 @@ describe("StepperNumerico — accesibilidad por teclado (#117)", () => {
     expect(Number(screen.getByTestId("valor").textContent)).toBeGreaterThanOrEqual(0);
   });
 
-  it("los botones ± tienen nombre accesible aunque no estén en el orden de Tab (decisión documentada en el componente)", () => {
+  it("los botones ± tienen nombre accesible aunque no estén en el orden de Tab (decisión #117, descrita arriba)", () => {
     render(<Con />);
     for (const nombre of ["Disminuir", "Aumentar"]) {
       const boton = screen.getByRole("button", { name: nombre });
