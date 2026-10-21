@@ -50,6 +50,21 @@ describe("paridad de los textos con es.json (#25)", () => {
       expect(distintos).toEqual([]);
     });
 
+    it(`${locale}: el mismo espacio al principio y al final que el original`, () => {
+      // H8: hay textos que se pegan a otro y por eso empiezan o terminan en espacio a propósito (`" Tiene {n} nota…"`); si la
+      // traducción lo pierde, en pantalla quedan dos palabras juntas.
+      const bordes = (texto: string) => [texto.match(/^\s*/)![0], texto.match(/\s*$/)![0]];
+      const distintos: string[] = [];
+      for (const [ruta, original] of fuente) {
+        const texto = traduccion.get(ruta);
+        if (texto === undefined || texto.trim() === "") continue;
+        const [inicio, fin] = bordes(original);
+        const [inicioT, finT] = bordes(texto);
+        if (inicio !== inicioT || fin !== finT) distintos.push(`${ruta}: ${JSON.stringify(texto)} (original ${JSON.stringify(original)})`);
+      }
+      expect(distintos).toEqual([]);
+    });
+
     it(`${locale}: ninguna frase quedó copiada en castellano (una clave agregada sin traducir)`, () => {
       // Dos palabras seguidas en minúscula: «RUC», «UBL 2.1» o «Yape» pueden repetirse tal cual; una frase no.
       const frase = /[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}/;
