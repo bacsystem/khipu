@@ -1,7 +1,6 @@
 import { GRACIA_MAX_DIAS, type CuerpoDeCambioDePlan } from "@/lib/api/admin-plan-de-cuenta";
 import type { Mensajes } from "@/i18n/mensajes";
 import { venceDesdeFechaDeLima } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /** Lo que el administrador tiene escrito en el formulario de cambio de plan. `precioDelPlan`: el del plan elegido (nulo mientras no haya elegido). */
 export type ValoresDeCambioDePlan = { planId: string; precioDelPlan?: number; pagadoHasta: string; gracia: string };
@@ -25,7 +24,7 @@ export function fechaValida(texto: string): boolean {
 export function validarCambioDePlan(
   v: ValoresDeCambioDePlan,
   hoy: string,
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): { errores: ErroresDeCambioDePlan } | { cuerpo: CuerpoDeCambioDePlan } {
   const t = messages.admin.planDeCuenta.dialogo.errores;
   const errores: ErroresDeCambioDePlan = {};

@@ -2,7 +2,6 @@ import type { Mensajes } from "@/i18n/mensajes";
 import { interpolar } from "@/i18n/mensajes";
 import type { LimiteAdmin } from "@/lib/api/admin-planes";
 import type { PlanPublicado } from "@/lib/api/planes-publicados";
-import es from "@/messages/es.json";
 
 export type TarjetaDePlan = { nombre: string; para: string; mensual: number; docs: string; rucs: string; incluye: string[]; destacado: boolean };
 
@@ -21,14 +20,12 @@ const CATALOGO = [
  * El texto comercial de cada plan: para quién es y qué incluye además de sus límites. Es lo único que la portada escribe a mano; el precio y los límites salen de
  * lo que el backoffice publica (H20). Si el backend no responde, estos mismos son la lista de respaldo.
  */
-export function planesDeRespaldo(messages: Mensajes = es): TarjetaDePlan[] {
+export function planesDeRespaldo(messages: Mensajes): TarjetaDePlan[] {
   return CATALOGO.map(({ clave, mensual, destacado }) => {
     const textos = messages.landing.planes.catalogo[clave];
     return { nombre: textos.nombre, para: textos.para, mensual, docs: textos.docs, rucs: textos.rucs, incluye: [...textos.incluye], destacado };
   });
 }
-
-export const PLANES_DE_RESPALDO: TarjetaDePlan[] = planesDeRespaldo(es);
 
 /** «1 500» con espacio de miles, como el resto de la portada. */
 function miles(n: number): string {
@@ -48,8 +45,8 @@ function usuarios(l: LimiteAdmin, t: Mensajes["landing"]["planes"]["limites"]): 
  * Las tarjetas de la página de precios (H20): una por plan publicado, en el orden en que llegan (del más barato al más caro). Precio y límites salen de lo publicado;
  * el texto comercial, del plan de la portada con el mismo nombre. Uno que la portada no conoce se describe con sus límites. Sin nada publicado, el respaldo.
  */
-export function tarjetasDePlanes(publicados: PlanPublicado[] | null, messages: Mensajes = es): TarjetaDePlan[] {
-  const respaldo = messages === es ? PLANES_DE_RESPALDO : planesDeRespaldo(messages);
+export function tarjetasDePlanes(publicados: PlanPublicado[] | null, messages: Mensajes): TarjetaDePlan[] {
+  const respaldo = planesDeRespaldo(messages);
   if (!publicados || publicados.length === 0) return respaldo;
   const t = messages.landing.planes.limites;
   return publicados.map((p) => {

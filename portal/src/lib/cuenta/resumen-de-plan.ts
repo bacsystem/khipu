@@ -2,7 +2,6 @@ import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 export type ResumenDePlan = {
   plan: string;
@@ -19,7 +18,7 @@ export type ResumenDePlan = {
 const UMBRAL_CERCA = 0.8;
 
 /** Lo que el menú dice del plan del cliente (C1): el estado de pago pesa más que el consumo. Los textos, en el idioma de `messages`. */
-export function resumenDePlan(cuenta: MiCuenta, messages: Mensajes = es, locale: Locale = "es"): ResumenDePlan {
+export function resumenDePlan(cuenta: MiCuenta, messages: Mensajes, locale: Locale): ResumenDePlan {
   const t = messages.resumenDePlan;
   const { documentos, maximo } = cuenta.consumo;
   const base = { plan: cuenta.plan.plan.nombre };

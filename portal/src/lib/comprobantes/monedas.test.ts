@@ -1,26 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { errorDeTipoCambio, MONEDAS, superaElTopeSinDocumento, tipoCambioAApi } from "./monedas";
+import { errorDeTipoCambio, monedas, superaElTopeSinDocumento, tipoCambioAApi } from "./monedas";
+import es from "@/messages/es.json";
 
 describe("monedas y tipo de cambio (#316)", () => {
   it("ofrece las 17 monedas que admite el dominio (Monedas.java), soles primero y sin repetir", () => {
     const admitidas = ["ARS", "AUD", "BOB", "BRL", "CAD", "CHF", "CLP", "CNY", "COP", "EUR", "GBP", "JPY", "MXN", "PEN", "PYG", "USD", "UYU"];
-    expect(MONEDAS.map((m) => m.codigo).sort()).toEqual(admitidas);
-    expect(MONEDAS.map((m) => m.codigo).slice(0, 3)).toEqual(["PEN", "USD", "EUR"]);
-    expect(new Set(MONEDAS.map((m) => m.codigo)).size).toBe(MONEDAS.length);
+    expect(monedas(es).map((m) => m.codigo).sort()).toEqual(admitidas);
+    expect(monedas(es).map((m) => m.codigo).slice(0, 3)).toEqual(["PEN", "USD", "EUR"]);
+    expect(new Set(monedas(es).map((m) => m.codigo)).size).toBe(monedas(es).length);
   });
 
   it("el tipo de cambio es opcional, positivo, de hasta 3 enteros y 3 decimales, y solo fuera de soles", () => {
-    for (const bueno of ["", "3.756", "3", "0.5", "999.999", " 3.75 "]) expect(errorDeTipoCambio(bueno, "USD"), bueno).toBeNull();
-    for (const malo of ["0", "-3", "abc", "3.7567", "1000", "1000.5"]) expect(errorDeTipoCambio(malo, "USD"), malo).toMatch(/soles por 1 USD/);
-    expect(errorDeTipoCambio("abc", "PEN")).toBeNull();
+    for (const bueno of ["", "3.756", "3", "0.5", "999.999", " 3.75 "]) expect(errorDeTipoCambio(bueno, "USD", es), bueno).toBeNull();
+    for (const malo of ["0", "-3", "abc", "3.7567", "1000", "1000.5"]) expect(errorDeTipoCambio(malo, "USD", es), malo).toMatch(/soles por 1 USD/);
+    expect(errorDeTipoCambio("abc", "PEN", es)).toBeNull();
   });
 
   it("se manda como número solo si vale y la moneda no es soles", () => {
-    expect(tipoCambioAApi("3.756", "USD")).toBe(3.756);
-    expect(tipoCambioAApi(" 3.756 ", "EUR")).toBe(3.756);
-    expect(tipoCambioAApi("", "USD")).toBeUndefined();
-    expect(tipoCambioAApi("3.756", "PEN")).toBeUndefined();
-    expect(tipoCambioAApi("0", "USD")).toBeUndefined();
+    expect(tipoCambioAApi("3.756", "USD", es)).toBe(3.756);
+    expect(tipoCambioAApi(" 3.756 ", "EUR", es)).toBe(3.756);
+    expect(tipoCambioAApi("", "USD", es)).toBeUndefined();
+    expect(tipoCambioAApi("3.756", "PEN", es)).toBeUndefined();
+    expect(tipoCambioAApi("0", "USD", es)).toBeUndefined();
   });
 
   it("el tope de S/ 700 sin documento se mide en soles al tipo de cambio; sin él, una moneda extranjera siempre lo pasa", () => {

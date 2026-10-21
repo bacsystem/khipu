@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #297: percepción del IGV de un agente de percepción (catálogo 53: régimen 51, 52 o 53; tasas del catálogo 22). Solo con el tipo de operación 2001, en soles y al contado
@@ -25,12 +24,11 @@ const TASAS = [
 ] as const;
 
 /** Los regímenes con su etiqueta en el idioma de `messages` (#25). */
-export const regimenes = (messages: Mensajes = es): { codigo: string; tasa: number; etiqueta: string }[] =>
+export const regimenes = (messages: Mensajes): { codigo: string; tasa: number; etiqueta: string }[] =>
   TASAS.map((r) => ({ ...r, etiqueta: messages.documentos.regimenesPercepcion[r.codigo] }));
-export const REGIMENES = regimenes();
 
 /** Por qué la percepción no vale tal como está (con la moneda y la forma de pago del comprobante), o `null`. */
-export function errorDePercepcion(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }, messages: Mensajes = es): string | null {
+export function errorDePercepcion(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.percepcion;
   if (!p.activa) return null;
   if (contexto.moneda !== "PEN") return t.soloSoles;
@@ -43,8 +41,8 @@ export function errorDePercepcion(p: PercepcionForm, contexto: { moneda: string;
 
 export type PercepcionApi = { regimen: string; base?: number };
 
-export function percepcionAApi(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }): PercepcionApi | undefined {
-  if (!p.activa || errorDePercepcion(p, contexto) !== null) return undefined;
+export function percepcionAApi(p: PercepcionForm, contexto: { moneda: string; alCredito: boolean }, messages: Mensajes): PercepcionApi | undefined {
+  if (!p.activa || errorDePercepcion(p, contexto, messages) !== null) return undefined;
   const base = p.base.trim();
   return { regimen: p.regimen, base: base === "" ? undefined : Number(base) };
 }

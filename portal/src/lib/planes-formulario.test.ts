@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ValoresDePlan } from "./planes-formulario";
+import es from "@/messages/es.json";
 
 const VALIDOS: ValoresDePlan = {
   nombre: "Estudio",
@@ -17,14 +18,14 @@ const VALIDOS: ValoresDePlan = {
 };
 
 function errores(cambios: Partial<ValoresDePlan>) {
-  const r = validarPlan({ ...VALIDOS, ...cambios });
+  const r = validarPlan({ ...VALIDOS, ...cambios }, es);
   return "errores" in r ? r.errores : {};
 }
 
 /** El formulario de planes (#190): valida lo evidente antes de enviar; la autoridad sigue siendo el backend. */
 describe("validarPlan", () => {
   it("con valores válidos arma el cuerpo que espera el backend", () => {
-    const r = validarPlan(VALIDOS);
+    const r = validarPlan(VALIDOS, es);
 
     expect(r).toEqual({
       cuerpo: {
@@ -43,7 +44,7 @@ describe("validarPlan", () => {
   });
 
   it("«Ilimitado» manda el límite sin máximo, aunque el campo todavía tenga un número escrito", () => {
-    const r = validarPlan({ ...VALIDOS, documentosIlimitado: true, usuariosIlimitado: true, apiKeysIlimitado: true });
+    const r = validarPlan({ ...VALIDOS, documentosIlimitado: true, usuariosIlimitado: true, apiKeysIlimitado: true }, es);
 
     expect(r).toMatchObject({
       cuerpo: {
@@ -62,7 +63,7 @@ describe("validarPlan", () => {
   });
 
   it("el nombre se recorta, es obligatorio y tiene tope", () => {
-    const recortado = validarPlan({ ...VALIDOS, nombre: "  Estudio  " });
+    const recortado = validarPlan({ ...VALIDOS, nombre: "  Estudio  " }, es);
     expect("cuerpo" in recortado && recortado.cuerpo.nombre).toBe("Estudio");
     expect(errores({ nombre: "   " }).nombre).toMatch(/Escribe el nombre/);
     expect(errores({ nombre: "" }).nombre).toMatch(/Escribe el nombre/);
@@ -103,7 +104,7 @@ describe("validarPlan", () => {
   });
 
   it("con errores no devuelve cuerpo", () => {
-    expect(validarPlan({ ...VALIDOS, nombre: "" })).not.toHaveProperty("cuerpo");
+    expect(validarPlan({ ...VALIDOS, nombre: "" }, es)).not.toHaveProperty("cuerpo");
   });
 });
 
@@ -154,7 +155,7 @@ describe("valoresDePlan", () => {
   });
 
   it("lo que se prellena pasa la validación y vuelve a armar los mismos límites", () => {
-    const r = validarPlan(valoresDePlan(plan));
+    const r = validarPlan(valoresDePlan(plan), es);
 
     expect(r).toMatchObject({ cuerpo: { nombre: "Negocio", precio_mensual: 69, limites: { rucs: 3, retencion_anios: 5, api_keys: { ilimitado: true } } } });
   });
@@ -167,7 +168,7 @@ describe("visible en publicidad", () => {
   });
 
   it("viaja en el cuerpo tal como se marcó", () => {
-    expect(validarPlan({ ...VALIDOS, visibleEnPublicidad: false })).toMatchObject({ cuerpo: { visible_en_publicidad: false } });
+    expect(validarPlan({ ...VALIDOS, visibleEnPublicidad: false }, es)).toMatchObject({ cuerpo: { visible_en_publicidad: false } });
   });
 
   it("al editar se prellena con lo que tiene el plan", () => {

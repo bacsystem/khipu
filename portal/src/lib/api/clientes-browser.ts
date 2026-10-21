@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { ESPERA_MAXIMA_LECTURA_MS } from "./browser";
 import type { ApiEnvelope } from "./types";
 import type { ClienteGuardado, PaginaDeClientes } from "./clientes";
@@ -10,7 +9,7 @@ export type ResultadoDeBusqueda = { estado: "exito"; datos: PaginaDeClientes } |
  * Busca clientes guardados (#319). Aparte de `apiRequest` porque el total viaja en la cabecera `X-Total-Count`, que el sobre no expone. No lanza: un corte de red o una respuesta
  * que no es JSON vuelven como error. `senal` cancela la búsqueda (el autocompletado descarta la anterior al teclear otra letra).
  */
-export async function buscarClientes({ q, pagina = 1, porPagina = 20, senal }: { q?: string; pagina?: number; porPagina?: number; senal?: AbortSignal }, messages: Mensajes = es): Promise<ResultadoDeBusqueda> {
+export async function buscarClientes({ q, pagina = 1, porPagina = 20, senal }: { q?: string; pagina?: number; porPagina?: number; senal?: AbortSignal }, messages: Mensajes): Promise<ResultadoDeBusqueda> {
   const params = new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) });
   if (q && q.trim() !== "") params.set("q", q.trim());
   try {

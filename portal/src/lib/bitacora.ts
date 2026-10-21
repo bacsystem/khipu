@@ -1,7 +1,6 @@
 import type { Locale } from "@/i18n/config";
 import type { Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /** Claves que solo sirven para cruzar con la base (un id interno): en la pantalla no le dicen nada a nadie. */
 const OCULTAS = new Set(["pago"]);
@@ -49,7 +48,7 @@ function pares(detalle: string): Array<[string, string]> {
  * cada clave se nombra, los códigos pasan a su nombre, las fechas a «9 Nov 2026» y los ids internos se omiten. Una clave nueva que este portal todavía no
  * conoce se muestra igual, con su nombre legible: la bitácora no esconde nada.
  */
-export function detalleLegible(detalle: string | null | undefined, messages: Mensajes = es, locale: Locale = "es"): string {
+export function detalleLegible(detalle: string | null | undefined, messages: Mensajes, locale: Locale): string {
   if (!detalle) return "";
   const todos = pares(detalle);
   if (todos.length === 0) return detalle;

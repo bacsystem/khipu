@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { backendFetch } from "./client";
 import { tenantHeaders } from "./tenant";
 
@@ -81,12 +80,9 @@ export type PersonalizacionPdf = {
 const IDS_PLANTILLAS_PDF: PlantillaPdf[] = ["clasico", "moderno", "sutil", "corporativo", "gris"];
 
 /** Las plantillas del PDF con su nombre y descripción en el idioma de `messages` (#25). */
-export function plantillasPdf(messages: Mensajes = es): Array<{ id: PlantillaPdf; nombre: string; descripcion: string }> {
+export function plantillasPdf(messages: Mensajes): Array<{ id: PlantillaPdf; nombre: string; descripcion: string }> {
   return IDS_PLANTILLAS_PDF.map((id) => ({ id, ...messages.empresa.pdf.plantillas[id] }));
 }
-
-/** Las plantillas en castellano; con locale, `plantillasPdf(messages)`. */
-export const PLANTILLAS_PDF = plantillasPdf();
 
 export function obtenerPersonalizacionPdf(access: string, empresaId: string) {
   return backendFetch<PersonalizacionPdf>("/v1/empresa/personalizacion-pdf", { headers: tenantHeaders(access, empresaId) });

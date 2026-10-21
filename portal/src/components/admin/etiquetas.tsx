@@ -6,7 +6,6 @@ import type { EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import type { Locale } from "@/i18n/config";
 import type { Mensajes } from "@/i18n/mensajes";
 import { formatearFecha } from "@/lib/formato";
-import es from "@/messages/es.json";
 import { cn } from "@/lib/utils";
 
 export type Tono = "ok" | "aviso" | "error" | "neutro";
@@ -24,7 +23,7 @@ export function Etiqueta({ tono, children }: { tono: Tono; children: ReactNode }
 }
 
 /** El texto y el tono del certificado de una empresa: el administrador ve de un vistazo cuáles piden atención. */
-export function certificadoEnPalabras(estado: EstadoCertificado, messages: Mensajes = es, locale: Locale = "es"): { texto: string; tono: Tono } {
+export function certificadoEnPalabras(estado: EstadoCertificado, messages: Mensajes, locale: Locale): { texto: string; tono: Tono } {
   const c = messages.admin.detalle.empresas;
   const fecha = (iso: string) => formatearFecha(iso, locale);
   switch (estado.tipo) {

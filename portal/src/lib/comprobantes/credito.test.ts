@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, montoValido, repartirEnCuotas, sumaDeCuotas, type CreditoForm } from "./credito";
+import es from "@/messages/es.json";
 
 const EMISION = "2026-10-01";
 const credito = (p: Partial<CreditoForm>): CreditoForm => ({ ...CREDITO_VACIO, ...p });
@@ -29,28 +30,28 @@ describe("errorDeCredito (#309, 3250–3267)", () => {
   const buenas = [{ monto: "590.00", vencimiento: "2026-10-31" }, { monto: "590.00", vencimiento: "2026-11-30" }];
 
   it("un crédito bien armado no tiene error, con el neto pendiente tecleado o el total por defecto", () => {
-    expect(errorDeCredito(credito({ cuotas: buenas }), 1180, EMISION)).toBeNull();
-    expect(errorDeCredito(credito({ montoPendiente: "1180.00", cuotas: buenas }), 999, EMISION)).toBeNull();
+    expect(errorDeCredito(credito({ cuotas: buenas }), 1180, EMISION, es)).toBeNull();
+    expect(errorDeCredito(credito({ montoPendiente: "1180.00", cuotas: buenas }), 999, EMISION, es)).toBeNull();
   });
 
   it("pide al menos una cuota", () => {
-    expect(errorDeCredito(credito({}), 1180, EMISION)).toMatch(/al menos una cuota/);
+    expect(errorDeCredito(credito({}), 1180, EMISION, es)).toMatch(/al menos una cuota/);
   });
 
   it("cada cuota es un importe positivo con 2 decimales y lleva fecha", () => {
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "", vencimiento: "2026-10-31" }] }), 100, EMISION)).toMatch(/cuota 1.*importe/);
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "10.555", vencimiento: "2026-10-31" }] }), 100, EMISION)).toMatch(/cuota 1.*2 decimales/);
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "100", vencimiento: "" }] }), 100, EMISION)).toMatch(/fecha de vencimiento/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "", vencimiento: "2026-10-31" }] }), 100, EMISION, es)).toMatch(/cuota 1.*importe/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "10.555", vencimiento: "2026-10-31" }] }), 100, EMISION, es)).toMatch(/cuota 1.*2 decimales/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "100", vencimiento: "" }] }), 100, EMISION, es)).toMatch(/fecha de vencimiento/);
   });
 
   it("los vencimientos son posteriores a la emisión y crecientes", () => {
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "100", vencimiento: EMISION }] }), 100, EMISION)).toMatch(/posterior a la fecha de emisión/);
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "50", vencimiento: "2026-11-15" }, { monto: "50", vencimiento: "2026-11-15" }] }), 100, EMISION)).toMatch(/posterior al de la cuota 1/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "100", vencimiento: EMISION }] }), 100, EMISION, es)).toMatch(/posterior a la fecha de emisión/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "50", vencimiento: "2026-11-15" }, { monto: "50", vencimiento: "2026-11-15" }] }), 100, EMISION, es)).toMatch(/posterior al de la cuota 1/);
   });
 
   it("las cuotas suman el neto pendiente", () => {
-    expect(errorDeCredito(credito({ cuotas: [{ monto: "500", vencimiento: "2026-10-31" }] }), 1180, EMISION)).toMatch(/suman 500\.00 y el neto pendiente es 1180\.00/);
-    expect(errorDeCredito(credito({ montoPendiente: "abc", cuotas: buenas }), 1180, EMISION)).toMatch(/neto pendiente/);
+    expect(errorDeCredito(credito({ cuotas: [{ monto: "500", vencimiento: "2026-10-31" }] }), 1180, EMISION, es)).toMatch(/suman 500\.00 y el neto pendiente es 1180\.00/);
+    expect(errorDeCredito(credito({ montoPendiente: "abc", cuotas: buenas }), 1180, EMISION, es)).toMatch(/neto pendiente/);
   });
 });
 

@@ -14,6 +14,7 @@ import {
   type LimitesAdmin,
   type PlanAdmin,
 } from "./admin-planes";
+import es from "@/messages/es.json";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -120,23 +121,23 @@ describe("las acciones sobre un plan", () => {
 
 describe("limiteEnPalabras", () => {
   it("dice la cifra con separador de miles, o «Ilimitados»", () => {
-    expect(limiteEnPalabras({ maximo: 300, ilimitado: false })).toBe("300");
-    expect(limiteEnPalabras({ maximo: 1500, ilimitado: false })).toBe("1,500");
-    expect(limiteEnPalabras({ ilimitado: true })).toBe("Ilimitados");
+    expect(limiteEnPalabras({ maximo: 300, ilimitado: false }, es)).toBe("300");
+    expect(limiteEnPalabras({ maximo: 1500, ilimitado: false }, es)).toBe("1,500");
+    expect(limiteEnPalabras({ ilimitado: true }, es)).toBe("Ilimitados");
   });
 
   it("un límite sin máximo ni marca de ilimitado se ve como un guion, no como «undefined»", () => {
-    expect(limiteEnPalabras({ ilimitado: false })).toBe("—");
+    expect(limiteEnPalabras({ ilimitado: false }, es)).toBe("—");
   });
 });
 
 describe("precioEnSoles", () => {
   it("con dos decimales y «Gratis» para cero", () => {
-    expect(precioEnSoles(29)).toBe("S/ 29.00");
-    expect(precioEnSoles(129)).toBe("S/ 129.00");
-    expect(precioEnSoles(1234.5)).toBe("S/ 1,234.50");
-    expect(precioEnSoles(49.9)).toBe("S/ 49.90");
-    expect(precioEnSoles(0)).toBe("Gratis");
+    expect(precioEnSoles(29, es, "es")).toBe("S/ 29.00");
+    expect(precioEnSoles(129, es, "es")).toBe("S/ 129.00");
+    expect(precioEnSoles(1234.5, es, "es")).toBe("S/ 1,234.50");
+    expect(precioEnSoles(49.9, es, "es")).toBe("S/ 49.90");
+    expect(precioEnSoles(0, es, "es")).toBe("Gratis");
   });
 });
 
@@ -162,9 +163,9 @@ describe("PlanAdmin", () => {
 
 describe("retencionEnPalabras", () => {
   it("1 año, N años", () => {
-    expect(retencionEnPalabras(1)).toBe("1 año");
-    expect(retencionEnPalabras(5)).toBe("5 años");
-    expect(retencionEnPalabras(10)).toBe("10 años");
+    expect(retencionEnPalabras(1, es)).toBe("1 año");
+    expect(retencionEnPalabras(5, es)).toBe("5 años");
+    expect(retencionEnPalabras(10, es)).toBe("10 años");
   });
 });
 
@@ -179,16 +180,16 @@ describe("limitesEnPalabras", () => {
   });
 
   it("con uno de cada cosa va en singular", () => {
-    expect(limitesEnPalabras(limites(1))).toBe("1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención");
+    expect(limitesEnPalabras(limites(1), es)).toBe("1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención");
   });
 
   it("con varios va en plural y con separador de miles", () => {
-    expect(limitesEnPalabras(limites(1500))).toBe("1,500 documentos al mes · 1,500 RUC · 1,500 usuarios · 1,500 API keys · 1500 años de retención");
+    expect(limitesEnPalabras(limites(1500), es)).toBe("1,500 documentos al mes · 1,500 RUC · 1,500 usuarios · 1,500 API keys · 1500 años de retención");
   });
 
   it("sin límite se dice así, con la palabra delante", () => {
     const ilimitado = { ilimitado: true };
-    expect(limitesEnPalabras({ ...limites(3), documentos_al_mes: ilimitado, usuarios: ilimitado, api_keys: ilimitado })).toBe(
+    expect(limitesEnPalabras({ ...limites(3), documentos_al_mes: ilimitado, usuarios: ilimitado, api_keys: ilimitado }, es)).toBe(
       "Documentos ilimitados · 3 RUC · usuarios ilimitados · API keys ilimitadas · 3 años de retención",
     );
   });
@@ -199,13 +200,13 @@ describe("cambiosDeLimites", () => {
   const base: LimitesAdmin = { documentos_al_mes: { maximo: 800, ilimitado: false }, rucs: 2, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
 
   it("sin diferencias no hay cambios", () => {
-    expect(cambiosDeLimites(base, { ...base })).toEqual([]);
+    expect(cambiosDeLimites(base, { ...base }, es)).toEqual([]);
   });
 
   it("lista solo lo que cambia, de qué a qué, en el orden de la tabla", () => {
     const nuevo: LimitesAdmin = { ...base, documentos_al_mes: { maximo: 2000, ilimitado: false }, retencion_anios: 7, usuarios: { ilimitado: true } };
 
-    expect(cambiosDeLimites(base, nuevo)).toEqual([
+    expect(cambiosDeLimites(base, nuevo, es)).toEqual([
       { campo: "documentos", de: "800", a: "2,000" },
       { campo: "usuarios", de: "1", a: "Ilimitados" },
       { campo: "retencion", de: "5 años", a: "7 años" },
@@ -215,14 +216,14 @@ describe("cambiosDeLimites", () => {
   it("cubre los cinco límites", () => {
     const nuevo: LimitesAdmin = { documentos_al_mes: { ilimitado: true }, rucs: 3, usuarios: { maximo: 9, ilimitado: false }, api_keys: { ilimitado: true }, retencion_anios: 1 };
 
-    expect(cambiosDeLimites(base, nuevo).map((c) => c.campo)).toEqual(["documentos", "rucs", "usuarios", "apiKeys", "retencion"]);
-    expect(cambiosDeLimites(base, nuevo).find((c) => c.campo === "rucs")).toEqual({ campo: "rucs", de: "2", a: "3" });
-    expect(cambiosDeLimites(base, nuevo).find((c) => c.campo === "apiKeys")).toEqual({ campo: "apiKeys", de: "2", a: "Ilimitados" });
+    expect(cambiosDeLimites(base, nuevo, es).map((c) => c.campo)).toEqual(["documentos", "rucs", "usuarios", "apiKeys", "retencion"]);
+    expect(cambiosDeLimites(base, nuevo, es).find((c) => c.campo === "rucs")).toEqual({ campo: "rucs", de: "2", a: "3" });
+    expect(cambiosDeLimites(base, nuevo, es).find((c) => c.campo === "apiKeys")).toEqual({ campo: "apiKeys", de: "2", a: "Ilimitados" });
   });
 
   it("pasar de ilimitado a una cifra también es un cambio", () => {
     const ilimitado: LimitesAdmin = { ...base, documentos_al_mes: { ilimitado: true } };
 
-    expect(cambiosDeLimites(ilimitado, base)).toEqual([{ campo: "documentos", de: "Ilimitados", a: "800" }]);
+    expect(cambiosDeLimites(ilimitado, base, es)).toEqual([{ campo: "documentos", de: "Ilimitados", a: "800" }]);
   });
 });

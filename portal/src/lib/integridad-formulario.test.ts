@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { MAX_DIAS_DE_INTEGRIDAD, validarRango } from "./integridad-formulario";
+import es from "@/messages/es.json";
 
 const errores = (desde: string, hasta: string) => {
-  const r = validarRango(desde, hasta);
+  const r = validarRango(desde, hasta, es);
   if (!("errores" in r)) throw new Error("se esperaban errores");
   return r.errores;
 };
 
 describe("validarRango", () => {
   it("un rango válido devuelve las dos fechas recortadas", () => {
-    expect(validarRango("2026-09-01", "2026-09-30")).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
-    expect(validarRango(" 2026-09-01 ", " 2026-09-30 ")).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
+    expect(validarRango("2026-09-01", "2026-09-30", es)).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
+    expect(validarRango(" 2026-09-01 ", " 2026-09-30 ", es)).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
   });
 
   it("un solo día es un rango válido", () => {
-    expect(validarRango("2026-09-15", "2026-09-15")).toEqual({ desde: "2026-09-15", hasta: "2026-09-15" });
+    expect(validarRango("2026-09-15", "2026-09-15", es)).toEqual({ desde: "2026-09-15", hasta: "2026-09-15" });
   });
 
   it("pide las dos fechas", () => {
@@ -38,7 +39,7 @@ describe("validarRango", () => {
   it("no pasa de 92 días contando los dos extremos: justo 92 vale, 93 no", () => {
     expect(MAX_DIAS_DE_INTEGRIDAD).toBe(92);
     // Del 1 de agosto al 31 de octubre son 92 días.
-    expect(validarRango("2026-08-01", "2026-10-31")).toEqual({ desde: "2026-08-01", hasta: "2026-10-31" });
+    expect(validarRango("2026-08-01", "2026-10-31", es)).toEqual({ desde: "2026-08-01", hasta: "2026-10-31" });
     expect(errores("2026-08-01", "2026-11-01").hasta).toBe("El rango no puede pasar de 92 días.");
   });
 

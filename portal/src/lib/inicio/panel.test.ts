@@ -17,6 +17,7 @@ import {
   variacionEnPalabras,
   ventanaDeAtencion,
 } from "./panel";
+import es from "@/messages/es.json";
 
 describe("ventanaDeAtencion (H1)", () => {
   it("del 8 en adelante es el mes en curso", () => {
@@ -37,7 +38,7 @@ describe("ventanaDeAtencion (H1)", () => {
   it("el 2 del mes, una boleta FIRMADA del 28 del mes anterior avisa y su enlace la incluye", () => {
     const hoy = "2026-10-02";
     const ventana = ventanaDeAtencion(hoy);
-    const alertas = alertasDelPanel(EMPRESA_AL_DIA, { atencion_requerida: { ...SIN_ATENCION, total: 1, boletas_sin_enviar: 1 } }, ventana, hoy);
+    const alertas = alertasDelPanel(EMPRESA_AL_DIA, { atencion_requerida: { ...SIN_ATENCION, total: 1, boletas_sin_enviar: 1 } }, ventana, hoy, es, "es");
 
     expect(alertas).toEqual([expect.objectContaining({ id: "boletas-sin-enviar", titulo: "1 boleta sigue sin enviar" })]);
     expect(alertas[0].enlace).toBe("/comprobantes?estado=FIRMADO&desde=2026-09-25&hasta=2026-09-27&tipo=03");
@@ -139,9 +140,9 @@ describe("variacion", () => {
   });
 
   it("se dice con su signo", () => {
-    expect(variacionEnPalabras(12)).toBe("+12 % vs. el mes pasado");
-    expect(variacionEnPalabras(-5)).toBe("−5 % vs. el mes pasado");
-    expect(variacionEnPalabras(0)).toBe("igual que el mes pasado");
+    expect(variacionEnPalabras(12, es)).toBe("+12 % vs. el mes pasado");
+    expect(variacionEnPalabras(-5, es)).toBe("−5 % vs. el mes pasado");
+    expect(variacionEnPalabras(0, es)).toBe("igual que el mes pasado");
   });
 });
 
@@ -153,53 +154,53 @@ describe("facturadoEn y el formato de los importes por moneda", () => {
   });
 
   it("cada moneda con su símbolo, sus miles y dos decimales", () => {
-    expect(formatearMonto("PEN", 12345.6)).toBe("S/ 12,345.60");
-    expect(formatearMonto("USD", 50.5)).toBe("$ 50.50");
-    expect(formatearMonto("PEN", -150)).toBe("S/ -150.00");
+    expect(formatearMonto("PEN", 12345.6, "es")).toBe("S/ 12,345.60");
+    expect(formatearMonto("USD", 50.5, "es")).toBe("$ 50.50");
+    expect(formatearMonto("PEN", -150, "es")).toBe("S/ -150.00");
   });
 });
 
 describe("alertasDeLaEmpresa (#24)", () => {
   it("una empresa al día no avisa nada", () => {
-    expect(alertasDeLaEmpresa(EMPRESA_AL_DIA, HOY)).toEqual([]);
+    expect(alertasDeLaEmpresa(EMPRESA_AL_DIA, HOY, es, "es")).toEqual([]);
   });
 
   it("sin certificado es un error que lleva a cargarlo", () => {
-    const [a] = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, tiene_certificado: false, certificado_vigencia_hasta: null }, HOY);
+    const [a] = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, tiene_certificado: false, certificado_vigencia_hasta: null }, HOY, es, "es");
     expect(a).toMatchObject({ id: "certificado-ausente", tono: "error", enlace: "/empresa?seccion=certificado", accion: "Cargar certificado" });
   });
 
   it("un certificado vencido es un error distinto del que está por vencer", () => {
-    const [a] = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-19" }, HOY);
+    const [a] = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-19" }, HOY, es, "es");
     expect(a).toMatchObject({ id: "certificado-vencido", tono: "error", titulo: "El certificado digital venció el 19 Oct 2026", accion: "Renovar certificado" });
   });
 
   it("por vencer en menos de 30 días es un aviso con los días que quedan; con 30 o más, nada", () => {
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-30" }, HOY)[0]).toMatchObject({
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-30" }, HOY, es, "es")[0]).toMatchObject({
       id: "certificado-por-vencer",
       tono: "aviso",
       titulo: "El certificado digital vence en 10 días",
       detalle: "Vence el 30 Oct 2026. Renuévalo antes para no cortar la emisión.",
     });
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-21" }, HOY)[0].titulo).toBe("El certificado digital vence en 1 día");
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-11-18" }, HOY)[0].titulo).toBe("El certificado digital vence en 29 días");
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-11-19" }, HOY)).toEqual([]);
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-21" }, HOY, es, "es")[0].titulo).toBe("El certificado digital vence en 1 día");
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-11-18" }, HOY, es, "es")[0].titulo).toBe("El certificado digital vence en 29 días");
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-11-19" }, HOY, es, "es")).toEqual([]);
   });
 
   it("el certificado que vence hoy todavía firma: avisa que vence hoy, no que venció", () => {
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: HOY }, HOY)[0]).toMatchObject({ id: "certificado-por-vencer", titulo: "El certificado digital vence hoy" });
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: HOY }, HOY, es, "es")[0]).toMatchObject({ id: "certificado-por-vencer", titulo: "El certificado digital vence hoy" });
   });
 
   it("un certificado sin fecha de vigencia no avisa: no se sabe cuándo vence", () => {
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: null }, HOY)).toEqual([]);
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: null }, HOY, es, "es")).toEqual([]);
   });
 
   it("credenciales SOL rechazadas son un error con el motivo de SUNAT; ausentes, un aviso", () => {
-    const rechazadas = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, credenciales_sol_rechazadas: { desde: "2026-10-09T15:00:00Z", motivo: "0102 - Usuario o contrasena incorrectos" } }, HOY);
+    const rechazadas = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, credenciales_sol_rechazadas: { desde: "2026-10-09T15:00:00Z", motivo: "0102 - Usuario o contrasena incorrectos" } }, HOY, es, "es");
     expect(rechazadas).toEqual([expect.objectContaining({ id: "sol-rechazadas", tono: "error", enlace: "/empresa?seccion=sol", accion: "Corregir credenciales" })]);
     expect(rechazadas[0].detalle).toContain("0102 - Usuario o contrasena incorrectos");
 
-    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, tiene_credenciales_sol: false }, HOY)).toEqual([
+    expect(alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, tiene_credenciales_sol: false }, HOY, es, "es")).toEqual([
       expect.objectContaining({ id: "sol-ausentes", tono: "aviso", enlace: "/empresa?seccion=sol", accion: "Guardar credenciales" }),
     ]);
   });
@@ -207,11 +208,11 @@ describe("alertasDeLaEmpresa (#24)", () => {
 
 describe("alertasDeComprobantes (#24)", () => {
   it("sin atención requerida no avisa nada", () => {
-    expect(alertasDeComprobantes(SIN_ATENCION, MES)).toEqual([]);
+    expect(alertasDeComprobantes(SIN_ATENCION, MES, es)).toEqual([]);
   });
 
   it("cada clase avisa con su cantidad y enlaza al listado filtrado por su estado y el rango del mes", () => {
-    const alertas = alertasDeComprobantes({ total: 10, rechazados: 3, errores_de_envio: 2, fuera_de_plazo: 1, boletas_sin_enviar: 4 }, MES);
+    const alertas = alertasDeComprobantes({ total: 10, rechazados: 3, errores_de_envio: 2, fuera_de_plazo: 1, boletas_sin_enviar: 4 }, MES, es);
 
     expect(alertas.map((a) => a.id)).toEqual(["fuera-de-plazo", "rechazados", "errores-de-envio", "boletas-sin-enviar"]);
     expect(alertas[0]).toMatchObject({ tono: "error", titulo: "1 comprobante quedó fuera de plazo", enlace: "/comprobantes?estado=FUERA_DE_PLAZO&desde=2026-10-01&hasta=2026-10-20" });
@@ -221,7 +222,7 @@ describe("alertasDeComprobantes (#24)", () => {
   });
 
   it("en singular y en plural", () => {
-    const alertas = alertasDeComprobantes({ total: 4, rechazados: 1, errores_de_envio: 1, fuera_de_plazo: 2, boletas_sin_enviar: 1 }, MES);
+    const alertas = alertasDeComprobantes({ total: 4, rechazados: 1, errores_de_envio: 1, fuera_de_plazo: 2, boletas_sin_enviar: 1 }, MES, es);
     expect(alertas.map((a) => a.titulo)).toEqual(["2 comprobantes quedaron fuera de plazo", "SUNAT rechazó 1 comprobante", "1 comprobante tiene error de envío", "1 boleta sigue sin enviar"]);
   });
 
@@ -237,7 +238,7 @@ describe("alertasDelPanel", () => {
       { atencion_requerida: { ...SIN_ATENCION, total: 1, rechazados: 1 } },
       MES,
       HOY,
-    );
+     es, "es");
     expect(alertas.map((a) => [a.id, a.tono])).toEqual([
       ["rechazados", "error"],
       ["certificado-por-vencer", "aviso"],
@@ -246,15 +247,15 @@ describe("alertasDelPanel", () => {
   });
 
   it("lo que no se pudo leer no avisa nada, y lo que sí, sigue avisando", () => {
-    expect(alertasDelPanel(null, null, MES, HOY)).toEqual([]);
-    expect(alertasDelPanel(null, { atencion_requerida: { ...SIN_ATENCION, total: 1, fuera_de_plazo: 1 } }, MES, HOY).map((a) => a.id)).toEqual(["fuera-de-plazo"]);
-    expect(alertasDelPanel({ ...EMPRESA_AL_DIA, tiene_certificado: false, certificado_vigencia_hasta: null }, null, MES, HOY).map((a) => a.id)).toEqual(["certificado-ausente"]);
+    expect(alertasDelPanel(null, null, MES, HOY, es, "es")).toEqual([]);
+    expect(alertasDelPanel(null, { atencion_requerida: { ...SIN_ATENCION, total: 1, fuera_de_plazo: 1 } }, MES, HOY, es, "es").map((a) => a.id)).toEqual(["fuera-de-plazo"]);
+    expect(alertasDelPanel({ ...EMPRESA_AL_DIA, tiene_certificado: false, certificado_vigencia_hasta: null }, null, MES, HOY, es, "es").map((a) => a.id)).toEqual(["certificado-ausente"]);
   });
 });
 
 describe("sinLoQueYaDiceLaGuia", () => {
   const empresaSinNada = { tiene_certificado: false, certificado_vigencia_hasta: null, tiene_credenciales_sol: false, credenciales_sol_rechazadas: null };
-  const alertas = [...alertasDeLaEmpresa(empresaSinNada, HOY), ...alertasDeComprobantes({ ...SIN_ATENCION, total: 1, rechazados: 1 }, MES)];
+  const alertas = [...alertasDeLaEmpresa(empresaSinNada, HOY, es, "es"), ...alertasDeComprobantes({ ...SIN_ATENCION, total: 1, rechazados: 1 }, MES, es)];
 
   it("quita los avisos de certificado y SOL cuyo paso la guía ya muestra pendiente, y deja los de comprobantes", () => {
     const pasos = [
@@ -270,7 +271,7 @@ describe("sinLoQueYaDiceLaGuia", () => {
   });
 
   it("el certificado por vencer no es un paso pendiente: su aviso queda aunque la guía esté a la vista", () => {
-    const porVencer = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-25", tiene_credenciales_sol: false }, HOY);
+    const porVencer = alertasDeLaEmpresa({ ...EMPRESA_AL_DIA, certificado_vigencia_hasta: "2026-10-25", tiene_credenciales_sol: false }, HOY, es, "es");
     expect(sinLoQueYaDiceLaGuia(porVencer, [{ id: "certificado", listo: true }, { id: "sol", listo: false }]).map((a) => a.id)).toEqual(["certificado-por-vencer"]);
   });
 });

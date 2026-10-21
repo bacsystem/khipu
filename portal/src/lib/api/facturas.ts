@@ -1,6 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { diasEntre, hoyLima } from "@/lib/formato";
-import es from "@/messages/es.json";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
@@ -11,10 +10,9 @@ export type Catalogo = Record<string, string>;
 
 /**
  * Tipos de comprobante (catálogo 01). #39: las guías de remisión se emiten por la API (/v1/guias-remision); el portal solo las nombra donde muestra tipos (series).
- * Las constantes `ETIQUETAS_*` son las del castellano; con el locale de la sesión, `etiquetasTipo(messages)` y las demás funciones de abajo.
+ * Con el locale de la sesión: `etiquetasTipo(messages)` y las demás funciones de abajo reciben los textos (sin valor por defecto, #25).
  */
-export const etiquetasTipo = (messages: Mensajes = es): Catalogo => messages.documentos.tipos;
-export const ETIQUETAS_TIPO: Catalogo = etiquetasTipo();
+export const etiquetasTipo = (messages: Mensajes): Catalogo => messages.documentos.tipos;
 
 /** #40: comprobante de retención (20) o de percepción (40), que solo emite una empresa designada agente por SUNAT. */
 export function esDeAgente(c: { tipo: string }): boolean {
@@ -146,12 +144,10 @@ export type TransporteCarga = {
 };
 
 /** Guías de remisión (catálogo 01: 09 y 31). */
-export const etiquetasGuia = (messages: Mensajes = es): Catalogo => ({ "09": messages.documentos.tipos["09"], "31": messages.documentos.tipos["31"] });
-export const ETIQUETAS_GUIA: Catalogo = etiquetasGuia();
+export const etiquetasGuia = (messages: Mensajes): Catalogo => ({ "09": messages.documentos.tipos["09"], "31": messages.documentos.tipos["31"] });
 
 /** Catálogo 12 (tipos admitidos como "otro documento relacionado"). */
-export const etiquetasDocRelacionado = (messages: Mensajes = es): Catalogo => messages.documentos.relacionados;
-export const ETIQUETAS_DOC_RELACIONADO: Catalogo = etiquetasDocRelacionado();
+export const etiquetasDocRelacionado = (messages: Mensajes): Catalogo => messages.documentos.relacionados;
 
 export type NotaResumen = {
   id: string;
@@ -256,12 +252,10 @@ export function seInformaFueraDePlazo(
 }
 
 /** Documentos de identidad (catálogo 06) con su nombre corto. «-» es una boleta de hasta S/ 700 sin comprador identificado (#20): no es del catálogo 06. */
-export const etiquetasTipoDoc = (messages: Mensajes = es): Catalogo => messages.documentos.identidad;
-export const ETIQUETAS_TIPO_DOC: Catalogo = etiquetasTipoDoc();
+export const etiquetasTipoDoc = (messages: Mensajes): Catalogo => messages.documentos.identidad;
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
-export const etiquetasAfectacion = (messages: Mensajes = es): Catalogo => messages.documentos.afectacion;
-export const ETIQUETAS_AFECTACION: Catalogo = etiquetasAfectacion();
+export const etiquetasAfectacion = (messages: Mensajes): Catalogo => messages.documentos.afectacion;
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
 export type FormaPago = {

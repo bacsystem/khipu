@@ -38,6 +38,25 @@ const eslintConfig = [
     plugins: { khipu: { rules: { "no-literal-de-ui": noLiteralDeUi } } },
     rules: { "khipu/no-literal-de-ui": "error" },
   },
+  {
+    // #25: los textos llegan por useMessages()/getMessages() o por parámetro. Importar el JSON desde código que puede ir al
+    // navegador mete el catálogo entero (cientos de KB) en un chunk de cliente, y en castellano fijo.
+    files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/messages/*.json", "**/messages/*.json"],
+              message: "Lee los textos con useMessages()/getMessages() o recíbelos por parámetro (src/i18n/mensajes.ts).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

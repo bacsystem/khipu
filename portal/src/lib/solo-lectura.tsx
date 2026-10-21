@@ -3,7 +3,6 @@
 import { useMessages } from "next-intl";
 import { createContext, useContext, type ReactNode } from "react";
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * Por qué no se puede escribir, en tres niveles:
@@ -18,7 +17,7 @@ const SIN_RESTRICCION: Motivos = { sesion: null, emitir: null, configurar: null 
 const Contexto = createContext<Motivos>(SIN_RESTRICCION);
 
 /** Lo que el rol (#21) y el modo soporte (#184) no dejan hacer. Un rol que el portal no conoce se trata como el más restringido. */
-export function motivosDeRestriccion(soporte: boolean, rol: string, messages: Mensajes = es): Motivos {
+export function motivosDeRestriccion(soporte: boolean, rol: string, messages: Mensajes): Motivos {
   const t = messages.roles;
   if (soporte) {
     const m = messages.soporte.soloLectura;

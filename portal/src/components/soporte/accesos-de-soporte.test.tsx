@@ -1,15 +1,16 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AccesosDeSoporte, duracionEnPalabras } from "./accesos-de-soporte";
+import es from "@/messages/es.json";
 
 afterEach(cleanup);
 
 describe("duracionEnPalabras (#184)", () => {
   it("dice los minutos redondos en minutos y lo demás en segundos", () => {
-    expect(duracionEnPalabras(900)).toBe("15 min");
-    expect(duracionEnPalabras(60)).toBe("1 min");
-    expect(duracionEnPalabras(90)).toBe("90 s");
-    expect(duracionEnPalabras(1)).toBe("1 s");
+    expect(duracionEnPalabras(900, es)).toBe("15 min");
+    expect(duracionEnPalabras(60, es)).toBe("1 min");
+    expect(duracionEnPalabras(90, es)).toBe("90 s");
+    expect(duracionEnPalabras(1, es)).toBe("1 s");
   });
 });
 

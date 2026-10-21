@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #288, #297: detracción (SPOT) de una factura o de una boleta. El portal pregunta y avisa; decidir si el servicio está sujeto es del emisor y su contador. El monto lo calcula el backend (en
@@ -57,7 +56,7 @@ function positivoHasta5(texto: string): boolean {
 }
 
 /** Por qué la detracción no vale tal como está, o `null`. */
-export function errorDeDetraccion(d: DetraccionForm, moneda: string, messages: Mensajes = es): string | null {
+export function errorDeDetraccion(d: DetraccionForm, moneda: string, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.detraccion;
   if (!d.activa) return null;
   if (d.codigo === "") return t.sinCodigo;
@@ -69,8 +68,8 @@ export function errorDeDetraccion(d: DetraccionForm, moneda: string, messages: M
 
 export type DetraccionApi = { codigo_bien_servicio: string; porcentaje: number; medio_pago: string; cuenta_banco_nacion: string; monto?: number };
 
-export function detraccionAApi(d: DetraccionForm, moneda: string): DetraccionApi | undefined {
-  if (!d.activa || errorDeDetraccion(d, moneda) !== null) return undefined;
+export function detraccionAApi(d: DetraccionForm, moneda: string, messages: Mensajes): DetraccionApi | undefined {
+  if (!d.activa || errorDeDetraccion(d, moneda, messages) !== null) return undefined;
   return {
     codigo_bien_servicio: d.codigo,
     porcentaje: Number(d.porcentaje),

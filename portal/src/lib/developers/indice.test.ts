@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { entradas } from "./entradas";
 import { buscarEnLaDocumentacion, indexar, normalizar } from "./indice";
+import es from "@/messages/es.json";
 
-const ENTRADAS = entradas();
+const ENTRADAS = entradas(es);
 
 const INDICE = indexar(ENTRADAS);
 const buscar = (texto: string, maximo?: number) => buscarEnLaDocumentacion(texto, INDICE, maximo);

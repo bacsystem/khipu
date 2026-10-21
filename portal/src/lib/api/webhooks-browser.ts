@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { ESPERA_MAXIMA_LECTURA_MS } from "./browser";
 import type { EntregaWebhook, EstadoEntrega } from "./webhooks";
 import type { ApiEnvelope } from "./types";
@@ -13,7 +12,7 @@ export type PaginaDeEntregas = { entregas: EntregaWebhook[]; total: number };
 export async function listarEntregas(
   webhookId: string,
   { estado, pagina, porPagina }: { estado?: EstadoEntrega; pagina: number; porPagina: number },
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): Promise<{ estado: "exito"; datos: PaginaDeEntregas } | { estado: "error"; mensaje: string; codigo: string | null }> {
   const t = messages.webhooks.entregas;
   const params = new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) });

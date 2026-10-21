@@ -5,7 +5,6 @@ import type { EmisionPorDia, EstadoDocumento, ResumenDeFacturas } from "@/lib/ap
 import type { IdPaso, PasoGuia } from "@/lib/empresa/guia-emision";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { diasEntre, formatearFecha, sumarDias } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /** Un rango de fechas de emisión `YYYY-MM-DD`, inclusive en los dos extremos. */
 export type Rango = { desde: string; hasta: string };
@@ -93,7 +92,7 @@ export function variacion(actual: number, anterior: number | null | undefined): 
 }
 
 /** La variación en palabras: «+12 % vs. el mes pasado», «−5 % vs. …», «igual que …». */
-export function variacionEnPalabras(v: number, messages: Mensajes = es): string {
+export function variacionEnPalabras(v: number, messages: Mensajes): string {
   const t = messages.inicio.variacion;
   if (v === 0) return t.igual;
   return interpolar(t.cambio, { signo: v > 0 ? "+" : "−", n: Math.abs(v) });
@@ -123,7 +122,7 @@ export function enlaceAComprobantes(estado: EstadoDocumento, rango: Rango, tipo?
 }
 
 /** Lo que la empresa tiene que mirar por su certificado y sus credenciales SOL. `hoy` en `YYYY-MM-DD` (Lima); el certificado que vence hoy todavía firma. */
-export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string, messages: Mensajes = es, locale: Locale = "es"): AlertaDelPanel[] {
+export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string, messages: Mensajes, locale: Locale): AlertaDelPanel[] {
   const t = messages.inicio.alertas;
   const alertas: AlertaDelPanel[] = [];
   const vence = empresa.certificado_vigencia_hasta;
@@ -180,7 +179,7 @@ export function alertasDeLaEmpresa(empresa: EstadoEmpresa, hoy: string, messages
 }
 
 /** Lo que pide atención en los comprobantes del rango (el del resumen), cada clase con su enlace al listado filtrado. */
-export function alertasDeComprobantes(atencion: ResumenDeFacturas["atencion_requerida"], rango: Rango, messages: Mensajes = es): AlertaDelPanel[] {
+export function alertasDeComprobantes(atencion: ResumenDeFacturas["atencion_requerida"], rango: Rango, messages: Mensajes): AlertaDelPanel[] {
   const t = messages.inicio.alertas;
   const alertas: AlertaDelPanel[] = [];
   if (atencion.fuera_de_plazo > 0)
@@ -248,8 +247,8 @@ export function alertasDelPanel(
   resumen: Pick<ResumenDeFacturas, "atencion_requerida"> | null,
   rango: Rango,
   hoy: string,
-  messages: Mensajes = es,
-  locale: Locale = "es",
+  messages: Mensajes,
+  locale: Locale,
 ): AlertaDelPanel[] {
   const todas = [
     ...(empresa ? alertasDeLaEmpresa(empresa, hoy, messages, locale) : []),

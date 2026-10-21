@@ -1,19 +1,23 @@
 "use client";
 
+import { useCallback } from "react";
 import { useLocale, useMessages } from "next-intl";
 import { BuscadorConLista, type ResultadoDeLaBusqueda } from "@/components/formularios/buscador-con-lista";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
 import { formatearPrecioUnitario } from "@/lib/formato";
 
-async function buscar(q: string, senal: AbortSignal): Promise<ResultadoDeLaBusqueda<ProductoGuardado>> {
-  const res = await buscarProductos({ q, porPagina: 6, senal });
-  return res.estado === "exito" ? { estado: "exito", items: res.datos.productos } : { estado: "error" };
-}
-
 /** Autocompletado de los productos y servicios guardados (#320): se teclea parte del código o de la descripción y se elige de la lista. */
 export function BuscadorDeProductos({ onElegir, deshabilitado }: { onElegir: (p: ProductoGuardado) => void; deshabilitado?: boolean }) {
-  const t = useMessages().comprobantes.buscador.productos;
+  const messages = useMessages();
+  const t = messages.comprobantes.buscador.productos;
+  const buscar = useCallback(
+    async (q: string, senal: AbortSignal): Promise<ResultadoDeLaBusqueda<ProductoGuardado>> => {
+      const res = await buscarProductos({ q, porPagina: 6, senal }, messages);
+      return res.estado === "exito" ? { estado: "exito", items: res.datos.productos } : { estado: "error" };
+    },
+    [messages],
+  );
   const locale = useLocale();
   return (
     <BuscadorConLista

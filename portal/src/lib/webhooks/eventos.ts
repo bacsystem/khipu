@@ -1,6 +1,4 @@
-import type { EstadoEntrega } from "@/lib/api/webhooks";
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * Los eventos a los que se puede suscribir un webhook (#19), con el estado del comprobante que los dispara. Tiene que coincidir con `EventoWebhook` del backend.
@@ -16,20 +14,17 @@ export const EVENTOS_WEBHOOK = [
   { evento: "comprobante.descartado", clave: "descartado" },
 ] as const;
 
-export function etiquetaDeEvento(evento: string, messages: Mensajes = es): string {
+export function etiquetaDeEvento(evento: string, messages: Mensajes): string {
   if (evento === "webhook.prueba") return messages.webhooks.eventoPrueba;
   const conocido = EVENTOS_WEBHOOK.find((e) => e.evento === evento);
   return conocido ? messages.webhooks.eventos[conocido.clave].etiqueta : evento;
 }
 
 /** «Todos los eventos» si están los siete; si no, sus etiquetas. */
-export function resumenDeEventos(eventos: string[], messages: Mensajes = es): string {
+export function resumenDeEventos(eventos: string[], messages: Mensajes): string {
   if (EVENTOS_WEBHOOK.every((e) => eventos.includes(e.evento))) return messages.webhooks.todosLosEventos;
   return eventos.map((e) => etiquetaDeEvento(e, messages)).join(", ");
 }
-
-/** Las etiquetas de los estados de una entrega, en castellano; la UI las lee de `messages.webhooks.estadoEntrega` en el idioma de la sesión. */
-export const ETIQUETA_ESTADO_ENTREGA: Record<EstadoEntrega, string> = es.webhooks.estadoEntrega;
 
 /** Con cuántos intentos fallidos seguidos khipu apaga el endpoint; coincide con `EntregarWebhooksService.PAUSA_TRAS_FALLOS`. */
 export const PAUSA_TRAS_FALLOS = 10;
@@ -42,7 +37,7 @@ export function resultadoDelIntento(ultimoHttp: number | null | undefined, ultim
 }
 
 /** Una URL https válida para un webhook; devuelve el mensaje si no lo es. Es la misma regla de forma que `UrlDeWebhook` (el backend decide además si apunta a una red interna). */
-export function errorDeUrlWebhook(url: string, messages: Mensajes = es): string | null {
+export function errorDeUrlWebhook(url: string, messages: Mensajes): string | null {
   const t = messages.webhooks.url;
   const limpia = url.trim();
   if (limpia === "") return t.vacia;

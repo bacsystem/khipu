@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #310: descuentos y cargos del formulario (catálogo 53). Un mismo `AjusteForm` sirve de descuento o de cargo, de línea o global. Viaja como lo piden
@@ -28,7 +27,7 @@ function decimalesDe(valor: string): number {
 }
 
 /** Por qué no vale el ajuste, o `null` si vale (o está vacío: «sin descuento»). Espeja `Descuento` y `Cargo` del dominio. */
-export function errorDeAjuste(a: AjusteForm, clase: Clase, messages: Mensajes = es): string | null {
+export function errorDeAjuste(a: AjusteForm, clase: Clase, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.ajuste;
   const v = a.valor.trim();
   if (v === "") return null;
@@ -46,8 +45,8 @@ export function errorDeAjuste(a: AjusteForm, clase: Clase, messages: Mensajes = 
 }
 
 /** El ajuste con la forma de la API, o `undefined` si está vacío o no vale (el formulario lo muestra y no deja emitir). */
-export function ajusteAApi(a: AjusteForm, clase: Clase): AjusteApi | undefined {
-  if (a.valor.trim() === "" || errorDeAjuste(a, clase) !== null) return undefined;
+export function ajusteAApi(a: AjusteForm, clase: Clase, messages: Mensajes): AjusteApi | undefined {
+  if (a.valor.trim() === "" || errorDeAjuste(a, clase, messages) !== null) return undefined;
   const n = Number(a.valor.trim());
   const base = a.modo === "porcentaje" ? { porcentaje: n } : { monto: n };
   if (a.recargoConsumo) return { ...base, afecta_base_igv: false, motivo: "recargo_consumo" };

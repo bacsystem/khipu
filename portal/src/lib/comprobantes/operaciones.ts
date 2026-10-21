@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #311: tipos de operación del catálogo 51 que ofrece «Nuevo comprobante». Hoy la venta interna y la exportación (0200–0208 menos 0202/0205, que piden los datos del
@@ -26,11 +25,9 @@ const CATALOGO = [
 ] as const;
 
 /** Las operaciones con su etiqueta en el idioma de `messages` (#25). */
-export function operaciones(messages: Mensajes = es): Operacion[] {
+export function operaciones(messages: Mensajes): Operacion[] {
   return CATALOGO.map((o) => ({ ...o, etiqueta: messages.documentos.operaciones[o.codigo] }));
 }
-
-export const OPERACIONES: Operacion[] = operaciones();
 
 export const esExportacion = (operacion: string) => /^020[0-8]$/.test(operacion);
 
@@ -51,7 +48,7 @@ export function documentosDeExportacion(operacion: string, boleta: boolean): str
 export type DatosDeExportacion = { operacion: string; incoterm: string; paisDeUso: string; paisDelComprador: string };
 
 /** Lo que el formulario sabe decir antes de enviar; el resto de las reglas las dice el backend al calcular. */
-export function errorDeExportacion(d: DatosDeExportacion, boleta: boolean, messages: Mensajes = es): string | null {
+export function errorDeExportacion(d: DatosDeExportacion, boleta: boolean, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.exportacion;
   if (!esExportacion(d.operacion)) return null;
   if (!boleta && !d.paisDelComprador) return t.sinPais;

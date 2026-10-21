@@ -3,7 +3,6 @@ import { entornos, indiceEntornos, limites, reintentos } from "@/components/deve
 import { casos } from "@/components/developers/guia/casos-emision";
 import { indiceErrores, indiceGuia } from "@/components/developers/indices";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import type { EntradaDeBusqueda } from "./indice";
 
 /** Lo que viaja al navegador de cada entrada: el detalle se corta, porque el buscador solo necesita las primeras palabras para ubicar y los casos traen párrafos enteros. */
@@ -33,7 +32,7 @@ const TEMAS_DE_LA_GUIA: Array<[id: string, clave: keyof Mensajes["developers"]["
  * Todo lo que se busca, en el orden en que se ofrece y en el idioma de `messages`. Sale de los mismos datos que muestran las páginas, así que una fila nueva en una tabla se
  * encuentra sola.
  */
-export function entradas(messages: Mensajes = es): EntradaDeBusqueda[] {
+export function entradas(messages: Mensajes): EntradaDeBusqueda[] {
   const s = messages.developers.buscador.secciones;
   const temas = messages.developers.buscador.temas;
   return [

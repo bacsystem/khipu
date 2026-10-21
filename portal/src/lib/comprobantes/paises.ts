@@ -19,7 +19,7 @@ export const CODIGOS_PAIS = [
 export type Pais = { codigo: string; nombre: string };
 
 /** Los países ordenados por su nombre en el idioma `locale`; los más habituales en exportaciones del Perú van primero. */
-export function listarPaises(locale: Locale = "es"): Pais[] {
+export function listarPaises(locale: Locale): Pais[] {
   let nombres: Intl.DisplayNames | null = null;
   try {
     nombres = new Intl.DisplayNames([locale], { type: "region" });

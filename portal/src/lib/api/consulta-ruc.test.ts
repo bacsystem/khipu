@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { consultarRuc, observacionesDeSunat } from "./consulta-ruc";
+import es from "@/messages/es.json";
 
 const CONTRIBUYENTE = {
   ruc: "20100066603", razon_social: "TIENDAS DEL SUR S.A.C.", estado: "ACTIVO", condicion: "HABIDO", activo: true, habido: true,
@@ -66,23 +67,23 @@ describe("consultarRuc", () => {
 
 describe("observacionesDeSunat", () => {
   it("un RUC activo y habido no tiene observaciones", () => {
-    expect(observacionesDeSunat(CONTRIBUYENTE)).toEqual([]);
+    expect(observacionesDeSunat(CONTRIBUYENTE, es)).toEqual([]);
   });
 
   it("4013 cuando no está activo, con el estado de SUNAT en el texto", () => {
-    const o = observacionesDeSunat({ estado: "BAJA DE OFICIO", condicion: "HABIDO", activo: false });
+    const o = observacionesDeSunat({ estado: "BAJA DE OFICIO", condicion: "HABIDO", activo: false }, es);
     expect(o.map((x) => x.codigo)).toEqual(["4013"]);
     expect(o[0].texto).toContain("BAJA DE OFICIO");
   });
 
   it("4014 solo con «NO HABIDO»: las demás condiciones que no son «HABIDO» no se observan", () => {
-    expect(observacionesDeSunat({ estado: "ACTIVO", condicion: "NO HABIDO", activo: true }).map((x) => x.codigo)).toEqual(["4014"]);
+    expect(observacionesDeSunat({ estado: "ACTIVO", condicion: "NO HABIDO", activo: true }, es).map((x) => x.codigo)).toEqual(["4014"]);
     for (const condicion of ["NO HALLADO SE MUDO D", "NO HALLADO", "PENDIENTE", "POR VERIFICAR", "NO APLICABLE", "-"]) {
-      expect(observacionesDeSunat({ estado: "ACTIVO", condicion, activo: true }), condicion).toEqual([]);
+      expect(observacionesDeSunat({ estado: "ACTIVO", condicion, activo: true }, es), condicion).toEqual([]);
     }
   });
 
   it("de baja y no habido: las dos, 4013 primero", () => {
-    expect(observacionesDeSunat({ estado: "BAJA DEFINITIVA", condicion: "NO HABIDO", activo: false }).map((x) => x.codigo)).toEqual(["4013", "4014"]);
+    expect(observacionesDeSunat({ estado: "BAJA DEFINITIVA", condicion: "NO HABIDO", activo: false }, es).map((x) => x.codigo)).toEqual(["4013", "4014"]);
   });
 });

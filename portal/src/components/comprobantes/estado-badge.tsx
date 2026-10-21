@@ -3,11 +3,9 @@ import { Badge } from "khipu-design-system/ui/badge";
 import type { Mensajes } from "@/i18n/mensajes";
 import type { EstadoDocumento } from "@/lib/api/facturas";
 import { cn } from "@/lib/utils";
-import es from "@/messages/es.json";
 
-/** Los estados del comprobante con las palabras del portal en el idioma de `messages` (#25); `ETIQUETAS_ESTADO` es el castellano. */
-export const etiquetasEstado = (messages: Mensajes = es): Record<EstadoDocumento, string> => messages.documentos.estados;
-export const ETIQUETAS_ESTADO: Record<EstadoDocumento, string> = etiquetasEstado();
+/** Los estados del comprobante con las palabras del portal en el idioma de `messages` (#25). */
+export const etiquetasEstado = (messages: Mensajes): Record<EstadoDocumento, string> => messages.documentos.estados;
 
 const ESTILOS: Record<EstadoDocumento, string> = {
   RECIBIDO: "bg-secondary text-secondary-foreground border-border",

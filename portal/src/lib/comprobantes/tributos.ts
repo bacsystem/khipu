@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #298: afectaciones del IGV (catálogo 07), ISC (catálogo 08) e ICBPER de una línea de «Nuevo comprobante». Lo que sale de aquí es lo que acepta `FacturaRequest`
@@ -16,15 +15,12 @@ const GRUPOS = [
 ] as const;
 
 /** Los grupos con sus opciones, con las etiquetas en el idioma de `messages` (#25). */
-export function gruposAfectacion(messages: Mensajes = es): ReadonlyArray<{ grupo: string; opciones: ReadonlyArray<Opcion> }> {
+export function gruposAfectacion(messages: Mensajes): ReadonlyArray<{ grupo: string; opciones: ReadonlyArray<Opcion> }> {
   const t = messages.documentos;
   return GRUPOS.map((g) => ({ grupo: t.grupoAfectacion[g.grupo], opciones: g.codigos.map((codigo) => ({ codigo, etiqueta: t.afectacionCorta[codigo] })) }));
 }
 
-export const GRUPOS_AFECTACION = gruposAfectacion();
-
-export const afectaciones = (messages: Mensajes = es): Opcion[] => gruposAfectacion(messages).flatMap((g) => [...g.opciones]);
-export const AFECTACIONES: Opcion[] = afectaciones();
+export const afectaciones = (messages: Mensajes): Opcion[] => gruposAfectacion(messages).flatMap((g) => [...g.opciones]);
 
 export const ES_IVAP = (afectacion: string) => afectacion === "17";
 
@@ -43,7 +39,7 @@ function positivoHasta5(texto: string): boolean {
 }
 
 /** Por qué no vale el ISC, o `null` (vale o está vacío). Espeja `Isc` del dominio. */
-export function errorDeIsc(isc: IscForm, messages: Mensajes = es): string | null {
+export function errorDeIsc(isc: IscForm, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.isc;
   if (isc.sistema === "") return null;
   if (isc.sistema === "02") return positivoHasta5(isc.montoUnitario) ? null : t.montoUnitario;
@@ -52,8 +48,8 @@ export function errorDeIsc(isc: IscForm, messages: Mensajes = es): string | null
   return null;
 }
 
-export function iscAApi(isc: IscForm): IscApi | undefined {
-  if (isc.sistema === "" || errorDeIsc(isc) !== null) return undefined;
+export function iscAApi(isc: IscForm, messages: Mensajes): IscApi | undefined {
+  if (isc.sistema === "" || errorDeIsc(isc, messages) !== null) return undefined;
   if (isc.sistema === "02") return { sistema: "02", monto_unitario: Number(isc.montoUnitario) };
   if (isc.sistema === "03") return { sistema: "03", tasa: Number(isc.tasa), base_pvp: Number(isc.basePvp) };
   return { sistema: "01", tasa: Number(isc.tasa) };
@@ -66,7 +62,7 @@ export type LineaTributos = { descripcion: string; cantidad: number | null; unid
  * Las combinaciones que el dominio rechaza antes de numerar, dichas antes de emitir: el IVAP es de todo el comprobante (no se mezcla con otras afectaciones, 2650 no
  * lleva ISC ni ICBPER), las bolsas del ICBPER son unidades enteras (2892, 4320) y el NRUS (0113) no cobra el ICBPER (3240). Devuelve el primer motivo, o `null`.
  */
-export function incompatibilidadDeTributos(lineas: LineaTributos[], operacion = "0101", messages: Mensajes = es): string | null {
+export function incompatibilidadDeTributos(lineas: LineaTributos[], operacion = "0101", messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.tributos;
   if (operacion === "0113" && lineas.some((l) => l.icbper)) return t.icbperNrus;
   const hayIvap = lineas.some((l) => ES_IVAP(l.tipoAfectacionIgv));
@@ -87,7 +83,7 @@ export function incompatibilidadDeTributos(lineas: LineaTributos[], operacion = 
  * Lo que es el precio de la línea según su afectación (#117): con IGV en la gravada, con IVAP en la IVAP, y sin impuesto en la exonerada, la inafecta, la gratuita (valor
  * referencial) y la exportación. «con IGV» en una exonerada inducía a cargar el precio mal. `""`: líneas de afectaciones distintas, el encabezado no afirma una.
  */
-export function etiquetaDelPrecio(afectacion: string, messages: Mensajes = es): string {
+export function etiquetaDelPrecio(afectacion: string, messages: Mensajes): string {
   const t = messages.comprobantes.precio;
   if (afectacion === "") return t.sinAfectacion;
   if (afectacion === "10") return t.conIgv;

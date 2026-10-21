@@ -1,7 +1,7 @@
 "use client";
 
 import { SaveIcon } from "lucide-react";
-import { useMessages } from "next-intl";
+import { useLocale, useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
@@ -26,7 +26,8 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [razon, setRazon] = useState(existente?.razon_social ?? "");
   const [direccion, setDireccion] = useState(existente?.direccion ?? "");
   const [pais, setPais] = useState(existente?.pais ?? "");
-  const paises = useMemo(() => listarPaises(), []);
+  const locale = useLocale();
+  const paises = useMemo(() => listarPaises(locale), [locale]);
   const [email, setEmail] = useState(existente?.email ?? "");
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);

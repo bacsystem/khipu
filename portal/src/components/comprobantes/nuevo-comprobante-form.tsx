@@ -354,13 +354,13 @@ export function NuevoComprobanteForm({
       serie,
       fecha_emision: fecha,
       moneda,
-      tipo_cambio: tipoCambioAApi(tipoCambio, moneda),
+      tipo_cambio: tipoCambioAApi(tipoCambio, moneda, messages),
       tipo_operacion: operacionEnviada === "0101" ? undefined : operacionEnviada,
-      detraccion: conDetraccion ? detraccionAApi(detraccion, moneda) : undefined,
-      ...(paraCalcular ? {} : referenciasAApi(referencias, boleta)),
-      anticipos: anticiposAApi(anticiposVigentes, disponibles.candidatos),
-      retencion_igv: conRetencion ? retencionAApi(retencion) : undefined,
-      percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }) : undefined,
+      detraccion: conDetraccion ? detraccionAApi(detraccion, moneda, messages) : undefined,
+      ...(paraCalcular ? {} : referenciasAApi(referencias, boleta, messages)),
+      anticipos: anticiposAApi(anticiposVigentes, disponibles.candidatos, messages),
+      retencion_igv: conRetencion ? retencionAApi(retencion, messages) : undefined,
+      percepcion: conPercepcion ? percepcionAApi(percepcion, { moneda, alCredito: alCredito && !boleta }, messages) : undefined,
       exportacion: exportacion && (incoterm || paisDeUso) ? { incoterm: incoterm || undefined, pais_uso: paisDeUso || undefined } : undefined,
       cliente: paraCalcular
         ? exportacion
@@ -387,13 +387,13 @@ export function NuevoComprobanteForm({
         cantidad: l.cantidad,
         precio_unitario: l.precioUnitario ?? 0,
         tipo_afectacion_igv: l.tipoAfectacionIgv,
-        descuento: ajusteAApi(l.descuento, "descuento"),
-        cargos: ajusteAApi(l.cargo, "cargo") ? [ajusteAApi(l.cargo, "cargo")] : undefined,
-        isc: iscAApi(l.isc),
+        descuento: ajusteAApi(l.descuento, "descuento", messages),
+        cargos: ajusteAApi(l.cargo, "cargo", messages) ? [ajusteAApi(l.cargo, "cargo", messages)] : undefined,
+        isc: iscAApi(l.isc, messages),
         icbper: l.icbper ? true : undefined,
       })),
-      descuento_global: ajusteAApi(descuentoGlobal, "descuento"),
-      cargos: ajusteAApi(cargoGlobal, "cargo") ? [ajusteAApi(cargoGlobal, "cargo")] : undefined,
+      descuento_global: ajusteAApi(descuentoGlobal, "descuento", messages),
+      cargos: ajusteAApi(cargoGlobal, "cargo", messages) ? [ajusteAApi(cargoGlobal, "cargo", messages)] : undefined,
       redondeo: redondeo.valor ?? undefined,
       forma_pago: alCredito && !boleta && netoPendiente !== null ? formaPagoAApi(credito, netoPendiente) : undefined,
       fecha_vencimiento: fechaVencimiento || undefined,
@@ -430,7 +430,7 @@ export function NuevoComprobanteForm({
   // IVAP o exportación mientras el backend no responde: la previsualización local no las suma y mostraría S/ 0.00 (#117).
   const sinImporteLocal = !delServidor && totales.noContempladas.length > 0;
   // Con tipo de cambio el tope de S/ 700 se mide en soles; sin él no hay cómo comparar otra moneda y el backend exige el documento: aquí se avisa antes.
-  const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda));
+  const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda, messages));
 
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
@@ -726,7 +726,7 @@ export function NuevoComprobanteForm({
             ) : null}
             {superaTopeSinDocumento ? (
               <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
-                {interpolar(t.avisoTope, { tope: TOPE_SIN_DOCUMENTO, extra: moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda) === undefined ? t.avisoTopeSinTipoCambio : "" })}
+                {interpolar(t.avisoTope, { tope: TOPE_SIN_DOCUMENTO, extra: moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda, messages) === undefined ? t.avisoTopeSinTipoCambio : "" })}
               </p>
             ) : null}
           </div>
@@ -1041,16 +1041,16 @@ export function NuevoComprobanteForm({
                     </Campo>
                     {linea.isc.sistema === "02" ? (
                       <Campo id={`nc-isc-monto-${i}`} etiqueta={t.montoIsc} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
-                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder={t.placeholderMontoIsc} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder={t.placeholderMontoIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                       </Campo>
                     ) : linea.isc.sistema !== "" ? (
                       <>
                         <Campo id={`nc-isc-tasa-${i}`} etiqueta={t.tasaIsc} className="[&>label]:sr-only" error={linea.isc.sistema === "01" ? (errorDeIsc(linea.isc, messages) ?? undefined) : undefined}>
-                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder={t.placeholderTasaIsc} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder={t.placeholderTasaIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                         </Campo>
                         {linea.isc.sistema === "03" ? (
                           <Campo id={`nc-isc-pvp-${i}`} etiqueta={t.pvp} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
-                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder={t.placeholderPvp} aria-invalid={errorDeIsc(linea.isc) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder={t.placeholderPvp} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
                           </Campo>
                         ) : null}
                       </>

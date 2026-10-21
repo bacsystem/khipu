@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PeriodoDelResumen, ResumenDeFacturas } from "@/lib/api/facturas";
 import { periodoEnPalabras, ResumenDeComprobantes } from "./resumen-de-comprobantes";
+import es from "@/messages/es.json";
 
 afterEach(cleanup);
 
@@ -20,12 +21,12 @@ const metrica = (etiqueta: string) => screen.getByText(etiqueta).parentElement a
 
 describe("periodoEnPalabras", () => {
   it("dice el período como se lo ve en la franja", () => {
-    expect(periodoEnPalabras(MES)).toBe("Este mes");
-    expect(periodoEnPalabras({ desde: "2026-08-01", hasta: "2026-08-31", esElMesEnCurso: false })).toBe("1 Ago – 31 Ago");
-    expect(periodoEnPalabras({ desde: "2026-08-15", hasta: "2026-08-15", esElMesEnCurso: false })).toBe("15 Ago");
-    expect(periodoEnPalabras({ desde: "2026-08-15", esElMesEnCurso: false })).toBe("Desde el 15 Ago");
-    expect(periodoEnPalabras({ hasta: "2026-08-15", esElMesEnCurso: false })).toBe("Hasta el 15 Ago");
-    expect(periodoEnPalabras({ esElMesEnCurso: false })).toBe("Todo el historial");
+    expect(periodoEnPalabras(MES, es)).toBe("Este mes");
+    expect(periodoEnPalabras({ desde: "2026-08-01", hasta: "2026-08-31", esElMesEnCurso: false }, es)).toBe("1 Ago – 31 Ago");
+    expect(periodoEnPalabras({ desde: "2026-08-15", hasta: "2026-08-15", esElMesEnCurso: false }, es)).toBe("15 Ago");
+    expect(periodoEnPalabras({ desde: "2026-08-15", esElMesEnCurso: false }, es)).toBe("Desde el 15 Ago");
+    expect(periodoEnPalabras({ hasta: "2026-08-15", esElMesEnCurso: false }, es)).toBe("Hasta el 15 Ago");
+    expect(periodoEnPalabras({ esElMesEnCurso: false }, es)).toBe("Todo el historial");
   });
 });
 

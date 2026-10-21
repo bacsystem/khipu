@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { serieCoincideConTipo, telefonoSchema } from "./validacion";
+import es from "@/messages/es.json";
+import { esquemas, serieCoincideConTipo } from "./validacion";
+
+const telefonoSchema = esquemas(es).telefono;
 
 /** SUNAT 1001: la serie de una factura es `F` + 3 alfanuméricos y la de una boleta, `B` + 3. */
 describe("serieCoincideConTipo", () => {

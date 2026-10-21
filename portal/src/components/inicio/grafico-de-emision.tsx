@@ -4,7 +4,6 @@ import { CABECERA_TABLA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
-import es from "@/messages/es.json";
 import { monedasDeLaSerie, type PuntoDelDia } from "@/lib/inicio/panel";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +17,7 @@ function dia(fecha: string): number {
 }
 
 /** «5 Oct 2026: 3 comprobantes · S/ 1,180.00» — lo que dice el `title` de cada barra y lo que lee un lector de pantalla en la tabla. */
-export function descripcionDelDia(p: PuntoDelDia, messages: Mensajes = es, locale: Locale = "es"): string {
+export function descripcionDelDia(p: PuntoDelDia, messages: Mensajes, locale: Locale): string {
   const t = messages.inicio.grafico;
   const comprobantes = interpolar(p.emitidos === 1 ? t.comprobanteUno : t.comprobanteVarios, { n: p.emitidos });
   const montos = Object.entries(p.facturado)
@@ -28,7 +27,7 @@ export function descripcionDelDia(p: PuntoDelDia, messages: Mensajes = es, local
 }
 
 /** El resumen que lee un lector de pantalla del gráfico entero: cuántos, cuántos días y el día de más emisión. */
-export function resumenDelGrafico(serie: PuntoDelDia[], messages: Mensajes = es, locale: Locale = "es"): string {
+export function resumenDelGrafico(serie: PuntoDelDia[], messages: Mensajes, locale: Locale): string {
   const t = messages.inicio.grafico;
   const total = serie.reduce((s, p) => s + p.emitidos, 0);
   const pico = serie.reduce((max, p) => (p.emitidos > max.emitidos ? p : max), serie[0]);

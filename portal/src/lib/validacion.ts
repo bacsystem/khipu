@@ -1,11 +1,9 @@
 import { z } from "zod";
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * Los esquemas de los campos comunes con sus mensajes en el idioma de `messages` (#25). En un formulario:
- * `const v = useMemo(() => esquemas(messages), [messages])`. Los `emailSchema`, `passwordSchema`, etc. de abajo son los mismos en
- * castellano, para lo que todavía no se migró.
+ * `const v = useMemo(() => esquemas(messages), [messages])`.
  */
 export function esquemas(messages: Mensajes) {
   const t = messages.validacion;
@@ -52,9 +50,6 @@ export const soloTelefono = (v: string) => {
 /** Serie en mayúsculas y sin espacios: `F001`, `B001`. */
 export const codigoSerie = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 
-/** Mensaje de la serie que no corresponde al tipo (SUNAT 1001); el mismo en el onboarding y en el alta asistida del backoffice. */
-export const MENSAJE_SERIE = es.validacion.serieNoCoincide;
-
 /**
  * 1001: la serie de una factura es `F` + 3 alfanuméricos y la de una boleta, `B` + 3. Pedir «4 caracteres» no basta: el mock lo
  * aceptaba y el alta terminaba en verde con series que el backend rechaza. Compara en mayúsculas y sin espacios alrededor, como
@@ -73,10 +68,3 @@ export function rucValido(ruc: string): boolean {
   const resto = 11 - (suma % 11);
   return Number(ruc[10]) === (resto === 10 ? 0 : resto === 11 ? 1 : resto);
 }
-
-const enCastellano = esquemas(es);
-export const emailSchema = enCastellano.email;
-export const passwordSchema = enCastellano.password;
-export const telefonoSchema = enCastellano.telefono;
-export const razonSocialSchema = enCastellano.razonSocial;
-export const rucSchema = enCastellano.ruc;

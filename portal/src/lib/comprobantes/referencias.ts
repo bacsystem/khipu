@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #300: datos adicionales de un comprobante que la API ya acepta y no cambian importes: orden de compra (`cac:OrderReference`, solo factura), guías de remisión (catálogo 01:
@@ -18,9 +17,8 @@ export type ReferenciasForm = {
 export const REFERENCIAS_VACIAS: ReferenciasForm = { ordenCompra: "", guias: [], documentos: [], observaciones: "" };
 
 /** Las guías de remisión (catálogo 01: 09 y 31) como las ofrece el selector: «09 · Guía de remisión remitente», en el idioma de `messages` (#25). */
-export const tiposDeGuia = (messages: Mensajes = es): { codigo: string; etiqueta: string }[] =>
+export const tiposDeGuia = (messages: Mensajes): { codigo: string; etiqueta: string }[] =>
   (["09", "31"] as const).map((codigo) => ({ codigo, etiqueta: `${codigo} · ${messages.documentos.tipos[codigo]}` }));
-export const TIPOS_DE_GUIA = tiposDeGuia();
 
 const DOCUMENTOS = [
   { codigo: "04" },
@@ -33,9 +31,8 @@ const DOCUMENTOS = [
 ] as const;
 
 /** Catálogo 12 que acepta la API; los tipos 06 y 07 solo en factura (4009 en una boleta). */
-export const tiposDeDocumento = (messages: Mensajes = es): { codigo: string; etiqueta: string; soloFactura?: boolean }[] =>
+export const tiposDeDocumento = (messages: Mensajes): { codigo: string; etiqueta: string; soloFactura?: boolean }[] =>
   DOCUMENTOS.map((d) => ({ ...d, etiqueta: `${d.codigo} · ${messages.documentos.relacionados[d.codigo]}` }));
-export const TIPOS_DE_DOCUMENTO = tiposDeDocumento();
 
 export const MAX_ORDEN_COMPRA = 20;
 export const MAX_DOCUMENTO = 30;
@@ -54,7 +51,7 @@ function repetidos(lista: Array<{ tipo: string; numero: string }>): boolean {
 }
 
 /** Por qué los datos adicionales no valen tal como están (la primera regla que falla), o `null`. */
-export function errorDeReferencias(r: ReferenciasForm, boleta: boolean, messages: Mensajes = es): string | null {
+export function errorDeReferencias(r: ReferenciasForm, boleta: boolean, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.referencias;
   const oc = r.ordenCompra.trim();
   if (!boleta && oc !== "" && (oc.length > MAX_ORDEN_COMPRA || /[\u0000-\u001f\u007f-\u009f]/u.test(oc))) return interpolar(t.ordenCompra, { max: MAX_ORDEN_COMPRA });
@@ -82,8 +79,8 @@ export type ReferenciasApi = {
 };
 
 /** Lo que va en el cuerpo de `POST /v1/facturas`: solo lo que se llenó; nada si algo no vale (el formulario ya lo dice y no emite). */
-export function referenciasAApi(r: ReferenciasForm, boleta: boolean): ReferenciasApi {
-  if (errorDeReferencias(r, boleta) !== null) return {};
+export function referenciasAApi(r: ReferenciasForm, boleta: boolean, messages: Mensajes): ReferenciasApi {
+  if (errorDeReferencias(r, boleta, messages) !== null) return {};
   const oc = r.ordenCompra.trim();
   const obs = r.observaciones.trim();
   return {

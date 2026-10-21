@@ -1,6 +1,5 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { sumarDias } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /**
  * #309: factura al crédito (RS 193-2020, reglas 3244–3260 y 3319–3321). El neto pendiente se reparte en cuotas con vencimiento posterior a la emisión; la suma de
@@ -48,7 +47,7 @@ export function sumaDeCuotas(cuotas: CuotaForm[]): number {
 }
 
 /** Por qué el crédito no vale tal como está escrito, o `null`. El resto de las reglas las dice el backend al calcular. */
-export function errorDeCredito(credito: CreditoForm, neto: number, emision: string, messages: Mensajes = es): string | null {
+export function errorDeCredito(credito: CreditoForm, neto: number, emision: string, messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.credito;
   const pendiente = credito.montoPendiente.trim() === "" ? neto : Number(credito.montoPendiente);
   if (credito.montoPendiente.trim() !== "" && !montoValido(credito.montoPendiente)) return t.netoPendiente;

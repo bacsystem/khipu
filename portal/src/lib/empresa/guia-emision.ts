@@ -2,7 +2,6 @@ import type { Mensajes } from "@/i18n/mensajes";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { enlaceASeccion, seccionesPendientes } from "@/lib/empresa/secciones";
-import es from "@/messages/es.json";
 
 export type IdPaso = "certificado" | "sol" | "domicilio" | "series";
 
@@ -34,7 +33,7 @@ function hayCamino(series: Serie[]): boolean {
  * a su vez usa `faltaParaEmitir` (las reglas de `Tenant.exigirListoParaEmitir`): aquí no hay una tercera copia. `series` en `null` es
  * «no se pudo leer»: ese paso se omite en vez de afirmar que falta. `hoy` en `YYYY-MM-DD` (Lima).
  */
-export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, hoy: string, messages: Mensajes = es): PasoGuia[] {
+export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, hoy: string, messages: Mensajes): PasoGuia[] {
   const t = messages.guiaEmision;
   const pendientes = seccionesPendientes(empresa, hoy);
   const certificadoVencido = empresa.tiene_certificado && pendientes.includes("certificado");

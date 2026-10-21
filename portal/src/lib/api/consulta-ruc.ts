@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { apiRequest } from "./browser";
 
 /** Lo que responde `GET /v1/consultas/ruc/{ruc}` (#361): el contribuyente tal como lo publica el padrón reducido de SUNAT. */
@@ -60,7 +59,7 @@ export type ObservacionDeSunat = { codigo: "4013" | "4014"; texto: string };
  * Lo que SUNAT observará del comprobante por el estado del RUC (las mismas reglas que `ValidarCompradorEnPadron`, #378): 4013 si no está activo y 4014 solo
  * con la condición «NO HABIDO» —«NO HALLADO …», «PENDIENTE» y «POR VERIFICAR» no se observan—. SUNAT acepta el comprobante con la observación.
  */
-export function observacionesDeSunat(c: Pick<ContribuyenteSunat, "estado" | "condicion" | "activo">, messages: Mensajes = es): ObservacionDeSunat[] {
+export function observacionesDeSunat(c: Pick<ContribuyenteSunat, "estado" | "condicion" | "activo">, messages: Mensajes): ObservacionDeSunat[] {
   const t = messages.comprobantes.consultaRuc.observaciones;
   const observaciones: ObservacionDeSunat[] = [];
   if (!c.activo) observaciones.push({ codigo: "4013", texto: interpolar(t.noActivo, { estado: c.estado }) });

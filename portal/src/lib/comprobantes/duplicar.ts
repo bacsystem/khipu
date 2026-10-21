@@ -1,6 +1,5 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { CargoAplicado, Comprobante, DescuentoAplicado, ItemComprobante } from "@/lib/api/facturas";
-import es from "@/messages/es.json";
 import { AJUSTE_VACIO, type AjusteForm } from "./ajustes";
 import { ISC_VACIO, type IscForm } from "./tributos";
 
@@ -104,7 +103,7 @@ function omitidosDe(c: Comprobante, operacion: string, messages: Mensajes): stri
 }
 
 /** `messages` (#25): el idioma en que se dice lo que no se copió (`omitidos`). */
-export function plantillaDesde(c: Comprobante, messages: Mensajes = es): Plantilla | null {
+export function plantillaDesde(c: Comprobante, messages: Mensajes): Plantilla | null {
   if (!sePuedeDuplicar(c)) return null;
   const operacionOriginal = c.tipo_operacion ?? "0101";
   const operacion = OPERACIONES_COPIABLES.test(operacionOriginal) && !NO_SE_OFRECE.has(operacionOriginal) ? operacionOriginal : "0101";

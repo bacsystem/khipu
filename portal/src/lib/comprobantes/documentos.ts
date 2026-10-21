@@ -1,6 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { rucValido } from "@/lib/validacion";
-import es from "@/messages/es.json";
 
 /**
  * Los documentos de identidad del comprador (catálogo 06) con su formato, tal como los valida el dominio. Los usa el formulario de «Nuevo comprobante» y el de clientes guardados
@@ -30,19 +29,16 @@ const FORMATOS = [
 ] as const;
 
 /** Los documentos con su nombre (`etiqueta`) y la regla de formato dicha (`titulo`) en el idioma de `messages` (#25). */
-export function documentosBoleta(messages: Mensajes = es) {
+export function documentosBoleta(messages: Mensajes) {
   const t = messages.documentos;
   return FORMATOS.map(({ formato, ...d }) => ({ ...d, etiqueta: t.identidadBoleta[d.codigo], titulo: formato ? t.formato[formato] : "" }));
 }
 
-export const DOCUMENTOS_BOLETA = documentosBoleta();
-
 /** Los que se pueden guardar como cliente: todos menos «sin documento», que no identifica a nadie. */
-export const documentosDeCliente = (messages: Mensajes = es) => documentosBoleta(messages).filter((d) => d.codigo !== "-");
-export const DOCUMENTOS_DE_CLIENTE = documentosDeCliente();
+export const documentosDeCliente = (messages: Mensajes) => documentosBoleta(messages).filter((d) => d.codigo !== "-");
 
 /** El mensaje si el número no cumple el formato de su tipo (las reglas 4207, 2017 y 4208 del dominio); `null` si está bien. */
-export function errorDeDocumento(tipoDoc: string, numDoc: string, messages: Mensajes = es): string | null {
+export function errorDeDocumento(tipoDoc: string, numDoc: string, messages: Mensajes): string | null {
   const doc = documentosDeCliente(messages).find((d) => d.codigo === tipoDoc);
   if (!doc) return messages.documentos.formato.elegirTipo;
   const num = numDoc.trim();

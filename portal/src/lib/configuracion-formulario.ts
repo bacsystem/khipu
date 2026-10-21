@@ -1,6 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
-import es from "@/messages/es.json";
 
 /** Los mismos límites del backend (`BannerDeMantenimiento`): acá solo guían al administrador; quien decide es el backend. */
 export const TEXTO_DE_AVISO_MAX = 300;
@@ -40,7 +39,7 @@ export type ErroresDeAviso = { texto?: string; desde?: string; hasta?: string };
 /** Solo lo que se puede decir sin preguntarle al backend: que haya texto y que las dos fechas sean fechas. Los límites y el orden los pone el backend, una sola vez. */
 export function cuerpoDeAviso(
   v: ValoresDeAviso,
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): { cuerpo: { texto: string; desde: string; hasta: string } } | { errores: ErroresDeAviso } {
   const t = messages.admin.configuracion.aviso.errores;
   const errores: ErroresDeAviso = {};

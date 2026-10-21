@@ -1,6 +1,5 @@
 import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { formatearMonto } from "../formato";
 import { backendFetch } from "./client";
 
@@ -39,18 +38,18 @@ export type PlanAdmin = {
 export type CuerpoDePlan = { nombre: string; precio_mensual: number; limites: LimitesAdmin; visible_en_publicidad: boolean };
 
 /** «1,500» (el formato de miles del portal), o «Ilimitados»; un límite sin máximo ni marca (que el backend no debería mandar) se ve como un guion y no como «undefined». */
-export function limiteEnPalabras(l: LimiteAdmin, messages: Mensajes = es): string {
+export function limiteEnPalabras(l: LimiteAdmin, messages: Mensajes): string {
   if (l.ilimitado) return messages.admin.planes.palabras.ilimitados;
   return l.maximo === undefined ? "—" : l.maximo.toLocaleString("en-US");
 }
 
 /** «S/ 29.00», o «Gratis» para cero. */
-export function precioEnSoles(precio: number, messages: Mensajes = es, locale: Locale = "es"): string {
+export function precioEnSoles(precio: number, messages: Mensajes, locale: Locale): string {
   return precio === 0 ? messages.admin.planes.palabras.gratis : formatearMonto("PEN", precio, locale);
 }
 
 /** «1 año», «5 años». */
-export function retencionEnPalabras(anios: number, messages: Mensajes = es): string {
+export function retencionEnPalabras(anios: number, messages: Mensajes): string {
   const t = messages.admin.planes;
   return anios === 1 ? t.retencionUnAnio : interpolar(t.retencionAnios, { n: anios });
 }
@@ -64,7 +63,7 @@ function cantidad(l: LimiteAdmin | number, textos: { uno: string; varios: string
 }
 
 /** Los límites de un plan en una línea, con singulares y plurales bien puestos (H13): «1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención». */
-export function limitesEnPalabras(l: LimitesAdmin, messages: Mensajes = es): string {
+export function limitesEnPalabras(l: LimitesAdmin, messages: Mensajes): string {
   const p = messages.admin.planes.palabras;
   return [
     cantidad(l.documentos_al_mes, p.documentos),
@@ -81,7 +80,7 @@ export type CampoDeLimite = "documentos" | "rucs" | "usuarios" | "apiKeys" | "re
 export function cambiosDeLimites(
   actual: LimitesAdmin,
   nuevo: LimitesAdmin,
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): { campo: CampoDeLimite; de: string; a: string }[] {
   const limite = (l: LimiteAdmin) => limiteEnPalabras(l, messages);
   const retencion = (anios: number) => retencionEnPalabras(anios, messages);

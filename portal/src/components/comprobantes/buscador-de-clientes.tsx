@@ -1,18 +1,22 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMessages } from "next-intl";
 import { BuscadorConLista, type ResultadoDeLaBusqueda } from "@/components/formularios/buscador-con-lista";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { buscarClientes } from "@/lib/api/clientes-browser";
 
-async function buscar(q: string, senal: AbortSignal): Promise<ResultadoDeLaBusqueda<ClienteGuardado>> {
-  const res = await buscarClientes({ q, porPagina: 6, senal });
-  return res.estado === "exito" ? { estado: "exito", items: res.datos.clientes } : { estado: "error" };
-}
-
 /** Autocompletado de los clientes guardados (#319): se teclea parte del documento o del nombre y se elige de la lista. */
 export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: ClienteGuardado) => void; deshabilitado?: boolean }) {
-  const t = useMessages().comprobantes.buscador.clientes;
+  const messages = useMessages();
+  const t = messages.comprobantes.buscador.clientes;
+  const buscar = useCallback(
+    async (q: string, senal: AbortSignal): Promise<ResultadoDeLaBusqueda<ClienteGuardado>> => {
+      const res = await buscarClientes({ q, porPagina: 6, senal }, messages);
+      return res.estado === "exito" ? { estado: "exito", items: res.datos.clientes } : { estado: "error" };
+    },
+    [messages],
+  );
   return (
     <BuscadorConLista
       etiqueta={t.etiqueta}

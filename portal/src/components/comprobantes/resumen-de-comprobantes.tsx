@@ -4,7 +4,6 @@ import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { Metrica } from "@/components/compartidos/metrica";
 import type { PeriodoDelResumen, ResumenDeFacturas } from "@/lib/api/facturas";
 import { formatearMonto } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /** `2026-10-04` como «4 Oct»; sin año, que es lo que cabe en la franja. */
 function diaYMes(iso: string, t: Mensajes["comprobantes"]["resumen"]): string {
@@ -13,7 +12,7 @@ function diaYMes(iso: string, t: Mensajes["comprobantes"]["resumen"]): string {
 }
 
 /** Cómo se dice el período en la franja: «Este mes», «1 Oct – 31 Oct», «Desde el 1 Oct», «Hasta el 31 Oct» o «Todo el historial». */
-export function periodoEnPalabras(p: PeriodoDelResumen, messages: Mensajes = es): string {
+export function periodoEnPalabras(p: PeriodoDelResumen, messages: Mensajes): string {
   const t = messages.comprobantes.resumen;
   if (p.esElMesEnCurso) return t.esteMes;
   if (p.desde && p.hasta) return p.desde === p.hasta ? diaYMes(p.desde, t) : interpolar(t.rango, { desde: diaYMes(p.desde, t), hasta: diaYMes(p.hasta, t) });
@@ -23,7 +22,7 @@ export function periodoEnPalabras(p: PeriodoDelResumen, messages: Mensajes = es)
 }
 
 /** Lo que pide atención, con las clases que haya: «3 rechazados · 2 con error de envío · 1 fuera de plazo · 4 boletas sin enviar»; sin nada, «Todo en orden». */
-export function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"], messages: Mensajes = es): string {
+export function atencionEnPalabras(a: ResumenDeFacturas["atencion_requerida"], messages: Mensajes): string {
   const t = messages.atencion;
   const partes = [
     a.rechazados > 0 ? interpolar(a.rechazados === 1 ? t.rechazadoUno : t.rechazadoVarios, { n: a.rechazados }) : null,

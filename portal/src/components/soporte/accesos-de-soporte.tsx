@@ -5,10 +5,9 @@ import type { AccesoDeSoporte } from "@/lib/api/accesos-de-soporte";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFechaHora } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /** La duración como la lee una persona: en minutos si es un número redondo de minutos, y en segundos si no. */
-export function duracionEnPalabras(segundos: number, messages: Mensajes = es): string {
+export function duracionEnPalabras(segundos: number, messages: Mensajes): string {
   const t = messages.soporte.accesos;
   return segundos % 60 === 0 ? interpolar(t.minutos, { n: segundos / 60 }) : interpolar(t.segundos, { n: segundos });
 }

@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * #313: retención del IGV (catálogo 53, código 62). La informa la factura cuando el cliente es agente de retención: él paga el total menos la retención y la entera a SUNAT.
@@ -15,7 +14,7 @@ export const TASA_LEGAL_RETENCION = "3";
 export const RETENCION_VACIA: RetencionForm = { activa: false, porcentaje: TASA_LEGAL_RETENCION };
 
 /** Por qué la retención no vale tal como está, o `null`: mayor que 0 y menor que 100, con hasta 3 decimales (`RetencionIgv`). */
-export function errorDeRetencion(r: RetencionForm, messages: Mensajes = es): string | null {
+export function errorDeRetencion(r: RetencionForm, messages: Mensajes): string | null {
   if (!r.activa) return null;
   const t = r.porcentaje.trim();
   const decimales = t.includes(".") ? t.length - t.indexOf(".") - 1 : 0;
@@ -26,7 +25,7 @@ export function errorDeRetencion(r: RetencionForm, messages: Mensajes = es): str
 
 export type RetencionApi = { porcentaje: number };
 
-export function retencionAApi(r: RetencionForm): RetencionApi | undefined {
-  if (!r.activa || errorDeRetencion(r) !== null) return undefined;
+export function retencionAApi(r: RetencionForm, messages: Mensajes): RetencionApi | undefined {
+  if (!r.activa || errorDeRetencion(r, messages) !== null) return undefined;
   return { porcentaje: Number(r.porcentaje.trim()) };
 }

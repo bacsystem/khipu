@@ -4,8 +4,9 @@ import EntornosPage from "@/app/developers/entornos/page";
 import ErroresPage from "@/app/developers/errores/page";
 import GuiaPage from "@/app/developers/guia/page";
 import { entradas } from "./entradas";
+import es from "@/messages/es.json";
 
-const ENTRADAS = entradas();
+const ENTRADAS = entradas(es);
 
 // El índice lateral observa las secciones con IntersectionObserver, que jsdom no trae.
 beforeAll(() => {

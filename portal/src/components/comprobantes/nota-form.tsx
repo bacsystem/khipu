@@ -139,8 +139,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     if (esParcial) {
       body.items = itemsParciales;
       // En una nota el descuento y el cargo siempre afectan la base del IGV (SUNAT no admite lo contrario, 3271/3277).
-      const descuento = ajusteAApi({ ...descuentoGlobal, afectaBase: true }, "descuento");
-      const cargo = ajusteAApi({ ...cargoGlobal, afectaBase: true }, "cargo");
+      const descuento = ajusteAApi({ ...descuentoGlobal, afectaBase: true }, "descuento", messages);
+      const cargo = ajusteAApi({ ...cargoGlobal, afectaBase: true }, "cargo", messages);
       if (descuento) body.descuento_global = descuento;
       if (cargo) body.cargos = [cargo];
     }
@@ -269,7 +269,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
   const superaTope = (esParcial || esTotal || esImporte) && !exentoDeTope && !conDescuentoPropio && importeNota > tope;
   // Descuento y cargo globales solo caben donde el backend los acepta (`Totales`): hay líneas gravadas y ninguna lleva otros tributos (9999).
   const admiteAjustesPropios = factura.items.some((i) => i.tipo_afectacion_igv === "10") && !factura.items.some((i) => !!i.otros_tributos);
-  const hayAjusteInvalido = esParcial && (errorDeAjuste(descuentoGlobal, "descuento") !== null || errorDeAjuste(cargoGlobal, "cargo") !== null);
+  const hayAjusteInvalido = esParcial && (errorDeAjuste(descuentoGlobal, "descuento", messages) !== null || errorDeAjuste(cargoGlobal, "cargo", messages) !== null);
   const fechaValida = (fecha || hoy) >= factura.fecha_emision && (fecha || hoy) <= hoy && (fecha || hoy) >= fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy);
   const conceptoTributo = (t.conceptoTributo as Record<string, string>)[afectacionLinea];
   // 3111: en una línea IVAP un importe de 0.07 a 0.12 deja el impuesto en 0.00 y SUNAT rechaza ya numerada.

@@ -2,11 +2,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { entradas } from "@/lib/developers/entradas";
 import { BuscarEnLaDocumentacion } from "./buscar-en-la-documentacion";
+import es from "@/messages/es.json";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-const ENTRADAS = entradas();
+const ENTRADAS = entradas(es);
 
 afterEach(() => {
   cleanup();

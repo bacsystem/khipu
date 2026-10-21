@@ -2,14 +2,17 @@ import { http, HttpResponse } from "msw";
 import { VERSION_TEXTOS_LEGALES } from "@/content/legal/version";
 import { diasEntre, hoyLima, inicioDelProximoCiclo, sumarDias, ultimoDiaCubierto, venceDesdeFechaDeLima } from "@/lib/formato";
 import { esUuid } from "@/lib/uuid";
-import { messages } from "@/lib/messages";
-import { serieCoincideConTipo, telefonoSchema } from "@/lib/validacion";
+import es from "@/messages/es.json";
+import { esquemas, serieCoincideConTipo } from "@/lib/validacion";
 import { avisoDePlazo, fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comprobantes/plazo";
 import { errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { CODIGOS_PAIS } from "@/lib/comprobantes/paises";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario, type InvitacionMock } from "./data";
+
+// El mock contesta en castellano, como el backend.
+const telefonoSchema = esquemas(es).telefono;
 
 /** Distinto de `claims()`: exige el claim `tipo=plataforma` (ver JwtAdministradorTokenEmisor), así que un token de
  * cliente nunca pasa como administrador en el mock — igual que en el backend real. */
@@ -758,7 +761,7 @@ function validarProductoMock(b: DatosDeProductoMock): string | null {
 /** Las reglas de `ClienteGuardado.Datos.validar` que el mock reproduce: el documento por su tipo, el nombre de 3 caracteres y un correo con forma de correo. */
 function validarClienteMock(b: { tipo_doc?: string; num_doc?: string; razon_social?: string; direccion?: string; pais?: string; email?: string }): string | null {
   if (b.tipo_doc === "-") return "Un cliente sin documento no se guarda: no identifica a nadie";
-  const doc = errorDeDocumento(b.tipo_doc ?? "", b.num_doc ?? "");
+  const doc = errorDeDocumento(b.tipo_doc ?? "", b.num_doc ?? "", es);
   if (doc) return doc;
   if ((b.razon_social ?? "").trim().length < 3 || b.razon_social!.trim().length > 1500) return "2022 - El nombre del comprador tiene de 3 a 1500 caracteres, sin saltos de línea";
   if ((b.direccion ?? "").trim().length > 300) return "La dirección admite hasta 300 caracteres, sin saltos de línea";
@@ -1258,7 +1261,7 @@ function registrarPagoMock(cuentaId: string, c: Record<string, unknown>): { pago
   }
   const existentes = db.pagosPorCuenta.get(cuentaId) ?? [];
   if (referencia && existentes.some((p) => p.medio === c.medio && p.referencia?.toLowerCase() === referencia.toLowerCase()))
-    return { error: fail(409, "PAGO_DUPLICADO", `Esa cuenta ya tiene un pago por ${messages.admin.pagos.medios[c.medio as keyof typeof messages.admin.pagos.medios] ?? c.medio} con la referencia «${referencia}»`) };
+    return { error: fail(409, "PAGO_DUPLICADO", `Esa cuenta ya tiene un pago por ${es.admin.pagos.medios[c.medio as keyof typeof es.admin.pagos.medios] ?? c.medio} con la referencia «${referencia}»`) };
 
   if (extendioHasta) db.planesDeCuenta.set(cuentaId, { ...actual, venceEn: extendioHasta });
   const pago: PagoMock = {

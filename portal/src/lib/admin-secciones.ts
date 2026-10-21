@@ -11,7 +11,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 export type ItemAdmin = { href: string; etiqueta: string; icono: LucideIcon; resumen: string };
 export type SeccionAdmin = { titulo: string; items: ItemAdmin[] };
@@ -21,7 +20,7 @@ export type SeccionAdmin = { titulo: string; items: ItemAdmin[] };
  * los tres digan lo mismo: antes el menú era una lista plana con un ítem «Operación» deshabilitado que no llevaba a ningún lado, mientras la miga ya
  * agrupaba Monitor, Errores, Avisos e Integridad bajo «Operación». Los textos son los de `messages` (los de la sesión, en un componente).
  */
-export function seccionesAdmin(messages: Mensajes = es): SeccionAdmin[] {
+export function seccionesAdmin(messages: Mensajes): SeccionAdmin[] {
   const t = messages.admin;
   const r = t.inicio.resumen;
   return [
@@ -54,6 +53,4 @@ export function seccionesAdmin(messages: Mensajes = es): SeccionAdmin[] {
     },
   ];
 }
-
-/** Las secciones en castellano. En un componente, `seccionesAdmin(messages)` con los textos de la sesión. */
-export const SECCIONES_ADMIN: SeccionAdmin[] = seccionesAdmin();
+

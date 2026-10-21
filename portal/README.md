@@ -27,7 +27,8 @@ Cómo se leen (detalle en `src/i18n/mensajes.ts`):
 
 - Componente (cliente o servidor no async): `const messages = useMessages();` → `messages.auth.login.titulo` (tipado contra es.json).
 - Server Component async / `generateMetadata`: `const messages = await getMessages();` (`next-intl/server`).
-- `lib/` sin React: recibe `messages: Mensajes` (y `locale`) por parámetro; por defecto castellano.
+- `lib/` sin React: recibe `messages: Mensajes` (y `locale`) por parámetro, sin valor por defecto (olvidarlo no compila) y sin
+  importar `es.json` (en código de cliente metería el catálogo entero en el bundle). Los tests pasan `es` explícito.
 - Datos en el texto: `{nombre}` en el JSON e `interpolar(texto, { nombre })`; texto con negrita o enlace: `useTranslations(...).rich(...)`.
 - Errores de la API: `useMensajeError()`. Fechas y montos: `lib/formato.ts` recibe el locale (`es` conserva el formato de siempre:
   hora de Lima, montos como SUNAT, meses de Perú); la zona horaria es siempre `America/Lima`.

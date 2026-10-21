@@ -1,6 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { seccionesAdmin } from "@/lib/admin-secciones";
-import es from "@/messages/es.json";
 
 /** Acción principal que la cabecera ofrece en una página: el alta asistida de una cuenta (#188), el alta de un plan (#190) y exportar el consumo (#193). */
 export type AccionAdmin = "nuevaCuenta" | "nuevoPlan" | "exportarConsumo";
@@ -18,7 +17,7 @@ const ACCIONES: Record<string, AccionAdmin> = {
  * no tienen miga; el resto casa por segmento, así que el detalle de una cuenta (`/admin/cuentas/<id>`) sigue bajo
  * «Clientes / Cuentas» pero `/admin/cuentas-viejas` no. La `accion` es de la página de la lista, no de lo que cuelga de ella:
  * solo se devuelve cuando la ruta coincide exacta. Así la cabecera no necesita conocer rutas. La sección de cada página sale de
- * `SECCIONES_ADMIN`, la misma que agrupa el menú lateral.
+ * `seccionesAdmin(messages)`, la misma que agrupa el menú lateral.
  */
 function migas(messages: Mensajes): Array<{ ruta: string; exacta?: boolean } & MigaAdmin> {
   const t = messages.admin;
@@ -34,7 +33,7 @@ function migas(messages: Mensajes): Array<{ ruta: string; exacta?: boolean } & M
   ];
 }
 
-export function migaAdmin(pathname: string, messages: Mensajes = es): MigaAdmin | null {
+export function migaAdmin(pathname: string, messages: Mensajes): MigaAdmin | null {
   const miga = migas(messages).find((m) => (m.exacta ? pathname === m.ruta : pathname === m.ruta || pathname.startsWith(`${m.ruta}/`)));
   if (!miga) return null;
   return { seccion: miga.seccion, pagina: miga.pagina, ...(miga.accion && pathname === miga.ruta ? { accion: miga.accion } : {}) };

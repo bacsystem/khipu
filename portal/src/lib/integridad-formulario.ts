@@ -1,7 +1,6 @@
 import { fechaValida } from "@/lib/cambio-de-plan";
 import type { Mensajes } from "@/i18n/mensajes";
 import { diasEntre } from "@/lib/formato";
-import es from "@/messages/es.json";
 
 /**
  * Cuántos días como mucho se verifican por vez. Cada comprobante firmado del rango se lee del almacenamiento (el XML y, si hay, el CDR): un rango de años por error
@@ -19,7 +18,7 @@ export type ErroresDeRango = Partial<Record<"desde" | "hasta", string>>;
 export function validarRango(
   desde: string,
   hasta: string,
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): { errores: ErroresDeRango } | { desde: string; hasta: string } {
   const t = messages.admin.integridad.errores;
   const d = desde.trim();

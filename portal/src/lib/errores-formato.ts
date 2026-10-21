@@ -1,6 +1,5 @@
 import type { FaultDeSunat, ResultadoDeReintento } from "@/lib/api/admin-errores";
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /** El fault en una línea: «0109 - El sistema no puede responder», o solo el mensaje si no hay código. Sin fault, vacío. */
 export function faultEnPalabras(fault: FaultDeSunat | undefined): string {
@@ -16,7 +15,7 @@ export function mensajeDeReintento(
   res: ResultadoDeReintento,
   comprobante: string,
   etiquetaDelEstado: (estado: string) => string,
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): string {
   const r = messages.admin.errores.resultado;
   switch (res.estado) {
@@ -34,6 +33,6 @@ export function mensajeDeReintento(
   }
 }
 
-export function mensajeDeDescarte(comprobante: string, messages: Mensajes = es): string {
+export function mensajeDeDescarte(comprobante: string, messages: Mensajes): string {
   return messages.admin.errores.resultado.descartado.replace("{comprobante}", comprobante);
 }

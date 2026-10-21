@@ -1,5 +1,4 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 
 /**
  * Los datos de la página de errores (estados, códigos HTTP y códigos de khipu), aparte de la página para que el buscador del developer portal (#26) indexe los mismos que ella
@@ -105,17 +104,17 @@ const CODIGOS_DE_ERROR: Array<[codigo: string, http: string, clave: keyof Textos
 ];
 
 /** Estados del comprobante con su significado y la acción esperada del integrador. */
-export function estados(messages: Mensajes = es): Array<[string, string, string]> {
+export function estados(messages: Mensajes): Array<[string, string, string]> {
   const t = messages.developers.errores.estados;
   return CODIGOS_DE_ESTADO.map((estado) => [estado, t[estado][0], t[estado][1]]);
 }
 
-export function codigosHttp(messages: Mensajes = es): Array<[string, string]> {
+export function codigosHttp(messages: Mensajes): Array<[string, string]> {
   const t = messages.developers.errores.http;
   return CODIGOS_HTTP.map(([http, clave]) => [http, t[clave]]);
 }
 
-export function codigosDeError(messages: Mensajes = es): Array<[string, string, string, string]> {
+export function codigosDeError(messages: Mensajes): Array<[string, string, string, string]> {
   const t = messages.developers.errores.codigos;
   return CODIGOS_DE_ERROR.map(([codigo, http, clave]) => [codigo, http, t[clave][0], t[clave][1]]);
 }

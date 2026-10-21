@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
 import { alPedirDuplicado, lineaDesde, pedirDuplicado, plantillaDesde, sePuedeDuplicar } from "./duplicar";
+import es from "@/messages/es.json";
 
 const base = {
   id: "f-1", tipo: "01", serie: "F001", numero: 7, fecha_emision: "2026-09-02", moneda: "PEN", tipo_operacion: "0101",
@@ -11,7 +12,7 @@ const base = {
 
 describe("duplicar (#323)", () => {
   it("copia cliente, moneda y líneas de una factura; la fecha y el número no se copian", () => {
-    const p = plantillaDesde(base)!;
+    const p = plantillaDesde(base, es)!;
     expect(p).toMatchObject({ tipo: "factura", moneda: "PEN", operacion: "0101", cliente: { tipoDoc: "6", numDoc: "20554198211", razonSocial: "CLIENTE SAC", direccion: "Av. Prueba 123", pais: "" } });
     expect(p.lineas).toHaveLength(1);
     expect(p.lineas[0]).toMatchObject({ descripcion: "Soporte", unidad: "ZZ", cantidad: 2, precioUnitario: 59, tipoAfectacionIgv: "10", icbper: false });
@@ -21,7 +22,7 @@ describe("duplicar (#323)", () => {
 
   it("la copia conserva el código interno y el de producto SUNAT de cada línea (#320)", () => {
     const c = { ...base, items: [{ ...base.items[0], codigo: "SRV-001", codigo_sunat: "80101500" }, { ...base.items[0], codigo: null, codigo_sunat: null }] } as unknown as Comprobante;
-    const [con, sin] = plantillaDesde(c)!.lineas;
+    const [con, sin] = plantillaDesde(c, es)!.lineas;
     expect(con).toMatchObject({ codigo: "SRV-001", codigoSunat: "80101500" });
     expect(sin.codigo).toBeUndefined();
     expect(sin.codigoSunat).toBeUndefined();
@@ -32,21 +33,21 @@ describe("duplicar (#323)", () => {
     expect(sePuedeDuplicar({ tipo: "03" })).toBe(true);
     expect(sePuedeDuplicar({ tipo: "07" })).toBe(false);
     expect(sePuedeDuplicar({ tipo: "08" })).toBe(false);
-    expect(plantillaDesde({ ...base, tipo: "07" })).toBeNull();
+    expect(plantillaDesde({ ...base, tipo: "07" }, es)).toBeNull();
   });
 
   it("una boleta sin documento vuelve sin documento y sin nombre (el formulario pone el habitual)", () => {
-    const p = plantillaDesde({ ...base, tipo: "03", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } })!;
+    const p = plantillaDesde({ ...base, tipo: "03", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } }, es)!;
     expect(p.tipo).toBe("boleta");
     expect(p.cliente).toMatchObject({ tipoDoc: "-", numDoc: "", razonSocial: "" });
   });
 
   it("una exportación conserva su operación y el país del cliente; una detracción o percepción vuelve a venta interna", () => {
-    const exp = plantillaDesde({ ...base, tipo_operacion: "0200", moneda: "USD", receptor: { tipo_doc: "0", num_doc: "US1", razon_social: "ACME", direccion: null, pais: "US" } })!;
+    const exp = plantillaDesde({ ...base, tipo_operacion: "0200", moneda: "USD", receptor: { tipo_doc: "0", num_doc: "US1", razon_social: "ACME", direccion: null, pais: "US" } }, es)!;
     expect(exp).toMatchObject({ operacion: "0200", moneda: "USD", cliente: { pais: "US" } });
-    for (const op of ["1001", "1003", "2001", "0202", "0205", "0301"]) expect(plantillaDesde({ ...base, tipo_operacion: op })!.operacion, op).toBe("0101");
+    for (const op of ["1001", "1003", "2001", "0202", "0205", "0301"]) expect(plantillaDesde({ ...base, tipo_operacion: op }, es)!.operacion, op).toBe("0101");
     // El país solo se copia en una exportación.
-    expect(plantillaDesde({ ...base, receptor: { ...base.receptor!, pais: "PE" } })!.cliente.pais).toBe("");
+    expect(plantillaDesde({ ...base, receptor: { ...base.receptor!, pais: "PE" } }, es)!.cliente.pais).toBe("");
   });
 
   it("copia los ajustes de la línea para no cambiar su importe: descuento, cargo, ISC e ICBPER", () => {
@@ -73,7 +74,7 @@ describe("duplicar (#323)", () => {
       referencias: { orden_compra: "OC" }, observaciones: "x", tipo_cambio: 3.7,
       items: [{ ...base.items[0], otros_tributos: { tasa: 2, monto: 1 }, placa: "ABC-123", cargos: [{ tipo: "MONTO", valor: 1, monto: 1, afecta_base_igv: true, codigo: "47" }, { tipo: "MONTO", valor: 2, monto: 2, afecta_base_igv: true, codigo: "47" }] }],
     } as unknown as Comprobante;
-    const p = plantillaDesde(c)!;
+    const p = plantillaDesde(c, es)!;
     expect(p.descuentoGlobal).toEqual({ modo: "porcentaje", valor: "10", afectaBase: true });
     expect(p.cargoGlobal).toEqual({ modo: "monto", valor: "5", afectaBase: false });
     expect(p.redondeo).toBe("-0.05");
@@ -83,18 +84,18 @@ describe("duplicar (#323)", () => {
       "la orden de compra, las guías y los documentos relacionados", "las observaciones", "los cargos globales además del primero", "los cargos de línea además del primero",
       "los otros tributos (9999) de las líneas", "los datos propios de las líneas (placa, hidrobiológicos, transporte)",
     ]);
-    expect(plantillaDesde(base)!.omitidos).toEqual([]);
-    expect(plantillaDesde(base)!.redondeo).toBe("");
+    expect(plantillaDesde(base, es)!.omitidos).toEqual([]);
+    expect(plantillaDesde(base, es)!.redondeo).toBe("");
   });
 
   it("una exportación que el formulario no ofrece (0202) vuelve a venta interna con las líneas gravadas y el comprador sin datos del exterior", () => {
     const c = { ...base, tipo_operacion: "0202", receptor: { tipo_doc: "0", num_doc: "US1", razon_social: "ACME", direccion: null, pais: "US" }, items: [{ ...base.items[0], tipo_afectacion_igv: "40" }] } as unknown as Comprobante;
-    const p = plantillaDesde(c)!;
+    const p = plantillaDesde(c, es)!;
     expect(p.operacion).toBe("0101");
     expect(p.lineas[0].tipoAfectacionIgv).toBe("10");
     expect(p.cliente).toEqual({ tipoDoc: "6", numDoc: "", razonSocial: "", direccion: "", pais: "" });
     // Una exportación que sí se ofrece (0200) conserva las 40 y el comprador del exterior.
-    const e = plantillaDesde({ ...c, tipo_operacion: "0200" } as Comprobante)!;
+    const e = plantillaDesde({ ...c, tipo_operacion: "0200" } as Comprobante, es)!;
     expect(e.lineas[0].tipoAfectacionIgv).toBe("40");
     expect(e.cliente).toMatchObject({ tipoDoc: "0", pais: "US" });
   });

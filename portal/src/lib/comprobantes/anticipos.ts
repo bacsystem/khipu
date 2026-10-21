@@ -1,6 +1,5 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { Comprobante } from "@/lib/api/facturas";
-import es from "@/messages/es.json";
 
 /**
  * #312: anticipos. Una factura (o boleta) de anticipo es un comprobante común: SUNAT no la marca. La que la regulariza lleva `anticipos` con la serie-número de aquella y
@@ -79,7 +78,7 @@ export function anticipoInicial(c: Candidato): AnticipoForm {
 }
 
 /** Por qué los anticipos elegidos no valen, o `null`. El resto (que el anticipo exista, sea del cliente y no exceda lo facturado en esta venta) lo dice el backend al calcular. */
-export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato[], messages: Mensajes = es): string | null {
+export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato[], messages: Mensajes): string | null {
   const t = messages.comprobantes.validacion.anticipo;
   for (const a of elegidos) {
     const etiqueta = `${a.serie}-${a.numero}`;
@@ -102,7 +101,7 @@ export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato
 
 export type AnticipoApi = { serie: string; numero: number; monto: number; afectacion: Afectacion };
 
-export function anticiposAApi(elegidos: AnticipoForm[], candidatos: Candidato[]): AnticipoApi[] | undefined {
-  if (elegidos.length === 0 || errorDeAnticipos(elegidos, candidatos) !== null) return undefined;
+export function anticiposAApi(elegidos: AnticipoForm[], candidatos: Candidato[], messages: Mensajes): AnticipoApi[] | undefined {
+  if (elegidos.length === 0 || errorDeAnticipos(elegidos, candidatos, messages) !== null) return undefined;
   return elegidos.map((a) => ({ serie: a.serie, numero: a.numero, monto: Number(a.monto), afectacion: a.afectacion }));
 }

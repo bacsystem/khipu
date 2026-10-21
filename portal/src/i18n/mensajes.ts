@@ -7,7 +7,9 @@ import type es from "@/messages/es.json";
  * Cómo se leen (#25), siempre con el locale de la sesión:
  *  - Client Component o Server Component no async: `const messages = useMessages();` (next-intl).
  *  - Server Component async, `generateMetadata`, route handler: `const messages = await getMessages();` (next-intl/server).
- *  - Código que no es de React (`lib/`): recibe `messages: Mensajes` por parámetro; no importa el JSON.
+ *  - Código que no es de React (`lib/`): recibe `messages: Mensajes` (y `locale`) por parámetro, **sin valor por defecto**: una
+ *    llamada que lo olvida no compila, en vez de caer a castellano en silencio. Tampoco importa el JSON: cada `import es from
+ *    "@/messages/es.json"` en código que llega al navegador mete el catálogo entero en un chunk de cliente.
  * Después se usa como objeto tipado (`messages.auth.login.titulo`): una clave que no existe no compila. Si el texto lleva datos,
  * `{nombre}` en el JSON y `interpolar(texto, { nombre })`; si necesita plurales o formato ICU, `useTranslations`/`getTranslations`.
  */

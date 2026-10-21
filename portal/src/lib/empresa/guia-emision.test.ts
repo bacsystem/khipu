@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Domicilio } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { hayPasosPendientes, pasosParaEmitir } from "./guia-emision";
+import es from "@/messages/es.json";
 
 const HOY = "2026-10-09";
 const domicilio: Domicilio = {
@@ -28,7 +29,7 @@ const listos = (pasos: ReturnType<typeof pasosParaEmitir>) => Object.fromEntries
 /** #375: la guía «Para empezar a emitir» — los cuatro pasos, su estado y a dónde lleva cada uno. */
 describe("pasosParaEmitir", () => {
   it("con la empresa recién creada, los cuatro pasos están pendientes y cada uno lleva a su sección", () => {
-    const pasos = pasosParaEmitir(vacia, [], HOY);
+    const pasos = pasosParaEmitir(vacia, [], HOY, es);
     expect(pasos.map((p) => p.id)).toEqual(["certificado", "sol", "domicilio", "series"]);
     expect(pasos.every((p) => !p.listo)).toBe(true);
     expect(pasos.map((p) => p.enlace)).toEqual(["/empresa?seccion=certificado", "/empresa?seccion=sol", "/empresa?seccion=datos", "/series"]);
@@ -36,27 +37,27 @@ describe("pasosParaEmitir", () => {
   });
 
   it("con todo hecho no queda nada pendiente", () => {
-    const pasos = pasosParaEmitir(lista, [factura], HOY);
+    const pasos = pasosParaEmitir(lista, [factura], HOY, es);
     expect(pasos.every((p) => p.listo)).toBe(true);
     expect(hayPasosPendientes(pasos)).toBe(false);
   });
 
   it("el certificado y SOL siguen las reglas de la pestaña de la empresa: vencido o rechazadas no cuentan como listos", () => {
-    expect(listos(pasosParaEmitir({ ...lista, certificado_vigencia_hasta: "2026-10-08" }, [factura], HOY)).certificado).toBe(false);
+    expect(listos(pasosParaEmitir({ ...lista, certificado_vigencia_hasta: "2026-10-08" }, [factura], HOY, es)).certificado).toBe(false);
     // El que vence hoy todavía firma.
-    expect(listos(pasosParaEmitir({ ...lista, certificado_vigencia_hasta: HOY }, [factura], HOY)).certificado).toBe(true);
-    expect(listos(pasosParaEmitir({ ...lista, credenciales_sol_rechazadas: { desde: "2026-10-08T10:00:00Z", motivo: "0102" } }, [factura], HOY)).sol).toBe(false);
+    expect(listos(pasosParaEmitir({ ...lista, certificado_vigencia_hasta: HOY }, [factura], HOY, es)).certificado).toBe(true);
+    expect(listos(pasosParaEmitir({ ...lista, credenciales_sol_rechazadas: { desde: "2026-10-08T10:00:00Z", motivo: "0102" } }, [factura], HOY, es)).sol).toBe(false);
   });
 
   it("dice si el certificado falta o está vencido, y si SOL falta o la rechazó SUNAT", () => {
-    const [sinCert, sinSol] = pasosParaEmitir(vacia, [], HOY);
+    const [sinCert, sinSol] = pasosParaEmitir(vacia, [], HOY, es);
     expect(sinCert.accion).toBe("Cargar certificado");
     expect(sinSol.accion).toBe("Guardar credenciales");
     const [vencido, rechazadas] = pasosParaEmitir(
       { ...lista, certificado_vigencia_hasta: "2026-10-08", credenciales_sol_rechazadas: { desde: "2026-10-08T10:00:00Z", motivo: "0102" } },
       [factura],
       HOY,
-    );
+     es);
     expect(vencido.accion).toBe("Renovar certificado");
     expect(vencido.detalle).toMatch(/venció/);
     expect(rechazadas.accion).toBe("Corregir credenciales");
@@ -64,15 +65,15 @@ describe("pasosParaEmitir", () => {
   });
 
   it("el domicilio fiscal es recomendado, no obligatorio, y está listo cuando hay uno registrado", () => {
-    const sin = pasosParaEmitir({ ...lista, domicilio: null }, [factura], HOY).find((p) => p.id === "domicilio")!;
+    const sin = pasosParaEmitir({ ...lista, domicilio: null }, [factura], HOY, es).find((p) => p.id === "domicilio")!;
     expect(sin).toMatchObject({ listo: false, recomendado: true });
-    expect(pasosParaEmitir(lista, [factura], HOY).find((p) => p.id === "domicilio")!.listo).toBe(true);
+    expect(pasosParaEmitir(lista, [factura], HOY, es).find((p) => p.id === "domicilio")!.listo).toBe(true);
     // Los obligatorios no son «recomendados».
-    expect(pasosParaEmitir(vacia, [], HOY).filter((p) => p.recomendado).map((p) => p.id)).toEqual(["domicilio"]);
+    expect(pasosParaEmitir(vacia, [], HOY, es).filter((p) => p.recomendado).map((p) => p.id)).toEqual(["domicilio"]);
   });
 
   it("las series están listas con una de factura o de boleta activa; una inactiva o una nota sola no bastan", () => {
-    const serieListo = (series: Serie[]) => listos(pasosParaEmitir(lista, series, HOY)).series;
+    const serieListo = (series: Serie[]) => listos(pasosParaEmitir(lista, series, HOY, es)).series;
     expect(serieListo([factura])).toBe(true);
     expect(serieListo([{ ...factura, tipo: "03", serie: "B001" }])).toBe(true);
     expect(serieListo([])).toBe(false);
@@ -81,7 +82,7 @@ describe("pasosParaEmitir", () => {
   });
 
   it("si la serie existe pero está inactiva, no aconseja crear la misma: repetirla da 409", () => {
-    const detalle = (series: Serie[]) => pasosParaEmitir(lista, series, HOY).find((p) => p.id === "series")!.detalle;
+    const detalle = (series: Serie[]) => pasosParaEmitir(lista, series, HOY, es).find((p) => p.id === "series")!.detalle;
     expect(detalle([{ ...factura, activa: false }])).toMatch(/inactiva/);
     expect(detalle([{ ...factura, activa: false }])).not.toMatch(/\(F001\)/);
     // Con una activa, la inactiva de al lado no cambia el mensaje: el paso está listo.
@@ -92,7 +93,7 @@ describe("pasosParaEmitir", () => {
   });
 
   it("si las series no se pudieron leer, el paso se omite en vez de afirmar que faltan", () => {
-    const pasos = pasosParaEmitir(lista, null, HOY);
+    const pasos = pasosParaEmitir(lista, null, HOY, es);
     expect(pasos.map((p) => p.id)).toEqual(["certificado", "sol", "domicilio"]);
     expect(hayPasosPendientes(pasos)).toBe(false);
   });

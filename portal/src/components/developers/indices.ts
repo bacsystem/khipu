@@ -1,5 +1,4 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import es from "@/messages/es.json";
 import { casos } from "./guia/casos-emision";
 
 /**
@@ -8,7 +7,7 @@ import { casos } from "./guia/casos-emision";
  */
 export type EntradaDeIndice = { id: string; label: string; esCaso?: boolean };
 
-export function indiceGuia(messages: Mensajes = es): EntradaDeIndice[] {
+export function indiceGuia(messages: Mensajes): EntradaDeIndice[] {
   const t = messages.developers.guia.indice;
   return [
     { id: "inicio-rapido", label: t.inicioRapido },
@@ -23,7 +22,7 @@ export function indiceGuia(messages: Mensajes = es): EntradaDeIndice[] {
   ];
 }
 
-export function indiceErrores(messages: Mensajes = es): EntradaDeIndice[] {
+export function indiceErrores(messages: Mensajes): EntradaDeIndice[] {
   const t = messages.developers.errores.indice;
   return [
     { id: "estados", label: t.estados },

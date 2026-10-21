@@ -1,6 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { tecnico } from "@/lib/developers/tecnico";
-import es from "@/messages/es.json";
 
 /**
  * Casos de emisión de factura, boleta, liquidación de compra, retención y percepción documentados en la guía. Cada uno lleva el JSON exacto que acepta su endpoint (`POST /v1/facturas` si no dice otro),
@@ -780,7 +779,7 @@ X-Api-Key: fk_TU_API_KEY
 ];
 
 /** Los casos con sus textos en el idioma de `messages`. */
-export function casos(messages: Mensajes = es): CasoEmision[] {
+export function casos(messages: Mensajes): CasoEmision[] {
   return CASOS.map((c) => ({ ...c, ...messages.developers.casos[c.id] }));
 }
 

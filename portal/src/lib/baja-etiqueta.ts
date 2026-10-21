@@ -1,6 +1,5 @@
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { EstadoBaja } from "@/lib/api/facturas";
-import es from "@/messages/es.json";
 
 /** Un resumen de alta informa la boleta (o su nota, #294) en vez de anularla: lo que cambia es qué significa que SUNAT lo acepte (274-H1). */
 const etiquetasAlta = (que: string, t: Mensajes["comprobantes"]["estadoBaja"]): Record<EstadoBaja, string> => ({
@@ -13,8 +12,7 @@ const etiquetasAlta = (que: string, t: Mensajes["comprobantes"]["estadoBaja"]): 
  * El aviso de un resumen de alta generado pasado el 7.º día. Lo comparten la ficha del cliente (`BajaEstado`) y la del backoffice (`BajasDeComprobante`): el 4443 es lo que la
  * norma prevé y e-beta no devolvió, y un cambio de redacción tiene que llegar a las dos (#362 H3).
  */
-export const avisoAltaFueraDePlazo = (messages: Mensajes = es): string => messages.comprobantes.estadoBaja.avisoAltaFueraDePlazo;
-export const AVISO_ALTA_FUERA_DE_PLAZO = avisoAltaFueraDePlazo();
+export const avisoAltaFueraDePlazo = (messages: Mensajes): string => messages.comprobantes.estadoBaja.avisoAltaFueraDePlazo;
 
 /** Una baja rechazada por SUNAT con 2957: pasaron los 7 días desde la emisión, así que ya no se puede anular (se corrige con una nota de crédito). */
 export function bajaVencida(b: { estado: EstadoBaja; condicion?: "ALTA" | "BAJA"; cdr?: { codigo: string } | null }): boolean {
@@ -28,7 +26,7 @@ export function bajaVencida(b: { estado: EstadoBaja; condicion?: "ALTA" | "BAJA"
 export function etiquetaDeBaja(
   b: { estado: EstadoBaja; condicion?: "ALTA" | "BAJA"; cdr?: { codigo: string } | null },
   que: "boleta" | "nota",
-  messages: Mensajes = es,
+  messages: Mensajes,
 ): string {
   const t = messages.comprobantes.estadoBaja;
   if (bajaVencida(b)) return t.vencida;
