@@ -26,4 +26,12 @@ vi.mock("next-intl/server", async () => {
   };
 });
 
+// H2: `<TextosDeCliente>` es un Server Component async (lee getMessages) y Testing Library no renderiza componentes async. En las
+// pruebas los hooks ya leen el catálogo de prueba completo, así que basta con dejar pasar los hijos; lo que elige cada segmento lo
+// prueba `src/i18n/textos-de-cliente.test.ts` con las funciones reales.
+vi.mock("@/i18n/textos-de-cliente", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/i18n/textos-de-cliente")>()),
+  TextosDeCliente: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 afterEach(() => fijarLocaleDePrueba("es"));

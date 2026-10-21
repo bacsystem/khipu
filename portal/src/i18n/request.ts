@@ -4,8 +4,8 @@ import { COOKIE_LOCALE, localeDe, ZONA_HORARIA } from "./config";
 
 /**
  * Configuración de next-intl por request, sin rutas por idioma: el locale sale de la cookie (ver `config.ts`).
- * Server Components la usan con `getTranslations`/`useTranslations`; los Client Components reciben los mensajes por el
- * `NextIntlClientProvider` del layout raíz.
+ * Server Components la usan con `getTranslations`/`useTranslations` (el catálogo completo); los Client Components reciben solo los
+ * namespaces de su segmento por `<TextosDeCliente>` (`textos-de-cliente.tsx`).
  */
 export default getRequestConfig(async () => {
   const locale = localeDe((await cookies()).get(COOKIE_LOCALE)?.value);

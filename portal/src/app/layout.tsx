@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import { connection } from "next/server";
-import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { TextosDeCliente } from "@/i18n/textos-de-cliente";
 import { Providers } from "@/components/providers";
 import { SoporteProvider } from "@/components/soporte/ayuda-de-soporte";
 import { soporteParaMostrar } from "@/lib/soporte";
@@ -44,12 +44,13 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={`${sans.variable} ${heading.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="antialiased">
-        {/* #25: sin props hereda locale, zona horaria y mensajes de src/i18n/request.ts; los Client Components los leen de acá. */}
-        <NextIntlClientProvider>
+        {/* #25: locale y zona horaria de src/i18n/request.ts, y de los mensajes solo la base que usan los Client Components de las
+            páginas públicas; (privado), /admin, /developers y la portada amplían la lista en su layout (src/i18n/textos-de-cliente.tsx). */}
+        <TextosDeCliente segmento="base">
           <Providers>
             <SoporteProvider soporte={soporte}>{children}</SoporteProvider>
           </Providers>
-        </NextIntlClientProvider>
+        </TextosDeCliente>
       </body>
     </html>
   );
