@@ -1,0 +1,942 @@
+{
+  "src/app/(privado)/api-keys/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 19
+    }
+  },
+  "src/app/(privado)/clientes/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/(privado)/comprobantes/[id]/nota/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/app/(privado)/comprobantes/[id]/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 164
+    }
+  },
+  "src/app/(privado)/comprobantes/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/(privado)/cuenta/accesos-de-soporte/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/(privado)/cuenta/equipo/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/(privado)/cuenta/plan/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 26
+    }
+  },
+  "src/app/(privado)/empresa/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 80
+    }
+  },
+  "src/app/(privado)/establecimientos/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 16
+    }
+  },
+  "src/app/(privado)/inicio/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 8
+    }
+  },
+  "src/app/(privado)/productos/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/(privado)/series/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/app/admin/(panel)/avisos/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/comprobantes/[id]/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/app/admin/(panel)/configuracion/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/consumo/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/cuentas/[id]/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/admin/(panel)/cuentas/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/empresas/[id]/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/empresas/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/errores/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/integridad/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/monitor/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/admin/(panel)/planes/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/developers/catalogos/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/developers/entornos/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 32
+    }
+  },
+  "src/app/developers/errores/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 51
+    }
+  },
+  "src/app/developers/guia/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 413
+    }
+  },
+  "src/app/developers/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 8
+    }
+  },
+  "src/app/error.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/login/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/app/onboarding/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/app/page.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 49
+    }
+  },
+  "src/components/admin/acciones-de-baja.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/admin/acciones-de-cuenta.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/admin/acciones-de-usuario.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/admin-login-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/admin-perfil.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/admin/admin-sidebar.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/alta-asistida-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/admin/cambiar-plan.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/admin/dialogo-de-accion.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/editor-de-plantilla.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/formulario-de-aviso.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/formulario-de-plan.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/formulario-de-remitente.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/admin/registrar-pago.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/api-keys/api-key-revelada.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/api-keys/api-keys-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 22
+    }
+  },
+  "src/components/api-keys/ejemplo-integracion.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 27
+    }
+  },
+  "src/components/api-keys/nueva-api-key-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 8
+    }
+  },
+  "src/components/api-keys/referencia-api-keys.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 27
+    }
+  },
+  "src/components/auth/login-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/auth/registro-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/clientes/cliente-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/clientes/cliente-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 16
+    }
+  },
+  "src/components/clientes/clientes-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 17
+    }
+  },
+  "src/components/comprobantes/agente-detalle.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 24
+    }
+  },
+  "src/components/comprobantes/ajuste-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/components/comprobantes/anticipos-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 9
+    }
+  },
+  "src/components/comprobantes/aviso-boleta-sin-informar.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 10
+    }
+  },
+  "src/components/comprobantes/avisos-de-emision.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/comprobantes/baja-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 33
+    }
+  },
+  "src/components/comprobantes/baja-estado.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 13
+    }
+  },
+  "src/components/comprobantes/buscador-de-clientes.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/comprobantes/buscador-de-productos.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/comprobantes/comprobantes-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 46
+    }
+  },
+  "src/components/comprobantes/correo-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/comprobantes/credito-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/comprobantes/descarga-masiva.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 9
+    }
+  },
+  "src/components/comprobantes/detraccion-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 21
+    }
+  },
+  "src/components/comprobantes/duplicar-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/comprobantes/envio-al-cliente-estado.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 11
+    }
+  },
+  "src/components/comprobantes/estado-badge.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/comprobantes/estado-consulta-ruc.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 9
+    }
+  },
+  "src/components/comprobantes/exportar-comprobantes.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/comprobantes/nota-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 94
+    }
+  },
+  "src/components/comprobantes/nuevo-comprobante-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 45
+    }
+  },
+  "src/components/comprobantes/nuevo-comprobante-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 151
+    }
+  },
+  "src/components/comprobantes/percepcion-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 7
+    }
+  },
+  "src/components/comprobantes/recuperar-cdr-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/comprobantes/reenviar-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/comprobantes/referencias-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/comprobantes/resumen-de-comprobantes.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 31
+    }
+  },
+  "src/components/comprobantes/retencion-editor.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/components/comprobantes/validez-button.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/comprobantes/vista-previa.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 7
+    }
+  },
+  "src/components/developers/api-reference.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/developers/buscar-en-la-documentacion.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/developers/catalogos-view.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 22
+    }
+  },
+  "src/components/developers/developers-header.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/developers/developers-nav.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/developers/developers-view.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 11
+    }
+  },
+  "src/components/developers/entornos-datos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 51
+    }
+  },
+  "src/components/developers/errores-datos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 160
+    }
+  },
+  "src/components/developers/generar-key-prueba.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/components/developers/guia/casos-emision.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 257
+    }
+  },
+  "src/components/developers/guia/indice-activo.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/developers/guia/webhooks.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/developers/indices.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/empresa/certificado-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 17
+    }
+  },
+  "src/components/empresa/credenciales-api-sunat-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/empresa/credenciales-sol-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 11
+    }
+  },
+  "src/components/empresa/datos-fiscales-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 20
+    }
+  },
+  "src/components/empresa/envio-al-cliente-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 8
+    }
+  },
+  "src/components/empresa/guia-para-emitir.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/empresa/nueva-empresa-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/empresa/nueva-empresa-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 11
+    }
+  },
+  "src/components/empresa/personalizacion-pdf-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 28
+    }
+  },
+  "src/components/empresa/referencia-empresa.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 20
+    }
+  },
+  "src/components/empresa/secciones-empresa.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/empresa/ubigeo-selector.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 14
+    }
+  },
+  "src/components/equipo/equipo-view.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/establecimientos/establecimiento-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/establecimientos/establecimiento-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/establecimientos/establecimientos-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 23
+    }
+  },
+  "src/components/feedback/spinner.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/formularios/campo.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/formularios/entrada-monto.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/formularios/stepper-numerico.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/inicio/alertas-del-panel.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/inicio/grafico-de-emision.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 9
+    }
+  },
+  "src/components/inicio/kpis-del-mes.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 18
+    }
+  },
+  "src/components/landing/como-funciona.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/landing/comprobante-preview.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 10
+    }
+  },
+  "src/components/landing/faq.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 11
+    }
+  },
+  "src/components/landing/planes-datos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 23
+    }
+  },
+  "src/components/landing/planes.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 16
+    }
+  },
+  "src/components/landing/site-header.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/nav/empresa-selector.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/nav/mobile-nav.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/nav/perfil-usuario.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/nav/plan-y-consumo.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/nav/sidebar-content.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/components/nav/sidebar-nav.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 15
+    }
+  },
+  "src/components/nav/theme-toggle.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 4
+    }
+  },
+  "src/components/nav/top-bar.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 29
+    }
+  },
+  "src/components/navegacion/pasos.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/onboarding/onboarding-empresa-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 17
+    }
+  },
+  "src/components/productos/producto-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/productos/producto-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 22
+    }
+  },
+  "src/components/productos/productos-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 19
+    }
+  },
+  "src/components/series/nueva-serie-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/components/series/nueva-serie-form.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 21
+    }
+  },
+  "src/components/series/referencia-series.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 31
+    }
+  },
+  "src/components/series/series-table.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 27
+    }
+  },
+  "src/components/soporte/ayuda-de-soporte.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/components/webhooks/entregas-webhook.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 20
+    }
+  },
+  "src/components/webhooks/nuevo-webhook-dialog.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 12
+    }
+  },
+  "src/components/webhooks/secreto-webhook-revelado.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/components/webhooks/webhook-card.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 30
+    }
+  },
+  "src/components/webhooks/webhooks-section.tsx": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/lib/api/admin-consumo.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/lib/api/admin-planes.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/lib/api/browser.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/lib/api/catalogos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/lib/api/client.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/api/clientes-browser.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/api/consulta-ruc.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/lib/api/empresas.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 10
+    }
+  },
+  "src/lib/api/facturas.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 46
+    }
+  },
+  "src/lib/api/http.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/lib/api/productos-browser.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/api/webhooks-browser.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/baja-etiqueta.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 10
+    }
+  },
+  "src/lib/bitacora.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/lib/comprobantes/ajustes.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/lib/comprobantes/anticipos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/lib/comprobantes/credito.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 8
+    }
+  },
+  "src/lib/comprobantes/detraccion.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 5
+    }
+  },
+  "src/lib/comprobantes/documentos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 26
+    }
+  },
+  "src/lib/comprobantes/duplicar.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 10
+    }
+  },
+  "src/lib/comprobantes/monedas.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 17
+    }
+  },
+  "src/lib/comprobantes/operaciones.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 21
+    }
+  },
+  "src/lib/comprobantes/percepcion.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/lib/comprobantes/redondeo.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/comprobantes/referencias.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 19
+    }
+  },
+  "src/lib/comprobantes/retencion.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  },
+  "src/lib/comprobantes/tributos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 35
+    }
+  },
+  "src/lib/configuracion-formulario.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 3
+    }
+  },
+  "src/lib/cuenta/resumen-de-plan.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/lib/developers/entradas.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 18
+    }
+  },
+  "src/lib/empresa/guia-emision.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 21
+    }
+  },
+  "src/lib/inicio/panel.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 30
+    }
+  },
+  "src/lib/validacion.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 13
+    }
+  },
+  "src/lib/webhooks/eventos.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 25
+    }
+  }
+}

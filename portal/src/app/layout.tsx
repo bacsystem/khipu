@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import { connection } from "next/server";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Providers } from "@/components/providers";
 import { SoporteProvider } from "@/components/soporte/ayuda-de-soporte";
 import { soporteParaMostrar } from "@/lib/soporte";
@@ -25,10 +27,10 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Portal Facturación Electrónica",
-  description: "Autoservicio de facturación electrónica SUNAT",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("app.metadatos");
+  return { title: t("titulo"), description: t("descripcion") };
+}
 
 export default async function RootLayout({
   children,
@@ -38,12 +40,16 @@ export default async function RootLayout({
   // #250: el soporte se lee al servir, no al compilar; si no, una imagen construida una vez llevaría el valor del build a todos los entornos.
   await connection();
   const soporte = soporteParaMostrar();
+  const locale = await getLocale();
   return (
-    <html lang="es" className={`${sans.variable} ${heading.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${sans.variable} ${heading.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="antialiased">
-        <Providers>
-          <SoporteProvider soporte={soporte}>{children}</SoporteProvider>
-        </Providers>
+        {/* #25: sin props hereda locale, zona horaria y mensajes de src/i18n/request.ts; los Client Components los leen de acá. */}
+        <NextIntlClientProvider>
+          <Providers>
+            <SoporteProvider soporte={soporte}>{children}</SoporteProvider>
+          </Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

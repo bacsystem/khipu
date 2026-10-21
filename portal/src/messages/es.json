@@ -2,7 +2,11 @@
   "app": {
     "nombre": "Portal de facturación electrónica",
     "marca": "khipu",
-    "dominio": ".pe"
+    "dominio": ".pe",
+    "metadatos": {
+      "titulo": "Portal Facturación Electrónica",
+      "descripcion": "Autoservicio de facturación electrónica SUNAT"
+    }
   },
   "comun": {
     "cargando": "Cargando…",
@@ -1131,21 +1135,38 @@
       "series": {
         "titulo": "Series",
         "vacio": "Esta empresa no tiene series.",
-        "columnas": { "serie": "Serie", "tipo": "Tipo", "ultimo": "Último número", "estado": "Estado", "establecimiento": "Establecimiento" },
+        "columnas": {
+          "serie": "Serie",
+          "tipo": "Tipo",
+          "ultimo": "Último número",
+          "estado": "Estado",
+          "establecimiento": "Establecimiento"
+        },
         "activa": "Activa",
         "inactiva": "Inactiva"
       },
       "establecimientos": {
         "titulo": "Establecimientos anexos",
         "vacio": "No tiene establecimientos anexos.",
-        "columnas": { "codigo": "Código", "nombre": "Nombre", "direccion": "Dirección", "estado": "Estado" },
+        "columnas": {
+          "codigo": "Código",
+          "nombre": "Nombre",
+          "direccion": "Dirección",
+          "estado": "Estado"
+        },
         "activo": "Activo",
         "inactivo": "Inactivo"
       },
       "apiKeys": {
         "titulo": "API keys",
         "vacio": "Esta empresa no tiene API keys.",
-        "columnas": { "prefijo": "Prefijo", "estado": "Estado", "creada": "Creada", "revocada": "Revocada", "acciones": "Acciones" },
+        "columnas": {
+          "prefijo": "Prefijo",
+          "estado": "Estado",
+          "creada": "Creada",
+          "revocada": "Revocada",
+          "acciones": "Acciones"
+        },
         "nota": "Solo el prefijo: el secreto nunca se muestra.",
         "activa": "Vigente",
         "revocada": "Revocada"
@@ -1163,7 +1184,14 @@
       "comprobantes": {
         "titulo": "Comprobantes recientes",
         "vacio": "Todavía no emitió comprobantes.",
-        "columnas": { "comprobante": "Comprobante", "fecha": "Emisión", "estado": "Estado", "total": "Total", "intentos": "Envíos fallidos", "cdr": "CDR de SUNAT" },
+        "columnas": {
+          "comprobante": "Comprobante",
+          "fecha": "Emisión",
+          "estado": "Estado",
+          "total": "Total",
+          "intentos": "Envíos fallidos",
+          "cdr": "CDR de SUNAT"
+        },
         "sinCdr": "Sin respuesta de SUNAT",
         "sinObservaciones": "Sin observaciones",
         "ultimoError": "Último error"
@@ -1171,7 +1199,12 @@
       "eventos": {
         "titulo": "Cambios de estado",
         "vacio": "Los comprobantes recientes no tienen cambios de estado.",
-        "columnas": { "comprobante": "Comprobante", "cambio": "Cambio", "detalle": "Detalle", "cuando": "Cuándo" },
+        "columnas": {
+          "comprobante": "Comprobante",
+          "cambio": "Cambio",
+          "detalle": "Detalle",
+          "cuando": "Cuándo"
+        },
         "inicio": "Inicio"
       },
       "outbox": {
@@ -1179,7 +1212,12 @@
         "vacio": "No tiene tareas pendientes.",
         "total": "{n} tareas pendientes",
         "unaTarea": "1 tarea pendiente",
-        "columnas": { "tarea": "Tarea", "intentos": "Intentos", "proximo": "Próximo intento", "error": "Último error" }
+        "columnas": {
+          "tarea": "Tarea",
+          "intentos": "Intentos",
+          "proximo": "Próximo intento",
+          "error": "Último error"
+        }
       }
     },
     "detalle": {
@@ -1205,13 +1243,25 @@
         "titulo": "Historial del estado",
         "descripcion": "Cada suspensión, reactivación, baja y reposición de la cuenta, con quién la hizo y por qué.",
         "vacio": "La cuenta nunca cambió de estado.",
-        "columnas": { "cuando": "Cuándo", "cambio": "Cambio", "quien": "Quién", "motivo": "Motivo" },
+        "columnas": {
+          "cuando": "Cuándo",
+          "cambio": "Cambio",
+          "quien": "Quién",
+          "motivo": "Motivo"
+        },
         "sinMotivo": "Sin motivo"
       },
       "usuarios": {
         "titulo": "Usuarios",
         "vacio": "Esta cuenta no tiene usuarios.",
-        "columnas": { "correo": "Correo", "rol": "Rol", "estado": "Estado", "verificado": "Correo", "ultimoAcceso": "Último acceso", "acciones": "Acciones" },
+        "columnas": {
+          "correo": "Correo",
+          "rol": "Rol",
+          "estado": "Estado",
+          "verificado": "Correo",
+          "ultimoAcceso": "Último acceso",
+          "acciones": "Acciones"
+        },
         "activo": "Activo",
         "inactivo": "Inactivo",
         "verificado": "Verificado",
@@ -1264,7 +1314,12 @@
       "empresas": {
         "titulo": "Empresas",
         "vacio": "Esta cuenta todavía no tiene empresas.",
-        "columnas": { "empresa": "Empresa", "entorno": "Entorno", "certificado": "Certificado", "sol": "Credenciales SOL" },
+        "columnas": {
+          "empresa": "Empresa",
+          "entorno": "Entorno",
+          "certificado": "Certificado",
+          "sol": "Credenciales SOL"
+        },
         "beta": "Beta",
         "produccion": "Producción",
         "sinCertificado": "Sin cargar",
@@ -1279,12 +1334,23 @@
       "comprobantes": {
         "titulo": "Comprobantes recientes",
         "vacio": "Todavía no emitió comprobantes.",
-        "columnas": { "comprobante": "Comprobante", "empresa": "Empresa", "fecha": "Emisión", "estado": "Estado", "total": "Total" }
+        "columnas": {
+          "comprobante": "Comprobante",
+          "empresa": "Empresa",
+          "fecha": "Emisión",
+          "estado": "Estado",
+          "total": "Total"
+        }
       },
       "eventos": {
         "titulo": "Acciones del administrador",
         "vacio": "Ningún administrador actuó sobre esta cuenta.",
-        "columnas": { "accion": "Acción", "actor": "Quién", "cuando": "Cuándo", "detalle": "Detalle" },
+        "columnas": {
+          "accion": "Acción",
+          "actor": "Quién",
+          "cuando": "Cuándo",
+          "detalle": "Detalle"
+        },
         "actorAdministrador": "Administrador",
         "actorPlataforma": "Clave de plataforma",
         "claves": {
@@ -1418,7 +1484,11 @@
     "hasta": "Hasta {fecha}"
   },
   "roles": {
-    "etiquetas": { "ADMIN": "Administrador", "EMISOR": "Emisor", "LECTURA": "Solo lectura" },
+    "etiquetas": {
+      "ADMIN": "Administrador",
+      "EMISOR": "Emisor",
+      "LECTURA": "Solo lectura"
+    },
     "descripciones": {
       "ADMIN": "Todo: emite, configura la empresa, las series, el certificado y las API keys, y gestiona el equipo.",
       "EMISOR": "Emite, consulta y anula comprobantes, y guarda clientes y productos. No cambia la configuración ni el equipo.",
@@ -1442,7 +1512,13 @@
     "vencida": "Vencida",
     "venceEl": "Vence el {fecha}",
     "envios": "{n} de 5 envíos",
-    "columnas": { "usuario": "Usuario", "rol": "Rol", "estado": "Estado", "acciones": "Acciones", "correo": "Correo" },
+    "columnas": {
+      "usuario": "Usuario",
+      "rol": "Rol",
+      "estado": "Estado",
+      "acciones": "Acciones",
+      "correo": "Correo"
+    },
     "cambiarRol": "Rol de {email}",
     "desactivar": "Desactivar",
     "confirmarDesactivar": "¿Desactivar? Se cerrarán sus sesiones.",
@@ -1489,7 +1565,11 @@
       "descripcion": "Cada vez que alguien del equipo de khipu miró tu portal para ayudarte, queda aquí: cuándo, como qué usuario y por cuánto tiempo como máximo. Solo pueden mirar: no pueden cambiar nada.",
       "vacio": "Nadie del equipo de soporte ha entrado a tu cuenta.",
       "error": "No se pudo cargar el historial de accesos.",
-      "columnas": { "cuando": "Cuándo", "usuario": "Usuario", "duracion": "Duración máxima" },
+      "columnas": {
+        "cuando": "Cuándo",
+        "usuario": "Usuario",
+        "duracion": "Duración máxima"
+      },
       "minutos": "{n} min",
       "segundos": "{n} s",
       "sinDetalle": "Sin detalle"
@@ -1544,7 +1624,7 @@
     "ID_INVALIDO": "El identificador no es válido.",
     "IDEMPOTENCIA_VENCIDA": "Esta alta ya se hizo hace más de una hora y su API key ya no se puede mostrar. El cliente puede crear otra desde su portal.",
     "IDEMPOTENCIA_INVALIDA": "La clave del pedido ya se usó con otros datos. Vuelve a enviar el formulario.",
-    "DEMASIADOS_INTENTOS":"Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
+    "DEMASIADOS_INTENTOS": "Demasiados códigos incorrectos. Espera 15 minutos antes de volver a intentarlo.",
     "DEMASIADOS_INTENTOS_LOGIN": "Demasiados intentos fallidos. Por seguridad, espera 15 minutos antes de volver a intentarlo.",
     "SEGUNDO_FACTOR_YA_CONFIGURADO": "Tu cuenta ya tiene la verificación en dos pasos configurada. Vuelve a iniciar sesión.",
     "SEGUNDO_FACTOR_NO_CONFIGURADO": "Tu cuenta todavía no tiene la verificación en dos pasos. Vuelve a iniciar sesión para configurarla.",

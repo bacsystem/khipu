@@ -167,3 +167,31 @@ describe("formatearMes", () => {
     for (const malo of ["", "2026", "2026-13", "2026-00", "octubre"]) expect(formatearMes(malo), malo).toBe(malo);
   });
 });
+
+describe("con locale (#25)", () => {
+  it("sin locale y con «es» es el formato de siempre: Lima, SUNAT y meses de Perú", () => {
+    expect(formatearFecha("2026-09-14", "es")).toBe("14 Set 2026");
+    expect(formatearFechaHora("2026-09-15T15:32:00Z", "es")).toBe("15 Set 2026, 10:32");
+    expect(formatearMonto("PEN", 2000.01, "es")).toBe("S/ 2,000.01");
+    expect(formatearMes("2026-09", "es")).toBe("Set 2026");
+  });
+
+  it("en inglés el mes va primero con su abreviatura inglesa, y la hora sigue siendo la de Lima", () => {
+    expect(formatearFecha("2026-09-14", "en")).toBe("Sep 14, 2026");
+    expect(formatearFecha("2026-01-05", "en")).toBe("Jan 5, 2026");
+    expect(formatearFechaHora("2026-01-01T02:05:00Z", "en")).toBe("Dec 31, 2025, 21:05");
+    expect(formatearFechaDeLima("2026-11-01T03:00:00Z", "en")).toBe("Oct 31, 2026");
+    expect(formatearMes("2026-09", "en")).toBe("Sep 2026");
+  });
+
+  it("los montos mantienen el formato SUNAT en los dos idiomas", () => {
+    expect(formatearNumero(1234567.5, "en")).toBe("1,234,567.50");
+    expect(formatearPrecioUnitario(0.0123, "en")).toBe("0.0123");
+    expect(formatearMonto("USD", 5, "en")).toBe("$ 5.00");
+  });
+
+  it("una fecha ilegible se devuelve tal cual en cualquier idioma", () => {
+    expect(formatearFecha("hoy", "en")).toBe("hoy");
+    expect(formatearFecha("2026-13-01", "es")).toBe("2026-13-01");
+  });
+});

@@ -1,0 +1,1692 @@
+{
+  "app": {
+    "nombre": "Electronic invoicing portal",
+    "marca": "khipu",
+    "dominio": ".pe",
+    "metadatos": {
+      "titulo": "Electronic Invoicing Portal",
+      "descripcion": "Self-service SUNAT electronic invoicing"
+    }
+  },
+  "comun": {
+    "cargando": "Loading…",
+    "guardar": "Save",
+    "cancelar": "Cancel",
+    "cerrarSesion": "Sign out"
+  },
+  "auth": {
+    "marca": {
+      "titulo": "Issue electronic receipts without the hassle.",
+      "subtitulo": "Invoices, credit and debit notes, and voided document notices, in UBL 2.1 and with SUNAT validation rules.",
+      "pie": "UBL 2.1 · SUNAT validation rules"
+    },
+    "login": {
+      "titulo": "Sign in",
+      "subtitulo": "Sign in to your account to continue.",
+      "email": "Email",
+      "password": "Password",
+      "enviar": "Sign in",
+      "enviando": "Signing in…",
+      "olvidaste": "Forgot your password?",
+      "sinCuenta": "Don’t have an account?",
+      "crearCuenta": "Create one"
+    },
+    "registro": {
+      "titulo": "Create your account",
+      "subtitulo": "Start issuing receipts in minutes.",
+      "nombre": "Account name",
+      "telefono": "Mobile (Peru)",
+      "ayudaTelefono": "We will contact you if there is any problem with your account. 9 digits, starting with 9.",
+      "email": "Email",
+      "password": "Password",
+      "ayudaPassword": "At least 8 characters, with a letter and a number.",
+      "enviar": "Create account",
+      "enviando": "Creating…",
+      "yaTienesCuenta": "Already have an account?",
+      "iniciarSesion": "Sign in",
+      "aceptoLos": "I accept the",
+      "terminos": "terms of service",
+      "yLa": "and the",
+      "privacidad": "privacy policy",
+      "terminosRequeridos": "To create your account you must accept the terms of service and the privacy policy."
+    },
+    "recuperar": {
+      "titulo": "Recover your password",
+      "subtitulo": "We will send you a link to reset it.",
+      "email": "Email",
+      "enviar": "Send link",
+      "enviando": "Sending…",
+      "confirmacion": "If the email is registered, we sent you a link to reset your password.",
+      "volver": "Back to sign in"
+    },
+    "restablecer": {
+      "titulo": "Choose a new password",
+      "subtitulo": "Enter your new password to continue.",
+      "password": "New password",
+      "ayudaPassword": "At least 8 characters, with a letter and a number.",
+      "enviar": "Reset password",
+      "enviando": "Resetting…",
+      "exito": "Your password was updated. You can now sign in.",
+      "irALogin": "Go to sign in"
+    },
+    "invitacion": {
+      "titulo": "Create your password",
+      "subtitulo": "We signed you up for khipu. Choose the password you will use to sign in.",
+      "password": "Your password",
+      "ayudaPassword": "At least 8 characters, with a letter and a number.",
+      "enviar": "Create password",
+      "enviando": "Saving…",
+      "exito": "Your password is ready. You can now sign in.",
+      "irALogin": "Go to sign in",
+      "enlaceInvalido": "The invitation link is invalid or has expired. Request a new one from “Forgot your password?” on the sign-in page."
+    },
+    "verificar": {
+      "titulo": "Verify your email",
+      "subtitulo": "Confirm that this email is yours to start issuing.",
+      "enviar": "Verify my email",
+      "enviando": "Verifying…",
+      "exito": "Your email is verified. You can now set up your company and start issuing.",
+      "continuar": "Continue",
+      "enlaceInvalido": "The verification link is invalid, has expired, or was already used. Sign in and request another."
+    },
+    "aceptarInvitacion": {
+      "titulo": "Join your team",
+      "subtitulo": "Create your password to sign in.",
+      "invitado": "You were invited to {cuenta} as {rol}.",
+      "email": "You will sign in with {email}.",
+      "password": "Your password",
+      "ayudaPassword": "At least 8 characters, with a letter and a number.",
+      "enviar": "Accept and create password",
+      "enviando": "Saving…",
+      "exito": "Done: you are now part of the team. Sign in with your email and the password you chose.",
+      "irALogin": "Go to sign in",
+      "enlaceInvalido": "The invitation link is invalid, has expired, or was already used. Ask the person who invited you to resend it."
+    },
+    "revisaTuCorreo": {
+      "titulo": "Check your email",
+      "descripcion": "We sent a link to {email} to verify that it is yours. Open it to set up your company and start issuing: until then you can look around the portal, but you cannot create or issue anything.",
+      "reenviar": "Send me another link",
+      "reenviando": "Sending…",
+      "reenviado": "We sent you another link. Check your spam folder too.",
+      "yaVerifique": "I already verified"
+    }
+  },
+  "admin": {
+    "login": {
+      "titulo": "Backoffice",
+      "subtitulo": "Access for platform administrators.",
+      "email": "Email",
+      "password": "Password",
+      "enviar": "Sign in",
+      "enviando": "Signing in…",
+      "segundoFactor": {
+        "codigo": "6-digit code",
+        "codigoRecuperacion": "Recovery code",
+        "verificar": "Verify",
+        "verificando": "Verifying…",
+        "verificarTitulo": "Two-step verification",
+        "verificarDescripcion": "Open your authenticator app and enter the code it shows for khipu.",
+        "verificarRecuperacionDescripcion": "Enter one of the recovery codes you saved. Each one works only once.",
+        "usarRecuperacion": "Use a recovery code",
+        "usarApp": "Use the app code",
+        "configurarTitulo": "Set up two-step verification",
+        "configurarDescripcion": "The backoffice can see the tax data of all customers, so to sign in you need, in addition to your password, a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Authy…).",
+        "configurarPaso1": "Scan this QR code with the app.",
+        "configurarSecreto": "Can’t scan it? Enter this key in the app:",
+        "configurarPaso2": "Enter the 6-digit code shown by the app.",
+        "configurarQrAlt": "QR code to add khipu to your authenticator app",
+        "activar": "Activate and sign in",
+        "activando": "Activating…",
+        "cargandoQr": "Generating the code…",
+        "codigosTitulo": "Save your recovery codes",
+        "codigosDescripcion": "If you lose your phone, each of these codes lets you sign in once. They are not shown again: copy or print them and keep them somewhere other than your phone.",
+        "codigosCopiar": "Copy the codes",
+        "codigosContinuar": "I saved them, continue"
+      }
+    },
+    "inicio": {
+      "titulo": "Backoffice",
+      "descripcion": "Everything managed on the platform, grouped the same way as the menu.",
+      "resumen": {
+        "cuentas": "Registered customers: sign-up, plan, payments, status, and user access.",
+        "empresas": "Every RUC on the platform: environment, certificate, SOL credentials, and API keys.",
+        "planes": "What you sell: price and limits of each plan.",
+        "consumo": "How much each account used this month against its plan cap.",
+        "monitor": "How issuing is going over the last 24 hours and whether SUNAT is responding.",
+        "errores": "Documents with problems across all customers, from most to least urgent.",
+        "avisos": "Certificates about to expire and rejected SOL credentials, so you can warn customers in time.",
+        "integridad": "Checks that the stored XML and CDR files are still the signed ones.",
+        "configuracion": "Sender, email templates, and maintenance notice."
+      }
+    },
+    "nav": {
+      "menu": "Backoffice menu",
+      "inicio": "Home",
+      "cuentas": "Accounts",
+      "empresas": "Companies",
+      "planes": "Plans",
+      "consumo": "Usage",
+      "integridad": "Integrity",
+      "monitor": "Monitor",
+      "errores": "Errors",
+      "avisos": "Notices",
+      "configuracion": "Settings"
+    },
+    "topbar": {
+      "ubicacion": "Location",
+      "abrirMenu": "Open menu",
+      "backoffice": "Backoffice",
+      "clientes": "Customers",
+      "comercial": "Commercial",
+      "operacion": "Operations",
+      "plataforma": "Platform",
+      "nuevaCuenta": "New account"
+    },
+    "cuentas": {
+      "titulo": "Accounts",
+      "descripcion": "Customers registered on the platform.",
+      "buscar": "Search by email, name, RUC or business name",
+      "botonBuscar": "Search",
+      "quitarFiltros": "Clear filters",
+      "vacio": "There are no accounts yet.",
+      "sinResultados": "No accounts match those filters.",
+      "nunca": "Never",
+      "columnas": {
+        "cuenta": "Account",
+        "telefono": "Phone",
+        "empresas": "Companies",
+        "estado": "Status",
+        "alta": "Signed up",
+        "ultimoAcceso": "Last sign-in"
+      },
+      "error": "Could not load the list of accounts.",
+      "reintentar": "Try again"
+    },
+    "empresas": {
+      "titulo": "Companies",
+      "descripcion": "All companies on the platform and whether they are able to issue.",
+      "buscar": "Search by RUC or business name",
+      "botonBuscar": "Search",
+      "filtroEntorno": "Environment",
+      "filtroCertificado": "Certificate",
+      "todosEntornos": "All environments",
+      "todosCertificados": "All certificates",
+      "quitarFiltros": "Clear filters",
+      "vacio": "There are no companies yet.",
+      "sinResultados": "No companies match those filters.",
+      "sinCuenta": "No account",
+      "sinSerie": "No series",
+      "nuncaEmitio": "Never issued",
+      "beta": "Beta",
+      "produccion": "Production",
+      "solCargadas": "Loaded",
+      "solSinCargar": "Not loaded",
+      "estados": {
+        "SIN_CERTIFICADO": "No certificate",
+        "SIN_FECHA": "No validity date",
+        "VIGENTE": "Valid",
+        "POR_VENCER": "Expiring soon",
+        "VENCIDO": "Expired"
+      },
+      "columnas": {
+        "empresa": "Company",
+        "cuenta": "Account",
+        "entorno": "Environment",
+        "certificado": "Certificate",
+        "sol": "SOL credentials",
+        "series": "Series",
+        "delMes": "Issued this month",
+        "delMesAyuda": "All documents issued this month, accepted or not. What counts toward the plan (what SUNAT accepted, even if later voided) is under Usage.",
+        "ultimaEmision": "Last issued"
+      },
+      "error": "Could not load the list of companies.",
+      "reintentar": "Retry"
+    },
+    "planes": {
+      "titulo": "Plans",
+      "descripcion": "What is sold: the price and limits of each plan, and how many accounts have it. Changing a limit applies to the next cycle (the calendar month in Lima), not the one in progress.",
+      "nuevo": "New plan",
+      "vacio": "There are no plans yet.",
+      "error": "Could not load the list of plans.",
+      "reintentar": "Try again",
+      "porDefecto": "For new accounts",
+      "porDefectoAyuda": "This is the plan every new account starts with: it cannot be deactivated or deleted.",
+      "noPublicado": "Not published",
+      "noPublicadoAyuda": "Custom plan: it can be assigned and billed, but it does not appear on the pricing page.",
+      "inactivo": "Off the market",
+      "columnas": {
+        "plan": "Plan",
+        "precio": "Monthly price",
+        "documentos": "Documents / month",
+        "rucs": "RUC",
+        "usuarios": "Users",
+        "apiKeys": "API keys",
+        "retencion": "Retention",
+        "cuentas": "Accounts",
+        "acciones": "Actions"
+      },
+      "retencionAnios": "{n} years",
+      "retencionUnAnio": "1 year",
+      "programado": "From {fecha}",
+      "programadoAyuda": "This limit change is not in effect yet: it starts at the beginning of the next cycle.",
+      "cambiosDe": {
+        "documentos": "Documents / month",
+        "rucs": "RUC",
+        "usuarios": "Users",
+        "apiKeys": "API keys",
+        "retencion": "Retention (years)"
+      },
+      "editar": "Edit",
+      "formulario": {
+        "tituloNuevo": "New plan",
+        "descripcionNuevo": "It starts active and can be assigned to accounts right away.",
+        "tituloEditar": "Edit {nombre}",
+        "descripcionEditar": "Change the plan name, price or limits.",
+        "efectosNuevo": [
+          "The plan is offered from the moment you create it.",
+          "The name cannot be repeated, regardless of capitalization."
+        ],
+        "efectosEditar": [
+          "The name and price change immediately.",
+          "The new limits take effect on {fecha}, at the start of the next cycle: raising or lowering a limit mid-month does not change this month and does not cut anyone off.",
+          "Accounts that already have the plan are not affected."
+        ],
+        "hayProgramado": "You are seeing the limits already scheduled (from {fecha}). If you set today’s limits again, the change is canceled.",
+        "nombre": "Name",
+        "nombreEjemplo": "Studio",
+        "precio": "Monthly price (S/)",
+        "precioAyuda": "In soles, with up to two decimals. Zero for a free plan.",
+        "documentos": "Documents per month",
+        "rucs": "RUC",
+        "usuarios": "Users",
+        "apiKeys": "API keys",
+        "retencion": "XML and CDR retention (years)",
+        "ilimitado": "Unlimited",
+        "visible": "Show it on the pricing page",
+        "visibleAyuda": "Uncheck it for a custom plan for one customer: it is assigned and billed all the same, but not published.",
+        "guardar": "Save plan",
+        "guardando": "Saving…",
+        "crear": "Create plan",
+        "creando": "Creating…",
+        "cancelar": "Cancel",
+        "errores": {
+          "nombreRequerido": "Enter the plan name.",
+          "nombreLargo": "The name can be up to 40 characters.",
+          "precioInvalido": "Enter a price of zero or more (up to 99,999,999.99), with up to two decimals.",
+          "limiteInvalido": "Enter a whole number greater than zero, or check “Unlimited”.",
+          "numeroInvalido": "Enter a whole number greater than zero."
+        }
+      },
+      "desactivar": {
+        "boton": "Deactivate",
+        "titulo": "Deactivate {nombre}",
+        "descripcion": "Takes it off the market without affecting those who already have it.",
+        "efectos": [
+          "It stops being offered: it can no longer be assigned to new accounts.",
+          "It can be offered again whenever you want."
+        ],
+        "cuentasUna": "The account that has it keeps it: its subscription does not change.",
+        "cuentasVarias": "The {n} accounts that have it keep it: their subscriptions do not change.",
+        "cuentasNinguna": "No account has it today.",
+        "confirmar": "Deactivate plan",
+        "enviando": "Deactivating…",
+        "cancelar": "Cancel"
+      },
+      "activar": {
+        "boton": "Activate",
+        "titulo": "Offer {nombre} again",
+        "descripcion": "Puts it back on the market.",
+        "efectos": [
+          "It can be assigned to accounts again.",
+          "It does not change the accounts that already have it."
+        ],
+        "confirmar": "Activate plan",
+        "enviando": "Activating…",
+        "cancelar": "Cancel"
+      },
+      "eliminar": {
+        "boton": "Delete",
+        "titulo": "Delete {nombre}",
+        "descripcion": "Only a plan that no one has ever used can be deleted.",
+        "efectos": [
+          "The plan is deleted forever, along with its scheduled limit change if it has one.",
+          "If any account has ever had it, it cannot be deleted: it has to be deactivated."
+        ],
+        "confirmar": "Delete plan",
+        "enviando": "Deleting…",
+        "cancelar": "Cancel"
+      }
+    },
+    "consumo": {
+      "titulo": "Usage",
+      "descripcion": "How much each account used during the month against the cap of its current plan, to warn before it hits the limit or runs out of service. It counts what SUNAT accepted, even if it was later voided, by issue date, in the Lima calendar month.",
+      "ayudaPlanDeHoy": "Compared against each account’s current plan, even for a past month.",
+      "ayudaAlerta": "Near the limit: from {umbral} % of the monthly document cap.",
+      "mes": "Month",
+      "orden": "Sort by",
+      "ordenes": {
+        "PORCENTAJE": "Percentage used",
+        "DOCUMENTOS": "Documents used"
+      },
+      "vistas": "Accounts to show",
+      "filtros": {
+        "TODAS": "All",
+        "CERCA_DEL_LIMITE": "Near the limit",
+        "PLAN_VENCIDO": "Plan expired"
+      },
+      "exportar": "Export CSV",
+      "vacio": {
+        "TODAS": "There are no accounts yet.",
+        "CERCA_DEL_LIMITE": "No account is near its limit this month.",
+        "PLAN_VENCIDO": "No account has an expired plan."
+      },
+      "columnas": {
+        "cuenta": "Account",
+        "plan": "Plan",
+        "documentos": "Documents",
+        "limite": "Monthly cap",
+        "uso": "Usage",
+        "estadoDelPlan": "Plan status"
+      },
+      "ilimitado": "Unlimited",
+      "sinTope": "No cap",
+      "cercaDelLimite": "Near the limit",
+      "enElLimite": "At the limit",
+      "pagadoHasta": "Until {fecha}",
+      "error": "Could not load the accounts’ usage.",
+      "reintentar": "Retry"
+    },
+    "planDeCuenta": {
+      "titulo": "Plan",
+      "error": "Could not load the account plan.",
+      "reintentar": "Retry",
+      "cambiar": "Change plan",
+      "estados": {
+        "VIGENTE": "Up to date",
+        "EN_GRACIA": "In grace period",
+        "VENCIDA": "Expired"
+      },
+      "precio": "{precio} per month",
+      "sinVencimiento": "No expiration",
+      "pagadoHasta": "Paid through {fecha}",
+      "sinGracia": "No grace period",
+      "graciaUno": "1 grace day",
+      "graciaVarios": "{n} grace days",
+      "cubreHasta": "Service continues until {fecha}, grace period included.",
+      "desde": "On this plan since {fecha}",
+      "limites": "Current limits: {limites}",
+      "programado": "Moves to {plan} on {fecha}, at the start of the next cycle. Until then it stays on {actual}.",
+      "dialogo": {
+        "titulo": "Change the plan for {cuenta}",
+        "descripcion": "Upgrades take effect now; downgrades, at the start of the next cycle.",
+        "plan": "New plan",
+        "elegir": "Choose a plan",
+        "pagadoHasta": "Paid through (inclusive)",
+        "pagadoHastaAyuda": "Required on a paid plan. A free plan does not expire.",
+        "gracia": "Grace days",
+        "graciaAyuda": "How long service continues after expiration: 0 to 90 days.",
+        "calculando": "Calculating what would happen…",
+        "errorPrevia": "Could not calculate what would happen.",
+        "direcciones": {
+          "SUBIDA": "Plan upgrade",
+          "BAJADA": "Plan downgrade",
+          "RENOVACION": "Renewal of the same plan"
+        },
+        "efectoInmediato": "Takes effect now.",
+        "efectoCicloSiguiente": "Takes effect on {fecha}, at the start of the next cycle. Until then the account stays on {actual}.",
+        "consumo": "In {mes} the account used {n} documents (this counts what SUNAT accepted, even if later voided). The {plan} plan allows {limite} per month.",
+        "consumoSinTope": "In {mes} the account used {n} documents (this counts what SUNAT accepted, even if later voided). The {plan} plan has no document cap.",
+        "superaInmediato": "It already exceeds that cap: with an immediate change, the account would be over its limit for this month.",
+        "superaBajada": "Nothing changes this month: until the next cycle the account stays on its current plan.",
+        "descartaInmediato": "Cancels the move to {plan} scheduled for {fecha}: the account stays on the new plan.",
+        "descartaBajada": "Replaces the move to {plan} scheduled for {fecha}.",
+        "confirmar": "Confirm the change",
+        "enviando": "Changing…",
+        "cancelar": "Cancel",
+        "errores": {
+          "planRequerido": "Choose the plan.",
+          "vencimientoRequerido": "A paid plan needs the date through which it is paid.",
+          "vencimientoPasado": "The date must be today or later.",
+          "graciaInvalida": "Grace days range from 0 to 90."
+        }
+      }
+    },
+    "pagos": {
+      "titulo": "Payments",
+      "descripcion": "This account’s payments that were recorded by hand. There is no automatic charging: this is the trail of what the customer paid.",
+      "registrar": "Record payment",
+      "vacio": "No payment has been recorded yet.",
+      "error": "Could not load the account’s payments.",
+      "reintentar": "Retry",
+      "muestra": "Showing the {n} most recent of {total}.",
+      "columnas": {
+        "fecha": "Payment date",
+        "periodo": "Period",
+        "monto": "Amount",
+        "medio": "Method",
+        "referencia": "Reference",
+        "vencimiento": "Expiration"
+      },
+      "sinReferencia": "—",
+      "extendio": "Paid through {fecha}",
+      "noExtendio": "No change",
+      "periodo": "{desde} – {hasta}",
+      "medios": {
+        "TRANSFERENCIA": "Bank transfer",
+        "DEPOSITO": "Deposit",
+        "YAPE": "Yape",
+        "PLIN": "Plin",
+        "TARJETA": "Card",
+        "EFECTIVO": "Cash",
+        "OTRO": "Other"
+      },
+      "dialogo": {
+        "titulo": "Record a payment from {cuenta}",
+        "descripcion": "Record what the customer has already paid. It goes into the history and the audit log; it does not charge anything.",
+        "desde": "Period from",
+        "hasta": "Period to (inclusive)",
+        "monto": "Amount (S/)",
+        "montoAyuda": "In soles, with up to two decimals.",
+        "medio": "Payment method",
+        "elegirMedio": "Choose the method",
+        "fecha": "Payment date",
+        "referencia": "Reference",
+        "referenciaAyuda": "Operation number. With a reference, the same method with the same reference cannot be recorded twice.",
+        "nota": "Note",
+        "extender": "Extend the plan expiration to the end of the period",
+        "extenderHoy": "Today it is paid through {actual}; it would move to {nuevo}.",
+        "extenderNoVence": "This account’s plan does not expire: there is no expiration to extend.",
+        "extenderNoAdelanta": "The account is already paid through {actual}: this period does not move the expiration forward.",
+        "extenderSinPlan": "The account’s plan could not be loaded, so the expiration cannot be extended from here.",
+        "extenderElegirPeriodo": "Choose the end of the period to see the new expiration.",
+        "confirmar": "Record payment",
+        "enviando": "Recording…",
+        "cancelar": "Cancel",
+        "errores": {
+          "desdeRequerido": "Enter the date the payment starts covering.",
+          "hastaRequerido": "Enter the date the payment covers through.",
+          "fechaInvalida": "That date does not exist.",
+          "periodoAlReves": "The period cannot end before it starts.",
+          "periodoLargo": "The period cannot exceed one year.",
+          "montoRequerido": "Enter the amount.",
+          "montoInvalido": "The amount must be greater than zero, with up to two decimals.",
+          "montoMuyGrande": "The amount cannot exceed S/ 9,999,999.99.",
+          "medioRequerido": "Choose the payment method.",
+          "fechaRequerida": "Enter the payment date.",
+          "fechaFutura": "The payment date cannot be in the future.",
+          "referenciaLarga": "The reference cannot exceed 100 characters.",
+          "notaLarga": "The note cannot exceed 200 characters.",
+          "extenderSinEfecto": "This period does not move the expiration forward: uncheck the extension or fix the period."
+        }
+      }
+    },
+    "integridad": {
+      "titulo": "Storage integrity",
+      "descripcion": "Checks that the stored XML and CDR files are still the ones that were signed. Read-only: it repairs nothing. The same sweep runs daily over the last few days.",
+      "desde": "From",
+      "hasta": "To (inclusive)",
+      "ayudaRango": "By issue date, up to {max} days at a time.",
+      "verificar": "Verify",
+      "verificando": "Verifying…",
+      "avisoVerificando": "Checking the documents in the range. It can take a while if there are many; do not close the page.",
+      "error": "Could not verify integrity.",
+      "resultado": {
+        "verificados": "{n} documents were verified between {desde} and {hasta}.",
+        "verificadosUno": "1 document was verified between {desde} and {hasta}.",
+        "verificadosNinguno": "There were no signed documents between {desde} and {hasta}.",
+        "limpio": "All good: no problems found.",
+        "problemasUno": "1 problem found in 1 document.",
+        "problemasEnUno": "{p} problems found in 1 document.",
+        "problemasVarios": "{p} problems found in {c} documents."
+      },
+      "columnas": {
+        "problema": "Problem",
+        "comprobante": "Document",
+        "detalle": "Details",
+        "empresa": "Company"
+      },
+      "verEmpresa": "View company",
+      "tipos": {
+        "XML_FALTANTE": "Missing XML",
+        "XML_CORRUPTO": "Corrupt XML",
+        "CDR_FALTANTE": "Missing CDR",
+        "STORAGE_INACCESIBLE": "Storage inaccessible"
+      },
+      "tiposAyuda": {
+        "XML_FALTANTE": "The document is signed but its XML is no longer in storage.",
+        "XML_CORRUPTO": "The XML exists but does not contain the DigestValue it was signed with, or it is truncated.",
+        "CDR_FALTANTE": "SUNAT responded but its CDR is no longer in storage.",
+        "STORAGE_INACCESIBLE": "Storage could not be read: it may be a connection failure rather than a lost object. It is worth running the check again."
+      },
+      "errores": {
+        "desdeRequerido": "Enter the start of the range to verify.",
+        "hastaRequerido": "Enter the end of the range to verify.",
+        "fechaInvalida": "That date does not exist.",
+        "alReves": "The range cannot end before it starts.",
+        "demasiadoLargo": "The range cannot exceed {max} days."
+      }
+    },
+    "monitor": {
+      "titulo": "Issuance monitor",
+      "descripcion": "How issuance is going for all customers: the documents from the last 24 hours, the SUNAT submission queue, and whether SUNAT is responding. It refreshes on its own every 30 seconds.",
+      "ultimaLectura": "Last reading: {hora}",
+      "actualizando": "Refreshing…",
+      "errorAlActualizar": "Could not refresh the monitor. Showing the last reading.",
+      "errorInicial": "Could not load the monitor.",
+      "sesionTerminada": "Your session ended. Reload the page to sign in again.",
+      "reintentar": "Retry",
+      "alerta": {
+        "titulo": "Submission to SUNAT seems stopped",
+        "uno": "There is 1 overdue submission and it has been waiting {tiempo}. The job that empties the queue is probably not running.",
+        "varios": "There are {n} overdue submissions and the longest-waiting one has been waiting {tiempo}. The job that empties the queue is probably not running."
+      },
+      "alertaResumenes": {
+        "titulo": "Some SUNAT procedures have no response",
+        "uno": "1 daily summary or voiding request has gone {tiempo} without a response from SUNAT (limit: {umbral} h).",
+        "varios": "{n} daily summaries or voiding requests have gone more than {umbral} h without a response from SUNAT; the oldest, {tiempo}.",
+        "ayuda": "khipu keeps asking for its ticket (every 5 minutes at most) and does not give up, so it will not resolve on its own: check the ticket in SUNAT. In the meantime the receipt or document stays submitted, accepting neither voiding nor notes."
+      },
+      "alertaBoletas": {
+        "titulo": "Some receipts have not been reported to SUNAT",
+        "uno": "1 receipt has gone 5 days or more without being reported; the oldest was issued on {fecha}.",
+        "varios": "{n} receipts have gone 5 days or more without being reported; the oldest was issued on {fecha}.",
+        "urgente": "1 is on day 7 or already past it.",
+        "urgentes": "{n} are on day 7 or already past it.",
+        "ayuda": "Nobody else sends them: the customer left them unsent or their submission is failing. The daily summary accepts them up to day 7; after that they are reported late and SUNAT may flag them. Let the customer know.",
+        "verLista": "View in the error queue"
+      },
+      "hoy": {
+        "titulo": "Today",
+        "ayuda": "Since midnight in Lima.",
+        "tasa": "Rejection rate",
+        "tasaAyuda": "Rejected out of those SUNAT has already resolved."
+      },
+      "categorias": {
+        "total": "Documents",
+        "aceptados": "Accepted",
+        "rechazados": "Rejected",
+        "conError": "With error",
+        "enCamino": "In transit",
+        "otros": "Other"
+      },
+      "categoriasAyuda": {
+        "aceptados": "Accepted by SUNAT, with or without observations.",
+        "rechazados": "Rejected by SUNAT.",
+        "conError": "Did not arrive: submission error or past the deadline.",
+        "enCamino": "Signed, submitted, or waiting for the daily summary.",
+        "otros": "Received, invalid, or voided."
+      },
+      "horas": {
+        "titulo": "Last 24 hours",
+        "ayuda": "Documents created per hour, in Lima time.",
+        "sinDatos": "No document was created in the last 24 hours.",
+        "grafico": "Documents created per hour in the last 24 hours",
+        "tabla": "View the numbers per hour",
+        "hora": "Hour",
+        "barra": "{hora}: {total} documents"
+      },
+      "outbox": {
+        "titulo": "Submission queue",
+        "ayuda": "Submissions to SUNAT waiting to go out. A scheduled retry does not count as overdue.",
+        "pendientes": "Pending",
+        "vencidos": "Overdue",
+        "masAntiguo": "The oldest has been waiting since",
+        "vencidoHace": "The longest-waiting one has been waiting {tiempo}.",
+        "vacia": "The queue is empty."
+      },
+      "sunat": {
+        "titulo": "SUNAT",
+        "ayuda": "Whether each service responds. The reading is cached for 30 seconds and does not submit any document.",
+        "disponible": "Available",
+        "noDisponible": "Unavailable",
+        "sinServicios": "No SUNAT services are configured.",
+        "milisegundos": "{ms} ms",
+        "servicios": {
+          "ENVIO_PRODUCCION": "Submission (production)",
+          "ENVIO_BETA": "Submission (beta)",
+          "CONSULTA_DE_CDR": "CDR query",
+          "CONSULTA_DE_VALIDEZ": "Validity query"
+        }
+      }
+    },
+    "errores": {
+      "titulo": "Error queue",
+      "descripcion": "Problem documents from all customers, from most to least urgent: sending error, format error, past deadline and unsent receipt, with the SUNAT fault and the attempts. Only a sending error can be retried or discarded; the others are already terminal or are up to the customer.",
+      "vistas": "Error type",
+      "filtros": {
+        "TODAS": "All",
+        "ERROR_DE_ENVIO": "Sending error",
+        "ERROR_DE_FORMATO": "Format error",
+        "FUERA_DE_PLAZO": "Past deadline",
+        "BOLETA_SIN_ENVIAR": "Unsent receipt"
+      },
+      "ayudaClase": {
+        "ERROR_DE_ENVIO": "SUNAT did not respond or failed. It retries on its own.",
+        "ERROR_DE_FORMATO": "SUNAT rejected it with a fault 1000–1999: retrying will not change that.",
+        "FUERA_DE_PLAZO": "It did not arrive within the sending deadline: it has to be issued again.",
+        "BOLETA_SIN_ENVIAR": "A receipt the customer left unsent that is already 5 days old or more. Nothing failed, but the daily summary closes on day 7: let them know."
+      },
+      "buscar": "Search customer",
+      "buscarPlaceholder": "RUC, business name or account",
+      "botonBuscar": "Search",
+      "quitarFiltros": "Clear filters",
+      "soloUnaEmpresa": "One company only",
+      "verTodas": "View all",
+      "columnas": {
+        "cliente": "Customer",
+        "comprobante": "Document",
+        "problema": "Problem",
+        "fault": "SUNAT fault",
+        "intentos": "Failed submissions",
+        "acciones": "Actions"
+      },
+      "sinFault": "No details",
+      "proximoIntento": "Next attempt: {fecha}",
+      "sinReintento": "No retry scheduled",
+      "terminal": "Terminal: it is not retried",
+      "decisionDelCliente": "Sending it is the customer’s decision: let them know",
+      "vacio": {
+        "TODAS": "There are no problem documents. All clear.",
+        "ERROR_DE_ENVIO": "There are no sending errors.",
+        "ERROR_DE_FORMATO": "There are no format errors.",
+        "FUERA_DE_PLAZO": "There are no documents past the deadline.",
+        "BOLETA_SIN_ENVIAR": "There are no unsent receipts."
+      },
+      "vacioConBusqueda": "No problem document matches the search.",
+      "error": "Could not load the error queue.",
+      "volverACargar": "Reload",
+      "reintento": {
+        "boton": "Retry",
+        "titulo": "Retry the submission",
+        "descripcion": "Sends {comprobante} to SUNAT now.",
+        "efectos": [
+          "Sends the document to SUNAT now, with its company’s credentials.",
+          "If SUNAT fails again, it stays as a sending error and keeps retrying on its own.",
+          "If it is no longer pending or the deadline has passed, it is not sent and you are notified.",
+          "It is recorded in the audit log."
+        ],
+        "confirmar": "Retry submission",
+        "enviando": "Retrying…",
+        "cancelar": "Cancel"
+      },
+      "descarte": {
+        "boton": "Discard",
+        "titulo": "Discard the document",
+        "descripcion": "Stops trying to send {comprobante}.",
+        "efectoConsultaSunat": "In production, SUNAT is asked first whether it already received it: if it has it, its response is applied and the document is not discarded.",
+        "efectoSinConsultaSunat": "SUNAT does not allow looking up receipts or receipt notes by series and number: it cannot be asked whether it already received this one. If the submission was cut off after SUNAT accepted it, discarding it leaves two receipts for the same sale; when in doubt, retry the submission.",
+        "efectos": [
+          "The document is discarded: it is never sent again, neither automatically nor manually. This cannot be undone.",
+          "The customer has to issue a new one; this one’s number stays consumed.",
+          "It is removed from the sending queue and from this list.",
+          "It is recorded in the audit log with your reason."
+        ],
+        "motivo": "Reason",
+        "ayudaMotivo": "Required. It is recorded in the audit log. Up to {max} characters.",
+        "confirmar": "Discard document",
+        "enviando": "Discarding…",
+        "cancelar": "Cancel"
+      },
+      "resultado": {
+        "aceptado": "{comprobante}: SUNAT accepted it.",
+        "rechazado": "{comprobante}: SUNAT rejected it{codigo}.",
+        "vuelveAFallar": "{comprobante}: SUNAT failed again (attempt {n}).{detalle}",
+        "otro": "{comprobante} is now in status {estado}.",
+        "descartado": "{comprobante} was discarded."
+      }
+    },
+    "avisos": {
+      "titulo": "Customer notices",
+      "descripcion": "Companies that need to be warned about something before they can no longer issue: an expiring or expired certificate, and SOL credentials that SUNAT does not accept. The notice is emailed to the account; the same notice is not repeated within a week.",
+      "sinCertificado": "Companies that never uploaded their certificate also cannot issue, but they have nothing to expire and do not appear here.",
+      "verSinCertificado": "View companies without a certificate",
+      "vistas": "What to notify",
+      "filtros": {
+        "CERTIFICADOS": "Certificates",
+        "CREDENCIALES_SOL": "SOL credentials"
+      },
+      "ayuda": {
+        "CERTIFICADOS": "Certificates that expire in less than 30 days or have already expired, from most to least urgent.",
+        "CREDENCIALES_SOL": "Inferred from submissions that are failing now: a company that is not issuing does not appear, and one that has already resubmitted successfully drops off on its own."
+      },
+      "columnas": {
+        "empresa": "Company",
+        "situacion": "Status",
+        "ultimoAviso": "Last notice",
+        "accion": "Action"
+      },
+      "motivos": {
+        "CERTIFICADO_POR_VENCER": "Expiring soon",
+        "CERTIFICADO_VENCIDO": "Expired"
+      },
+      "certificado": {
+        "venceHoy": "Expires today ({fecha})",
+        "vence": "Expires on {fecha} (in {dias})",
+        "vencio": "Expired on {fecha} ({dias} ago)",
+        "unDia": "1 day",
+        "variosDias": "{n} days"
+      },
+      "sol": {
+        "atascadoUno": "1 document stuck",
+        "atascadoVarios": "{n} documents stuck",
+        "ultimoFallo": "Last failure: {fecha}",
+        "dijoSunat": "SUNAT said: {error}"
+      },
+      "sinAvisos": "No notices",
+      "avisado": "Notified on {fecha} at {correo}",
+      "puedeRepetirDesde": "Can be repeated from {fecha}",
+      "sinCuenta": "No account: there is no one to notify",
+      "vacio": {
+        "CERTIFICADOS": "No certificate expires in the next 30 days. All good.",
+        "CREDENCIALES_SOL": "No company has submissions stuck because of its SOL credentials."
+      },
+      "error": "Could not load the list of notices.",
+      "volverACargar": "Reload",
+      "avisar": {
+        "boton": "Notify customer",
+        "titulo": "Notify customer",
+        "descripcion": "Sends {empresa} a notice email.",
+        "efectos": [
+          "Sends an email to {correo}: {que}.",
+          "The same notice is not repeated within a week, even if another administrator clicks at the same time.",
+          "It is recorded in the audit log, without the customer’s email."
+        ],
+        "que": {
+          "CERTIFICADO_POR_VENCER": "that their digital certificate is about to expire",
+          "CERTIFICADO_VENCIDO": "that their digital certificate has expired and they cannot issue",
+          "CREDENCIALES_SOL_INVALIDAS": "that SUNAT does not accept their SOL credentials"
+        },
+        "confirmar": "Send the notice",
+        "enviando": "Sending…",
+        "cancelar": "Cancel"
+      },
+      "resultado": {
+        "enviado": "{correo} ({empresa}) was notified."
+      }
+    },
+    "configuracion": {
+      "titulo": "Platform settings",
+      "descripcion": "What changes what customers see and receive, without waiting for a deployment. Every change is recorded in the audit log.",
+      "secciones": "What to configure",
+      "filtros": {
+        "correo": "Outgoing email",
+        "plantillas": "Templates",
+        "aviso": "Maintenance notice"
+      },
+      "error": "Could not load the settings.",
+      "volverACargar": "Reload",
+      "correo": {
+        "titulo": "Who emails come from",
+        "ayuda": "Takes effect from the next email, with no restart. The mail server (SMTP) must accept sending from that address (verified sender, SPF and DKIM): this cannot be checked from here.",
+        "nombre": "Name",
+        "nombreAyuda": "Optional. How the sender appears in the customer’s inbox.",
+        "email": "Sender email",
+        "emailAyuda": "A single address.",
+        "responderA": "Reply to",
+        "responderAyuda": "Optional. If left empty, replies go back to the sender.",
+        "vigente": "Today emails are sent from: {remitente}",
+        "personalizado": "Set by {quien} on {fecha}.",
+        "delServidor": "This is the one from the server configuration: nobody has changed it from here.",
+        "guardar": "Save sender",
+        "guardando": "Saving…",
+        "guardado": "Sender saved: it takes effect from the next email.",
+        "restablecer": {
+          "boton": "Revert to the server default",
+          "titulo": "Revert to the server sender",
+          "descripcion": "Emails go back to being sent from the sender in the server configuration.",
+          "efectos": [
+            "Removes the sender set here, and emails go back to being sent from {remitente}.",
+            "Takes effect from the next email. It does not change the email texts.",
+            "It is recorded in the audit log."
+          ],
+          "confirmar": "Revert to the server default",
+          "enviando": "Reverting…",
+          "cancelar": "Cancel"
+        }
+      },
+      "plantillas": {
+        "titulo": "Email texts",
+        "ayuda": "The text of each email the platform sends. Anything not changed goes out with the default text. Takes effect from the next email.",
+        "lista": "Emails",
+        "personalizada": "Edited",
+        "defecto": "Default",
+        "cuandoSeManda": "When it is sent",
+        "asunto": "Subject",
+        "cuerpo": "Body",
+        "variables": "Variables",
+        "variablesAyuda": "They are written between braces and replaced when the email is sent. Click to insert one where the cursor is.",
+        "indispensable": "required",
+        "ejemplo": "Example: {ejemplo}",
+        "insertar": "Insert {variable}",
+        "vistaPrevia": "Preview",
+        "calculandoVistaPrevia": "Calculating…",
+        "vistaPreviaTitulo": "This is how it would look, with sample values",
+        "vistaPreviaAsunto": "Subject",
+        "vistaPreviaCuerpo": "Body",
+        "guardar": "Save text",
+        "guardando": "Saving…",
+        "guardado": "Text saved: it takes effect from the next email.",
+        "sinCambios": "No unsaved changes.",
+        "conCambios": "You have unsaved changes.",
+        "actualizada": "Edited by {quien} on {fecha}.",
+        "deFabrica": "It goes out with the default text.",
+        "restaurar": {
+          "boton": "Revert to default",
+          "titulo": "Revert to the default text",
+          "descripcion": "The email “{correo}” goes back to being sent with its default text.",
+          "efectos": [
+            "Deletes the text written here: it cannot be undone, but it can be written again.",
+            "Takes effect from the next email.",
+            "It is recorded in the audit log (without the text)."
+          ],
+          "confirmar": "Revert to default",
+          "enviando": "Restoring…",
+          "cancelar": "Cancel"
+        }
+      },
+      "aviso": {
+        "titulo": "Maintenance notice",
+        "ayuda": "A notice that all customers see at the top of their portal, also before signing in. It always has an end: it hides itself. Times are Lima time.",
+        "texto": "Text",
+        "textoAyuda": "A single line, up to {max} characters. It is shown as plain text.",
+        "desde": "Shown from",
+        "hasta": "Until",
+        "hastaAyuda": "Required, and at most {dias} days after it starts.",
+        "publicar": "Publish notice",
+        "reemplazar": "Replace notice",
+        "publicando": "Publishing…",
+        "publicado": "Notice published.",
+        "retirado": "Notice withdrawn: it is no longer shown to anyone.",
+        "vistaPrevia": "This is how customers will see it",
+        "estado": {
+          "vigente": "It is being shown now.",
+          "programado": "Scheduled: not shown yet.",
+          "vencido": "It has already expired: not shown."
+        },
+        "vigencia": "From {desde} to {hasta}.",
+        "ninguno": "No notice is published.",
+        "retirar": {
+          "boton": "Withdraw notice",
+          "titulo": "Withdraw the notice",
+          "descripcion": "It stops being shown to customers right now.",
+          "efectos": [
+            "Customers stop seeing the notice as soon as they reload their portal.",
+            "To show it again, it has to be published again.",
+            "It is recorded in the audit log."
+          ],
+          "confirmar": "Withdraw notice",
+          "enviando": "Withdrawing…",
+          "cancelar": "Cancel"
+        }
+      }
+    },
+    "estadoCuenta": {
+      "ACTIVA": "Active",
+      "SUSPENDIDA": "Suspended",
+      "BAJA": "Closed"
+    },
+    "bajas": {
+      "etiqueta": "Closed accounts",
+      "ocultas": "Hide",
+      "incluidas": "Include",
+      "solo": "Closed accounts only",
+      "cuentaDeBaja": "Closed"
+    },
+    "baja": {
+      "darDeBaja": {
+        "boton": "Deregister",
+        "titulo": "Deregister the customer",
+        "descripcion": "{nombre} is removed from the lists and from billing. Nothing is deleted and it can be reversed.",
+        "efectos": [
+          "The account and its companies stop appearing in the lists unless you ask to see them.",
+          "Documents, XML and CDR are kept, and its RUC stays taken: no one else will be able to register it.",
+          "It does not cut off access: its users can still sign in and its API keys can still issue. To cut off service, suspend the account.",
+          "Restoring the account brings it back to the lists."
+        ],
+        "motivo": "Reason (optional)",
+        "motivoAyuda": "It is recorded in the audit log. Up to 200 characters; never write passwords or API keys.",
+        "motivoEjemplo": "E.g.: closed their business",
+        "confirmar": "Deregister",
+        "enviando": "Deregistering…",
+        "cancelar": "Cancel"
+      },
+      "reponer": {
+        "boton": "Restore account",
+        "titulo": "Restore the account",
+        "descripcion": "{nombre} returns to the lists and to billing.",
+        "efectos": [
+          "The account and its companies appear in the lists again.",
+          "Nothing else changes: if it was suspended, it stays suspended until you reactivate it."
+        ],
+        "confirmar": "Restore account",
+        "enviando": "Restoring…",
+        "cancelar": "Cancel"
+      }
+    },
+    "suspension": {
+      "suspender": {
+        "boton": "Suspend account",
+        "titulo": "Suspend the account",
+        "descripcion": "This cuts off service for {nombre} right now. Nothing is deleted and it can be reversed.",
+        "efectos": [
+          "None of its users will be able to sign in to the portal, even with a session already open.",
+          "None of its companies will be able to issue or query through the API: their API keys will respond “account suspended”.",
+          "Documents already issued will keep being sent to SUNAT: stopping them would put them past the deadline.",
+          "Reactivating the account restores everything as it was, with the same sessions and API keys."
+        ],
+        "motivo": "Reason (optional)",
+        "motivoAyuda": "Saved in the audit log. Up to 200 characters; never write passwords or API keys.",
+        "motivoEjemplo": "E.g.: September invoice unpaid",
+        "confirmar": "Suspend account",
+        "enviando": "Suspending…",
+        "cancelar": "Cancel"
+      },
+      "reactivar": {
+        "boton": "Reactivate account",
+        "titulo": "Reactivate the account",
+        "descripcion": "{nombre} will have full service again.",
+        "efectos": [
+          "Its users can sign in to the portal again, with the sessions they already had.",
+          "Its companies can issue through the API again, with the same API keys."
+        ],
+        "confirmar": "Reactivate account",
+        "enviando": "Reactivating…",
+        "cancelar": "Cancel"
+      },
+      "empresasAfectadas": "{n} companies",
+      "unaEmpresaAfectada": "1 company",
+      "sinEmpresasAfectadas": "No companies yet"
+    },
+    "accionesEmpresa": {
+      "cancelar": "Cancel",
+      "entorno": {
+        "boton": "Change environment",
+        "enviando": "Changing…",
+        "aProduccion": {
+          "titulo": "Switch to production",
+          "descripcion": "{empresa} goes from BETA to PRODUCTION.",
+          "confirmar": "Switch to production",
+          "efectos": [
+            "From this moment it issues against SUNAT production: the documents it issues are real.",
+            "It needs the production SOL credentials and certificate: test (beta) ones will be rejected.",
+            "It does not affect documents already issued.",
+            "It cannot be changed while it has pending submissions to SUNAT: what was issued in one environment must not be sent to the other.",
+            "It is recorded in the audit log, from which environment to which."
+          ]
+        },
+        "aBeta": {
+          "titulo": "Switch back to beta",
+          "descripcion": "{empresa} goes from PRODUCTION to BETA.",
+          "confirmar": "Switch back to beta",
+          "efectos": [
+            "From this moment it issues against the SUNAT test environment: the documents it issues have no validity.",
+            "It does not affect documents already issued.",
+            "It cannot be changed while it has pending submissions to SUNAT: what was issued in one environment must not be sent to the other.",
+            "It is recorded in the audit log, from which environment to which."
+          ]
+        }
+      },
+      "apiKey": {
+        "boton": "Revoke",
+        "titulo": "Revoke the API key",
+        "descripcion": "{prefijo}… of {empresa} will be revoked.",
+        "confirmar": "Revoke key",
+        "enviando": "Revoking…",
+        "efectos": [
+          "It stops authenticating immediately: integrations that use it will start receiving 401.",
+          "The company’s other keys keep working.",
+          "It cannot be undone: another key would have to be created.",
+          "It is recorded in the audit log with its prefix, never the key itself."
+        ]
+      },
+      "conexion": {
+        "boton": "Test connection",
+        "probando": "Testing…",
+        "sinSol": "Without SOL credentials there is nothing to test with.",
+        "nota": "The test asks SUNAT about a ticket that does not exist, using the company’s SOL credentials and environment: it is read-only and sends nothing. With a ticket that does not exist, a ticket error is expected; what the test tells you is whether SUNAT responded. It is recorded in the audit log.",
+        "titulo": "Test result",
+        "entornoProbado": "Environment tested",
+        "resultados": {
+          "CONECTADO": "SUNAT responded normally.",
+          "RECHAZADO": "SUNAT responded with an error.",
+          "SIN_RESPUESTA": "There was no useful response from SUNAT."
+        },
+        "codigo": "Code",
+        "mensaje": "SUNAT message"
+      }
+    },
+    "comprobanteDetalle": {
+      "volver": "Error queue",
+      "titulo": "Document",
+      "error": "Could not load the document.",
+      "reintentar": "Retry",
+      "empresa": "Company",
+      "verEmpresa": "View the company",
+      "tipo": "Type",
+      "fechaEmision": "Issue date",
+      "intentos": "Failed submissions",
+      "ayudaIntentos": "Counts the submissions that failed: one that SUNAT received on the first try shows 0.",
+      "ultimoError": "Last submission error",
+      "sinError": "None",
+      "respuestaSunat": "SUNAT response",
+      "tituloSunatYArchivos": "SUNAT and files",
+      "sinRespuesta": "No response yet",
+      "noLlego": "Did not reach SUNAT",
+      "archivos": "Stored files",
+      "xml": "Signed XML",
+      "cdr": "SUNAT CDR",
+      "guardado": "Stored",
+      "noGuardado": "Not there",
+      "ayudaArchivos": "It only says whether they exist: their content belongs to the customer and is downloaded from their dashboard.",
+      "bajas": {
+        "titulo": "Voiding or daily summary",
+        "ayuda": "The voiding communication (RA) for an invoice or the daily summary (RC) for a receipt or a receipt note, from newest to oldest. Read-only.",
+        "comunicacionDeBaja": "Voiding communication",
+        "resumenDiario": "Daily summary",
+        "alta": "(new)",
+        "estado": "Status",
+        "ticket": "SUNAT ticket",
+        "motivo": "Reason",
+        "motivoSoloKhipu": "Kept only in khipu: the daily summary does not carry it.",
+        "generada": "Generated on",
+        "emision": "Issue reported",
+        "respuesta": "SUNAT response",
+        "ultimoIntento": "Last attempt",
+        "detalle": "Details",
+        "sinDato": "—"
+      }
+    },
+    "empresaDetalle": {
+      "volver": "Companies",
+      "alta": "Signed up",
+      "cuenta": "Account",
+      "sinCuenta": "No account (signed up via integration)",
+      "error": "Could not load the company.",
+      "pestanas": {
+        "datos": "Details and connection",
+        "emision": "Issuance",
+        "apiKeys": "API keys",
+        "comprobantes": "Documents",
+        "envios": "Pending submissions"
+      },
+      "fiscales": {
+        "titulo": "Tax details",
+        "ruc": "RUC",
+        "razonSocial": "Business name",
+        "nombreComercial": "Trade name",
+        "entorno": "Environment",
+        "domicilio": "Registered address",
+        "sinDomicilio": "They have not declared their registered address yet.",
+        "ubigeo": "Ubigeo",
+        "detracciones": "Detraction account",
+        "padron": "Special IGV rate (registry)",
+        "si": "Yes",
+        "no": "No",
+        "ninguno": "—"
+      },
+      "conexion": {
+        "titulo": "Certificate and SOL credentials",
+        "certificado": "Digital certificate",
+        "sol": "SOL credentials",
+        "solCargadas": "Uploaded",
+        "solSinCargar": "Not uploaded",
+        "nota": "It is only known whether they are uploaded: their contents never leave the backend."
+      },
+      "series": {
+        "titulo": "Series",
+        "vacio": "This company has no series.",
+        "columnas": {
+          "serie": "Series",
+          "tipo": "Type",
+          "ultimo": "Last number",
+          "estado": "Status",
+          "establecimiento": "Establishment"
+        },
+        "activa": "Active",
+        "inactiva": "Inactive"
+      },
+      "establecimientos": {
+        "titulo": "Branch establishments",
+        "vacio": "It has no branch establishments.",
+        "columnas": {
+          "codigo": "Code",
+          "nombre": "Name",
+          "direccion": "Address",
+          "estado": "Status"
+        },
+        "activo": "Active",
+        "inactivo": "Inactive"
+      },
+      "apiKeys": {
+        "titulo": "API keys",
+        "vacio": "This company has no API keys.",
+        "columnas": {
+          "prefijo": "Prefix",
+          "estado": "Status",
+          "creada": "Created",
+          "revocada": "Revoked",
+          "acciones": "Actions"
+        },
+        "nota": "Only the prefix: the secret is never shown.",
+        "activa": "Active",
+        "revocada": "Revoked"
+      },
+      "pdf": {
+        "titulo": "PDF customization",
+        "plantilla": "Template",
+        "color": "Primary color",
+        "logo": "Logo",
+        "conLogo": "Uploaded",
+        "sinLogo": "No logo",
+        "pie": "Footer",
+        "observaciones": "Default notes"
+      },
+      "comprobantes": {
+        "titulo": "Recent documents",
+        "vacio": "It has not issued any documents yet.",
+        "columnas": {
+          "comprobante": "Document",
+          "fecha": "Issued",
+          "estado": "Status",
+          "total": "Total",
+          "intentos": "Failed submissions",
+          "cdr": "SUNAT CDR"
+        },
+        "sinCdr": "No response from SUNAT",
+        "sinObservaciones": "No observations",
+        "ultimoError": "Last error"
+      },
+      "eventos": {
+        "titulo": "Status changes",
+        "vacio": "Recent documents have no status changes.",
+        "columnas": {
+          "comprobante": "Document",
+          "cambio": "Change",
+          "detalle": "Details",
+          "cuando": "When"
+        },
+        "inicio": "Start"
+      },
+      "outbox": {
+        "titulo": "Pending outbox",
+        "vacio": "It has no pending tasks.",
+        "total": "{n} pending tasks",
+        "unaTarea": "1 pending task",
+        "columnas": {
+          "tarea": "Task",
+          "intentos": "Attempts",
+          "proximo": "Next attempt",
+          "error": "Last error"
+        }
+      }
+    },
+    "detalle": {
+      "volver": "Accounts",
+      "alta": "Created",
+      "correo": "Email",
+      "telefono": "Mobile",
+      "error": "Could not load the account.",
+      "noExiste": "The account does not exist.",
+      "bajaDesde": "Closed since {fecha}",
+      "estado": "Status",
+      "suspendidaDesde": "Suspended since {fecha}",
+      "motivo": "Reason: {motivo}",
+      "pestanas": {
+        "plan": "Plan and payments",
+        "estado": "Status history",
+        "usuarios": "Users",
+        "empresas": "Companies",
+        "comprobantes": "Documents",
+        "bitacora": "Audit log"
+      },
+      "historial": {
+        "titulo": "Status history",
+        "descripcion": "Every suspension, reactivation, closure, and restoration of the account, with who did it and why.",
+        "vacio": "The account has never changed status.",
+        "columnas": {
+          "cuando": "When",
+          "cambio": "Change",
+          "quien": "Who",
+          "motivo": "Reason"
+        },
+        "sinMotivo": "No reason"
+      },
+      "usuarios": {
+        "titulo": "Users",
+        "vacio": "This account has no users.",
+        "columnas": {
+          "correo": "Email",
+          "rol": "Role",
+          "estado": "Status",
+          "verificado": "Email",
+          "ultimoAcceso": "Last access",
+          "acciones": "Actions"
+        },
+        "activo": "Active",
+        "inactivo": "Inactive",
+        "verificado": "Verified",
+        "sinVerificar": "Unverified",
+        "nunca": "Never"
+      },
+      "acceso": {
+        "cerrar": "Close",
+        "impersonar": {
+          "boton": "Sign in as this user",
+          "titulo": "Sign in to the portal as this user",
+          "descripcion": "You will see the portal exactly as {correo} sees it.",
+          "confirmar": "Enter the portal",
+          "enviando": "Opening…",
+          "efectos": [
+            "The session lasts 15 minutes and cannot be renewed: to keep looking, you have to sign in again.",
+            "You can only look: you cannot change anything (not the password, SOL credentials, API keys, or issue documents).",
+            "It is recorded in the audit log under your name, and the customer sees it in their support access history, without your name.",
+            "It replaces the customer session you have open in this browser."
+          ]
+        },
+        "restablecer": {
+          "boton": "Reset password",
+          "titulo": "Send the reset email",
+          "descripcion": "A link to choose a new password is sent to {correo}.",
+          "efectos": [
+            "You neither see nor set the password: the link goes only to that person.",
+            "Their current password stays valid until they use the link.",
+            "It is recorded in the account audit log."
+          ],
+          "confirmar": "Send email",
+          "enviando": "Sending…",
+          "cancelar": "Cancel",
+          "hecho": "Reset email sent to {correo}."
+        },
+        "verificar": {
+          "boton": "Resend verification",
+          "titulo": "Resend the verification email",
+          "descripcion": "The link to verify their email is sent again to {correo}.",
+          "efectos": [
+            "The email carries a new link; only that person can use it.",
+            "It is recorded in the account audit log."
+          ],
+          "confirmar": "Resend email",
+          "enviando": "Sending…",
+          "cancelar": "Cancel",
+          "hecho": "Verification email sent to {correo}."
+        }
+      },
+      "empresas": {
+        "titulo": "Companies",
+        "vacio": "This account has no companies yet.",
+        "columnas": {
+          "empresa": "Company",
+          "entorno": "Environment",
+          "certificado": "Certificate",
+          "sol": "SOL credentials"
+        },
+        "beta": "Beta",
+        "produccion": "Production",
+        "sinCertificado": "Not loaded",
+        "certificadoSinFecha": "Loaded, no validity date",
+        "certificadoVigente": "Valid until {fecha}",
+        "certificadoPorVencer": "Expires on {fecha} ({dias} days)",
+        "certificadoVence": "Expires on {fecha} (today)",
+        "certificadoVencido": "Expired on {fecha}",
+        "solCargadas": "Loaded",
+        "solSinCargar": "Not loaded"
+      },
+      "comprobantes": {
+        "titulo": "Recent documents",
+        "vacio": "No documents issued yet.",
+        "columnas": {
+          "comprobante": "Document",
+          "empresa": "Company",
+          "fecha": "Issued",
+          "estado": "Status",
+          "total": "Total"
+        }
+      },
+      "eventos": {
+        "titulo": "Administrator actions",
+        "vacio": "No administrator has acted on this account.",
+        "columnas": {
+          "accion": "Action",
+          "actor": "Who",
+          "cuando": "When",
+          "detalle": "Details"
+        },
+        "actorAdministrador": "Administrator",
+        "actorPlataforma": "Platform key",
+        "claves": {
+          "motivo": "Reason",
+          "usuario": "User",
+          "duracion_s": "Duration",
+          "periodo": "Period",
+          "monto": "Amount",
+          "medio": "Method",
+          "fecha": "Payment date",
+          "vence": "Expires",
+          "desde": "From",
+          "hacia": "To",
+          "hasta": "Until",
+          "direccion": "Change",
+          "efecto": "Effect",
+          "gracia": "Grace days",
+          "ruc": "RUC",
+          "serie": "Series",
+          "entorno": "Environment",
+          "plan": "Plan",
+          "precio": "Price",
+          "documentos": "Documents",
+          "usuarios": "Users",
+          "api_keys": "API keys",
+          "retencion": "Retention",
+          "limites_desde": "Limits from",
+          "cuentas": "Accounts",
+          "prefijo": "API key",
+          "remitente": "Sender",
+          "responder_a": "Reply to",
+          "plantilla": "Email",
+          "texto": "Text",
+          "email": "Email",
+          "segundo_factor": "Second factor",
+          "empresa": "Company",
+          "comprobante": "Document",
+          "estado": "Status"
+        },
+        "valores": {
+          "sin_cambio": "no change",
+          "INMEDIATO": "Immediate",
+          "CICLO_SIGUIENTE": "Next cycle",
+          "BETA": "Beta",
+          "PRODUCCION": "Production",
+          "ilimitado": "unlimited",
+          "app": "authenticator app"
+        },
+        "minutos": "{n} min",
+        "acciones": {
+          "CREAR_CUENTA": "Account created",
+          "CREAR_TENANT": "Company created",
+          "CREAR_ADMINISTRADOR": "Administrator created",
+          "INICIAR_SESION": "Sign-in",
+          "CONFIGURAR_SEGUNDO_FACTOR": "Set up the second factor",
+          "SUSPENDER_CUENTA": "Suspended the account",
+          "REACTIVAR_CUENTA": "Reactivated the account",
+          "ENVIAR_RESTABLECIMIENTO": "Password reset email",
+          "REENVIAR_VERIFICACION": "Email verification resent",
+          "DAR_DE_BAJA_CUENTA": "Account closed",
+          "REPONER_CUENTA": "Account restored",
+          "CAMBIAR_ENTORNO_EMPRESA": "Company environment changed",
+          "REVOCAR_API_KEY_EMPRESA": "API key revoked",
+          "PROBAR_CONEXION_EMPRESA": "SUNAT connection test",
+          "DESIGNAR_AGENTE_EMPRESA": "Withholding or collection agent designation",
+          "IMPERSONAR_USUARIO": "Support access as a user",
+          "CREAR_PLAN": "Plan created",
+          "EDITAR_PLAN": "Plan changed",
+          "DESACTIVAR_PLAN": "Withdrew a plan from sale",
+          "ACTIVAR_PLAN": "Put a plan back on sale",
+          "ELIMINAR_PLAN": "Deleted a plan",
+          "CAMBIAR_PLAN": "Account plan changed",
+          "REGISTRAR_PAGO": "Payment recorded",
+          "REINTENTAR_ENVIO_COMPROBANTE": "Document submission retried",
+          "DESCARTAR_COMPROBANTE": "Discarded a document in error",
+          "AVISAR_AL_CLIENTE": "Customer notified about their certificate or SOL password",
+          "CAMBIAR_REMITENTE_DE_CORREO": "Email sender changed",
+          "EDITAR_PLANTILLA_DE_CORREO": "Email text changed",
+          "RESTAURAR_PLANTILLA_DE_CORREO": "Restored an email to its default text",
+          "PUBLICAR_BANNER": "Published the maintenance notice",
+          "RETIRAR_BANNER": "Removed the maintenance notice"
+        }
+      }
+    },
+    "alta": {
+      "titulo": "New account",
+      "descripcion": "Onboard a customer: their account, their first company, and their first series. The customer receives an invitation by email and chooses their own password; you never set it.",
+      "seccionCuenta": "Account",
+      "seccionEmpresa": "First company",
+      "seccionSerie": "First series",
+      "subtituloCuenta": "Who uses the portal and where the invitation goes",
+      "subtituloEmpresa": "The one that will issue the documents",
+      "subtituloSerie": "The one they will use to issue their first document",
+      "cancelar": "Cancel",
+      "atras": "Back",
+      "siguiente": "Next",
+      "pasoDe": "Step {n} of {total}",
+      "nombre": "Customer name",
+      "nombreEjemplo": "Comercial Andina",
+      "nombreAyuda": "The person or business that signs up. This is how it appears in Accounts.",
+      "email": "Customer email",
+      "emailAyuda": "They sign in to the portal with this email; the invitation to create their password is sent here.",
+      "telefono": "Mobile phone",
+      "ruc": "RUC",
+      "razonSocial": "Legal name",
+      "entorno": "Environment",
+      "entornoBeta": "Beta (testing)",
+      "entornoProduccion": "Production",
+      "tipo": "Document type",
+      "tipoFactura": "Invoice",
+      "tipoBoleta": "Receipt",
+      "serie": "Series",
+      "serieAyuda": "For example F001 for invoices or B001 for receipts (SUNAT 1001).",
+      "enviar": "Onboard",
+      "enviando": "Onboarding…",
+      "sesionExpirada": "Your administrator session expired. Sign in again.",
+      "corteDeConexion": "The connection dropped while onboarding. Submit again without changing anything: if the onboarding already went through, you will see the same API key, without creating another account.",
+      "resultado": {
+        "titulo": "Customer onboarded",
+        "descripcion": "The account, the company, and the series have been created.",
+        "etiquetaApiKey": "Company’s initial API key",
+        "avisoApiKey": "Hand it to the customer now: it will not be shown again. Only a hash is kept, so if it is lost they will have to revoke it and create another one from their portal.",
+        "invitacionEnviada": "We sent the invitation to {email}. With that link the customer creates their password and signs in.",
+        "invitacionNoEnviada": "We could not send the invitation to {email}. The onboarding is done: the customer can request a link from “Forgot your password?” on the sign-in page.",
+        "listo": "Done",
+        "otra": "Onboard another customer"
+      }
+    }
+  },
+  "banner": {
+    "hasta": "Until {fecha}"
+  },
+  "roles": {
+    "etiquetas": {
+      "ADMIN": "Administrator",
+      "EMISOR": "Issuer",
+      "LECTURA": "Read-only"
+    },
+    "descripciones": {
+      "ADMIN": "Everything: issues, configures the company, series, certificate and API keys, and manages the team.",
+      "EMISOR": "Issues, views and voids receipts, and saves customers and products. Cannot change the settings or the team.",
+      "LECTURA": "View only: receipts, company, series, plan and usage. Cannot issue or configure anything."
+    },
+    "sinPermiso": {
+      "emitir": "Your role (Read-only) only allows viewing: ask an account administrator for whatever you need changed.",
+      "configurar": "Only an account administrator can change the settings.",
+      "pagina": "This section is only for account administrators. Ask one for whatever you need."
+    }
+  },
+  "equipo": {
+    "descripcion": "The people who sign in to your account’s portal and what each one can do. Invite by email: the link lasts 7 days and works only once.",
+    "usuarios": "Users",
+    "invitaciones": "Pending invitations",
+    "sinInvitaciones": "There are no pending invitations.",
+    "usted": "You",
+    "activo": "Active",
+    "desactivado": "Deactivated",
+    "sinVerificar": "Email not verified",
+    "vencida": "Expired",
+    "venceEl": "Expires on {fecha}",
+    "envios": "{n} of 5 sends",
+    "columnas": {
+      "usuario": "User",
+      "rol": "Role",
+      "estado": "Status",
+      "acciones": "Actions",
+      "correo": "Email"
+    },
+    "cambiarRol": "Role of {email}",
+    "desactivar": "Deactivate",
+    "confirmarDesactivar": "Deactivate? Their sessions will be closed.",
+    "avisoApiKeys": "The API keys they created remain valid: they belong to the company, not to them. If needed, revoke them in",
+    "irAApiKeys": "API keys",
+    "degradarme": {
+      "titulo": "Stop being an administrator?",
+      "descripcion": "You will become {rol} and lose administrator access: you will no longer be able to manage the team or the settings. To get it back, another administrator will have to give it to you.",
+      "confirmar": "Yes, stop being an administrator"
+    },
+    "siDesactivar": "Yes, deactivate",
+    "reactivar": "Reactivate",
+    "reenviar": "Resend",
+    "revocar": "Revoke",
+    "confirmarRevocar": "Revoke? The link will stop working.",
+    "siRevocar": "Yes, revoke",
+    "cancelar": "Cancel",
+    "invitar": {
+      "boton": "Invite user",
+      "titulo": "Invite your team",
+      "subtitulo": "We send them a link to create their password and sign in with the role you choose.",
+      "email": "Email",
+      "rol": "Role",
+      "enviar": "Send invitation",
+      "enviando": "Sending…",
+      "enviada": "Invitation sent to {email}.",
+      "noSalio": "The invitation was saved, but the email was not sent. Resend it from the list in a few minutes."
+    },
+    "reenviada": "We sent a new link to {email}. The previous one no longer works.",
+    "reenviadaSinCorreo": "We generated a new link, but the email was not sent. Try again in a few minutes."
+  },
+  "soporte": {
+    "soloLectura": "Support mode: view only, nothing can be changed.",
+    "aviso": {
+      "region": "Support mode",
+      "titulo": "Support mode",
+      "descripcion": "You are viewing the portal as {email}. You can only look: you cannot change anything. The session ends on {hasta}.",
+      "salir": "Exit support mode",
+      "saliendo": "Exiting…",
+      "error": "Could not exit support mode. Try again."
+    },
+    "accesos": {
+      "titulo": "Support access",
+      "descripcion": "Every time someone on the khipu team looked at your portal to help you, it is recorded here: when, as which user, and for how long at most. They can only look: they cannot change anything.",
+      "vacio": "No one from the support team has accessed your account.",
+      "error": "Could not load the access history.",
+      "columnas": {
+        "cuando": "When",
+        "usuario": "User",
+        "duracion": "Maximum duration"
+      },
+      "minutos": "{n} min",
+      "segundos": "{n} s",
+      "sinDetalle": "No details"
+    }
+  },
+  "legal": {
+    "terminos": "Terms of service",
+    "privacidad": "Privacy policy",
+    "version": "Version in effect since",
+    "borradorTitulo": "Draft pending legal review",
+    "borradorDescripcion": "This text has not yet been reviewed by a lawyer and may change before its final version.",
+    "borradorBreve": "Draft pending legal review: the texts may change before their final version.",
+    "volver": "Back to home",
+    "verTambien": "See also"
+  },
+  "aceptarTerminos": {
+    "titulo": "Accept the terms to continue",
+    "descripcion": "To keep using the portal, read and accept the current version of the terms of service and the privacy policy. If you had already accepted them, we are asking again because they changed.",
+    "aceptar": "Accept and continue",
+    "aceptando": "Saving…",
+    "requerido": "Check the box to accept the terms of service and the privacy policy.",
+    "cerrarSesion": "Sign out"
+  },
+  "cuentaSuspendida": {
+    "titulo": "Your account is suspended",
+    "descripcion": "You cannot use the portal or issue through the API while the account is suspended. Nothing was deleted: your companies, receipts and API keys are still there and everything works again as soon as it is reactivated.",
+    "soporte": "To reactivate it, contact support.",
+    "cerrarSesion": "Sign out"
+  },
+  "errores": {
+    "generico": "An error occurred. Try again.",
+    "RED": "Could not connect to the server. Check your connection and try again.",
+    "RESPUESTA_INVALIDA": "The server response could not be interpreted. Try again in a few minutes.",
+    "DUPLICADO": "An account with that email already exists.",
+    "CREDENCIALES_INVALIDAS": "Incorrect email or password.",
+    "TELEFONO_INVALIDO": "The mobile number must have 9 digits and start with 9.",
+    "REGISTRO_CERRADO": "Registration is by invitation only: write to us to request access.",
+    "TERMINOS_PENDIENTES": "To continue you must accept the current version of the terms of service and the privacy policy. Reload the page to see them.",
+    "TERMINOS_NO_ACEPTADOS": "To create your account you must accept the terms of service and the privacy policy.",
+    "RAZON_SOCIAL_INVALIDA": "The legal name cannot contain tabs or line breaks (SUNAT 4338).",
+    "PASSWORD_DEBIL": "The password must have at least 8 characters, a letter and a digit.",
+    "TOKEN_INVALIDO": "The recovery link is invalid or has expired. Request a new one.",
+    "SESION_INVALIDA": "Your session expired. Sign in again.",
+    "CODIGO_INVALIDO": "The code is not valid. Use the one the app shows right now and check that your phone’s clock is correct.",
+    "CORREO_SIN_VERIFICAR": "Verify your email to continue: we sent you a link when you registered.",
+    "CORREO_YA_VERIFICADO": "Your email is already verified.",
+    "DEMASIADOS_ENLACES": "We already sent you several links today. Check your email, including the spam folder, or request it again tomorrow.",
+    "CUENTA_SUSPENDIDA": "Your account is suspended. Contact support to reactivate it.",
+    "CUENTA_YA_SUSPENDIDA": "The account was already suspended. Reload the page to see its status.",
+    "CUENTA_NO_SUSPENDIDA": "The account was not suspended. Reload the page to see its status.",
+    "MOTIVO_INVALIDO": "The reason cannot exceed 200 characters.",
+    "ID_INVALIDO": "The identifier is not valid.",
+    "IDEMPOTENCIA_VENCIDA": "This signup was already done more than an hour ago and its API key can no longer be shown. The customer can create another from their portal.",
+    "IDEMPOTENCIA_INVALIDA": "The request key was already used with different data. Submit the form again.",
+    "DEMASIADOS_INTENTOS": "Too many incorrect codes. Wait 15 minutes before trying again.",
+    "DEMASIADOS_INTENTOS_LOGIN": "Too many failed attempts. For security, wait 15 minutes before trying again.",
+    "SEGUNDO_FACTOR_YA_CONFIGURADO": "Your account already has two-step verification set up. Sign in again.",
+    "SEGUNDO_FACTOR_NO_CONFIGURADO": "Your account does not have two-step verification yet. Sign in again to set it up.",
+    "NO_AUTORIZADO": "Not authorized.",
+    "VALIDACION": "Check the highlighted fields.",
+    "JSON_INVALIDO": "Invalid request.",
+    "INTERNO": "Internal error. Try again in a few minutes.",
+    "CERTIFICADO_INVALIDO": "The digital certificate is not valid.",
+    "SERIE_INVALIDA": "The series provided is not valid.",
+    "LIMITE_PLAN": "You reached your plan limit.",
+    "PLAN_VENCIDO": "Your plan expired: renew it to issue again.",
+    "EMPRESA_AJENA": "That company does not belong to your account.",
+    "EMPRESA_REQUERIDA": "You do not have any company set up yet. Create one in Company before continuing.",
+    "EMPRESA_INVALIDA": "The company provided is not valid.",
+    "CERTIFICADO_NO_CARGADO": "Your company does not have a digital certificate uploaded. Set it up in Company.",
+    "CERTIFICADO_VENCIDO": "Your digital certificate expired. Upload a new one in Company.",
+    "CERTIFICADO_NO_VIGENTE": "That certificate is not yet in effect. Upload it starting on the date it becomes valid.",
+    "CREDENCIALES_SOL_NO_CARGADAS": "Your company does not have SOL credentials set up. Set them up in Company.",
+    "CREDENCIALES_SUNAT_NO_CARGADAS": "Your company has neither SUNAT API credentials nor SOL credentials to query SUNAT. Set them up in Company.",
+    "CREDENCIALES_API_SUNAT_INVALIDAS": "The Id (client_id) or the Secret (client_secret) of the SUNAT API are not valid. Copy them exactly as SOL shows them.",
+    "CREDENCIALES_API_SUNAT_RECHAZADAS": "SUNAT did not accept your SUNAT API credentials. Check them in SOL and save them again in Company.",
+    "CREDENCIALES_SOL_RECHAZADAS": "SUNAT did not accept your SOL credentials. Correct them in Company.",
+    "CONSULTA_RECHAZADA": "SUNAT rejected the query data. Check the series, number, date and amount.",
+    "SUNAT_NO_DISPONIBLE": "SUNAT did not respond. Try again in a few minutes.",
+    "RUC_INVALIDO": "The RUC is not valid.",
+    "RAZON_SOCIAL_REQUERIDA": "The legal name is required.",
+    "NOMBRE_REQUERIDO": "The name is required.",
+    "EMAIL_INVALIDO": "The email is not valid.",
+    "PASSWORD_REQUERIDO": "The password is required.",
+    "ROL_REQUERIDO": "The role is required.",
+    "SERIE_NO_CONFIGURADA": "That series is not set up or is inactive.",
+    "FECHA_INVALIDA": "The issue date cannot be in the future.",
+    "MONEDA_INVALIDA": "The currency provided is not valid.",
+    "SIN_ITEMS": "The receipt must have at least one item.",
+    "RECEPTOR_INVALIDO": "The recipient must have a valid RUC.",
+    "NUMERO_YA_ASIGNADO": "The receipt already has a number assigned.",
+    "ESTADO_NO_ENVIABLE": "The receipt is not in a state that can be sent to SUNAT.",
+    "ESTADO_CONFLICTO": "The receipt just changed state. Try again.",
+    "TRANSICION_INVALIDA": "That state change cannot be applied to the receipt.",
+    "SIN_CDR": "The receipt does not have a SUNAT CDR yet.",
+    "CDR_INVALIDO": "The CDR received from SUNAT is not valid.",
+    "XSD_INVALIDO": "The generated XML does not comply with the official SUNAT schema.",
+    "XML_SIN_EXTENSION": "The generated XML is not valid for signing.",
+    "FIRMA_FALLIDA": "Could not sign the receipt.",
+    "NO_ENCONTRADO": "We could not find what you are looking for.",
+    "CREDENCIALES_SOL_INVALIDAS": "The SOL user is required and cannot contain spaces. The password cannot be empty either.",
+    "ARCHIVO_DEMASIADO_GRANDE": "The file exceeds the maximum size. A .p12 certificate weighs only a few KB: check that it is the right file.",
+    "DOMICILIO_INVALIDO": "The registered address is not valid. Check the district and the address.",
+    "CUENTA_DETRACCIONES_INVALIDA": "The Banco de la Nación detractions account is not valid.",
+    "NOMBRE_COMERCIAL_INVALIDO": "The trade name is not valid: up to 1500 characters, no line breaks.",
+    "SERIE_AGOTADA": "That series used up its 8 sequence digits. Create a new series to keep issuing.",
+    "CORRELATIVO_INVALIDO": "The series sequence number ranges from 0 to 99,999,999 (8 digits).",
+    "ESTABLECIMIENTO_INVALIDO": "That establishment does not exist or has been closed.",
+    "ESTABLECIMIENTO_EN_USO": "That establishment has active series. Reassign them before closing it.",
+    "ROL_INSUFICIENTE": "Your role does not allow this. Ask an account administrator.",
+    "ULTIMO_ADMINISTRADOR": "The account needs at least one active administrator: appoint another before changing this one.",
+    "NO_PUEDES_DESACTIVARTE": "You cannot deactivate your own user: ask another administrator.",
+    "YA_ES_MIEMBRO": "That email is already a user on your account.",
+    "USUARIO_EXISTENTE": "That email already has a user in khipu and cannot be added to another account.",
+    "INVITACION_PENDIENTE": "There is already a pending invitation for that email: resend it from the list.",
+    "INVITACION_NO_PENDIENTE": "The invitation is no longer pending: it was accepted or revoked. Reload the page.",
+    "DEMASIADAS_INVITACIONES": "You reached the invitation limit: 20 pending, or 30 invitation emails from your account (or 3 to that email) in the last 24 hours. Revoke the extra ones or try again tomorrow.",
+    "DEMASIADOS_ENVIOS": "We already sent this invitation 5 times. Revoke it and invite again if needed."
+  }
+}
