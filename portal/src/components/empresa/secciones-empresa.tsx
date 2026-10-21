@@ -1,17 +1,9 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { Tabs, type TabItem } from "khipu-design-system/navegacion/tabs";
-import type { Seccion } from "@/lib/empresa/secciones";
-
-const ETIQUETAS: Record<Seccion, string> = {
-  datos: "Datos fiscales",
-  certificado: "Certificado",
-  sol: "Credenciales SOL",
-  pdf: "PDF",
-  correo: "Envío al cliente",
-  empresas: "Empresas",
-};
+import { SECCIONES, type Seccion } from "@/lib/empresa/secciones";
 
 /** Deja `?seccion=` en la URL sin navegar: un `router.refresh()` (lo hacen los formularios al guardar) vuelve a pedir la misma pestaña. */
 function escribirEnLaUrl(seccion: Seccion) {
@@ -36,6 +28,7 @@ export function SeccionesEmpresa({
   empresas: number;
   paneles: Record<Seccion, ReactNode>;
 }) {
+  const t = useMessages().empresa.secciones;
   const [valor, setValor] = useState(inicial);
 
   // Otra inicial llega cuando un enlace lleva a otra sección estando ya en la página: se abre esa.
@@ -44,16 +37,16 @@ export function SeccionesEmpresa({
     escribirEnLaUrl(inicial);
   }, [inicial]);
 
-  const items: TabItem<Seccion>[] = (Object.keys(ETIQUETAS) as Seccion[]).map((id) => ({
+  const items: TabItem<Seccion>[] = SECCIONES.map((id) => ({
     id,
     etiqueta: pendientes.includes(id) ? (
       <>
-        {ETIQUETAS[id]}
+        {t.etiquetas[id]}
         <span className="size-1.5 rounded-full bg-warning-solid" aria-hidden />
-        <span className="sr-only">, pendiente</span>
+        <span className="sr-only">{t.pendiente}</span>
       </>
     ) : (
-      ETIQUETAS[id]
+      t.etiquetas[id]
     ),
     contador: id === "empresas" ? empresas : undefined,
   }));

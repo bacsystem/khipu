@@ -2,12 +2,13 @@
 
 import { SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { apiRequest } from "@/lib/api/browser";
 import type { CuerpoDeEnvioAlCliente, PreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /**
  * #325: la preferencia «enviar automáticamente» el comprobante aceptado a su cliente. Sin correo en el servidor (`correo_disponible: false`) no se puede activar —la API lo rechaza
@@ -15,6 +16,9 @@ import { mensajeError } from "@/lib/messages";
  */
 export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlCliente }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.envioAlCliente;
+  const mensajeError = useMensajeError();
   const [activado, setActivado] = useState(inicial.enviar_automaticamente);
   const [guardado, setGuardado] = useState(inicial.enviar_automaticamente);
   const [enviando, setEnviando] = useState(false);
@@ -45,9 +49,8 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4" data-testid="form-envio-al-cliente">
       {sinCorreo ? (
-        <Alerta tono="aviso" titulo="El servidor no tiene correo configurado">
-          Por ahora khipu no puede enviar correos, así que el envío automático no se puede activar. Descarga el PDF desde el comprobante y envíalo por tu cuenta, o pide a soporte que
-          configure el correo.
+        <Alerta tono="aviso" titulo={t.sinCorreoTitulo}>
+          {t.sinCorreoTexto}
         </Alerta>
       ) : null}
       <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
@@ -62,10 +65,9 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
           className="mt-0.5 size-4 accent-primary"
         />
         <span className="grid gap-0.5">
-          <span className="font-medium">Enviar automáticamente el comprobante al cliente cuando SUNAT lo acepte</span>
+          <span className="font-medium">{t.casilla}</span>
           <span className={AYUDA_CAMPO}>
-            Le llegan el PDF, el XML firmado y la constancia de SUNAT (CDR) al correo que indiques al emitir. Una nota de crédito o débito va al correo del comprobante que modifica, y una
-            boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora; al desactivarlo, lo que esperaba salir ya no sale.
+            {t.casillaAyuda}
           </span>
         </span>
       </label>
@@ -73,14 +75,14 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {ok ? (
         <p className="text-sm text-success-foreground" role="status">
-          {guardado ? "Envío automático activado." : "Envío automático desactivado."}
+          {guardado ? t.activado : t.desactivado}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando || activado === guardado} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : "Guardar preferencia"}
+          {enviando ? messages.empresa.comun.guardando : t.guardar}
         </button>
       </div>
     </form>

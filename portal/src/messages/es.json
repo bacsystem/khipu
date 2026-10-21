@@ -3140,5 +3140,305 @@
       "emitiendo": "Emitiendo y enviando a SUNAT…",
       "emitir": "Emitir {nota}"
     }
+  },
+  "empresa": {
+    "comun": {
+      "guardando": "Guardando…",
+      "subiendo": "Subiendo…",
+      "opcional": "(opcional)",
+      "ruc": "RUC",
+      "razonSocial": "Razón social",
+      "entornoSunat": "Entorno SUNAT"
+    },
+    "pagina": {
+      "titulo": "Fiscal y certificado",
+      "metricas": {
+        "estadoCertificado": "Estado del certificado",
+        "venceEl": "Vence el {fecha}",
+        "haceDias": "hace {dias} días",
+        "diasRestantes": "{dias} días restantes",
+        "sinFechaDeVigencia": "El certificado no trae fecha de vigencia",
+        "cargaTuP12": "Carga tu .p12 para poder firmar",
+        "pkcs12": "PKCS#12",
+        "credencialesSol": "Credenciales SOL",
+        "solNoAceptadas": "SUNAT no las acepta: corrígelas",
+        "solConfiguradas": "Usuario secundario configurado",
+        "solPendientes": "Pendientes de configurar",
+        "solRechazadas": "RECHAZADAS",
+        "solConfiguradasCorto": "CONFIGURADAS",
+        "rucNumero": "RUC {ruc}",
+        "beta": "BETA",
+        "produccion": "PRODUCCIÓN",
+        "homologacion": "homologación",
+        "validezTributaria": "validez tributaria",
+        "empresasEnLaCuenta": "Empresas en la cuenta",
+        "conCertificadoYSol": "{n} con certificado y SOL",
+        "registrada": "registrada",
+        "registradas": "registradas"
+      },
+      "estadoCertificado": {
+        "sinCertificado": "Sin certificado",
+        "cargado": "Cargado",
+        "vencido": "Vencido",
+        "porVencer": "Por vencer",
+        "vigente": "Vigente"
+      },
+      "datos": {
+        "titulo": "Datos de la empresa (razón social y domicilio)",
+        "rucRegistrado": "RUC registrado",
+        "rucValidado": "RUC validado",
+        "domicilioRegistrado": "Domicilio fiscal registrado",
+        "domicilioPendiente": "Complete el domicilio fiscal abajo para que aparezca en el XML",
+        "ayuda": "El domicilio fiscal va en cada XML como dirección del emisor (ubigeo del catálogo 13, regla 4093). Sin él SUNAT no observa la factura, pero la representación impresa y los clientes lo necesitan.",
+        "envioDirecto": "Envío directo a SUNAT",
+        "codigoLocalAyuda": "Código de establecimiento anexo declarado en el RUC (0000 = domicilio fiscal)",
+        "codigoLocal": "Cód. local domicilio: {codigo}"
+      },
+      "sol": {
+        "titulo": "Credenciales SUNAT SOL (emisión)",
+        "rechazadas": "Rechazadas",
+        "configuradas": "Configuradas",
+        "pendientes": "Pendientes",
+        "rechazoTitulo": "SUNAT rechazó tus credenciales SOL",
+        "rechazoTexto": "Desde el {desde} SUNAT responde «{motivo}». Tus comprobantes se siguen firmando, pero no se envían hasta que guardes un usuario y clave SOL correctos abajo: los pendientes se reanudan solos.",
+        "secundarioAntes": "SUNAT exige usar un",
+        "secundario": "usuario secundario",
+        "secundarioDespues": "con permisos de emisión de comprobantes de pago. Nunca utilices las credenciales principales de tu Clave SOL maestra."
+      },
+      "api": {
+        "titulo": "Credenciales API SUNAT (consultas)",
+        "opcionales": "Opcionales",
+        "texto": "Con el «Id» y la «Clave» de una aplicación registrada en SOL (opción «Credenciales de API SUNAT»), la validez de un comprobante se consulta por la API REST de SUNAT, que funciona también en beta. Sin ellas se usa el servicio con la clave SOL, que SUNAT solo publica en producción. No se usan para emitir."
+      },
+      "empresas": {
+        "titulo": "Multi-empresa",
+        "uno": "{n} empresa",
+        "varios": "{n} empresas",
+        "texto": "Asocia razones sociales complementarias bajo la misma cuenta. Cada empresa tiene sus propias series, certificado y credenciales; cambia la activa desde el selector del menú lateral.",
+        "beta": "Beta",
+        "produccion": "Producción",
+        "certificadoCargado": "Certificado cargado",
+        "sinCertificado": "Sin certificado",
+        "solConfiguradas": "Credenciales SOL configuradas",
+        "sinSol": "Sin credenciales SOL",
+        "activa": "Activa",
+        "registrar": "Registrar empresa"
+      },
+      "certificado": {
+        "titulo": "Certificado digital PKCS#12",
+        "archivoAyuda": "Nombre del archivo: la API no lo conserva (solo el contenido cifrado)",
+        "archivoCargado": "Archivo cargado:",
+        "siCifrado": "Sí (cifrado)",
+        "no": "No",
+        "fechaExpiracion": "Fecha expiración:",
+        "sinFecha": "Sin fecha",
+        "noAplica": "No aplica"
+      },
+      "recursos": {
+        "titulo": "Recursos y normativa SUNAT",
+        "portalCpe": "Portal de comprobantes de pago electrónicos (SUNAT)",
+        "indecopi": "Entidades de certificación acreditadas por INDECOPI"
+      },
+      "pdf": {
+        "titulo": "Personalización del PDF (A4)",
+        "ayuda": "Solo cambia la representación impresa; no afecta a lo que se envía a SUNAT."
+      },
+      "correo": {
+        "titulo": "Envío del comprobante al cliente",
+        "activado": "Activado",
+        "desactivado": "Desactivado",
+        "errorTitulo": "No se pudo cargar la preferencia",
+        "errorTexto": "Vuelve a intentarlo en unos minutos."
+      }
+    },
+    "secciones": {
+      "etiquetas": {
+        "datos": "Datos fiscales",
+        "certificado": "Certificado",
+        "sol": "Credenciales SOL",
+        "pdf": "PDF",
+        "correo": "Envío al cliente",
+        "empresas": "Empresas"
+      },
+      "pendiente": ", pendiente"
+    },
+    "certificado": {
+      "extensionInvalida": "El archivo debe ser un certificado .p12 o .pfx",
+      "seleccionaArchivo": "Selecciona el archivo .p12 de tu certificado",
+      "reemplazar": "Reemplazar o renovar certificado",
+      "cargar": "Cargar certificado",
+      "listoParaSubir": "{tamano} · listo para subir",
+      "quitarArchivo": "Quitar archivo",
+      "arrastra": "Arrastra tu archivo .p12 o .pfx aquí",
+      "examinar": "o haz clic para examinar desde tu equipo",
+      "contrasena": "Contraseña de la clave privada",
+      "ocultarContrasena": "Ocultar contraseña",
+      "mostrarContrasena": "Mostrar contraseña",
+      "ayudaOu": "El RUC de la empresa debe figurar en el campo OU del certificado",
+      "actualizado": "Certificado actualizado.",
+      "actualizarDigital": "Actualizar certificado digital",
+      "cargarDigital": "Cargar certificado digital",
+      "cifrado": "PKCS#12 cifrado en reposo con la clave maestra del servicio; la contraseña no se almacena en claro."
+    },
+    "credenciales": {
+      "ocultarClave": "Ocultar clave",
+      "mostrarClave": "Mostrar clave",
+      "cifradaEnReposo": "Cifrada en reposo con la clave maestra del servicio",
+      "guardadaPlaceholder": "••••••••  (guardada, no se muestra)",
+      "reemplazar": "Reemplazar credenciales",
+      "guardar": "Guardar credenciales"
+    },
+    "credencialesSol": {
+      "usuario": "Usuario SOL secundario",
+      "usuarioAyuda": "Solo el usuario; el RUC lo antepone el sistema",
+      "clave": "Clave SOL",
+      "actualizadas": "Credenciales SOL actualizadas."
+    },
+    "credencialesApi": {
+      "actualizadas": "Credenciales API SUNAT actualizadas.",
+      "quitadas": "Credenciales API SUNAT quitadas: la validez se consulta con la clave SOL.",
+      "clientId": "Id (client_id)",
+      "guardadoPlaceholder": "(guardado, no se muestra)",
+      "rutaEnSol": "En SOL: Empresas › Comprobantes de pago › Credenciales de API SUNAT",
+      "clientSecret": "Clave (client_secret)",
+      "quitando": "Quitando…",
+      "quitar": "Quitar credenciales"
+    },
+    "datosFiscales": {
+      "faltaDistrito": "Elige el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.",
+      "direccion": "Dirección",
+      "direccionPlaceholder": "Av. Javier Prado Este 123 Of. 501",
+      "direccionAyuda": "Tal como figura en la ficha RUC, en una sola línea (3 a 200 caracteres)",
+      "urbanizacion": "Urbanización",
+      "establecimiento": "Código de establecimiento anexo",
+      "establecimientoAyuda": "0000 = domicilio fiscal; otro código debe existir en la ficha RUC",
+      "cuentaDetracciones": "Cuenta de detracciones (Banco de la Nación)",
+      "cuentaDetraccionesAyuda": "Se usa cuando una factura con detracción no indica la cuenta",
+      "nombreComercial": "Nombre comercial",
+      "nombreComercialPlaceholder": "Andina Store",
+      "nombreComercialAyuda": "Va en el XML junto a la razón social (regla 4092); déjelo vacío si no usa uno",
+      "padron": "Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles)",
+      "padronAyuda": "Ley 31556: los comprobantes gravados salen con la tasa reducida vigente (10.5 %) en vez del 18 %. Márcalo solo si SUNAT lo incluyó en el padrón; si no, observará cada comprobante (4439)",
+      "actualizados": "Datos fiscales actualizados: el domicilio irá en el XML de las próximas facturas.",
+      "guardar": "Guardar datos fiscales"
+    },
+    "envioAlCliente": {
+      "sinCorreoTitulo": "El servidor no tiene correo configurado",
+      "sinCorreoTexto": "Por ahora khipu no puede enviar correos, así que el envío automático no se puede activar. Descarga el PDF desde el comprobante y envíalo por tu cuenta, o pide a soporte que configure el correo.",
+      "casilla": "Enviar automáticamente el comprobante al cliente cuando SUNAT lo acepte",
+      "casillaAyuda": "Le llegan el PDF, el XML firmado y la constancia de SUNAT (CDR) al correo que indiques al emitir. Una nota de crédito o débito va al correo del comprobante que modifica, y una boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora; al desactivarlo, lo que esperaba salir ya no sale.",
+      "activado": "Envío automático activado.",
+      "desactivado": "Envío automático desactivado.",
+      "guardar": "Guardar preferencia"
+    },
+    "nueva": {
+      "nuevaEmpresa": "Nueva empresa",
+      "titulo": "Registrar empresa",
+      "descripcion": "Asocia otra razón social a tu cuenta; cada empresa tiene sus propias series, certificado y credenciales SOL.",
+      "rucAyuda": "11 dígitos",
+      "beta": "BETA (homologación)",
+      "produccion": "Producción",
+      "entornoAyuda": "En BETA los comprobantes no tienen validez tributaria",
+      "razonSocialPlaceholder": "Tal como figura en la ficha RUC",
+      "registrando": "Registrando…",
+      "registrar": "Registrar empresa"
+    },
+    "pdf": {
+      "logoTipoInvalido": "El logo debe ser PNG o JPEG",
+      "logoPesado": "El logo pesa {kb} KB; el máximo es 200 KB",
+      "plantilla": "Plantilla",
+      "colorPrimario": "Color primario",
+      "colorHex": "Color primario en hexadecimal",
+      "grisSinColor": "La plantilla gris no usa color.",
+      "colorAyuda": "Títulos, número y cabecera de tabla según la plantilla.",
+      "logo": "Logo",
+      "logoActual": "Logo actual",
+      "cambiar": "Cambiar",
+      "subir": "Subir",
+      "quitarLogo": "Quitar logo",
+      "logoAyuda": "PNG o JPEG, hasta 200 KB. Se imprime a 55×18 mm.",
+      "pie": "Pie de página",
+      "piePlaceholder": "Gracias por su preferencia…",
+      "pieAyuda": "Texto final del PDF. Vacío = leyenda por defecto. {n}/300",
+      "observaciones": "Observaciones por defecto",
+      "observacionesPlaceholder": "Se imprimen en el bloque «Observaciones» de cada comprobante",
+      "observacionesAyuda": "La API puede enviar `observaciones` por comprobante; este texto es el valor por defecto. {n}/1000",
+      "guardar": "Guardar diseño",
+      "guardado": "Diseño guardado",
+      "vistaPrevia": "Vista previa",
+      "abrirEnPestana": "Abrir en pestaña",
+      "vistaPreviaTitulo": "Vista previa del PDF",
+      "plantillas": {
+        "clasico": {
+          "nombre": "Clásico",
+          "descripcion": "Formal, bordes definidos"
+        },
+        "moderno": {
+          "nombre": "Moderno",
+          "descripcion": "Aireado, con acento de color"
+        },
+        "sutil": {
+          "nombre": "Sutil",
+          "descripcion": "Minimalista, líneas finas"
+        },
+        "corporativo": {
+          "nombre": "Corporativo",
+          "descripcion": "Cabecera y tabla en color"
+        },
+        "gris": {
+          "nombre": "Gris",
+          "descripcion": "Monocromo, sin color"
+        }
+      }
+    },
+    "referencia": {
+      "titulo": "Referencia técnica de empresa",
+      "descripcion": "Modelo de datos del tenant y reglas de validación de certificado y credenciales SOL",
+      "entidad": "Entidad ‘tenant’ (empresa)",
+      "entidadSubtitulo": "una fila por razón social · pertenece a una cuenta",
+      "tipoCifrado": "cifrado",
+      "campos": {
+        "id": "Identificador del tenant; viaja en la cabecera X-Empresa",
+        "ruc": "Único en la plataforma; debe coincidir con el OU del certificado",
+        "razonSocial": "Nombre legal tal como figura en la ficha RUC",
+        "entorno": "Endpoint SUNAT al que se envían los comprobantes",
+        "sol": "Usuario secundario y clave SOL; se envían como RUC+usuario en el UsernameToken",
+        "certificado": "Archivo .p12 y su contraseña, para firmar XML-DSig",
+        "vigencia": "notAfter del certificado, en hora de Lima"
+      },
+      "nota": "Secretos cifrados con MASTER_KEY; nunca se exponen por la API",
+      "reglasTitulo": "Reglas de validación",
+      "reglasSubtitulo": "lo que el sistema comprueba al guardar",
+      "reglas": {
+        "rucCertificado": {
+          "titulo": "RUC en el certificado",
+          "texto": "Al cargar el .p12 se abre con la contraseña, se exige clave privada y se verifica que el RUC de la empresa figure en el campo OU del sujeto. Si no, se rechaza (CERTIFICADO_INVALIDO)."
+        },
+        "usuarioSol": {
+          "titulo": "Usuario SOL secundario",
+          "texto": "SUNAT exige un usuario secundario con permiso de emisión. El portal guarda solo el usuario; al enviar, el sistema antepone el RUC (RUC+USUARIO) en el UsernameToken del SOAP."
+        },
+        "cifrado": {
+          "titulo": "Cifrado en reposo",
+          "texto": "Credenciales SOL, PKCS#12 y su contraseña se guardan cifrados con la clave maestra del servicio (MASTER_KEY). Nunca vuelven en claro por la API: por eso el portal no puede mostrarlos, solo reemplazarlos."
+        },
+        "entorno": {
+          "titulo": "Entorno",
+          "texto": "BETA apunta a la homologación de SUNAT (sin validez tributaria); Producción, al servicio real. Cada empresa fija el suyo al registrarse."
+        }
+      }
+    },
+    "ubigeo": {
+      "errorCatalogo": "No se pudo cargar el catálogo de ubigeos.",
+      "reintentar": "Reintentar",
+      "departamento": "Departamento",
+      "provincia": "Provincia",
+      "distrito": "Distrito",
+      "cargando": "Cargando ubigeos…",
+      "noDisponible": "Catálogo no disponible",
+      "seleccione": "Seleccione",
+      "elegido": "Ubigeo {codigo} (catálogo 13)",
+      "ayuda": "Ubigeo INEI, catálogo 13 de SUNAT"
+    }
   }
 }

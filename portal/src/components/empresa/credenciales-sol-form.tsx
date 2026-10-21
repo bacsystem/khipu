@@ -2,14 +2,19 @@
 
 import { EyeIcon, EyeOffIcon, LockIcon, SaveIcon, UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 export function CredencialesSolForm({ configuradas }: { configuradas: boolean }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.credencialesSol;
+  const tc = messages.empresa.credenciales;
+  const mensajeError = useMensajeError();
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
   const [verClave, setVerClave] = useState(false);
@@ -42,7 +47,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="usuario-sol" className={ETIQUETA_CAMPO}>
-            Usuario SOL secundario
+            {t.usuario}
           </label>
           <div className="relative">
             <UserIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -56,12 +61,12 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
               className={cn(CAMPO, "pl-9 font-mono uppercase")}
             />
           </div>
-          <span className={AYUDA_CAMPO}>Solo el usuario; el RUC lo antepone el sistema</span>
+          <span className={AYUDA_CAMPO}>{t.usuarioAyuda}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="clave-sol" className={ETIQUETA_CAMPO}>
-            Clave SOL
+            {t.clave}
           </label>
           <div className="relative">
             <LockIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -70,7 +75,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
               type={verClave ? "text" : "password"}
               value={clave}
               onChange={(e) => setClave(e.target.value)}
-              placeholder={configuradas ? "••••••••  (guardada, no se muestra)" : "••••••••"}
+              placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"}
               autoComplete="new-password"
               required
               className={cn(CAMPO, "pr-10 pl-9 font-mono")}
@@ -78,24 +83,24 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
             <button
               type="button"
               onClick={() => setVerClave((v) => !v)}
-              title={verClave ? "Ocultar clave" : "Mostrar clave"}
+              title={verClave ? tc.ocultarClave : tc.mostrarClave}
               className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             >
               {verClave ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
-          <span className={AYUDA_CAMPO}>Cifrada en reposo con la clave maestra del servicio</span>
+          <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
         </div>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">Credenciales SOL actualizadas.</p> : null}
+      {ok ? <p className="text-sm text-success-foreground">{t.actualizadas}</p> : null}
 
       {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : configuradas ? "Reemplazar credenciales" : "Guardar credenciales"}
+          {enviando ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>
       </div>
     </form>

@@ -1,13 +1,15 @@
 "use client";
 
 import { Building2Icon, PlusIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useState } from "react";
 import { NuevaEmpresaForm } from "@/components/empresa/nueva-empresa-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
-export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { className?: string; etiqueta?: string }) {
+export function NuevaEmpresaDialog({ className, etiqueta }: { className?: string; etiqueta?: string }) {
+  const t = useMessages().empresa.nueva;
   const soloLectura = useSinPermisoDeConfigurar();
   const [abierto, setAbierto] = useState(false);
 
@@ -17,7 +19,7 @@ export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { 
         className={className ?? ACCION_PRINCIPAL}
       >
         <PlusIcon className="size-4" />
-        {etiqueta}
+        {etiqueta ?? t.nuevaEmpresa}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
@@ -26,9 +28,9 @@ export function NuevaEmpresaDialog({ className, etiqueta = "Nueva empresa" }: { 
               <Building2Icon className="size-5" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">Registrar empresa</DialogTitle>
+              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
               <DialogDescription className="text-[13px]">
-                Asocia otra razón social a tu cuenta; cada empresa tiene sus propias series, certificado y credenciales SOL.
+                {t.descripcion}
               </DialogDescription>
             </div>
           </div>

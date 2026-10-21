@@ -24,11 +24,6 @@
       "count": 26
     }
   },
-  "src/app/(privado)/empresa/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 80
-    }
-  },
   "src/app/(privado)/establecimientos/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 16
@@ -314,61 +309,6 @@
       "count": 12
     }
   },
-  "src/components/empresa/certificado-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 17
-    }
-  },
-  "src/components/empresa/credenciales-api-sunat-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/empresa/credenciales-sol-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 11
-    }
-  },
-  "src/components/empresa/datos-fiscales-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 20
-    }
-  },
-  "src/components/empresa/envio-al-cliente-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 8
-    }
-  },
-  "src/components/empresa/nueva-empresa-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/empresa/nueva-empresa-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 11
-    }
-  },
-  "src/components/empresa/personalizacion-pdf-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 28
-    }
-  },
-  "src/components/empresa/referencia-empresa.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 20
-    }
-  },
-  "src/components/empresa/secciones-empresa.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/empresa/ubigeo-selector.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 14
-    }
-  },
   "src/components/equipo/equipo-view.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -527,11 +467,6 @@
   "src/lib/api/consulta-ruc.ts": {
     "khipu/no-literal-de-ui": {
       "count": 3
-    }
-  },
-  "src/lib/api/empresas.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 10
     }
   },
   "src/lib/api/http.ts": {

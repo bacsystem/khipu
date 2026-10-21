@@ -2,11 +2,12 @@
 
 import { EyeIcon, EyeOffIcon, KeyRoundIcon, LockIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import { type CredencialesApiSunat, RUTA_CREDENCIALES_API_SUNAT } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,12 +16,16 @@ import { cn } from "@/lib/utils";
  */
 export function CredencialesApiSunatForm({ configuradas }: { configuradas: boolean }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.credencialesApi;
+  const tc = messages.empresa.credenciales;
+  const mensajeError = useMensajeError();
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [verSecreto, setVerSecreto] = useState(false);
   const [enviando, setEnviando] = useState<"guardar" | "quitar" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [ok, setOk] = useState<"actualizadas" | "quitadas" | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,7 +39,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
-    setOk("Credenciales API SUNAT actualizadas.");
+    setOk("actualizadas");
     setClientId("");
     setClientSecret("");
     router.refresh();
@@ -50,7 +55,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
     }
-    setOk("Credenciales API SUNAT quitadas: la validez se consulta con la clave SOL.");
+    setOk("quitadas");
     router.refresh();
   }
 
@@ -59,7 +64,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="api-sunat-client-id" className={ETIQUETA_CAMPO}>
-            Id (client_id)
+            {t.clientId}
           </label>
           <div className="relative">
             <KeyRoundIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -67,19 +72,19 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
               id="api-sunat-client-id"
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              placeholder={configuradas ? "(guardado, no se muestra)" : "d20b421e-4ace-46d8-ac8c-4fbb44cfde17"}
+              placeholder={configuradas ? t.guardadoPlaceholder : "d20b421e-4ace-46d8-ac8c-4fbb44cfde17"}
               autoComplete="off"
               spellCheck={false}
               required
               className={cn(CAMPO, "pl-9 font-mono")}
             />
           </div>
-          <span className={AYUDA_CAMPO}>En SOL: Empresas › Comprobantes de pago › Credenciales de API SUNAT</span>
+          <span className={AYUDA_CAMPO}>{t.rutaEnSol}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="api-sunat-client-secret" className={ETIQUETA_CAMPO}>
-            Clave (client_secret)
+            {t.clientSecret}
           </label>
           <div className="relative">
             <LockIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -88,7 +93,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
               type={verSecreto ? "text" : "password"}
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
-              placeholder={configuradas ? "••••••••  (guardada, no se muestra)" : "••••••••"}
+              placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"}
               autoComplete="new-password"
               required
               className={cn(CAMPO, "pr-10 pl-9 font-mono")}
@@ -96,29 +101,29 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
             <button
               type="button"
               onClick={() => setVerSecreto((v) => !v)}
-              title={verSecreto ? "Ocultar clave" : "Mostrar clave"}
+              title={verSecreto ? tc.ocultarClave : tc.mostrarClave}
               className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             >
               {verSecreto ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
-          <span className={AYUDA_CAMPO}>Cifrada en reposo con la clave maestra del servicio</span>
+          <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
         </div>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">{ok}</p> : null}
+      {ok ? <p className="text-sm text-success-foreground">{t[ok]}</p> : null}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         {configuradas ? (
           <button type="button" onClick={quitar} disabled={enviando !== null} className={BOTON_SECUNDARIO}>
             <Trash2Icon className="size-4" />
-            {enviando === "quitar" ? "Quitando…" : "Quitar credenciales"}
+            {enviando === "quitar" ? t.quitando : t.quitar}
           </button>
         ) : null}
         <button type="submit" disabled={enviando !== null} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando === "guardar" ? "Guardando…" : configuradas ? "Reemplazar credenciales" : "Guardar credenciales"}
+          {enviando === "guardar" ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>
       </div>
     </form>

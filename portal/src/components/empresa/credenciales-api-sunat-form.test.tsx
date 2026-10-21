@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { CredencialesApiSunatForm } from "./credenciales-api-sunat-form";
 
@@ -66,5 +67,16 @@ describe("CredencialesApiSunatForm (#318)", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(apiRequest).toHaveBeenCalledWith(RUTA, { method: "DELETE" });
     expect(screen.getByText(/la validez se consulta con la clave SOL/)).toBeTruthy();
+  });
+});
+
+describe("CredencialesApiSunatForm en inglés (#25)", () => {
+  it("muestra etiquetas, botones y el aviso de éxito en inglés", async () => {
+    fijarLocaleDePrueba("en");
+    apiRequest.mockResolvedValue(exito());
+    render(<CredencialesApiSunatForm configuradas />);
+    expect(screen.getByLabelText("Key (client_secret)")).toHaveAttribute("placeholder", "••••••••  (saved, not shown)");
+    fireEvent.click(screen.getByRole("button", { name: "Remove credentials" }));
+    expect(await screen.findByText("SUNAT API credentials removed: validity is checked with the SOL password.")).toBeInTheDocument();
   });
 });

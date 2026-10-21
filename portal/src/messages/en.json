@@ -3140,5 +3140,305 @@
       "emitiendo": "Issuing and sending to SUNAT…",
       "emitir": "Issue {nota}"
     }
+  },
+  "empresa": {
+    "comun": {
+      "guardando": "Saving…",
+      "subiendo": "Uploading…",
+      "opcional": "(optional)",
+      "ruc": "RUC",
+      "razonSocial": "Legal name",
+      "entornoSunat": "SUNAT environment"
+    },
+    "pagina": {
+      "titulo": "Tax & certificate",
+      "metricas": {
+        "estadoCertificado": "Certificate status",
+        "venceEl": "Expires on {fecha}",
+        "haceDias": "{dias} days ago",
+        "diasRestantes": "{dias} days left",
+        "sinFechaDeVigencia": "The certificate has no expiration date",
+        "cargaTuP12": "Upload your .p12 to be able to sign",
+        "pkcs12": "PKCS#12",
+        "credencialesSol": "SOL credentials",
+        "solNoAceptadas": "SUNAT does not accept them: fix them",
+        "solConfiguradas": "Secondary user configured",
+        "solPendientes": "Not configured yet",
+        "solRechazadas": "REJECTED",
+        "solConfiguradasCorto": "CONFIGURED",
+        "rucNumero": "RUC {ruc}",
+        "beta": "BETA",
+        "produccion": "PRODUCTION",
+        "homologacion": "testing",
+        "validezTributaria": "tax-valid",
+        "empresasEnLaCuenta": "Companies in the account",
+        "conCertificadoYSol": "{n} with certificate and SOL",
+        "registrada": "registered",
+        "registradas": "registered"
+      },
+      "estadoCertificado": {
+        "sinCertificado": "No certificate",
+        "cargado": "Uploaded",
+        "vencido": "Expired",
+        "porVencer": "Expiring soon",
+        "vigente": "Valid"
+      },
+      "datos": {
+        "titulo": "Company details (legal name and address)",
+        "rucRegistrado": "Registered RUC",
+        "rucValidado": "RUC validated",
+        "domicilioRegistrado": "Registered tax address",
+        "domicilioPendiente": "Fill in the tax address below so it appears in the XML",
+        "ayuda": "The tax address goes in every XML as the issuer address (ubigeo from catalog 13, rule 4093). SUNAT does not flag an invoice without it, but the printed version and your customers need it.",
+        "envioDirecto": "Sent directly to SUNAT",
+        "codigoLocalAyuda": "Annex establishment code declared in the RUC (0000 = tax address)",
+        "codigoLocal": "Address premises code: {codigo}"
+      },
+      "sol": {
+        "titulo": "SUNAT SOL credentials (issuing)",
+        "rechazadas": "Rejected",
+        "configuradas": "Configured",
+        "pendientes": "Pending",
+        "rechazoTitulo": "SUNAT rejected your SOL credentials",
+        "rechazoTexto": "Since {desde} SUNAT has been answering “{motivo}”. Your documents are still being signed, but they are not sent until you save a correct SOL user and password below: pending ones resume on their own.",
+        "secundarioAntes": "SUNAT requires using a",
+        "secundario": "secondary user",
+        "secundarioDespues": "with permission to issue payment documents. Never use the main credentials of your master SOL password."
+      },
+      "api": {
+        "titulo": "SUNAT API credentials (queries)",
+        "opcionales": "Optional",
+        "texto": "With the “Id” and “Key” of an application registered in SOL (option “Credenciales de API SUNAT”), a document’s validity is checked through the SUNAT REST API, which also works in beta. Without them the SOL password service is used, which SUNAT only offers in production. They are not used for issuing."
+      },
+      "empresas": {
+        "titulo": "Multi-company",
+        "uno": "{n} company",
+        "varios": "{n} companies",
+        "texto": "Link additional legal entities under the same account. Each company has its own series, certificate and credentials; switch the active one from the selector in the side menu.",
+        "beta": "Beta",
+        "produccion": "Production",
+        "certificadoCargado": "Certificate uploaded",
+        "sinCertificado": "No certificate",
+        "solConfiguradas": "SOL credentials configured",
+        "sinSol": "No SOL credentials",
+        "activa": "Active",
+        "registrar": "Register company"
+      },
+      "certificado": {
+        "titulo": "PKCS#12 digital certificate",
+        "archivoAyuda": "File name: the API does not keep it (only the encrypted content)",
+        "archivoCargado": "File uploaded:",
+        "siCifrado": "Yes (encrypted)",
+        "no": "No",
+        "fechaExpiracion": "Expiration date:",
+        "sinFecha": "No date",
+        "noAplica": "Not applicable"
+      },
+      "recursos": {
+        "titulo": "SUNAT resources and regulations",
+        "portalCpe": "Electronic payment documents portal (SUNAT)",
+        "indecopi": "Certification authorities accredited by INDECOPI"
+      },
+      "pdf": {
+        "titulo": "PDF customization (A4)",
+        "ayuda": "Only changes the printed version; it does not affect what is sent to SUNAT."
+      },
+      "correo": {
+        "titulo": "Sending the document to the customer",
+        "activado": "On",
+        "desactivado": "Off",
+        "errorTitulo": "The preference could not be loaded",
+        "errorTexto": "Try again in a few minutes."
+      }
+    },
+    "secciones": {
+      "etiquetas": {
+        "datos": "Tax details",
+        "certificado": "Certificate",
+        "sol": "SOL credentials",
+        "pdf": "PDF",
+        "correo": "Customer delivery",
+        "empresas": "Companies"
+      },
+      "pendiente": ", pending"
+    },
+    "certificado": {
+      "extensionInvalida": "The file must be a .p12 or .pfx certificate",
+      "seleccionaArchivo": "Select your certificate’s .p12 file",
+      "reemplazar": "Replace or renew certificate",
+      "cargar": "Upload certificate",
+      "listoParaSubir": "{tamano} · ready to upload",
+      "quitarArchivo": "Remove file",
+      "arrastra": "Drag your .p12 or .pfx file here",
+      "examinar": "or click to browse your computer",
+      "contrasena": "Private key password",
+      "ocultarContrasena": "Hide password",
+      "mostrarContrasena": "Show password",
+      "ayudaOu": "The company’s RUC must appear in the certificate’s OU field",
+      "actualizado": "Certificate updated.",
+      "actualizarDigital": "Update digital certificate",
+      "cargarDigital": "Upload digital certificate",
+      "cifrado": "PKCS#12 encrypted at rest with the service master key; the password is never stored in plain text."
+    },
+    "credenciales": {
+      "ocultarClave": "Hide password",
+      "mostrarClave": "Show password",
+      "cifradaEnReposo": "Encrypted at rest with the service master key",
+      "guardadaPlaceholder": "••••••••  (saved, not shown)",
+      "reemplazar": "Replace credentials",
+      "guardar": "Save credentials"
+    },
+    "credencialesSol": {
+      "usuario": "Secondary SOL user",
+      "usuarioAyuda": "Only the user; the system adds the RUC in front",
+      "clave": "SOL password",
+      "actualizadas": "SOL credentials updated."
+    },
+    "credencialesApi": {
+      "actualizadas": "SUNAT API credentials updated.",
+      "quitadas": "SUNAT API credentials removed: validity is checked with the SOL password.",
+      "clientId": "Id (client_id)",
+      "guardadoPlaceholder": "(saved, not shown)",
+      "rutaEnSol": "In SOL: Empresas › Comprobantes de pago › Credenciales de API SUNAT",
+      "clientSecret": "Key (client_secret)",
+      "quitando": "Removing…",
+      "quitar": "Remove credentials"
+    },
+    "datosFiscales": {
+      "faltaDistrito": "Choose the district. Without a ubigeo, SUNAT does not accept the address (rule 4093) and the address is not saved.",
+      "direccion": "Address",
+      "direccionPlaceholder": "Av. Javier Prado Este 123 Of. 501",
+      "direccionAyuda": "Exactly as shown in the RUC record, on a single line (3 to 200 characters)",
+      "urbanizacion": "Neighborhood",
+      "establecimiento": "Annex establishment code",
+      "establecimientoAyuda": "0000 = tax address; any other code must exist in the RUC record",
+      "cuentaDetracciones": "Detraction account (Banco de la Nación)",
+      "cuentaDetraccionesAyuda": "Used when an invoice subject to detraction does not specify the account",
+      "nombreComercial": "Trade name",
+      "nombreComercialPlaceholder": "Andina Store",
+      "nombreComercialAyuda": "Goes in the XML next to the legal name (rule 4092); leave it empty if you do not use one",
+      "padron": "Listed in the IGV Special Rate Registry (restaurants and hotels)",
+      "padronAyuda": "Law 31556: taxed documents use the current reduced rate (10.5 %) instead of 18 %. Check it only if SUNAT included you in the registry; otherwise it will flag every document (4439)",
+      "actualizados": "Tax details updated: the address will go in the XML of upcoming invoices.",
+      "guardar": "Save tax details"
+    },
+    "envioAlCliente": {
+      "sinCorreoTitulo": "The server has no email configured",
+      "sinCorreoTexto": "For now khipu cannot send emails, so automatic delivery cannot be turned on. Download the PDF from the document and send it yourself, or ask support to set up email.",
+      "casilla": "Automatically send the document to the customer when SUNAT accepts it",
+      "casillaAyuda": "They receive the PDF, the signed XML and the SUNAT receipt (CDR) at the email you enter when issuing. A credit or debit note goes to the email of the document it modifies, and a receipt reported in the daily summary goes out when SUNAT accepts the summary. It applies to what is accepted from now on; when you turn it off, anything waiting to go out is no longer sent.",
+      "activado": "Automatic delivery turned on.",
+      "desactivado": "Automatic delivery turned off.",
+      "guardar": "Save preference"
+    },
+    "nueva": {
+      "nuevaEmpresa": "New company",
+      "titulo": "Register company",
+      "descripcion": "Link another legal entity to your account; each company has its own series, certificate and SOL credentials.",
+      "rucAyuda": "11 digits",
+      "beta": "BETA (testing)",
+      "produccion": "Production",
+      "entornoAyuda": "In BETA, documents have no tax validity",
+      "razonSocialPlaceholder": "Exactly as shown in the RUC record",
+      "registrando": "Registering…",
+      "registrar": "Register company"
+    },
+    "pdf": {
+      "logoTipoInvalido": "The logo must be PNG or JPEG",
+      "logoPesado": "The logo is {kb} KB; the maximum is 200 KB",
+      "plantilla": "Template",
+      "colorPrimario": "Primary color",
+      "colorHex": "Primary color in hexadecimal",
+      "grisSinColor": "The gray template does not use color.",
+      "colorAyuda": "Titles, number and table header, depending on the template.",
+      "logo": "Logo",
+      "logoActual": "Current logo",
+      "cambiar": "Change",
+      "subir": "Upload",
+      "quitarLogo": "Remove logo",
+      "logoAyuda": "PNG or JPEG, up to 200 KB. Printed at 55×18 mm.",
+      "pie": "Footer",
+      "piePlaceholder": "Thank you for your business…",
+      "pieAyuda": "Closing text of the PDF. Empty = default legend. {n}/300",
+      "observaciones": "Default notes",
+      "observacionesPlaceholder": "Printed in the “Notes” block of every document",
+      "observacionesAyuda": "The API can send `observaciones` per document; this text is the default value. {n}/1000",
+      "guardar": "Save design",
+      "guardado": "Design saved",
+      "vistaPrevia": "Preview",
+      "abrirEnPestana": "Open in new tab",
+      "vistaPreviaTitulo": "PDF preview",
+      "plantillas": {
+        "clasico": {
+          "nombre": "Classic",
+          "descripcion": "Formal, defined borders"
+        },
+        "moderno": {
+          "nombre": "Modern",
+          "descripcion": "Airy, with a color accent"
+        },
+        "sutil": {
+          "nombre": "Subtle",
+          "descripcion": "Minimalist, thin lines"
+        },
+        "corporativo": {
+          "nombre": "Corporate",
+          "descripcion": "Colored header and table"
+        },
+        "gris": {
+          "nombre": "Gray",
+          "descripcion": "Monochrome, no color"
+        }
+      }
+    },
+    "referencia": {
+      "titulo": "Company technical reference",
+      "descripcion": "Tenant data model and validation rules for the certificate and SOL credentials",
+      "entidad": "‘tenant’ entity (company)",
+      "entidadSubtitulo": "one row per legal entity · belongs to an account",
+      "tipoCifrado": "encrypted",
+      "campos": {
+        "id": "Tenant identifier; sent in the X-Empresa header",
+        "ruc": "Unique across the platform; must match the certificate’s OU",
+        "razonSocial": "Legal name exactly as shown in the RUC record",
+        "entorno": "SUNAT endpoint the documents are sent to",
+        "sol": "SOL secondary user and password; sent as RUC+user in the UsernameToken",
+        "certificado": "The .p12 file and its password, for XML-DSig signing",
+        "vigencia": "The certificate’s notAfter, in Lima time"
+      },
+      "nota": "Secrets encrypted with MASTER_KEY; never exposed through the API",
+      "reglasTitulo": "Validation rules",
+      "reglasSubtitulo": "what the system checks when saving",
+      "reglas": {
+        "rucCertificado": {
+          "titulo": "RUC in the certificate",
+          "texto": "When the .p12 is uploaded it is opened with the password, a private key is required, and the company’s RUC is checked against the subject’s OU field. Otherwise it is rejected (CERTIFICADO_INVALIDO)."
+        },
+        "usuarioSol": {
+          "titulo": "Secondary SOL user",
+          "texto": "SUNAT requires a secondary user with issuing permission. The portal stores only the user; when sending, the system prepends the RUC (RUC+USER) in the SOAP UsernameToken."
+        },
+        "cifrado": {
+          "titulo": "Encryption at rest",
+          "texto": "SOL credentials, the PKCS#12 and its password are stored encrypted with the service master key (MASTER_KEY). They never come back in plain text through the API: that is why the portal cannot show them, only replace them."
+        },
+        "entorno": {
+          "titulo": "Environment",
+          "texto": "BETA points to SUNAT’s testing environment (no tax validity); Production, to the real service. Each company sets its own when registering."
+        }
+      }
+    },
+    "ubigeo": {
+      "errorCatalogo": "The ubigeo catalog could not be loaded.",
+      "reintentar": "Retry",
+      "departamento": "Department",
+      "provincia": "Province",
+      "distrito": "District",
+      "cargando": "Loading ubigeos…",
+      "noDisponible": "Catalog unavailable",
+      "seleccione": "Select",
+      "elegido": "Ubigeo {codigo} (catalog 13)",
+      "ayuda": "INEI ubigeo, SUNAT catalog 13"
+    }
   }
 }

@@ -2,11 +2,13 @@
 
 import { CheckIcon, ImageIcon, PaletteIcon, RefreshCcwIcon, Trash2Icon, UploadCloudIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
-import { PLANTILLAS_PDF, type PersonalizacionPdf, type PlantillaPdf } from "@/lib/api/empresas";
+import { interpolar } from "@/i18n/mensajes";
+import { plantillasPdf, type PersonalizacionPdf, type PlantillaPdf } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 const LOGO_MAX_BYTES = 200 * 1024;
@@ -28,6 +30,9 @@ function useRetardado<T>(valor: T, ms: number): T {
  */
 export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPdf }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.pdf;
+  const mensajeError = useMensajeError();
   const logoInputId = useId();
   const [plantilla, setPlantilla] = useState<PlantillaPdf>(inicial.plantilla);
   const [color, setColor] = useState(inicial.color_primario);
@@ -75,11 +80,11 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
     setError(null);
     setOk(false);
     if (!["image/png", "image/jpeg"].includes(archivo.type)) {
-      setError("El logo debe ser PNG o JPEG");
+      setError(t.logoTipoInvalido);
       return;
     }
     if (archivo.size > LOGO_MAX_BYTES) {
-      setError(`El logo pesa ${(archivo.size / 1024).toFixed(0)} KB; el máximo es 200 KB`);
+      setError(interpolar(t.logoPesado, { kb: (archivo.size / 1024).toFixed(0) }));
       return;
     }
     setSubiendoLogo(true);
@@ -110,9 +115,9 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-12" data-testid="personalizacion-pdf">
       <form onSubmit={guardar} className="grid grid-cols-1 gap-5 xl:col-span-5">
         <fieldset className="flex flex-col gap-2">
-          <legend className={ETIQUETA_CAMPO}>Plantilla</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Plantilla">
-            {PLANTILLAS_PDF.map((p) => (
+          <legend className={ETIQUETA_CAMPO}>{t.plantilla}</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t.plantilla}>
+            {plantillasPdf(messages).map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -134,47 +139,47 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="pdf-color" className={ETIQUETA_CAMPO}>Color primario</label>
+            <label htmlFor="pdf-color" className={ETIQUETA_CAMPO}>{t.colorPrimario}</label>
             <div className="flex items-center gap-2">
               <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-card p-1" disabled={plantilla === "gris"} />
-              <input aria-label="Color primario en hexadecimal" value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "font-mono")} disabled={plantilla === "gris"} />
+              <input aria-label={t.colorHex} value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "font-mono")} disabled={plantilla === "gris"} />
             </div>
-            <span className={AYUDA_CAMPO}>{plantilla === "gris" ? "La plantilla gris no usa color." : "Títulos, número y cabecera de tabla según la plantilla."}</span>
+            <span className={AYUDA_CAMPO}>{plantilla === "gris" ? t.grisSinColor : t.colorAyuda}</span>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className={ETIQUETA_CAMPO}>Logo</span>
+            <span className={ETIQUETA_CAMPO}>{t.logo}</span>
             <div className="flex items-center gap-2">
               {tieneLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt="Logo actual" className="h-9 max-w-24 rounded-lg border border-border bg-card object-contain p-1" data-testid="logo-actual" />
+                <img src={`/api/proxy/empresa/logo?v=${logoVersion}`} alt={t.logoActual} className="h-9 max-w-24 rounded-lg border border-border bg-card object-contain p-1" data-testid="logo-actual" />
               ) : (
                 <span className="flex size-9 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
               )}
               <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "cursor-pointer")}>
                 <UploadCloudIcon className="size-3.5" />
-                {subiendoLogo ? "Subiendo…" : tieneLogo ? "Cambiar" : "Subir"}
+                {subiendoLogo ? messages.empresa.comun.subiendo : tieneLogo ? t.cambiar : t.subir}
               </label>
               <input id={logoInputId} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => subirLogo(e.target.files?.[0])} disabled={subiendoLogo} />
               {tieneLogo ? (
-                <button type="button" onClick={quitarLogo} className={cn(BOTON_SECUNDARIO, "text-destructive hover:text-destructive")} title="Quitar logo">
+                <button type="button" onClick={quitarLogo} className={cn(BOTON_SECUNDARIO, "text-destructive hover:text-destructive")} title={t.quitarLogo}>
                   <Trash2Icon className="size-3.5" />
                 </button>
               ) : null}
             </div>
-            <span className={AYUDA_CAMPO}>PNG o JPEG, hasta 200 KB. Se imprime a 55×18 mm.</span>
+            <span className={AYUDA_CAMPO}>{t.logoAyuda}</span>
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pdf-pie" className={ETIQUETA_CAMPO}>Pie de página</label>
-          <input id="pdf-pie" value={pie} onChange={(e) => setPie(e.target.value)} maxLength={300} placeholder="Gracias por su preferencia…" className={CAMPO} />
-          <span className={AYUDA_CAMPO}>Texto final del PDF. Vacío = leyenda por defecto. {pie.length}/300</span>
+          <label htmlFor="pdf-pie" className={ETIQUETA_CAMPO}>{t.pie}</label>
+          <input id="pdf-pie" value={pie} onChange={(e) => setPie(e.target.value)} maxLength={300} placeholder={t.piePlaceholder} className={CAMPO} />
+          <span className={AYUDA_CAMPO}>{interpolar(t.pieAyuda, { n: pie.length })}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pdf-observaciones" className={ETIQUETA_CAMPO}>Observaciones por defecto</label>
-          <textarea id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder="Se imprimen en el bloque «Observaciones» de cada comprobante" className={cn(CAMPO, "h-auto py-2")} />
-          <span className={AYUDA_CAMPO}>La API puede enviar `observaciones` por comprobante; este texto es el valor por defecto. {observaciones.length}/1000</span>
+          <label htmlFor="pdf-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones}</label>
+          <textarea id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder={t.observacionesPlaceholder} className={cn(CAMPO, "h-auto py-2")} />
+          <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
 
         {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
@@ -182,11 +187,11 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={guardando || !colorValido} className={BOTON_PRIMARIO}>
             {guardando ? <RefreshCcwIcon className="size-4 animate-spin" /> : <PaletteIcon className="size-4" />}
-            {guardando ? "Guardando…" : "Guardar diseño"}
+            {guardando ? messages.empresa.comun.guardando : t.guardar}
           </button>
           {ok ? (
             <span className="inline-flex items-center gap-1 text-[12px] text-success-foreground" role="status" data-testid="diseno-guardado">
-              <CheckIcon className="size-3.5" /> Diseño guardado
+              <CheckIcon className="size-3.5" /> {t.guardado}
             </span>
           ) : null}
         </div>
@@ -194,10 +199,10 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
 
       <div className="flex min-h-[520px] flex-col gap-2 xl:col-span-7">
         <div className="flex items-center justify-between">
-          <span className={ETIQUETA_CAMPO}>Vista previa</span>
-          <a href={urlVistaPrevia} target="_blank" rel="noopener" className="text-[12px] text-primary hover:underline">Abrir en pestaña</a>
+          <span className={ETIQUETA_CAMPO}>{t.vistaPrevia}</span>
+          <a href={urlVistaPrevia} target="_blank" rel="noopener" className="text-[12px] text-primary hover:underline">{t.abrirEnPestana}</a>
         </div>
-        <iframe key={urlVistaPrevia} src={urlVistaPrevia} title="Vista previa del PDF" className="min-h-[520px] w-full flex-1 rounded-lg border border-border bg-muted" data-testid="vista-previa" />
+        <iframe key={urlVistaPrevia} src={urlVistaPrevia} title={t.vistaPreviaTitulo} className="min-h-[520px] w-full flex-1 rounded-lg border border-border bg-muted" data-testid="vista-previa" />
       </div>
     </div>
   );
