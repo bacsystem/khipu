@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
  * `--success` y `--warning` son colores de FONDO (verde y ámbar muy claros, casi negros en modo oscuro); el texto va con su `-foreground`.
  * Un `text-success` suelto dejó invisible en modo oscuro el «Correo enviado» del backoffice (H8). `bg-success`, `border-success-border`,
  * `text-success-foreground` y `text-success-solid` sí valen.
+ * Recorre solo el código del portal (`src/`): los componentes de khipu-design-system los vigila el `npm run lint` del DS.
  */
 const TEXTO_CON_TOKEN_DE_FONDO = /(?<![\w-])(?:[a-z-]+:)*text-(?:success|warning)(?![-\w])/g;
 
