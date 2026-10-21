@@ -1,19 +1,24 @@
 import Link from "next/link";
 import { ProductosTable } from "@/components/productos/productos-table";
 import { getServerSession } from "@/lib/session-server";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 
-export const metadata = { title: `Productos · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.nav.items.productos} · ${messages.app.nombre}` };
+}
 
 export default async function ProductosPage() {
   const { access, empresaId } = await getServerSession();
+  const t = (await getMessages()).productos.pagina;
 
   if (!access || !empresaId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Configura primero una empresa para guardar productos.{" "}
+        {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
-          Configurar empresa
+          {t.configurarEmpresa}
         </Link>
       </p>
     );

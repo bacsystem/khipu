@@ -1,26 +1,30 @@
 "use client";
 
 import { SearchIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { buscarClientes } from "@/lib/api/clientes-browser";
-import { DOCUMENTOS_DE_CLIENTE } from "@/lib/comprobantes/documentos";
+import { documentosDeCliente } from "@/lib/comprobantes/documentos";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSoloLectura } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { ClienteDialog } from "./cliente-dialog";
 import { alCambiarLosClientes, avisarQueCambiaronLosClientes } from "./eventos";
 
-const ETIQUETA_DOCUMENTO = new Map<string, string>(DOCUMENTOS_DE_CLIENTE.map((d) => [d.codigo, d.etiqueta.split(" — ")[0]]));
 const ACCION = "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** La lista de clientes guardados (#319): búsqueda por documento o nombre, páginas y las acciones de cambiar y eliminar. */
 export function ClientesTable() {
+  const messages = useMessages();
+  const t = messages.clientes.tabla;
+  const ETIQUETA_DOCUMENTO = new Map<string, string>(documentosDeCliente(messages).map((d) => [d.codigo, d.etiqueta.split(" — ")[0]]));
+  const mensajeError = useMensajeError();
   const soloLectura = useSoloLectura();
   const [texto, setTexto] = useState("");
   const [q, setQ] = useState("");
@@ -47,7 +51,7 @@ export function ClientesTable() {
 
   const cargar = useCallback(async () => {
     const mia = ++ultimaLectura.current;
-    const res = await buscarClientes({ q, pagina, porPagina });
+    const res = await buscarClientes({ q, pagina, porPagina }, messages);
     if (mia !== ultimaLectura.current) return;
     if (res.estado === "exito") {
       // Borrar la única fila de la última página deja esa página vacía: se vuelve a la última que tiene clientes.
@@ -62,7 +66,7 @@ export function ClientesTable() {
     } else {
       setError(res.mensaje);
     }
-  }, [q, pagina, porPagina]);
+  }, [q, pagina, porPagina, messages]);
 
   useEffect(() => {
     void cargar();
@@ -93,18 +97,18 @@ export function ClientesTable() {
             <UsersIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">Clientes guardados</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">Aparecen al buscar en «Nuevo comprobante» · el documento es único por empresa</p>
+            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
         <label className="relative">
-          <span className="sr-only">Buscar clientes</span>
+          <span className="sr-only">{t.buscar}</span>
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             type="search"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Buscar por documento o nombre"
+            placeholder={t.buscarPlaceholder}
             className={cn(CONTROL_FILTRO, "w-72 max-w-full pr-3 pl-9 font-normal")}
           />
         </label>
@@ -120,11 +124,11 @@ export function ClientesTable() {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Cliente</TableHead>
-              <TableHead className={CABECERA_TABLA}>Documento</TableHead>
-              <TableHead className={CABECERA_TABLA}>Dirección</TableHead>
-              <TableHead className={CABECERA_TABLA}>Correo</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.cliente}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.documento}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.direccion}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.correo}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -141,12 +145,12 @@ export function ClientesTable() {
                   <div className="flex items-center justify-end gap-1">
                     {confirmando === c.id ? (
                       <>
-                        <span className="mr-1 text-[11px] text-muted-foreground">¿Eliminar de la lista?</span>
+                        <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarEliminar}</span>
                         <button type="button" disabled={eliminando === c.id} onClick={() => eliminar(c)} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                          Sí, eliminar
+                          {t.siEliminar}
                         </button>
                         <button type="button" onClick={() => setConfirmando(null)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                          Cancelar
+                          {messages.comun.cancelar}
                         </button>
                       </>
                     ) : (
@@ -154,7 +158,7 @@ export function ClientesTable() {
                         <ClienteDialog existente={c} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted")} />
                         <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(c.id)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
                           <Trash2Icon className="size-3.5" />
-                          Eliminar
+                          {t.eliminar}
                         </button>
                       </>
                     )}
@@ -167,7 +171,7 @@ export function ClientesTable() {
                 <TableCell colSpan={5} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <UsersIcon className="size-6" />
-                    <p className="text-sm">{q ? "Ningún cliente coincide con la búsqueda." : "Todavía no tienes clientes guardados. Crea el primero con «Nuevo cliente», o guárdalo al emitir."}</p>
+                    <p className="text-sm">{q ? t.sinCoincidencias : t.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -175,7 +179,7 @@ export function ClientesTable() {
             {clientes === null && !error ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="py-14 text-center text-sm text-muted-foreground">
-                  Cargando clientes…
+                  {t.cargando}
                 </TableCell>
               </TableRow>
             ) : null}
@@ -185,13 +189,13 @@ export function ClientesTable() {
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="clientes"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Eliminar un cliente no toca los comprobantes ya emitidos"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

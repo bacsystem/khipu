@@ -3440,5 +3440,320 @@
       "elegido": "Ubigeo {codigo} (catálogo 13)",
       "ayuda": "Ubigeo INEI, catálogo 13 de SUNAT"
     }
+  },
+  "clientes": {
+    "pagina": {
+      "sinEmpresa": "Configura primero una empresa para guardar clientes.",
+      "configurarEmpresa": "Configurar empresa"
+    },
+    "dialogo": {
+      "editar": "Editar",
+      "nuevo": "Nuevo cliente",
+      "tituloEditar": "Editar cliente",
+      "tituloNuevo": "Nuevo cliente",
+      "descripcionEditar": "Los comprobantes ya emitidos conservan sus datos",
+      "descripcionNuevo": "Lo verás al buscar en «Nuevo comprobante»"
+    },
+    "form": {
+      "errorNombre": "Escribe el nombre o la razón social (3 caracteres o más)",
+      "errorCorreo": "El correo no es válido",
+      "documento": "Documento",
+      "numero": "Número",
+      "razonSocial": "Razón social",
+      "nombre": "Nombre",
+      "direccion": "Dirección",
+      "pais": "País",
+      "paisAyuda": "Para sus exportaciones",
+      "sinPais": "Sin país",
+      "correo": "Correo",
+      "correoAyuda": "Para enviarle sus comprobantes",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "guardar": "Guardar cliente"
+    },
+    "tabla": {
+      "titulo": "Clientes guardados",
+      "subtitulo": "Aparecen al buscar en «Nuevo comprobante» · el documento es único por empresa",
+      "buscar": "Buscar clientes",
+      "buscarPlaceholder": "Buscar por documento o nombre",
+      "columnas": {
+        "cliente": "Cliente",
+        "documento": "Documento",
+        "direccion": "Dirección",
+        "correo": "Correo",
+        "acciones": "Acciones"
+      },
+      "confirmarEliminar": "¿Eliminar de la lista?",
+      "siEliminar": "Sí, eliminar",
+      "eliminar": "Eliminar",
+      "sinCoincidencias": "Ningún cliente coincide con la búsqueda.",
+      "vacio": "Todavía no tienes clientes guardados. Crea el primero con «Nuevo cliente», o guárdalo al emitir.",
+      "cargando": "Cargando clientes…",
+      "unidad": "clientes",
+      "nota": "Eliminar un cliente no toca los comprobantes ya emitidos"
+    },
+    "errores": {
+      "lectura": "No se pudo leer la lista de clientes",
+      "red": "No se pudo leer la lista de clientes. Revisa tu conexión e intenta de nuevo."
+    }
+  },
+  "productos": {
+    "pagina": {
+      "sinEmpresa": "Configura primero una empresa para guardar productos.",
+      "configurarEmpresa": "Configurar empresa"
+    },
+    "dialogo": {
+      "editar": "Editar",
+      "nuevo": "Nuevo producto",
+      "tituloEditar": "Editar producto",
+      "tituloNuevo": "Nuevo producto",
+      "descripcionEditar": "Los comprobantes ya emitidos conservan sus datos",
+      "descripcionNuevo": "Lo verás al buscar en los ítems de «Nuevo comprobante»"
+    },
+    "form": {
+      "errorDescripcion": "Escribe la descripción",
+      "errorDescripcionLarga": "Hasta 500 caracteres",
+      "errorPrecioFormato": "Hasta 12 enteros y 10 decimales",
+      "errorPrecioCero": "El precio debe ser mayor que cero",
+      "errorCodigoSunat": "Son 8 dígitos (UNSPSC, catálogo 25)",
+      "errorCodigo": "Hasta 30 caracteres",
+      "descripcion": "Descripción",
+      "descripcionPlaceholder": "Ej. Servicio de consultoría",
+      "unidad": "Unidad de medida",
+      "unidadAyuda": "Catálogo 03",
+      "afectacion": "Afectación del IGV",
+      "afectacionAyuda": "Catálogo 07",
+      "exportacion": "40 · Exportación de bienes o servicios",
+      "precioAyuda": "Sin moneda: se usa en la del comprobante",
+      "codigo": "Código interno",
+      "codigoAyuda": "Único por empresa",
+      "codigoSunat": "Código de producto SUNAT",
+      "codigoSunatAyuda": "8 dígitos (UNSPSC, catálogo 25); lo exigen los padrones obligados",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "guardar": "Guardar producto"
+    },
+    "tabla": {
+      "exportacion": "Exportación",
+      "titulo": "Productos y servicios guardados",
+      "subtitulo": "Aparecen al buscar en los ítems de «Nuevo comprobante» · el código interno es único por empresa",
+      "buscar": "Buscar productos",
+      "buscarPlaceholder": "Buscar por código o descripción",
+      "columnas": {
+        "producto": "Producto",
+        "codigo": "Código",
+        "unidad": "Unidad",
+        "afectacion": "Afectación",
+        "precio": "Precio",
+        "acciones": "Acciones"
+      },
+      "confirmarEliminar": "¿Eliminar de la lista?",
+      "siEliminar": "Sí, eliminar",
+      "eliminar": "Eliminar",
+      "sinCoincidencias": "Ningún producto coincide con la búsqueda.",
+      "vacio": "Todavía no tienes productos guardados. Crea el primero con «Nuevo producto».",
+      "cargando": "Cargando productos…",
+      "unidad": "productos",
+      "nota": "Eliminar un producto no toca los comprobantes ya emitidos"
+    },
+    "errores": {
+      "lectura": "No se pudo leer la lista de productos",
+      "red": "No se pudo leer la lista de productos. Revisa tu conexión e intenta de nuevo."
+    }
+  },
+  "establecimientos": {
+    "pagina": {
+      "sinEmpresa": "Configura primero una empresa para registrar establecimientos.",
+      "configurarEmpresa": "Configurar empresa",
+      "domicilioFiscal": "Domicilio fiscal",
+      "sinConfigurar": "Sin configurar: el XML solo lleva el 0000",
+      "anexosActivos": "Anexos activos",
+      "dadosDeBaja": "{cantidad} dado(s) de baja",
+      "anexosAyuda": "Sucursales, tiendas y almacenes",
+      "registrados": "/ {total} registrados",
+      "seriesEnAnexos": "Series en anexos",
+      "seriesEnAnexosAyuda": "Emiten con la dirección de su anexo",
+      "seriesEnFiscal": "Todas las series emiten desde el domicilio fiscal",
+      "activas": "/ {total} activas",
+      "enElXml": "En el XML",
+      "enElXmlAyuda": "cac:RegistrationAddress del emisor, según la serie"
+    },
+    "dialogo": {
+      "editar": "Editar",
+      "nuevo": "Nuevo establecimiento",
+      "tituloEditar": "Establecimiento {codigo}",
+      "tituloNuevo": "Nuevo establecimiento anexo",
+      "descripcionEditar": "Cambia el nombre o el domicilio; las series asignadas siguen emitiendo desde él",
+      "descripcionNuevo": "Sucursal, tienda o almacén declarado en la ficha RUC; sus series emiten con este domicilio"
+    },
+    "form": {
+      "errorUbigeo": "Elija departamento, provincia y distrito del establecimiento.",
+      "codigo": "Código",
+      "codigoAyuda": "4 dígitos, el de la ficha RUC (regla 3030)",
+      "nombre": "Nombre",
+      "nombrePlaceholder": "Tienda Miraflores",
+      "nombreAyuda": "Solo para identificarlo aquí y en la API; no va al XML",
+      "direccion": "Dirección",
+      "direccionPlaceholder": "Av. Larco 345",
+      "direccionAyuda": "Va en el XML de los comprobantes de sus series (regla 4094)",
+      "urbanizacion": "Urbanización",
+      "opcional": "(opcional)",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "registrar": "Registrar establecimiento"
+    },
+    "tabla": {
+      "estado": {
+        "domicilioFiscal": "Domicilio fiscal",
+        "activo": "Activo",
+        "dadoDeBaja": "Dado de baja"
+      },
+      "editarEnEmpresa": "Editar en Empresa",
+      "confirmarBaja": "¿Dar de baja {codigo}?",
+      "siDarDeBaja": "Sí, dar de baja",
+      "darDeBaja": "Dar de baja",
+      "tieneSeriesActivas": "Tiene series activas ({series}): reasígnalas antes de darlo de baja",
+      "titulo": "Puntos de emisión",
+      "subtitulo": "Cada serie emite desde uno · su dirección va en el XML (AddressTypeCode, regla 3030)",
+      "refrescar": "Refrescar lista",
+      "columnas": {
+        "codigo": "Código",
+        "nombre": "Nombre",
+        "direccion": "Dirección",
+        "ubigeo": "Ubigeo",
+        "series": "Series",
+        "estado": "Estado",
+        "acciones": "Acciones"
+      },
+      "vacioAntes": "Configura el domicilio fiscal en",
+      "vacioEnlace": "Empresa",
+      "vacioDespues": "y registra tus anexos con «Nuevo establecimiento»."
+    }
+  },
+  "series": {
+    "pagina": {
+      "sinEmpresa": "Configura primero una empresa para crear series.",
+      "configurarEmpresa": "Configurar empresa",
+      "seriesHabilitadas": "Series habilitadas",
+      "operativas": "{porcentaje}% operativas",
+      "configuradas": "/ {total} configuradas",
+      "ultimoCorrelativo": "Último correlativo emitido",
+      "tipoElectronico": "{tipo} electrónica",
+      "sinEmisiones": "Sin emisiones todavía",
+      "cobertura": "Cobertura de comprobantes",
+      "sinSeriesConfiguradas": "Sin series configuradas",
+      "tipos": "/ {total} tipos",
+      "tiposSinSerie": "Tipos sin serie",
+      "todosCubiertos": "Todos los tipos cubiertos"
+    },
+    "dialogo": {
+      "nueva": "Nueva serie",
+      "titulo": "Nueva serie o contingencia",
+      "descripcion": "Alta de serie alfanumérica conforme al catálogo SUNAT N.º 01"
+    },
+    "form": {
+      "tipos": {
+        "01": "01 · Factura electrónica (F###)",
+        "03": "03 · Boleta de venta electrónica (B###)",
+        "07": "07 · Nota de crédito (FC## / BC##)",
+        "08": "08 · Nota de débito (FD## / BD##)",
+        "09": "09 · Guía de remisión remitente (T###)",
+        "31": "31 · Guía de remisión transportista (V###)"
+      },
+      "errorCorrelativo": "El último número va de 0 a 99 999 999: SUNAT admite 8 dígitos de correlativo (regla 1001).",
+      "tipoComprobante": "Tipo de comprobante",
+      "catalogo": "Catálogo SUNAT N.º 01",
+      "codigoSerie": "Código de serie",
+      "codigoPlaceholder": "Ej. F002",
+      "codigoAyuda": "4 caracteres alfanuméricos",
+      "ultimoNumero": "Último número",
+      "ultimoNumeroAyuda": "Base inicial (0 = nueva). Hasta 8 dígitos.",
+      "establecimiento": "Establecimiento",
+      "domicilioFiscal": "0000 · Domicilio fiscal",
+      "establecimientoAyuda": "Los comprobantes de la serie salen con la dirección de este punto (AddressTypeCode, regla 3030)",
+      "seCreaActiva": "La serie se crea activa: se puede emitir con ella apenas se guarde.",
+      "guardando": "Guardando…",
+      "guardar": "Guardar serie"
+    },
+    "referencia": {
+      "campos": {
+        "tenant_id": "Empresa emisora dueña de la serie",
+        "tipo": "Tipo de comprobante · catálogo SUNAT N.º 01",
+        "codigo": "Serie alfanumérica (F###, B###, T###, V###)",
+        "ultimo_numero": "Último correlativo asignado; 0 = sin emisiones",
+        "activa": "Si acepta nuevas emisiones"
+      },
+      "formatos": {
+        "01": {
+          "nombre": "Factura electrónica",
+          "nota": "Inicia con F + 3 alfanuméricos"
+        },
+        "03": {
+          "nombre": "Boleta de venta",
+          "nota": "Inicia con B + 3 alfanuméricos"
+        },
+        "07": {
+          "nombre": "Nota de crédito",
+          "nota": "Prefijo del comprobante que modifica"
+        },
+        "08": {
+          "nombre": "Nota de débito",
+          "nota": "Prefijo del comprobante que modifica"
+        },
+        "09": {
+          "nombre": "Guía de remisión remitente",
+          "nota": "Inicia con T + 3 alfanuméricos; se emite por la API"
+        },
+        "31": {
+          "nombre": "Guía de remisión transportista",
+          "nota": "Inicia con V + 3 alfanuméricos; se emite por la API"
+        }
+      },
+      "titulo": "Referencia técnica de series",
+      "descripcion": "Modelo de datos de la entidad ‘serie’ y regla de formato SUNAT",
+      "entidad": "Entidad ‘serie’",
+      "subtituloEntidad": "tabla serie · una fila por empresa, tipo y código",
+      "etiquetaClave": "Parte de la clave única",
+      "claveUnica": "Clave única: (tenant_id, tipo, codigo)",
+      "numeracion": "Numeración atómica: bloqueo de fila por emisión",
+      "tituloRegla": "Regla de formato y validación SUNAT",
+      "subtituloRegla": "R.S. 097-2012/SUNAT · serie de 4 caracteres + correlativo de hasta 8 dígitos",
+      "nota": "Las notas de crédito y débito usan el prefijo del comprobante que modifican (<b>F</b> para facturas, <b>B</b> para boletas). El correlativo se incrementa de forma secuencial y automática por cada XML emitido, sin saltos: si la firma o el almacenamiento fallan, el número no se consume."
+    },
+    "tabla": {
+      "estadoTodas": "Estado: Todas",
+      "activas": "Activas",
+      "inactivas": "Inactivas",
+      "tipoTodos": "Tipo: Todos",
+      "subtitulos": {
+        "01": "UBL 2.1 · Tributario",
+        "03": "Consumidor final",
+        "07": "Afecta facturas o boletas",
+        "08": "Penalidades / ajustes",
+        "09": "Traslado de bienes · API REST",
+        "31": "Transportista · API REST"
+      },
+      "comprobanteSunat": "Comprobante SUNAT",
+      "refrescar": "Refrescar lista",
+      "columnas": {
+        "tipo": "Tipo de comprobante",
+        "codigo": "Código serie",
+        "ultimoNumero": "Último número (correlativo)",
+        "establecimiento": "Establecimiento",
+        "formato": "Formato / longitud",
+        "estado": "Estado"
+      },
+      "tipoElectronico": "{tipo} electrónica",
+      "copiar": "Copiar serie",
+      "sinEmisionesPrevias": "Sin emisiones previas",
+      "siguiente": "Siguiente: #{numero}",
+      "caracteres": "({cantidad} caracteres)",
+      "activa": "Activa",
+      "inactiva": "Inactiva",
+      "vacio": "Todavía no tienes series. Crea la primera con «Nueva serie».",
+      "sinCoincidencias": "No hay series con los filtros seleccionados.",
+      "unidad": "series",
+      "nota": "Los correlativos se asignan de forma atómica y secuencial por cada emisión"
+    }
   }
 }

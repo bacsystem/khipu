@@ -2,11 +2,12 @@
 
 import { ChevronDownIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,17 +28,13 @@ export function correlativoValido(valor: string): number | null {
   return n <= CORRELATIVO_MAXIMO ? n : null;
 }
 
-const TIPOS = [
-  { codigo: "01", etiqueta: "01 · Factura electrónica (F###)" },
-  { codigo: "03", etiqueta: "03 · Boleta de venta electrónica (B###)" },
-  { codigo: "07", etiqueta: "07 · Nota de crédito (FC## / BC##)" },
-  { codigo: "08", etiqueta: "08 · Nota de débito (FD## / BD##)" },
-  // #39: la guía de remisión se emite por la API (POST /v1/guias-remision); su serie se puede crear aquí.
-  { codigo: "09", etiqueta: "09 · Guía de remisión remitente (T###)" },
-  { codigo: "31", etiqueta: "31 · Guía de remisión transportista (V###)" },
-];
+// #39: la guía de remisión (09, 31) se emite por la API (POST /v1/guias-remision); su serie se puede crear aquí. Las etiquetas, en `series.form.tipos`.
+const TIPOS = ["01", "03", "07", "08", "09", "31"] as const;
 
 export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {
+  const messages = useMessages();
+  const t = messages.series.form;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [tipo, setTipo] = useState("01");
   const [serie, setSerie] = useState("");
@@ -71,7 +68,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
     setError(null);
     const correlativoInicial = correlativoValido(correlativo);
     if (correlativoInicial === null) {
-      setError("El último número va de 0 a 99 999 999: SUNAT admite 8 dígitos de correlativo (regla 1001).");
+      setError(t.errorCorrelativo);
       return;
     }
     enviandoRef.current = true;
@@ -96,42 +93,42 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
-          Tipo de comprobante
+          {t.tipoComprobante}
         </label>
         <div className="relative">
           <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(CAMPO, "appearance-none pr-8")}>
-            {TIPOS.map((t) => (
-              <option key={t.codigo} value={t.codigo}>
-                {t.etiqueta}
+            {TIPOS.map((codigo) => (
+              <option key={codigo} value={codigo}>
+                {t.tipos[codigo]}
               </option>
             ))}
           </select>
           <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
-        <span className={AYUDA_CAMPO}>Catálogo SUNAT N.º 01</span>
+        <span className={AYUDA_CAMPO}>{t.catalogo}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="serie" className={ETIQUETA_CAMPO}>
-            Código de serie
+            {t.codigoSerie}
           </label>
           <input
             id="serie"
             value={serie}
             onChange={(e) => setSerie(e.target.value.toUpperCase())}
-            placeholder="Ej. F002"
+            placeholder={t.codigoPlaceholder}
             maxLength={4}
             required
             autoFocus
             className={cn(CAMPO, "font-mono uppercase")}
           />
-          <span className={AYUDA_CAMPO}>4 caracteres alfanuméricos</span>
+          <span className={AYUDA_CAMPO}>{t.codigoAyuda}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="correlativo" className={ETIQUETA_CAMPO}>
-            Último número
+            {t.ultimoNumero}
           </label>
           <input
             id="correlativo"
@@ -143,13 +140,13 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             onChange={(e) => setCorrelativo(e.target.value)}
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA_CAMPO}>Base inicial (0 = nueva). Hasta 8 dígitos.</span>
+          <span className={AYUDA_CAMPO}>{t.ultimoNumeroAyuda}</span>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="serie-establecimiento" className={ETIQUETA_CAMPO}>
-          Establecimiento
+          {t.establecimiento}
         </label>
         <div className="relative">
           <select
@@ -159,7 +156,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             className={cn(CAMPO, "appearance-none pr-8")}
             data-testid="serie-establecimiento"
           >
-            <option value="0000">0000 · Domicilio fiscal</option>
+            <option value="0000">{t.domicilioFiscal}</option>
             {(establecimientos ?? [])
               .filter((e) => !e.principal)
               .map((e) => (
@@ -170,11 +167,11 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           </select>
           <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
-        <span className={AYUDA_CAMPO}>Los comprobantes de la serie salen con la dirección de este punto (AddressTypeCode, regla 3030)</span>
+        <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
       </div>
 
       {/* Una casilla «Activa» fija y deshabilitada no decidía nada (C6): toda serie nueva nace activa, y se dice así. */}
-      <p className={AYUDA_CAMPO}>La serie se crea activa: se puede emitir con ella apenas se guarde.</p>
+      <p className={AYUDA_CAMPO}>{t.seCreaActiva}</p>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
@@ -185,7 +182,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             onClick={onCancelar}
             className={BOTON_SECUNDARIO}
           >
-            Cancelar
+            {messages.comun.cancelar}
           </button>
         ) : null}
         <button
@@ -194,7 +191,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           className={BOTON_PRIMARIO}
         >
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : "Guardar serie"}
+          {enviando ? t.guardando : t.guardar}
         </button>
       </div>
     </form>

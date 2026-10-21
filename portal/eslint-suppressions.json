@@ -4,11 +4,6 @@
       "count": 19
     }
   },
-  "src/app/(privado)/clientes/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
   "src/app/(privado)/cuenta/accesos-de-soporte/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -22,21 +17,6 @@
   "src/app/(privado)/cuenta/plan/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 26
-    }
-  },
-  "src/app/(privado)/establecimientos/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 16
-    }
-  },
-  "src/app/(privado)/productos/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/app/(privado)/series/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
     }
   },
   "src/app/admin/(panel)/avisos/page.tsx": {
@@ -229,21 +209,6 @@
       "count": 27
     }
   },
-  "src/components/clientes/cliente-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/clientes/cliente-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 16
-    }
-  },
-  "src/components/clientes/clientes-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 17
-    }
-  },
   "src/components/developers/api-reference.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -314,21 +279,6 @@
       "count": 1
     }
   },
-  "src/components/establecimientos/establecimiento-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/establecimientos/establecimiento-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/establecimientos/establecimientos-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 23
-    }
-  },
   "src/components/formularios/campo.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -372,41 +322,6 @@
   "src/components/landing/site-header.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 6
-    }
-  },
-  "src/components/productos/producto-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/productos/producto-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 22
-    }
-  },
-  "src/components/productos/productos-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 19
-    }
-  },
-  "src/components/series/nueva-serie-dialog.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/components/series/nueva-serie-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 21
-    }
-  },
-  "src/components/series/referencia-series.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 31
-    }
-  },
-  "src/components/series/series-table.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 27
     }
   },
   "src/components/webhooks/entregas-webhook.tsx": {
@@ -459,11 +374,6 @@
       "count": 2
     }
   },
-  "src/lib/api/clientes-browser.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
   "src/lib/api/consulta-ruc.ts": {
     "khipu/no-literal-de-ui": {
       "count": 3
@@ -472,11 +382,6 @@
   "src/lib/api/http.ts": {
     "khipu/no-literal-de-ui": {
       "count": 1
-    }
-  },
-  "src/lib/api/productos-browser.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
     }
   },
   "src/lib/api/webhooks-browser.ts": {

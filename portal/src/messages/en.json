@@ -3440,5 +3440,320 @@
       "elegido": "Ubigeo {codigo} (catalog 13)",
       "ayuda": "INEI ubigeo, SUNAT catalog 13"
     }
+  },
+  "clientes": {
+    "pagina": {
+      "sinEmpresa": "Set up a company first to save customers.",
+      "configurarEmpresa": "Set up company"
+    },
+    "dialogo": {
+      "editar": "Edit",
+      "nuevo": "New customer",
+      "tituloEditar": "Edit customer",
+      "tituloNuevo": "New customer",
+      "descripcionEditar": "Documents already issued keep their data",
+      "descripcionNuevo": "You’ll find it when searching in «New document»"
+    },
+    "form": {
+      "errorNombre": "Enter the name or business name (3 characters or more)",
+      "errorCorreo": "The email is not valid",
+      "documento": "Document",
+      "numero": "Number",
+      "razonSocial": "Business name",
+      "nombre": "Name",
+      "direccion": "Address",
+      "pais": "Country",
+      "paisAyuda": "For your exports to them",
+      "sinPais": "No country",
+      "correo": "Email",
+      "correoAyuda": "To send them their documents",
+      "guardando": "Saving…",
+      "guardarCambios": "Save changes",
+      "guardar": "Save customer"
+    },
+    "tabla": {
+      "titulo": "Saved customers",
+      "subtitulo": "They show up when searching in «New document» · the document is unique per company",
+      "buscar": "Search customers",
+      "buscarPlaceholder": "Search by document or name",
+      "columnas": {
+        "cliente": "Customer",
+        "documento": "Document",
+        "direccion": "Address",
+        "correo": "Email",
+        "acciones": "Actions"
+      },
+      "confirmarEliminar": "Remove from the list?",
+      "siEliminar": "Yes, remove",
+      "eliminar": "Remove",
+      "sinCoincidencias": "No customer matches your search.",
+      "vacio": "You don’t have any saved customers yet. Create the first one with «New customer», or save it when issuing.",
+      "cargando": "Loading customers…",
+      "unidad": "customers",
+      "nota": "Removing a customer doesn’t affect documents already issued"
+    },
+    "errores": {
+      "lectura": "Couldn’t load the customer list",
+      "red": "Couldn’t load the customer list. Check your connection and try again."
+    }
+  },
+  "productos": {
+    "pagina": {
+      "sinEmpresa": "Set up a company first to save products.",
+      "configurarEmpresa": "Set up company"
+    },
+    "dialogo": {
+      "editar": "Edit",
+      "nuevo": "New product",
+      "tituloEditar": "Edit product",
+      "tituloNuevo": "New product",
+      "descripcionEditar": "Documents already issued keep their data",
+      "descripcionNuevo": "You’ll find it when searching the items of «New document»"
+    },
+    "form": {
+      "errorDescripcion": "Enter the description",
+      "errorDescripcionLarga": "Up to 500 characters",
+      "errorPrecioFormato": "Up to 12 integer digits and 10 decimals",
+      "errorPrecioCero": "The price must be greater than zero",
+      "errorCodigoSunat": "It’s 8 digits (UNSPSC, catalog 25)",
+      "errorCodigo": "Up to 30 characters",
+      "descripcion": "Description",
+      "descripcionPlaceholder": "E.g. Consulting service",
+      "unidad": "Unit of measure",
+      "unidadAyuda": "Catalog 03",
+      "afectacion": "IGV treatment",
+      "afectacionAyuda": "Catalog 07",
+      "exportacion": "40 · Export of goods or services",
+      "precioAyuda": "No currency: it uses the document’s currency",
+      "codigo": "Internal code",
+      "codigoAyuda": "Unique per company",
+      "codigoSunat": "SUNAT product code",
+      "codigoSunatAyuda": "8 digits (UNSPSC, catalog 25); required for taxpayers on the mandatory registries",
+      "guardando": "Saving…",
+      "guardarCambios": "Save changes",
+      "guardar": "Save product"
+    },
+    "tabla": {
+      "exportacion": "Export",
+      "titulo": "Saved products and services",
+      "subtitulo": "They show up when searching the items of «New document» · the internal code is unique per company",
+      "buscar": "Search products",
+      "buscarPlaceholder": "Search by code or description",
+      "columnas": {
+        "producto": "Product",
+        "codigo": "Code",
+        "unidad": "Unit",
+        "afectacion": "Tax treatment",
+        "precio": "Price",
+        "acciones": "Actions"
+      },
+      "confirmarEliminar": "Remove from the list?",
+      "siEliminar": "Yes, remove",
+      "eliminar": "Remove",
+      "sinCoincidencias": "No product matches your search.",
+      "vacio": "You don’t have any saved products yet. Create the first one with «New product».",
+      "cargando": "Loading products…",
+      "unidad": "products",
+      "nota": "Removing a product doesn’t affect documents already issued"
+    },
+    "errores": {
+      "lectura": "Couldn’t load the product list",
+      "red": "Couldn’t load the product list. Check your connection and try again."
+    }
+  },
+  "establecimientos": {
+    "pagina": {
+      "sinEmpresa": "Set up a company first to register establishments.",
+      "configurarEmpresa": "Set up company",
+      "domicilioFiscal": "Tax address",
+      "sinConfigurar": "Not set up: the XML only carries 0000",
+      "anexosActivos": "Active branches",
+      "dadosDeBaja": "{cantidad} deactivated",
+      "anexosAyuda": "Branches, stores and warehouses",
+      "registrados": "/ {total} registered",
+      "seriesEnAnexos": "Series at branches",
+      "seriesEnAnexosAyuda": "They issue with their branch’s address",
+      "seriesEnFiscal": "All series issue from the tax address",
+      "activas": "/ {total} active",
+      "enElXml": "In the XML",
+      "enElXmlAyuda": "Issuer’s cac:RegistrationAddress, per series"
+    },
+    "dialogo": {
+      "editar": "Edit",
+      "nuevo": "New establishment",
+      "tituloEditar": "Establishment {codigo}",
+      "tituloNuevo": "New branch establishment",
+      "descripcionEditar": "Change the name or the address; the assigned series keep issuing from it",
+      "descripcionNuevo": "Branch, store or warehouse declared in the RUC record; its series issue with this address"
+    },
+    "form": {
+      "errorUbigeo": "Choose the establishment’s department, province and district.",
+      "codigo": "Code",
+      "codigoAyuda": "4 digits, the one in the RUC record (rule 3030)",
+      "nombre": "Name",
+      "nombrePlaceholder": "Miraflores store",
+      "nombreAyuda": "Only to identify it here and in the API; it doesn’t go into the XML",
+      "direccion": "Address",
+      "direccionPlaceholder": "Av. Larco 345",
+      "direccionAyuda": "Goes into the XML of its series’ documents (rule 4094)",
+      "urbanizacion": "Neighborhood",
+      "opcional": "(optional)",
+      "guardando": "Saving…",
+      "guardarCambios": "Save changes",
+      "registrar": "Register establishment"
+    },
+    "tabla": {
+      "estado": {
+        "domicilioFiscal": "Tax address",
+        "activo": "Active",
+        "dadoDeBaja": "Deactivated"
+      },
+      "editarEnEmpresa": "Edit in Company",
+      "confirmarBaja": "Deactivate {codigo}?",
+      "siDarDeBaja": "Yes, deactivate",
+      "darDeBaja": "Deactivate",
+      "tieneSeriesActivas": "It has active series ({series}): reassign them before deactivating it",
+      "titulo": "Issuing points",
+      "subtitulo": "Each series issues from one · its address goes into the XML (AddressTypeCode, rule 3030)",
+      "refrescar": "Refresh list",
+      "columnas": {
+        "codigo": "Code",
+        "nombre": "Name",
+        "direccion": "Address",
+        "ubigeo": "Ubigeo",
+        "series": "Series",
+        "estado": "Status",
+        "acciones": "Actions"
+      },
+      "vacioAntes": "Set up the tax address in",
+      "vacioEnlace": "Company",
+      "vacioDespues": "and register your branches with «New establishment»."
+    }
+  },
+  "series": {
+    "pagina": {
+      "sinEmpresa": "Set up a company first to create series.",
+      "configurarEmpresa": "Set up company",
+      "seriesHabilitadas": "Enabled series",
+      "operativas": "{porcentaje}% operational",
+      "configuradas": "/ {total} configured",
+      "ultimoCorrelativo": "Last number issued",
+      "tipoElectronico": "Electronic {tipo}",
+      "sinEmisiones": "No documents issued yet",
+      "cobertura": "Document coverage",
+      "sinSeriesConfiguradas": "No series configured",
+      "tipos": "/ {total} types",
+      "tiposSinSerie": "Types without a series",
+      "todosCubiertos": "All types covered"
+    },
+    "dialogo": {
+      "nueva": "New series",
+      "titulo": "New series or contingency",
+      "descripcion": "Create an alphanumeric series per SUNAT catalog No. 01"
+    },
+    "form": {
+      "tipos": {
+        "01": "01 · Electronic invoice (F###)",
+        "03": "03 · Electronic sales receipt (B###)",
+        "07": "07 · Credit note (FC## / BC##)",
+        "08": "08 · Debit note (FD## / BD##)",
+        "09": "09 · Shipper’s dispatch guide (T###)",
+        "31": "31 · Carrier’s dispatch guide (V###)"
+      },
+      "errorCorrelativo": "The last number goes from 0 to 99 999 999: SUNAT allows 8-digit sequence numbers (rule 1001).",
+      "tipoComprobante": "Document type",
+      "catalogo": "SUNAT catalog No. 01",
+      "codigoSerie": "Series code",
+      "codigoPlaceholder": "E.g. F002",
+      "codigoAyuda": "4 alphanumeric characters",
+      "ultimoNumero": "Last number",
+      "ultimoNumeroAyuda": "Starting base (0 = new). Up to 8 digits.",
+      "establecimiento": "Establishment",
+      "domicilioFiscal": "0000 · Tax address",
+      "establecimientoAyuda": "The series’ documents carry this point’s address (AddressTypeCode, rule 3030)",
+      "seCreaActiva": "The series is created active: you can issue with it as soon as it’s saved.",
+      "guardando": "Saving…",
+      "guardar": "Save series"
+    },
+    "referencia": {
+      "campos": {
+        "tenant_id": "Issuing company that owns the series",
+        "tipo": "Document type · SUNAT catalog No. 01",
+        "codigo": "Alphanumeric series (F###, B###, T###, V###)",
+        "ultimo_numero": "Last number assigned; 0 = nothing issued",
+        "activa": "Whether it accepts new documents"
+      },
+      "formatos": {
+        "01": {
+          "nombre": "Electronic invoice",
+          "nota": "Starts with F + 3 alphanumerics"
+        },
+        "03": {
+          "nombre": "Sales receipt",
+          "nota": "Starts with B + 3 alphanumerics"
+        },
+        "07": {
+          "nombre": "Credit note",
+          "nota": "Prefix of the document it modifies"
+        },
+        "08": {
+          "nombre": "Debit note",
+          "nota": "Prefix of the document it modifies"
+        },
+        "09": {
+          "nombre": "Shipper’s dispatch guide",
+          "nota": "Starts with T + 3 alphanumerics; issued through the API"
+        },
+        "31": {
+          "nombre": "Carrier’s dispatch guide",
+          "nota": "Starts with V + 3 alphanumerics; issued through the API"
+        }
+      },
+      "titulo": "Series technical reference",
+      "descripcion": "Data model of the ‘series’ entity and SUNAT format rule",
+      "entidad": "‘Series’ entity",
+      "subtituloEntidad": "serie table · one row per company, type and code",
+      "etiquetaClave": "Part of the unique key",
+      "claveUnica": "Unique key: (tenant_id, tipo, codigo)",
+      "numeracion": "Atomic numbering: row lock per issue",
+      "tituloRegla": "SUNAT format and validation rule",
+      "subtituloRegla": "R.S. 097-2012/SUNAT · 4-character series + sequence number of up to 8 digits",
+      "nota": "Credit and debit notes use the prefix of the document they modify (<b>F</b> for invoices, <b>B</b> for receipts). The sequence number increases sequentially and automatically with each XML issued, with no gaps: if signing or storage fails, the number is not consumed."
+    },
+    "tabla": {
+      "estadoTodas": "Status: All",
+      "activas": "Active",
+      "inactivas": "Inactive",
+      "tipoTodos": "Type: All",
+      "subtitulos": {
+        "01": "UBL 2.1 · Tax",
+        "03": "End consumer",
+        "07": "Affects invoices or receipts",
+        "08": "Penalties / adjustments",
+        "09": "Transfer of goods · REST API",
+        "31": "Carrier · REST API"
+      },
+      "comprobanteSunat": "SUNAT document",
+      "refrescar": "Refresh list",
+      "columnas": {
+        "tipo": "Document type",
+        "codigo": "Series code",
+        "ultimoNumero": "Last number (sequence)",
+        "establecimiento": "Establishment",
+        "formato": "Format / length",
+        "estado": "Status"
+      },
+      "tipoElectronico": "Electronic {tipo}",
+      "copiar": "Copy series",
+      "sinEmisionesPrevias": "No previous documents",
+      "siguiente": "Next: #{numero}",
+      "caracteres": "({cantidad} characters)",
+      "activa": "Active",
+      "inactiva": "Inactive",
+      "vacio": "You don’t have any series yet. Create the first one with «New series».",
+      "sinCoincidencias": "No series match the selected filters.",
+      "unidad": "series",
+      "nota": "Sequence numbers are assigned atomically and sequentially with each issue"
+    }
   }
 }

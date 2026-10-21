@@ -3,13 +3,15 @@
 import { BanIcon, RefreshCwIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Serie } from "@/lib/api/series";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
@@ -19,28 +21,32 @@ const ACCION =
   "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activo, principal }: { activo: boolean; principal: boolean }) {
+  const t = useMessages().establecimientos.tabla.estado;
   if (principal)
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-primary">
         <span className="size-1.5 rounded-full bg-primary" />
-        Domicilio fiscal
+        {t.domicilioFiscal}
       </span>
     );
   return activo ? (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
       <span className="size-1.5 rounded-full bg-success-solid" />
-      Activo
+      {t.activo}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-      Dado de baja
+      {t.dadoDeBaja}
     </span>
   );
 }
 
 /** Editar (diálogo) y dar de baja (confirmación en línea). El 0000 se edita en Empresa y no se da de baja. */
 function Acciones({ establecimiento, seriesActivas }: { establecimiento: Establecimiento; seriesActivas: string[] }) {
+  const messages = useMessages();
+  const t = messages.establecimientos.tabla;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const sinPermiso = useSinPermisoDeConfigurar();
   const [confirmando, setConfirmando] = useState(false);
@@ -50,7 +56,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
   if (establecimiento.principal)
     return (
       <Link href={enlaceASeccion("datos")} className={cn(ACCION, "text-primary hover:bg-accent")}>
-        Editar en Empresa
+        {t.editarEnEmpresa}
       </Link>
     );
   if (!establecimiento.activo) return <span className="text-[11px] text-muted-foreground/60">—</span>;
@@ -73,13 +79,13 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
       <div className="flex items-center justify-end gap-1">
         {confirmando ? (
           <>
-            <span className="mr-1 text-[11px] text-muted-foreground">¿Dar de baja {establecimiento.codigo}?</span>
+            <span className="mr-1 text-[11px] text-muted-foreground">{interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}</span>
             <button type="button" disabled={bajando} onClick={darDeBaja} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
               {bajando ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <BanIcon className="size-3.5" />}
-              Sí, dar de baja
+              {t.siDarDeBaja}
             </button>
             <button type="button" disabled={bajando} onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-              Cancelar
+              {messages.comun.cancelar}
             </button>
           </>
         ) : (
@@ -91,12 +97,12 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
               onClick={() => setConfirmando(true)}
               // H4 (#21): dar de baja es configuración; sin ese permiso (emisor, solo lectura, modo soporte) se ve deshabilitado, como «Editar».
               disabled={sinPermiso !== null || seriesActivas.length > 0}
-              title={sinPermiso ?? (seriesActivas.length > 0 ? `Tiene series activas (${seriesActivas.join(", ")}): reasígnalas antes de darlo de baja` : undefined)}
+              title={sinPermiso ?? (seriesActivas.length > 0 ? interpolar(t.tieneSeriesActivas, { series: seriesActivas.join(", ") }) : undefined)}
               className={cn(ACCION, "text-destructive hover:bg-destructive/10")}
               data-testid={`baja-establecimiento-${establecimiento.codigo}`}
             >
               <BanIcon className="size-3.5" />
-              Dar de baja
+              {t.darDeBaja}
             </button>
           </>
         )}
@@ -111,6 +117,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
 }
 
 export function EstablecimientosTable({ establecimientos, series }: { establecimientos: Establecimiento[]; series: Serie[] }) {
+  const t = useMessages().establecimientos.tabla;
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
   const seriesDe = (codigo: string) => series.filter((s) => s.activa && (s.establecimiento ?? "0000") === codigo).map((s) => s.serie);
@@ -123,15 +130,15 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
             <StoreIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">Puntos de emisión</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">Cada serie emite desde uno · su dirección va en el XML (AddressTypeCode, regla 3030)</p>
+            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => startTransition(() => router.refresh())}
-            title="Refrescar lista"
+            title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
@@ -144,13 +151,13 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Código</TableHead>
-              <TableHead className={CABECERA_TABLA}>Nombre</TableHead>
-              <TableHead className={CABECERA_TABLA}>Dirección</TableHead>
-              <TableHead className={CABECERA_TABLA}>Ubigeo</TableHead>
-              <TableHead className={CABECERA_TABLA}>Series</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.codigo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.nombre}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.direccion}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.ubigeo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.series}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -186,11 +193,11 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <StoreIcon className="size-6" />
                     <p className="text-sm">
-                      Configura el domicilio fiscal en{" "}
+                      {t.vacioAntes}{" "}
                       <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">
-                        Empresa
+                        {t.vacioEnlace}
                       </Link>{" "}
-                      y registra tus anexos con «Nuevo establecimiento».
+                      {t.vacioDespues}
                     </p>
                   </div>
                 </TableCell>

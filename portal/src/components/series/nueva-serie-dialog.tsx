@@ -1,6 +1,7 @@
 "use client";
 
 import { PlusCircleIcon, PlusIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useState } from "react";
 import { NuevaSerieForm } from "@/components/series/nueva-serie-form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 export function NuevaSerieDialog({ className }: { className?: string }) {
+  const t = useMessages().series.dialogo;
   const soloLectura = useSinPermisoDeConfigurar();
   const [abierto, setAbierto] = useState(false);
 
@@ -21,7 +23,7 @@ export function NuevaSerieDialog({ className }: { className?: string }) {
         }
       >
         <PlusIcon className="size-4" />
-        Nueva serie
+        {t.nueva}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
@@ -30,8 +32,8 @@ export function NuevaSerieDialog({ className }: { className?: string }) {
               <PlusCircleIcon className="size-5" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">Nueva serie o contingencia</DialogTitle>
-              <DialogDescription className="text-[13px]">Alta de serie alfanumérica conforme al catálogo SUNAT N.º 01</DialogDescription>
+              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>

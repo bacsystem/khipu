@@ -1,7 +1,9 @@
 "use client";
 
 import { PencilIcon, PlusIcon, StoreIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
+import { interpolar } from "@/i18n/mensajes";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
@@ -11,6 +13,7 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 /** Alta (sin `existente`) o edición de un anexo en el mismo `Dialog` que series y API keys. */
 export function EstablecimientoDialog({ existente, trigger, className }: { existente?: Establecimiento | null; trigger?: ReactNode; className?: string }) {
+  const t = useMessages().establecimientos.dialogo;
   const soloLectura = useSinPermisoDeConfigurar();
   const [abierto, setAbierto] = useState(false);
   return (
@@ -22,7 +25,7 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
         {trigger ?? (
           <>
             {existente ? <PencilIcon className="size-3.5" /> : <PlusIcon className="size-4" />}
-            {existente ? "Editar" : "Nuevo establecimiento"}
+            {existente ? t.editar : t.nuevo}
           </>
         )}
       </DialogTrigger>
@@ -33,9 +36,9 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
               <StoreIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? `Establecimiento ${existente.codigo}` : "Nuevo establecimiento anexo"}</DialogTitle>
+              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? interpolar(t.tituloEditar, { codigo: existente.codigo }) : t.tituloNuevo}</DialogTitle>
               <DialogDescription className="text-[13px]">
-                {existente ? "Cambia el nombre o el domicilio; las series asignadas siguen emitiendo desde él" : "Sucursal, tienda o almacén declarado en la ficha RUC; sus series emiten con este domicilio"}
+                {existente ? t.descripcionEditar : t.descripcionNuevo}
               </DialogDescription>
             </div>
           </div>

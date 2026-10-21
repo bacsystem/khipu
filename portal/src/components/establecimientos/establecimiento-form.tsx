@@ -2,12 +2,13 @@
 
 import { MapPinIcon, SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { UbigeoSelector } from "@/components/empresa/ubigeo-selector";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +16,9 @@ import { cn } from "@/lib/utils";
  * con el mismo selector de ubigeo que los datos fiscales. El `0000` no pasa por aquí: se edita en Empresa.
  */
 export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { existente?: Establecimiento | null; onGuardado?: () => void; onCancelar?: () => void }) {
+  const messages = useMessages();
+  const t = messages.establecimientos.form;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [codigo, setCodigo] = useState(existente?.codigo ?? "");
   const [nombre, setNombre] = useState(existente?.nombre ?? "");
@@ -27,7 +31,7 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!ubigeo) {
-      setError("Elija departamento, provincia y distrito del establecimiento.");
+      setError(t.errorUbigeo);
       return;
     }
     setEnviando(true);
@@ -51,7 +55,7 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="est-codigo" className={ETIQUETA_CAMPO}>
-            Código
+            {t.codigo}
           </label>
           <input
             id="est-codigo"
@@ -65,14 +69,14 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
             autoFocus={!existente}
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA_CAMPO}>4 dígitos, el de la ficha RUC (regla 3030)</span>
+          <span className={AYUDA_CAMPO}>{t.codigoAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="est-nombre" className={ETIQUETA_CAMPO}>
-            Nombre
+            {t.nombre}
           </label>
-          <input id="est-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tienda Miraflores" maxLength={100} required autoFocus={Boolean(existente)} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>Solo para identificarlo aquí y en la API; no va al XML</span>
+          <input id="est-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombrePlaceholder} maxLength={100} required autoFocus={Boolean(existente)} className={CAMPO} />
+          <span className={AYUDA_CAMPO}>{t.nombreAyuda}</span>
         </div>
       </div>
 
@@ -83,7 +87,7 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
         <div className="flex flex-col gap-1.5 sm:col-span-4">
           <label htmlFor="est-direccion" className={ETIQUETA_CAMPO}>
-            Dirección
+            {t.direccion}
           </label>
           <div className="relative">
             <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -91,18 +95,18 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
               id="est-direccion"
               value={direccion}
               onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Larco 345"
+              placeholder={t.direccionPlaceholder}
               required
               minLength={3}
               maxLength={200}
               className={cn(CAMPO, "pl-9")}
             />
           </div>
-          <span className={AYUDA_CAMPO}>Va en el XML de los comprobantes de sus series (regla 4094)</span>
+          <span className={AYUDA_CAMPO}>{t.direccionAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="est-urbanizacion" className={ETIQUETA_CAMPO}>
-            Urbanización <span className="font-normal text-muted-foreground">(opcional)</span>
+            {t.urbanizacion} <span className="font-normal text-muted-foreground">{t.opcional}</span>
           </label>
           <input id="est-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} className={CAMPO} />
         </div>
@@ -117,12 +121,12 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
         {onCancelar ? (
           <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO}>
-            Cancelar
+            {messages.comun.cancelar}
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : existente ? "Guardar cambios" : "Registrar establecimiento"}
+          {enviando ? t.guardando : existente ? t.guardarCambios : t.registrar}
         </button>
       </div>
     </form>

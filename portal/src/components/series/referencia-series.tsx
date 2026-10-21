@@ -1,6 +1,7 @@
 "use client";
 
 import { DatabaseIcon, KeyRoundIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
+import { useMessages, useTranslations } from "next-intl";
 import {
   type CampoReferencia,
   NotaReferencia,
@@ -10,46 +11,50 @@ import {
   TablaCampos,
 } from "@/components/compartidos/referencia-tecnica";
 
-const CAMPOS: CampoReferencia[] = [
-  { campo: "tenant_id", tipo: "uuid", descripcion: "Empresa emisora dueña de la serie", clave: true },
-  { campo: "tipo", tipo: "varchar(2)", descripcion: "Tipo de comprobante · catálogo SUNAT N.º 01", clave: true },
-  { campo: "codigo", tipo: "varchar(4)", descripcion: "Serie alfanumérica (F###, B###, T###, V###)", clave: true },
-  { campo: "ultimo_numero", tipo: "bigint", descripcion: "Último correlativo asignado; 0 = sin emisiones" },
-  { campo: "activa", tipo: "boolean", descripcion: "Si acepta nuevas emisiones" },
-];
+// Las descripciones de cada campo y el nombre y la nota de cada formato están en `series.referencia` (campos / formatos).
+const CAMPOS = [
+  { campo: "tenant_id", tipo: "uuid", clave: true },
+  { campo: "tipo", tipo: "varchar(2)", clave: true },
+  { campo: "codigo", tipo: "varchar(4)", clave: true },
+  { campo: "ultimo_numero", tipo: "bigint" },
+  { campo: "activa", tipo: "boolean" },
+] as const;
 
-const FORMATOS: Array<{ tipo: string; nombre: string; formato: string; nota: string }> = [
-  { tipo: "01", nombre: "Factura electrónica", formato: "F###", nota: "Inicia con F + 3 alfanuméricos" },
-  { tipo: "03", nombre: "Boleta de venta", formato: "B###", nota: "Inicia con B + 3 alfanuméricos" },
-  { tipo: "07", nombre: "Nota de crédito", formato: "F### / B###", nota: "Prefijo del comprobante que modifica" },
-  { tipo: "08", nombre: "Nota de débito", formato: "F### / B###", nota: "Prefijo del comprobante que modifica" },
-  { tipo: "09", nombre: "Guía de remisión remitente", formato: "T###", nota: "Inicia con T + 3 alfanuméricos; se emite por la API" },
-  { tipo: "31", nombre: "Guía de remisión transportista", formato: "V###", nota: "Inicia con V + 3 alfanuméricos; se emite por la API" },
-];
+const FORMATOS = [
+  { tipo: "01", formato: "F###" },
+  { tipo: "03", formato: "B###" },
+  { tipo: "07", formato: "F### / B###" },
+  { tipo: "08", formato: "F### / B###" },
+  { tipo: "09", formato: "T###" },
+  { tipo: "31", formato: "V###" },
+] as const;
 
 /** Definición de la entidad y regla de formato SUNAT, como referencia en un modal. */
 export function ReferenciaSeriesDialog({ className }: { className?: string }) {
+  const t = useMessages().series.referencia;
+  const tr = useTranslations("series.referencia");
+  const campos: CampoReferencia[] = CAMPOS.map((c) => ({ ...c, descripcion: t.campos[c.campo] }));
   return (
     <ReferenciaTecnicaDialog
-      titulo="Referencia técnica de series"
-      descripcion={<>Modelo de datos de la entidad &lsquo;serie&rsquo; y regla de formato SUNAT</>}
+      titulo={t.titulo}
+      descripcion={t.descripcion}
       className={className}
     >
       <SeccionReferencia
         icono={DatabaseIcon}
-        titulo={<>Entidad &lsquo;serie&rsquo;</>}
-        subtitulo="tabla serie · una fila por empresa, tipo y código"
+        titulo={t.entidad}
+        subtitulo={t.subtituloEntidad}
       >
         <TablaCampos
-          campos={CAMPOS}
-          etiquetaClave="Parte de la clave única"
+          campos={campos}
+          etiquetaClave={t.etiquetaClave}
           nota={
             <>
               <span className="inline-flex items-center gap-1">
-                <KeyRoundIcon className="size-3 text-warning-solid" /> Clave única: (tenant_id, tipo, codigo)
+                <KeyRoundIcon className="size-3 text-warning-solid" /> {t.claveUnica}
               </span>
               <span className="inline-flex items-center gap-1">
-                <LockIcon className="size-3" /> Numeración atómica: bloqueo de fila por emisión
+                <LockIcon className="size-3" /> {t.numeracion}
               </span>
             </>
           }
@@ -58,18 +63,16 @@ export function ReferenciaSeriesDialog({ className }: { className?: string }) {
 
       <SeccionReferencia
         icono={ShieldCheckIcon}
-        titulo="Regla de formato y validación SUNAT"
-        subtitulo="R.S. 097-2012/SUNAT · serie de 4 caracteres + correlativo de hasta 8 dígitos"
+        titulo={t.tituloRegla}
+        subtitulo={t.subtituloRegla}
       >
         <div className="grid grid-cols-1 gap-2.5 p-4">
           {FORMATOS.map((f) => (
-            <ReglaReferencia key={f.tipo} insignia={f.tipo} titulo={f.nombre} detalle={f.nota} valor={f.formato} />
+            <ReglaReferencia key={f.tipo} insignia={f.tipo} titulo={t.formatos[f.tipo].nombre} detalle={t.formatos[f.tipo].nota} valor={f.formato} />
           ))}
         </div>
         <NotaReferencia>
-          Las notas de crédito y débito usan el prefijo del comprobante que modifican (<strong className="font-medium text-foreground">F</strong> para
-          facturas, <strong className="font-medium text-foreground">B</strong> para boletas). El correlativo se incrementa de forma secuencial y automática
-          por cada XML emitido, sin saltos: si la firma o el almacenamiento fallan, el número no se consume.
+          {tr.rich("nota", { b: (c) => <strong className="font-medium text-foreground">{c}</strong> })}
         </NotaReferencia>
       </SeccionReferencia>
     </ReferenciaTecnicaDialog>

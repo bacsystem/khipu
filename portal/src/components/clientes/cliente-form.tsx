@@ -1,14 +1,15 @@
 "use client";
 
 import { SaveIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
-import { DOCUMENTOS_DE_CLIENTE, errorDeDocumento } from "@/lib/comprobantes/documentos";
+import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { listarPaises } from "@/lib/comprobantes/paises";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
 
@@ -16,6 +17,10 @@ const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
 
 /** Alta (`POST`) o edición (`PUT`) de un cliente guardado. El documento se valida con las mismas reglas que el comprador de una boleta, así que lo guardado siempre se puede usar al emitir. */
 export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?: ClienteGuardado | null; onGuardado?: (c: ClienteGuardado) => void; onCancelar?: () => void }) {
+  const messages = useMessages();
+  const t = messages.clientes.form;
+  const DOCUMENTOS_DE_CLIENTE = documentosDeCliente(messages);
+  const mensajeError = useMensajeError();
   const [tipoDoc, setTipoDoc] = useState(existente?.tipo_doc ?? "6");
   const [numDoc, setNumDoc] = useState(existente?.num_doc ?? "");
   const [razon, setRazon] = useState(existente?.razon_social ?? "");
@@ -28,9 +33,9 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [error, setError] = useState<string | null>(null);
 
   const documento = DOCUMENTOS_DE_CLIENTE.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_DE_CLIENTE[0];
-  const errorDoc = errorDeDocumento(tipoDoc, numDoc);
-  const errorNombre = razon.trim().length < 3 ? "Escribe el nombre o la razón social (3 caracteres o más)" : null;
-  const errorCorreo = email.trim() !== "" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "El correo no es válido" : null;
+  const errorDoc = errorDeDocumento(tipoDoc, numDoc, messages);
+  const errorNombre = razon.trim().length < 3 ? t.errorNombre : null;
+  const errorCorreo = email.trim() !== "" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? t.errorCorreo : null;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -59,7 +64,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="cliente-form">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[220px_1fr]">
-        <Campo id="cli-tipo-doc" etiqueta="Documento">
+        <Campo id="cli-tipo-doc" etiqueta={t.documento}>
           <select
             id="cli-tipo-doc"
             value={tipoDoc}
@@ -76,7 +81,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             ))}
           </select>
         </Campo>
-        <Campo id="cli-num-doc" etiqueta="Número" error={intento ? errorDoc : null} ayuda={documento.titulo}>
+        <Campo id="cli-num-doc" etiqueta={t.numero} error={intento ? errorDoc : null} ayuda={documento.titulo}>
           <input
             id="cli-num-doc"
             key={tipoDoc}
@@ -89,15 +94,15 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
           />
         </Campo>
       </div>
-      <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? "Razón social" : "Nombre"} error={intento ? errorNombre : null}>
+      <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? t.razonSocial : t.nombre} error={intento ? errorNombre : null}>
         <input id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} className={CAMPO_DENSO} />
       </Campo>
-      <Campo id="cli-direccion" etiqueta="Dirección" opcional>
+      <Campo id="cli-direccion" etiqueta={t.direccion} opcional>
         <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO_DENSO} />
       </Campo>
-      <Campo id="cli-pais" etiqueta="País" opcional ayuda="Para sus exportaciones">
+      <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
         <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
-          <option value="">Sin país</option>
+          <option value="">{t.sinPais}</option>
           {paises.map((p) => (
             <option key={p.codigo} value={p.codigo}>
               {p.nombre}
@@ -105,7 +110,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
           ))}
         </select>
       </Campo>
-      <Campo id="cli-email" etiqueta="Correo" opcional error={intento ? errorCorreo : null} ayuda="Para enviarle sus comprobantes">
+      <Campo id="cli-email" etiqueta={t.correo} opcional error={intento ? errorCorreo : null} ayuda={t.correoAyuda}>
         <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO_DENSO} />
       </Campo>
 
@@ -118,12 +123,12 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
         {onCancelar ? (
           <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO}>
-            Cancelar
+            {messages.comun.cancelar}
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : existente ? "Guardar cambios" : "Guardar cliente"}
+          {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
         </button>
       </div>
     </form>
