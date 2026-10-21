@@ -639,46 +639,6 @@
       "count": 6
     }
   },
-  "src/components/nav/empresa-selector.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
-    }
-  },
-  "src/components/nav/mobile-nav.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/nav/perfil-usuario.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 12
-    }
-  },
-  "src/components/nav/plan-y-consumo.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/nav/sidebar-content.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
-  "src/components/nav/sidebar-nav.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 15
-    }
-  },
-  "src/components/nav/theme-toggle.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 4
-    }
-  },
-  "src/components/nav/top-bar.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 29
-    }
-  },
   "src/components/navegacion/pasos.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 2
@@ -892,11 +852,6 @@
   "src/lib/configuracion-formulario.ts": {
     "khipu/no-literal-de-ui": {
       "count": 3
-    }
-  },
-  "src/lib/cuenta/resumen-de-plan.ts": {
-    "khipu/no-literal-de-ui": {
-      "count": 6
     }
   },
   "src/lib/developers/entradas.ts": {

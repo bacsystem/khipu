@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useLocale, useMessages } from "next-intl";
+import { interpolar } from "@/i18n/mensajes";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
 import { cn } from "@/lib/utils";
@@ -8,18 +10,21 @@ import { cn } from "@/lib/utils";
  * enlace sigue llevando a la página, que vuelve a intentarlo.
  */
 export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.nav.plan;
   if (!cuenta) {
     return (
       <Link href="/cuenta/plan" className="rounded-lg border border-border/60 bg-muted/90 p-2.5 text-[11px] text-muted-foreground hover:bg-secondary">
-        No se pudo leer tu plan. Ver mi plan
+        {t.sinPlan}
       </Link>
     );
   }
-  const r = resumenDePlan(cuenta);
+  const r = resumenDePlan(cuenta, messages, locale);
   return (
     <Link
       href="/cuenta/plan"
-      aria-label={`Plan ${r.plan}: ${r.consumo} documentos este mes${r.aviso ? `. ${r.aviso}` : ""}`}
+      aria-label={`${interpolar(t.resumenAccesible, { plan: r.plan, consumo: r.consumo })}${r.aviso ? `. ${r.aviso}` : ""}`}
       className={cn(
         "grid w-full grid-cols-1 gap-1.5 overflow-hidden rounded-lg border bg-muted/90 p-2.5 transition-colors hover:bg-secondary",
         r.tono === "ok" && "border-border/60",
@@ -28,7 +33,7 @@ export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
       )}
     >
       <div className="flex items-center justify-between gap-2 text-[11px]">
-        <span className="truncate font-medium text-foreground/80">Plan {r.plan}</span>
+        <span className="truncate font-medium text-foreground/80">{interpolar(t.etiqueta, { plan: r.plan })}</span>
         <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-muted-foreground">{r.consumo}</span>
       </div>
       {r.porcentaje !== null ? (

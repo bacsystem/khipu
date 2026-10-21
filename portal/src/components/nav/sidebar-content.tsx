@@ -1,3 +1,4 @@
+import { useMessages } from "next-intl";
 import type { Usuario } from "@/lib/api/auth";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa } from "@/lib/api/empresas";
@@ -19,13 +20,14 @@ export function SidebarContent({
   empresas: Empresa[];
   activaId?: string;
 }) {
+  const t = useMessages().nav;
   return (
     <div className="flex h-full w-full min-w-0 flex-col justify-between overflow-hidden select-none">
       <div className="flex w-full min-w-0 flex-col">
         <div className="flex h-14 w-full min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-border/60 px-4">
           <LogoMarca />
           <span className="inline-flex shrink-0 items-center rounded border border-border/60 bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium whitespace-nowrap text-secondary-foreground/70">
-            UBL 2.1
+            {t.ubl}
           </span>
         </div>
 

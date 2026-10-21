@@ -3,9 +3,11 @@
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useTransition } from "react";
+import { useMessages } from "next-intl";
 import { seleccionarEmpresa } from "@/app/actions";
 import { SelectContent } from "khipu-design-system/ui/select";
 import type { Empresa } from "@/lib/api/empresas";
+import { interpolar } from "@/i18n/mensajes";
 import { cn } from "@/lib/utils";
 
 function Avatar({ empresa, className }: { empresa: Empresa; className?: string }) {
@@ -23,6 +25,7 @@ function Avatar({ empresa, className }: { empresa: Empresa; className?: string }
 
 export function EmpresaSelector({ empresas, activaId }: { empresas: Empresa[]; activaId?: string }) {
   const [cambiando, startTransition] = useTransition();
+  const t = useMessages().nav;
   const activa = empresas.find((e) => e.id === activaId) ?? empresas[0];
   const items = Object.fromEntries(empresas.map((e) => [e.id, e.razon_social]));
 
@@ -36,7 +39,7 @@ export function EmpresaSelector({ empresas, activaId }: { empresas: Empresa[]; a
   return (
     <SelectPrimitive.Root items={items} value={activa?.id ?? null} onValueChange={cambiar}>
       <SelectPrimitive.Trigger
-        aria-label="Cambiar de empresa"
+        aria-label={t.empresas.cambiar}
         disabled={cambiando}
         className={cn(
           "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg border border-border/60 bg-muted/80 p-2 text-left transition-colors outline-none select-none",
@@ -47,7 +50,7 @@ export function EmpresaSelector({ empresas, activaId }: { empresas: Empresa[]; a
           {activa ? <Avatar empresa={activa} /> : null}
           <div className="min-w-0 overflow-hidden">
             <p className="truncate text-[12px] leading-tight font-medium text-foreground">{activa?.razon_social}</p>
-            <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground">RUC {activa?.ruc}</p>
+            <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground">{interpolar(t.empresas.ruc, { ruc: activa?.ruc ?? "" })}</p>
           </div>
         </div>
         <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground/70" />
@@ -55,7 +58,7 @@ export function EmpresaSelector({ empresas, activaId }: { empresas: Empresa[]; a
 
       <SelectContent align="start" alignItemWithTrigger={false} sideOffset={6} className="w-(--anchor-width) min-w-56 p-1">
         <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-          Cambiar de empresa
+          {t.empresas.cambiar}
         </div>
         {empresas.map((empresa) => (
           <SelectPrimitive.Item
@@ -69,9 +72,9 @@ export function EmpresaSelector({ empresas, activaId }: { empresas: Empresa[]; a
                 {empresa.razon_social}
               </SelectPrimitive.ItemText>
               <span className="block truncate font-mono text-[10px] leading-tight text-muted-foreground">
-                RUC {empresa.ruc}
+                {interpolar(t.empresas.ruc, { ruc: empresa.ruc })}
                 <span className="text-muted-foreground/50"> · </span>
-                {empresa.entorno === "BETA" ? "Beta" : "Producción"}
+                {empresa.entorno === "BETA" ? t.entorno.beta : t.entorno.produccion}
               </span>
             </div>
             <SelectPrimitive.ItemIndicator className="absolute right-2 flex size-4 items-center justify-center text-primary">

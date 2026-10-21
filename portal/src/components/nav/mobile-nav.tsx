@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMessages } from "next-intl";
 import { Button } from "khipu-design-system/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "khipu-design-system/ui/sheet";
 import type { Usuario } from "@/lib/api/auth";
@@ -23,6 +24,7 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const t = useMessages().nav;
 
   useEffect(() => {
     setOpen(false);
@@ -32,7 +34,7 @@ export function MobileNav({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={<Button variant="ghost" size="icon-sm" />}>
         <Menu className="size-5" />
-        <span className="sr-only">Abrir menú</span>
+        <span className="sr-only">{t.abrirMenu}</span>
       </SheetTrigger>
       <SheetContent side="left" showCloseButton={false} className="w-60 bg-sidebar p-0 text-sidebar-foreground">
         <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />

@@ -1707,5 +1707,90 @@
     "razonSocialConSaltos": "La razón social no admite tabuladores ni saltos de línea (SUNAT 4338)",
     "rucLongitud": "El RUC tiene 11 dígitos",
     "rucInvalido": "El RUC no es válido: revisa los dígitos (SUNAT valida el dígito verificador)"
+  },
+  "nav": {
+    "principal": "Navegación principal",
+    "grupos": {
+      "panel": "Panel",
+      "emision": "Emisión & SUNAT",
+      "configuracion": "Configuración",
+      "cuenta": "Cuenta"
+    },
+    "items": {
+      "inicio": "Inicio",
+      "comprobantes": "Comprobantes",
+      "series": "Series correlativas",
+      "clientes": "Clientes",
+      "productos": "Productos",
+      "empresa": "Fiscal & certificado",
+      "establecimientos": "Establecimientos",
+      "apiKeys": "API keys",
+      "plan": "Plan y consumo",
+      "equipo": "Equipo",
+      "soporte": "Accesos de soporte"
+    },
+    "migas": {
+      "secciones": {
+        "panel": "Panel",
+        "facturacion": "Facturación",
+        "emision": "Emisión",
+        "configuracion": "Configuración",
+        "cuenta": "Cuenta"
+      },
+      "paginas": {
+        "apiKeys": "API keys & integración",
+        "developers": "Developers"
+      }
+    },
+    "ubicacion": "Ubicación",
+    "abrirMenu": "Abrir menú",
+    "ubl": "UBL 2.1",
+    "entorno": {
+      "betaAyuda": "Entorno BETA de SUNAT: los comprobantes emitidos aquí no tienen validez tributaria",
+      "produccionAyuda": "Entorno de producción de SUNAT",
+      "betaSunat": "BETA Sunat",
+      "produccion": "Producción",
+      "beta": "Beta"
+    },
+    "empresas": {
+      "cambiar": "Cambiar de empresa",
+      "ruc": "RUC {ruc}"
+    },
+    "tema": {
+      "titulo": "Tema de la interfaz",
+      "claro": "Claro",
+      "oscuro": "Oscuro",
+      "sistema": "Sistema"
+    },
+    "perfil": {
+      "menu": "Menú de usuario",
+      "tuCuenta": "Tu cuenta",
+      "tema": "Tema",
+      "cambiarContrasena": "Cambiar contraseña",
+      "documentacion": "Documentación API",
+      "contrasena": {
+        "titulo": "Cambiar contraseña",
+        "descripcion": "Te enviamos un enlace por correo para definir una nueva",
+        "enviadoA": "Enlace enviado a",
+        "enviadoDetalle": ". Ábrelo desde tu correo para elegir la nueva contraseña; tu sesión actual sigue activa mientras tanto.",
+        "enviaremosA": "Enviaremos un enlace de un solo uso a",
+        "enviaremosDetalle": ". Al abrirlo podrás escribir la nueva contraseña.",
+        "entendido": "Entendido"
+      }
+    },
+    "plan": {
+      "sinPlan": "No se pudo leer tu plan. Ver mi plan",
+      "etiqueta": "Plan {plan}",
+      "resumenAccesible": "Plan {plan}: {consumo} documentos este mes"
+    }
+  },
+  "resumenDePlan": {
+    "documentos": "{n} documentos",
+    "vencido": "Tu plan venció: escríbenos para renovarlo",
+    "superaste": "Superaste el tope de documentos del mes",
+    "llegaste": "Llegaste al tope de documentos del mes",
+    "pagoVencidoHasta": "Pago vencido: se sirve hasta el {fecha}",
+    "pagoVencido": "Pago vencido",
+    "cerca": "Cerca del tope de documentos del mes"
   }
 }

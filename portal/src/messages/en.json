@@ -1707,5 +1707,90 @@
     "razonSocialConSaltos": "The legal name cannot contain tabs or line breaks (SUNAT 4338)",
     "rucLongitud": "The RUC has 11 digits",
     "rucInvalido": "The RUC is not valid: check the digits (SUNAT validates the check digit)"
+  },
+  "nav": {
+    "principal": "Main navigation",
+    "grupos": {
+      "panel": "Dashboard",
+      "emision": "Issuing & SUNAT",
+      "configuracion": "Settings",
+      "cuenta": "Account"
+    },
+    "items": {
+      "inicio": "Home",
+      "comprobantes": "Documents",
+      "series": "Document series",
+      "clientes": "Customers",
+      "productos": "Products",
+      "empresa": "Tax info & certificate",
+      "establecimientos": "Locations",
+      "apiKeys": "API keys",
+      "plan": "Plan & usage",
+      "equipo": "Team",
+      "soporte": "Support access"
+    },
+    "migas": {
+      "secciones": {
+        "panel": "Dashboard",
+        "facturacion": "Invoicing",
+        "emision": "Issuing",
+        "configuracion": "Settings",
+        "cuenta": "Account"
+      },
+      "paginas": {
+        "apiKeys": "API keys & integration",
+        "developers": "Developers"
+      }
+    },
+    "ubicacion": "Breadcrumb",
+    "abrirMenu": "Open menu",
+    "ubl": "UBL 2.1",
+    "entorno": {
+      "betaAyuda": "SUNAT BETA environment: documents issued here have no tax validity",
+      "produccionAyuda": "SUNAT production environment",
+      "betaSunat": "SUNAT BETA",
+      "produccion": "Production",
+      "beta": "Beta"
+    },
+    "empresas": {
+      "cambiar": "Switch company",
+      "ruc": "RUC {ruc}"
+    },
+    "tema": {
+      "titulo": "Interface theme",
+      "claro": "Light",
+      "oscuro": "Dark",
+      "sistema": "System"
+    },
+    "perfil": {
+      "menu": "User menu",
+      "tuCuenta": "Your account",
+      "tema": "Theme",
+      "cambiarContrasena": "Change password",
+      "documentacion": "API documentation",
+      "contrasena": {
+        "titulo": "Change password",
+        "descripcion": "We will email you a link to set a new one",
+        "enviadoA": "Link sent to",
+        "enviadoDetalle": ". Open it from your email to choose the new password; your current session stays active in the meantime.",
+        "enviaremosA": "We will send a one-time link to",
+        "enviaremosDetalle": ". When you open it you can type the new password.",
+        "entendido": "Got it"
+      }
+    },
+    "plan": {
+      "sinPlan": "Could not load your plan. View my plan",
+      "etiqueta": "Plan {plan}",
+      "resumenAccesible": "Plan {plan}: {consumo} documents this month"
+    }
+  },
+  "resumenDePlan": {
+    "documentos": "{n} documents",
+    "vencido": "Your plan expired: write to us to renew it",
+    "superaste": "You exceeded this month’s document limit",
+    "llegaste": "You reached this month’s document limit",
+    "pagoVencidoHasta": "Payment overdue: service continues until {fecha}",
+    "pagoVencido": "Payment overdue",
+    "cerca": "Close to this month’s document limit"
   }
 }
