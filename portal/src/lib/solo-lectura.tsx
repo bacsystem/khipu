@@ -1,7 +1,9 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { createContext, useContext, type ReactNode } from "react";
-import { messages } from "@/lib/messages";
+import type { Mensajes } from "@/i18n/mensajes";
+import es from "@/messages/es.json";
 
 /**
  * Por qué no se puede escribir, en tres niveles:
@@ -15,10 +17,9 @@ type Motivos = { sesion: string | null; emitir: string | null; configurar: strin
 const SIN_RESTRICCION: Motivos = { sesion: null, emitir: null, configurar: null };
 const Contexto = createContext<Motivos>(SIN_RESTRICCION);
 
-const t = messages.roles;
-
 /** Lo que el rol (#21) y el modo soporte (#184) no dejan hacer. Un rol que el portal no conoce se trata como el más restringido. */
-export function motivosDeRestriccion(soporte: boolean, rol: string): Motivos {
+export function motivosDeRestriccion(soporte: boolean, rol: string, messages: Mensajes = es): Motivos {
+  const t = messages.roles;
   if (soporte) {
     const m = messages.soporte.soloLectura;
     return { sesion: m, emitir: m, configurar: m };
@@ -38,7 +39,8 @@ export function motivosDeRestriccion(soporte: boolean, rol: string): Motivos {
  * y Equipo, en el menú lateral) y la acción de invitar, que vive en la página del equipo.
  */
 export function SoloLectura({ activa, rol = "ADMIN", children }: { activa: boolean; rol?: string; children: ReactNode }) {
-  return <Contexto.Provider value={motivosDeRestriccion(activa, rol)}>{children}</Contexto.Provider>;
+  const messages = useMessages();
+  return <Contexto.Provider value={motivosDeRestriccion(activa, rol, messages)}>{children}</Contexto.Provider>;
 }
 
 /** Por qué no puede emitir ni tocar comprobantes, clientes o productos (para `title`), o null si puede. */

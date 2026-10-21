@@ -12,7 +12,9 @@
     "cargando": "Cargando…",
     "guardar": "Guardar",
     "cancelar": "Cancelar",
-    "cerrarSesion": "Cerrar sesión"
+    "cerrarSesion": "Cerrar sesión",
+    "cargandoAccesible": "Cargando",
+    "paso": "Paso {numero} de {total}"
   },
   "auth": {
     "marca": {
@@ -1576,6 +1578,10 @@
       "minutos": "{n} min",
       "segundos": "{n} s",
       "sinDetalle": "Sin detalle"
+    },
+    "ayuda": {
+      "pregunta": "¿Necesitas ayuda?",
+      "centro": "Centro de ayuda"
     }
   },
   "legal": {
@@ -1963,5 +1969,27 @@
       "falta": "Crea al menos una serie de factura (F001) o de boleta (B001).",
       "accion": "Crear serie"
     }
+  },
+  "onboarding": {
+    "titulo": "Configura tu empresa",
+    "subtitulo": "Necesitamos estos datos para poder emitir comprobantes a nombre tuyo.",
+    "conexionCortada": "Se cortó la conexión y no sabemos si el paso se completó. Recarga la página: si la empresa quedó creada, entrarás al portal.",
+    "duplicado": "Ya hay una empresa registrada con el RUC {ruc}. Si es tuya, entra desde el selector de empresa; si no, revisa el número.",
+    "cargando": "Cargando tu configuración…",
+    "ruc": "RUC",
+    "rucAyuda": "11 dígitos. Lo verificamos acá mismo antes de enviarlo.",
+    "razonSocial": "Razón social",
+    "razonSocialAyuda": "Tal como figura en tu ficha RUC. No se puede cambiar después.",
+    "entorno": "Entorno SUNAT",
+    "entornoBeta": "Beta (pruebas)",
+    "entornoProduccion": "Producción",
+    "entornoAyuda": "En <b>Beta</b> los comprobantes no tienen validez tributaria: es para probar. El entorno <b>no se puede cambiar</b> después de crear la empresa.",
+    "continuar": "Continuar",
+    "despues": "Después cargas el certificado digital y las credenciales SOL desde el portal."
+  },
+  "paginaDeError": {
+    "titulo": "Algo salió mal",
+    "reintentar": "Reintentar",
+    "irAlInicio": "Ir al inicio"
   }
 }

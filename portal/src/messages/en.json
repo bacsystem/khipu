@@ -12,7 +12,9 @@
     "cargando": "Loading…",
     "guardar": "Save",
     "cancelar": "Cancel",
-    "cerrarSesion": "Sign out"
+    "cerrarSesion": "Sign out",
+    "cargandoAccesible": "Loading",
+    "paso": "Step {numero} of {total}"
   },
   "auth": {
     "marca": {
@@ -1576,6 +1578,10 @@
       "minutos": "{n} min",
       "segundos": "{n} s",
       "sinDetalle": "No details"
+    },
+    "ayuda": {
+      "pregunta": "Need help?",
+      "centro": "Help center"
     }
   },
   "legal": {
@@ -1963,5 +1969,27 @@
       "falta": "Create at least one invoice (F001) or receipt (B001) series.",
       "accion": "Create series"
     }
+  },
+  "onboarding": {
+    "titulo": "Set up your company",
+    "subtitulo": "We need this information to issue documents on your behalf.",
+    "conexionCortada": "The connection dropped and we do not know whether the step was completed. Reload the page: if the company was created, you will enter the portal.",
+    "duplicado": "A company with RUC {ruc} is already registered. If it is yours, open it from the company switcher; if not, check the number.",
+    "cargando": "Loading your settings…",
+    "ruc": "RUC",
+    "rucAyuda": "11 digits. We check it right here before sending it.",
+    "razonSocial": "Legal name",
+    "razonSocialAyuda": "Exactly as it appears on your RUC record. It cannot be changed later.",
+    "entorno": "SUNAT environment",
+    "entornoBeta": "Beta (testing)",
+    "entornoProduccion": "Production",
+    "entornoAyuda": "In <b>Beta</b> documents have no tax validity: it is for testing. The environment <b>cannot be changed</b> after the company is created.",
+    "continuar": "Continue",
+    "despues": "Afterwards you upload the digital certificate and the SOL credentials from the portal."
+  },
+  "paginaDeError": {
+    "titulo": "Something went wrong",
+    "reintentar": "Try again",
+    "irAlInicio": "Go to the home page"
   }
 }

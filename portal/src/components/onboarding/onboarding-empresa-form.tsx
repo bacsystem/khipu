@@ -2,7 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMessages, useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -11,16 +12,12 @@ import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { razonSocialSchema, rucSchema, soloDigitos } from "@/lib/validacion";
+import { esquemas, soloDigitos } from "@/lib/validacion";
 
-const empresaSchema = z.object({
-  ruc: rucSchema,
-  razon_social: razonSocialSchema,
-  entorno: z.enum(["BETA", "PRODUCCION"]),
-});
-type EmpresaValues = z.infer<typeof empresaSchema>;
+type EmpresaValues = { ruc: string; razon_social: string; entorno: "BETA" | "PRODUCCION" };
 
 /**
  * El alta de la empresa: lo único que el portal necesita para existir (#371). El certificado, las credenciales SOL y las
@@ -30,6 +27,14 @@ type EmpresaValues = z.infer<typeof empresaSchema>;
  */
 export function OnboardingEmpresaForm() {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.onboarding;
+  const tr = useTranslations("onboarding");
+  const mensajeError = useMensajeError();
+  const empresaSchema = useMemo(() => {
+    const v = esquemas(messages);
+    return z.object({ ruc: v.ruc, razon_social: v.razonSocial, entorno: z.enum(["BETA", "PRODUCCION"]) });
+  }, [messages]);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const revisada = useRef(false);
@@ -70,7 +75,7 @@ export function OnboardingEmpresaForm() {
   async function enviar<T>(ruta: string, init: { method: string; body?: unknown }) {
     const res = await apiRequest<T>(ruta, init);
     if (noSeSabeSiLlego(res)) {
-      setError("Se cortó la conexión y no sabemos si el paso se completó. Recarga la página: si la empresa quedó creada, entrarás al portal.");
+      setError(t.conexionCortada);
       return null;
     }
     return res;
@@ -87,7 +92,7 @@ export function OnboardingEmpresaForm() {
     if (!res) return;
     if (res.estado !== "exito" || !res.datos) {
       // El 409 de una empresa ya registrada no es «ya existe una cuenta con ese correo»: es este RUC.
-      setError(res.codigo === "DUPLICADO" ? `Ya hay una empresa registrada con el RUC ${values.ruc}. Si es tuya, entra desde el selector de empresa; si no, revisa el número.` : mensajeError(res.codigo));
+      setError(res.codigo === "DUPLICADO" ? interpolar(t.duplicado, { ruc: values.ruc }) : mensajeError(res.codigo));
       return;
     }
     const sesion = await enviar("/api/session/empresa", { method: "POST", body: { empresaId: res.datos.id } });
@@ -97,7 +102,7 @@ export function OnboardingEmpresaForm() {
     router.refresh();
   }
 
-  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-sm text-muted-foreground" role="status">Cargando tu configuración…</div>;
+  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-sm text-muted-foreground" role="status">{t.cargando}</div>;
 
   return (
     <div className="mx-auto w-full max-w-lg">
@@ -106,48 +111,47 @@ export function OnboardingEmpresaForm() {
       <form className="grid gap-4" onSubmit={empresaForm.handleSubmit(onEmpresa)} noValidate>
         <FormField
           id="ruc"
-          label="RUC"
+          label={t.ruc}
           inputMode="numeric"
           maxLength={11}
           filtrar={soloDigitos}
           placeholder="20123456786"
-          hint="11 dígitos. Lo verificamos acá mismo antes de enviarlo."
+          hint={t.rucAyuda}
           register={empresaForm.register("ruc")}
           error={empresaForm.formState.errors.ruc?.message}
         />
         <FormField
           id="razon_social"
-          label="Razón social"
+          label={t.razonSocial}
           maxLength={1500}
           // Un pegado desde una planilla trae tabuladores: SUNAT los rechaza (4338) y la razón social no se puede
           // corregir después, así que se limpian al escribir en vez de avisar cuando ya es tarde.
           filtrar={(v) => v.replace(/[\u0000-\u001F\u007F]/g, " ")}
-          hint="Tal como figura en tu ficha RUC. No se puede cambiar después."
+          hint={t.razonSocialAyuda}
           register={empresaForm.register("razon_social")}
           error={empresaForm.formState.errors.razon_social?.message}
         />
         <div className="grid gap-1.5">
-          <label htmlFor="entorno" className={ETIQUETA_CAMPO}>Entorno SUNAT</label>
+          <label htmlFor="entorno" className={ETIQUETA_CAMPO}>{t.entorno}</label>
           <select
             id="entorno"
             {...empresaForm.register("entorno")}
             className={CAMPO}
           >
-            <option value="BETA">Beta (pruebas)</option>
-            <option value="PRODUCCION">Producción</option>
+            <option value="BETA">{t.entornoBeta}</option>
+            <option value="PRODUCCION">{t.entornoProduccion}</option>
           </select>
           {/* El entorno no se puede cambiar después (no hay endpoint que lo edite): quien onboardea en Beta por descuido
               necesita intervención manual para emitir de verdad. */}
           <p className="text-[12px] text-muted-foreground">
-            En <strong className="font-medium">Beta</strong> los comprobantes no tienen validez tributaria: es para probar.
-            El entorno <strong className="font-medium">no se puede cambiar</strong> después de crear la empresa.
+            {tr.rich("entornoAyuda", { b: (texto) => <strong className="font-medium">{texto}</strong> })}
           </p>
         </div>
         <BotonAsync type="submit" pendiente={empresaForm.formState.isSubmitting} className={cn(BOTON_PRIMARIO, "w-full")}>
-          Continuar
+          {t.continuar}
         </BotonAsync>
         <p className="text-center text-[12px] text-muted-foreground">
-          Después cargas el certificado digital y las credenciales SOL desde el portal.
+          {t.despues}
         </p>
       </form>
     </div>

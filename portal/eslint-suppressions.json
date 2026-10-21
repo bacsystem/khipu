@@ -149,16 +149,6 @@
       "count": 8
     }
   },
-  "src/app/error.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
-  "src/app/onboarding/page.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 3
-    }
-  },
   "src/app/page.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 49
@@ -564,11 +554,6 @@
       "count": 23
     }
   },
-  "src/components/feedback/spinner.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 1
-    }
-  },
   "src/components/formularios/campo.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 1
@@ -614,16 +599,6 @@
       "count": 6
     }
   },
-  "src/components/navegacion/pasos.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
-    }
-  },
-  "src/components/onboarding/onboarding-empresa-form.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 17
-    }
-  },
   "src/components/productos/producto-dialog.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 6
@@ -657,11 +632,6 @@
   "src/components/series/series-table.tsx": {
     "khipu/no-literal-de-ui": {
       "count": 27
-    }
-  },
-  "src/components/soporte/ayuda-de-soporte.tsx": {
-    "khipu/no-literal-de-ui": {
-      "count": 2
     }
   },
   "src/components/webhooks/entregas-webhook.tsx": {

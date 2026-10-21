@@ -1,12 +1,15 @@
 import { MegaphoneIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
+import { interpolar } from "@/i18n/mensajes";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 
 /**
  * El aviso de mantenimiento que el administrador publica (#199), como lo ven los clientes arriba de su portal y de su inicio de sesión: el texto (plano, nunca HTML) y hasta
  * cuándo. Lo usa también el backoffice para la vista previa.
  */
 export function BannerDeMantenimiento({ texto, hasta }: { texto: string; hasta: string }) {
+  const messages = useMessages();
+  const locale = useLocale();
   return (
     <div
       role="status"
@@ -15,7 +18,7 @@ export function BannerDeMantenimiento({ texto, hasta }: { texto: string; hasta: 
     >
       <MegaphoneIcon className="size-4 shrink-0" aria-hidden="true" />
       <span data-testid="banner-de-mantenimiento-texto">{texto}</span>
-      <span className="text-[12px] opacity-80">{messages.banner.hasta.replace("{fecha}", formatearFechaHora(hasta))}</span>
+      <span className="text-[12px] opacity-80">{interpolar(messages.banner.hasta, { fecha: formatearFechaHora(hasta, locale) })}</span>
     </div>
   );
 }

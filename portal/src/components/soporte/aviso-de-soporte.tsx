@@ -1,13 +1,12 @@
 "use client";
 
 import { EyeIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRef, useState } from "react";
+import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.soporte.aviso;
 
 /**
  * El aviso permanente de que se está actuando como un cliente (#184). Va arriba de todo el portal privado, fijo al hacer scroll, para que nadie —ni el
@@ -25,6 +24,8 @@ export function AvisoDeSoporte({
   cuentaId: string;
   irA?: (url: string) => void;
 }) {
+  const t = useMessages().soporte.aviso;
+  const locale = useLocale();
   const [saliendo, setSaliendo] = useState(false);
   const [error, setError] = useState(false);
   // Un ref, no el estado: dos clics en el mismo tick leen el `saliendo` viejo del closure.
@@ -50,7 +51,7 @@ export function AvisoDeSoporte({
       <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-4 gap-y-1.5">
         <EyeIcon className="size-4 shrink-0" aria-hidden="true" />
         <p className="min-w-0 flex-1 text-[13px]">
-          <strong className="font-semibold">{t.titulo}.</strong> {t.descripcion.replace("{email}", email).replace("{hasta}", formatearFechaHora(hasta))}
+          <strong className="font-semibold">{t.titulo}.</strong> {interpolar(t.descripcion, { email, hasta: formatearFechaHora(hasta, locale) })}
         </p>
         {error ? (
           <span role="alert" className="text-xs font-medium text-destructive">

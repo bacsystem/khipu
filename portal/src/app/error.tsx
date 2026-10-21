@@ -4,21 +4,23 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { Button } from "khipu-design-system/ui/button";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const messages = useMessages();
+  const t = messages.paginaDeError;
   useEffect(() => {
     console.error(error);
   }, [error]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-      <h1 className="font-heading text-2xl">Algo salió mal</h1>
+      <h1 className="font-heading text-2xl">{t.titulo}</h1>
       <p className="max-w-sm text-sm text-muted-foreground">{messages.errores.generico}</p>
       <div className="flex gap-3">
-        <Button onClick={reset}>Reintentar</Button>
+        <Button onClick={reset}>{t.reintentar}</Button>
         <Button render={<Link href="/" />} nativeButton={false} variant="outline">
-          Ir al inicio
+          {t.irAlInicio}
         </Button>
       </div>
       {/* #250: si reintentar no lo arregla, a quién escribir. */}

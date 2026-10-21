@@ -1,15 +1,16 @@
 import { EyeIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { AccesoDeSoporte } from "@/lib/api/accesos-de-soporte";
 import { CABECERA_TABLA } from "@/lib/estilos";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.soporte.accesos;
+import es from "@/messages/es.json";
 
 /** La duración como la lee una persona: en minutos si es un número redondo de minutos, y en segundos si no. */
-export function duracionEnPalabras(segundos: number): string {
-  return segundos % 60 === 0 ? t.minutos.replace("{n}", String(segundos / 60)) : t.segundos.replace("{n}", String(segundos));
+export function duracionEnPalabras(segundos: number, messages: Mensajes = es): string {
+  const t = messages.soporte.accesos;
+  return segundos % 60 === 0 ? interpolar(t.minutos, { n: segundos / 60 }) : interpolar(t.segundos, { n: segundos });
 }
 
 /**
@@ -17,6 +18,9 @@ export function duracionEnPalabras(segundos: number): string {
  * aunque el registro no se entienda del todo: se muestra con su fecha y un «sin detalle», no se esconde.
  */
 export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.soporte.accesos;
   return (
     <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs" data-testid="accesos-de-soporte">
       <Table>
@@ -30,10 +34,10 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
         <TableBody className="text-[13px]">
           {accesos.map((a, i) => (
             <TableRow key={`${a.ocurrido_en}-${i}`} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4">{formatearFechaHora(a.ocurrido_en)}</TableCell>
+              <TableCell className="py-2 pr-3 pl-4">{formatearFechaHora(a.ocurrido_en, locale)}</TableCell>
               <TableCell className="px-3 py-2 font-mono text-[12px]">{a.usuario ?? <span className="font-sans text-muted-foreground">{t.sinDetalle}</span>}</TableCell>
               <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
-                {a.duracion_segundos === undefined ? <span className="text-muted-foreground">{t.sinDetalle}</span> : duracionEnPalabras(a.duracion_segundos)}
+                {a.duracion_segundos === undefined ? <span className="text-muted-foreground">{t.sinDetalle}</span> : duracionEnPalabras(a.duracion_segundos, messages)}
               </TableCell>
             </TableRow>
           ))}
