@@ -23,6 +23,18 @@ resuelve lo que el App Router complica (Server Components síncronos y async, `g
 Va fijada en `4.4.0` (y `use-intl`, que usan las pruebas, en la misma): desde 4.5 depende de `@swc/core` y su plugin carga el binario
 nativo al leer `next.config.ts`, que en Windows falla con `ERR_SWC_NATIVE_CACHE` y tumba `next dev`; no se usa nada de lo que agregó.
 
+**Advisories conocidos de la 4.4.0** (`npm audit`, ambos moderados) y por qué hoy no aplican:
+
+- [GHSA-8f24-v5vv-gm5j](https://github.com/advisories/GHSA-8f24-v5vv-gm5j), open redirect (corregido en 4.9.1): está en el middleware
+  de next-intl (`createMiddleware`) y su routing por locale. El portal no los usa: el locale sale de una cookie y `middleware.ts` es
+  el nuestro, sin nada de next-intl.
+- [GHSA-4c35-wcg5-mm9h](https://github.com/advisories/GHSA-4c35-wcg5-mm9h), prototype pollution: solo con
+  `experimental.messages.precompile` en el plugin. `next.config.ts` llama `createNextIntlPlugin` sin esa opción.
+
+Mientras siga fijada en 4.4.0: **no adoptar el middleware, el routing ni la navegación de next-intl** (`createMiddleware`,
+`defineRouting`, `createNavigation`) ni `precompile`. Para usar cualquiera de ellos, primero subir a ≥ 4.9.1 (y resolver lo de
+`@swc/core` en Windows).
+
 Cómo se leen (detalle en `src/i18n/mensajes.ts`):
 
 - Componente (cliente o servidor no async): `const messages = useMessages();` → `messages.auth.login.titulo` (tipado contra es.json).
@@ -33,12 +45,25 @@ Cómo se leen (detalle en `src/i18n/mensajes.ts`):
 - Errores de la API: `useMensajeError()`. Fechas y montos: `lib/formato.ts` recibe el locale (`es` conserva el formato de siempre:
   hora de Lima, montos como SUNAT, meses de Perú); la zona horaria es siempre `America/Lima`.
 
+Qué viaja al navegador: el `NextIntlClientProvider` serializa en el HTML lo que recibe, así que no recibe el catálogo entero.
+`src/i18n/textos-de-cliente.tsx` define por segmento los namespaces que usan los Client Components (`base` en el layout raíz;
+`landing` en la portada; `privado`, `admin` y `developers` en sus layouts) y `<TextosDeCliente segmento="…">` los envía. Con eso
+`/login` pasó de 318 KB a 39 KB de HTML y la portada de 402 KB a 132 KB, y `developers`/`admin` solo llegan a sus secciones. Los
+Server Components siguen leyendo todo con `getMessages()`. Si un Client Component empieza a leer un namespace nuevo, súmalo al
+segmento donde se usa: `src/i18n/textos-de-cliente.test.ts` recorre los imports desde cada página y falla si falta.
+
 Guardas:
 
 - `npm run lint` corre la regla `khipu/no-literal-de-ui` (`eslint-rules/no-literal-de-ui.mjs`) sobre `src/app`, `src/components` y `src/lib`.
   Lo que todavía no se migró está en la línea base `eslint-suppressions.json` (supresiones masivas de ESLint), que **solo puede bajar**:
   un literal nuevo falla el lint, y al migrar uno hay que podar la línea base (`npx eslint --prune-suppressions`), si no el lint también falla.
-  Nunca se regenera con `--suppress-all` para tapar un literal nuevo.
+  Nunca se regenera con `--suppress-all` para tapar un literal nuevo: `src/lib/linea-base-de-literales.test.ts` tiene el tope
+  (hoy 9 literales en 3 archivos) y falla si la línea base lo pasa. Al migrar literales se baja el tope en el mismo cambio; nunca se sube.
+- La regla tiene pruebas propias (`eslint-rules/no-literal-de-ui.test.mjs`, con `RuleTester`, en `npm run test`).
+- `npm run build` corre `eslint` antes de `next build` (y así también el `Dockerfile`): `next build` lintea con la API de ESLint,
+  que no aplica la línea base, por eso tiene `eslint.ignoreDuringBuilds` y el lint va por la CLI en el mismo script.
+- El lint también rechaza importar `@/messages/*.json` desde `src/app`, `src/components` y `src/lib` (fuera de tests): los textos llegan
+  por `useMessages()`/`getMessages()` o por parámetro.
 - `npm run test` incluye `src/messages/paridad.test.ts` (mismas claves, `{datos}` y etiquetas en cada locale, y ICU válido) y
   `src/i18n/pantallas-en-ingles.test.tsx` (las pantallas migradas se ven en inglés sin restos en castellano). En Vitest, next-intl se
   reemplaza en `vitest.setup.ts` por traductores reales sobre el locale de prueba (`fijarLocaleDePrueba("en")`, ver `src/i18n/prueba.ts`).
