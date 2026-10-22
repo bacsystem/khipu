@@ -32,6 +32,9 @@ const TIPOS = [
   { codigo: "03", etiqueta: "03 · Boleta de venta electrónica (B###)" },
   { codigo: "07", etiqueta: "07 · Nota de crédito (FC## / BC##)" },
   { codigo: "08", etiqueta: "08 · Nota de débito (FD## / BD##)" },
+  // #39: la guía de remisión se emite por la API (POST /v1/guias-remision); su serie se puede crear aquí.
+  { codigo: "09", etiqueta: "09 · Guía de remisión remitente (T###)" },
+  { codigo: "31", etiqueta: "31 · Guía de remisión transportista (V###)" },
 ];
 
 export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {

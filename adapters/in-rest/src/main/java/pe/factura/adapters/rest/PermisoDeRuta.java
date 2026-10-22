@@ -30,6 +30,8 @@ final class PermisoDeRuta {
             Pattern.compile("/v1/liquidaciones-compra(/calcular)?"),
             // #40: los comprobantes de retención y de percepción (y su cálculo); la reversión es la baja de /v1/facturas/{id}/baja.
             Pattern.compile("/v1/(retenciones|percepciones)(/calcular)?"),
+            // #39: la guía de remisión se emite, se valida sin emitir (como /calcular) y se envía o se consulta su ticket ante SUNAT.
+            Pattern.compile("/v1/guias-remision(/validar|/[^/]+/(enviar|ticket))?"),
             Pattern.compile("/v1/clientes(/.*)?"),
             Pattern.compile("/v1/productos(/.*)?"));
 

@@ -469,14 +469,18 @@ class JwtFilterTest {
             {"GET", "/v1/empresa"}, {"GET", "/v1/empresa/establecimientos"}, {"GET", "/v1/empresas"}, {"GET", "/v1/clientes"}, {"GET", "/v1/cuenta"},
             {"GET", "/v1/webhooks"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/series"},
             // #321 y #325
-            {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"}};
+            {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"},
+            // #39
+            {"GET", "/v1/guias-remision"}, {"GET", "/v1/guias-remision/1/pdf"}};
     static final String[][] EMISION = {{"POST", "/v1/facturas"}, {"POST", "/v1/facturas/calcular"}, {"POST", "/v1/facturas/1/enviar"}, {"POST", "/v1/facturas/1/correo"},
             {"POST", "/v1/facturas/1/baja"}, {"POST", "/v1/facturas/1/cdr/recuperar"}, {"POST", "/v1/notas"}, {"POST", "/v1/clientes"},
             {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"},
             // #327
             {"POST", "/v1/liquidaciones-compra"}, {"POST", "/v1/liquidaciones-compra/calcular"},
             // #40
-            {"POST", "/v1/retenciones"}, {"POST", "/v1/retenciones/calcular"}, {"POST", "/v1/percepciones"}, {"POST", "/v1/percepciones/calcular"}};
+            {"POST", "/v1/retenciones"}, {"POST", "/v1/retenciones/calcular"}, {"POST", "/v1/percepciones"}, {"POST", "/v1/percepciones/calcular"},
+            // #39
+            {"POST", "/v1/guias-remision"}, {"POST", "/v1/guias-remision/validar"}, {"POST", "/v1/guias-remision/1/enviar"}, {"POST", "/v1/guias-remision/1/ticket"}};
     static final String[][] CONFIGURACION = {{"POST", "/v1/empresas"}, {"PUT", "/v1/empresa/datos-fiscales"}, {"POST", "/v1/empresa/certificado"},
             {"PUT", "/v1/empresa/credenciales-sol"}, {"POST", "/v1/empresa/api-keys"}, {"GET", "/v1/empresa/api-keys"}, {"DELETE", "/v1/empresa/api-keys/1"},
             {"POST", "/v1/series"}, {"POST", "/v1/empresa/establecimientos"}, {"PUT", "/v1/empresa/establecimientos/0001"}, {"DELETE", "/v1/empresa/establecimientos/0001"},

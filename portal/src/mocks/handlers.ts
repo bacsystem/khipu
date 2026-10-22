@@ -3231,7 +3231,8 @@ export const handlers = [
     }
     // 1001: `F###` para facturas y notas sobre factura, `B###` para boletas. El mock aceptaba «1234» y el onboarding
     // terminaba en verde contra un backend que responde 422.
-    const inicial = body.tipo === "03" ? "B" : "F";
+    // #39: la guía de remisión remitente (09) es T###, la transportista (31) V###.
+    const inicial = body.tipo === "03" ? "B" : body.tipo === "09" ? "T" : body.tipo === "31" ? "V" : "F";
     if (!new RegExp(`^${inicial}[A-Z0-9]{3}$`).test(body.serie ?? ""))
       return fail(422, "SERIE_INVALIDA", `1001 - La serie de un comprobante tipo ${body.tipo} es ${inicial}### (p. ej. ${inicial}001): ${body.serie}`);
     const lista = db.seriesPorEmpresa.get(empresaId) ?? [];

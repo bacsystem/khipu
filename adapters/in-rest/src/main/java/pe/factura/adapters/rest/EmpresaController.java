@@ -123,7 +123,7 @@ public class EmpresaController {
     @PostMapping("/series")
     @Operation(summary = "Crear una serie", description = """
             Registra una serie de numeración. El prefijo indica el tipo: `F###` factura, `B###` boleta, `FC##`/`BC##` nota de
-            crédito, `FD##`/`BD##` nota de débito (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
+            crédito, `FD##`/`BD##` nota de débito, `T###` guía de remisión remitente (tipo `09`), `V###` guía de remisión transportista (tipo `31`) (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
             número ya usado en otro sistema (0 si es nueva): khipu emitirá desde el siguiente. `409 DUPLICADO` si ya existe.""")
     public ResponseEntity<Void> crearSerie(HttpServletRequest req, @Valid @RequestBody SerieRequest body) {
         admin.crearSerie(TenantActual.id(req), TipoDocumento.porCodigo(body.tipo()), body.serie(), body.correlativoInicial() == null ? 0 : body.correlativoInicial(), body.establecimiento());

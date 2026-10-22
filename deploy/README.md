@@ -568,6 +568,78 @@ de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirma
 4. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
 5. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».
 
+## 14. Guía de remisión electrónica por la API REST de SUNAT (#39) — EXPERIMENTAL
+
+`POST /v1/guias-remision` emite la guía de remisión remitente (09, serie `T###`) y la transportista (31, serie `V###`). La GRE no va por SOAP: khipu firma el
+`DespatchAdvice`, lo envía en un ZIP a la API REST de SUNAT (`<gre>/v1/contribuyente/gem/comprobantes/{RUC}-{tipo}-{serie}-{número}`), recibe un ticket y lo
+consulta (`<gre>/v1/contribuyente/gem/comprobantes/envios/{ticket}`) hasta tener el CDR. El token es OAuth2 con el grant `password`
+(`<seguridad>/v1/clientessol/<client_id>/oauth2/token/`, scope `https://api-cpe.sunat.gob.pe`): pide las **credenciales API SUNAT** de la empresa (las de §13)
+**y** su usuario y clave SOL. Fuente: «Manual de servicios web plataforma nueva GRE» y su anexo de URLs (`docs/sunat/ref/manual_servicios_gre_rest.pdf` y
+`manual_url_gre_rest.xlsx`, locales).
+
+**El envío viene apagado (`SUNAT_API_GRE_HABILITADA=false`).** El contrato con SUNAT no se probó (ver «Pendiente» abajo). Con el interruptor apagado, emitir con
+envío y `POST /v1/guias-remision/{id}/enviar` responden `422 GRE_NO_DISPONIBLE` **antes de numerar** y sin llamar a SUNAT (y el outbox no envía nada); emitir con
+`enviar_automatico: false` sigue permitido, para revisar el XML y el PDF. **El dueño lo enciende solo después de la corrida controlada** de abajo, y la API se
+documenta como EXPERIMENTAL hasta entonces. De las dos guías, la **transportista (31) es la menos respaldada**: su remitente en `cac:DespatchParty`, el registro
+MTC del emisor en `cac:DespatchSupplierParty/.../cbc:CompanyID` y la ausencia de modalidad no tienen fuente en el repositorio (la remitente 09 coincide con las
+implementaciones conocidas de la GRE 2022).
+
+**Reintentos y envíos duplicados.** Antes de llamar a SUNAT la guía pasa a `ENVIANDO` con una actualización condicional: dos envíos a la vez (el outbox y uno a
+mano) no mandan el mismo número dos veces. El outbox reintenta un envío al que SUNAT no respondió (backoff de los comprobantes, hasta `OUTBOX_MAX_INTENTOS`;
+agotados, la guía queda `ERROR_ENVIO` con `reintento_automatico: false` y el motivo) y consulta el ticket mientras SUNAT diga «en proceso» (30 s, 1 min, … hasta
+5 min, con tope de 300 consultas, unas 24 h). Una guía que quedó `ENVIANDO` (el proceso murió después de llamar a SUNAT) es **ambigua**: SUNAT pudo recibirla. No se
+reenvía sola; pasados 10 min se retoma con `POST /v1/guias-remision/{id}/enviar?forzar=true`, **solo después de revisar en SOL que no llegó**. Si SUNAT responde
+que el número ya está registrado (1032, 1033, 2223, 4000), la guía queda `ERROR_ENVIO` con el aviso de revisarla en SOL, no de reenviarla.
+
+**Credenciales rechazadas.** Si el token responde 400/401/403 (credenciales API o clave SOL), la guía queda `ERROR_ENVIO` sin reintento y la empresa queda
+marcada: mientras sus credenciales sean las mismas y no pase una hora, emitir con envío, reenviar y consultar tickets responden `422 CREDENCIALES_GRE_RECHAZADAS`
+**sin pedir token** (golpear el token con una clave SOL equivocada puede bloquearla), y el outbox espera. Guardar otras credenciales lo libera en el acto.
+
+**Beta.** SUNAT no publica una API GRE de pruebas, y la de producción emite guías con validez tributaria. `SUNAT_API_GRE_BETA_URL` va vacía por defecto y una
+empresa en `BETA` no envía guías. La única beta práctica es una **API de pruebas de terceros** (p. ej. la de un OSE o un simulador): esa API recibe el ZIP de la
+guía y el bearer del token, y su servicio de token (`SUNAT_API_GRE_SEGURIDAD_BETA_URL`, obligatorio con la beta) recibe el `client_id`, el `client_secret`, el
+usuario y la **clave SOL** de cada empresa en BETA: use credenciales de prueba, nunca las de una empresa real. El backend **no arranca** si la beta apunta a la API
+GRE de producción o al `api-seguridad` real de SUNAT (las empresas en BETA mandarían guías reales, o su bearer real a un tercero).
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `SUNAT_API_GRE_HABILITADA` | `false` | Enciende el envío de guías a SUNAT. Solo tras la corrida controlada |
+| `SUNAT_API_GRE_URL` | `https://api-cpe.sunat.gob.pe` | Envío y ticket de la GRE de las empresas en `PRODUCCION` |
+| `SUNAT_API_GRE_BETA_URL` | (vacía) | API GRE de pruebas de terceros para las empresas en `BETA`; vacía, no envían |
+| `SUNAT_API_GRE_SEGURIDAD_BETA_URL` | (vacía) | Token de esa API de pruebas; obligatorio con `SUNAT_API_GRE_BETA_URL` |
+| `SUNAT_API_GRE_TIMEOUT_SECONDS` | `30` | Tope de cada llamada de la GRE (1 a 120); conectar, a lo sumo 5 s |
+| `SUNAT_API_SEGURIDAD_URL` | `https://api-seguridad.sunat.gob.pe` | El token de las empresas en `PRODUCCION` (compartido con §13, otra ruta y otro grant) |
+
+**Pendiente: nunca se probó contra SUNAT.** No hay credenciales API SUNAT reales ni API GRE de pruebas: todas las pruebas automáticas (unidad, WireMock y
+`GuiaRemisionE2ETest`) usan un SUNAT simulado que responde lo que dicen el manual y su anexo. Lo que el manual no fija y khipu supone sin haberlo visto
+funcionar: (a) el `hashZip` es el SHA-256 del ZIP en hexadecimal minúsculo; (b) `arcCdr` es un ZIP con el `ApplicationResponse`, como el CDR del SOAP;
+(c) la URL del QR está en un `cbc:DocumentDescription` del CDR; (d) la estructura del `DespatchAdvice` (nodos de vehículos, conductores, partida, llegada y,
+en la 31, remitente y MTC) sigue el XSD UBL 2.1, los nodos que nombran los códigos de «CódigosRetorno» y las implementaciones conocidas de la GRE 2022: el
+repositorio no tiene la guía de elaboración del XML de la GRE ni su hoja de validaciones. Corrida controlada, con una empresa real **en PRODUCCION** (la guía tiene
+validez tributaria: use un traslado real y documentado), en un servidor con `SUNAT_API_GRE_HABILITADA=true` solo para ella:
+
+1. En SOL, registrar la aplicación en «Credenciales de API SUNAT» con acceso a la **GRE** (el alta de la aplicación para la consulta de validez puede no
+   bastar: SUNAT distingue los servicios) y copiar «Id» y «Clave».
+2. Guardar las credenciales API (`PUT /v1/empresa/credenciales-api-sunat`, ver §13) y las SOL (`PUT /v1/empresa/credenciales-sol`, usuario secundario con
+   permiso para emitir la GRE).
+3. Crear las series: `POST /v1/series` con `{"tipo":"09","serie":"T001"}` (y `31`/`V001` si es transportista).
+4. Emitir primero **sin enviar** (`"enviar_automatico": false`), revisar el XML (`GET /v1/guias-remision/{id}/xml`) y, si todo cuadra, enviarla con
+   `POST /v1/guias-remision/{id}/enviar`. Lo esperado: `estado` `ENVIADO_PENDIENTE_TICKET` o `ACEPTADO`, y `ticket` con un UUID.
+5. Si SUNAT responde 422 al envío, `ultimo_error` trae su código (`504` nombre del archivo, `507` hash, `159`/`161` nombre del XML): ajustar
+   `RestGreGateway` (p. ej. el hash en otro formato) y su prueba. Si el ticket devuelve 99, el código del CDR o de `error.numError` dice qué regla falla:
+   ajustar la plantilla `despatch-advice.ftl` o la regla del dominio, y su prueba.
+6. Verificar que `GET /v1/guias-remision/{id}/pdf` lleve el QR (si no, el CDR trae la URL en otro nodo: ajustar `RestGreGateway.enlace`).
+7. Repetir con una guía transportista (31) si la empresa lo es: es la menos respaldada.
+8. Recién entonces encender `SUNAT_API_GRE_HABILITADA` para todos y quitar la marca EXPERIMENTAL de la API y de la guía de desarrolladores.
+
+**Lo que falta del issue #39** (la PR es «Refs #39», no «Closes»):
+- La UI de emisión y el listado de guías en el portal (la API está; el portal solo crea las series 09/31 y nombra los tipos).
+- La guía aceptada en una beta (no hay API GRE de pruebas de SUNAT) y la corrida controlada en producción de arriba.
+- Los motivos 08 importación, 09 exportación y 18 emisor itinerante (piden la DAM, puertos o depósitos y no tienen punto de llegada). Con el 08 vuelve el número de
+  **bultos o pallets** (`TotalTransportHandlingUnitQuantity`, reglas 2771/4195): hoy el campo `bultos` de la API se rechaza y la tabla `guia_remision` no tiene columna
+  para él; agregarla en esa migración.
+- Webhooks e historial de eventos de las guías, y si cuentan para el tope del plan.
+
 ## 16. Retenciones y percepciones (#40)
 
 Los comprobantes de retención (20) y de percepción (40) y sus resúmenes de reversiones (`RR-…`) no van al `billService` de facturas sino al de

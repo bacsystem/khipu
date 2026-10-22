@@ -44,6 +44,9 @@ public class JaxpXsdValidator implements XsdValidator {
         // #40: UBL 2.0 con los componentes sac: del paquete de SUNAT, los mismos de la baja y el resumen diario.
         esquemas.put(TipoDocumento.RETENCION, cargar("xsd/2.0/maindoc/UBLPE-Retention-1.0.xsd"));
         esquemas.put(TipoDocumento.PERCEPCION, cargar("xsd/2.0/maindoc/UBLPE-Perception-1.0.xsd"));
+        // #39: las dos guías de remisión son un DespatchAdvice UBL 2.1.
+        esquemas.put(TipoDocumento.GUIA_REMITENTE, cargar("xsd/2.1/maindoc/UBL-DespatchAdvice-2.1.xsd"));
+        esquemas.put(TipoDocumento.GUIA_TRANSPORTISTA, esquemas.get(TipoDocumento.GUIA_REMITENTE));
     }
 
     private Schema cargar(String recurso) { return COMPILADOS.computeIfAbsent(recurso, this::compilar); }

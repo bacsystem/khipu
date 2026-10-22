@@ -235,7 +235,7 @@ export interface paths {
          * Ver un cliente
          * @description `404 NO_ENCONTRADO` si no es de la empresa.
          */
-        get: operations["obtener_2"];
+        get: operations["obtener_3"];
         /**
          * Cambiar un cliente
          * @description Reemplaza sus datos (también puede cambiar el documento). `409 DUPLICADO` si el nuevo documento ya es de otro cliente.
@@ -490,7 +490,7 @@ export interface paths {
         /**
          * Crear una serie
          * @description Registra una serie de numeración. El prefijo indica el tipo: `F###` factura, `B###` boleta, `FC##`/`BC##` nota de
-         *     crédito, `FD##`/`BD##` nota de débito (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
+         *     crédito, `FD##`/`BD##` nota de débito, `T###` guía de remisión remitente (tipo `09`), `V###` guía de remisión transportista (tipo `31`) (3 alfanuméricos tras el prefijo). `correlativo_inicial` es el último
          *     número ya usado en otro sistema (0 si es nueva): khipu emitirá desde el siguiente. `409 DUPLICADO` si ya existe.
          */
         post: operations["crearSerie"];
@@ -749,6 +749,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/guias-remision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar guías de remisión
+         * @description Guías de la empresa, de la más reciente a la más antigua, paginadas; el total va en `X-Total-Count`. Filtros: `estado`, `tipo` (`09` o `31`),
+         *     `serie` exacta y fecha de emisión `desde`/`hasta` (inclusive; `desde > hasta` es `400 RANGO_INVALIDO`).
+         */
+        get: operations["listar_2"];
+        put?: never;
+        /**
+         * Emitir una guía de remisión
+         * @description Valida, numera en la serie (`T###` remitente, `V###` transportista), firma y —salvo `enviar_automatico: false`— envía la guía a SUNAT en la misma
+         *     llamada. La respuesta trae el `estado`: `ACEPTADO` si SUNAT ya la procesó, `ENVIADO_PENDIENTE_TICKET` si todavía la procesa (khipu consulta el ticket
+         *     solo, cada vez más espaciado, durante ~24 h; también `POST /v1/guias-remision/{id}/ticket`) o `ERROR_ENVIO` (ver `ultimo_error` y
+         *     `reintento_automatico`).
+         *
+         *     **Remitente (09)**: `motivo` (catálogo 20), `modalidad` (catálogo 18) y, en transporte público (`01`), `transportista`. En privado (`02`) van
+         *     `traslado.vehiculos` y `traslado.conductores` (el primero de cada lista es el principal), salvo con el indicador `vehiculo_m1_o_l`. El traslado entre
+         *     establecimientos (`04`) va del establecimiento propio de partida al de llegada, con el propio remitente como destinatario.
+         *
+         *     **Transportista (31)**: `remitente`, `registro_mtc` y siempre el vehículo y el conductor principales; sin motivo ni modalidad.
+         *
+         *     **Puntos de partida y llegada**: ubigeo (catálogo 13) y dirección; un establecimiento de la propia empresa se indica solo con su código
+         *     (`establecimiento`, de `GET /v1/empresa/establecimientos`; `0000` el domicilio fiscal) y khipu completa el resto.
+         *
+         *     **Errores** (antes de numerar, el mensaje empieza por el código SUNAT cuando lo hay): `422 VALIDACION`, `422 TRASLADO_INVALIDO`,
+         *     `422 TRANSPORTE_INVALIDO`, `422 DESTINATARIO_INVALIDO`, `422 REMITENTE_INVALIDO`, `422 ITEM_INVALIDO`, `422 DOCUMENTO_RELACIONADO_INVALIDO`,
+         *     `422 SERIE_INVALIDA` / `SERIE_NO_CONFIGURADA`, `422 CREDENCIALES_API_SUNAT_NO_CARGADAS` / `CREDENCIALES_SOL_NO_CARGADAS` / `GRE_NO_DISPONIBLE` /
+         *     `CREDENCIALES_GRE_RECHAZADAS` (solo si se envía en el acto; `GRE_NO_DISPONIBLE` también mientras el envío esté apagado en el servidor).
+         *
+         *     **Reintentos seguros** (`Idempotency-Key`): igual que en las facturas, la misma clave y el mismo cuerpo devuelven `200` con la misma guía, sin
+         *     numerar otra ni volver a enviarla. Las claves de las guías son aparte de las de facturas y notas.
+         */
+        post: operations["crear_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/{id}/ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consultar el ticket en SUNAT
+         * @description Pregunta a SUNAT por el ticket de una guía `ENVIADO_PENDIENTE_TICKET` y aplica la respuesta: el CDR (`ACEPTADO`, `ACEPTADO_CON_OBS`, `RECHAZADO`) o
+         *     sigue en proceso. Si khipu había dejado de consultarlo solo (`reintento_automatico: false`) y SUNAT sigue procesándolo, retoma las consultas. Una
+         *     guía que no espera un ticket responde `409 TICKET_NO_PENDIENTE`.
+         */
+        post: operations["ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/{id}/enviar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar (o reenviar) la guía a SUNAT
+         * @description Envía una guía `FIRMADO` (emitida con `enviar_automatico: false`) o reenvía una en `ERROR_ENVIO` —por ejemplo, después de corregir las credenciales—
+         *     sin esperar al reintento automático. Otra en cualquier otro estado responde `409 ESTADO_NO_ENVIABLE`. Antes de llamar a SUNAT la guía pasa a `ENVIANDO`:
+         *     dos envíos a la vez no mandan el mismo número (el segundo responde `409`). Una guía que quedó `ENVIANDO` sin respuesta responde `409 ENVIO_EN_CURSO`;
+         *     pasados 10 min se retoma con `forzar=true`, después de revisar en SOL que no llegó. Con el envío apagado en el servidor, `422 GRE_NO_DISPONIBLE`; si SUNAT
+         *     rechazó las credenciales de la empresa hace menos de una hora y no cambiaron, `422 CREDENCIALES_GRE_RECHAZADAS` (sin pedir token).
+         */
+        post: operations["enviar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/validar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validar una guía sin emitirla
+         * @description Recibe el mismo cuerpo que `POST /v1/guias-remision` y responde la guía que se emitiría —con los establecimientos de la empresa ya resueltos—
+         *     **sin numerar, firmar, guardar ni enviar nada**. Aplica las mismas reglas que la emisión: lo que esta rechazaría responde aquí el mismo `422`. No
+         *     comprueba la serie, el certificado ni las credenciales. El `id` no existe, `numero` es `null` y no trae `enlaces`.
+         */
+        post: operations["validar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/facturas": {
         parameters: {
             query?: never;
@@ -765,7 +878,7 @@ export interface paths {
          *     (F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito, `20` retención, `40` percepción),
          *     por `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.
          */
-        get: operations["listar_2"];
+        get: operations["listar_3"];
         put?: never;
         /**
          * Emitir una factura o una boleta
@@ -805,7 +918,7 @@ export interface paths {
          *     consumir número. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa
          *     durante 24 horas. Sin la cabecera, cada pedido es una factura nueva.
          */
-        post: operations["crear_4"];
+        post: operations["crear_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -833,7 +946,7 @@ export interface paths {
          *     **Efecto sobre otras boletas**: las demás boletas (y notas de boleta) de la misma fecha de emisión que siguen `FIRMADO` o en `ERROR_ENVIO` y también solo van en el resumen diario
          *     se informan en el mismo resumen (hasta 500 líneas, con un solo ticket y un solo CDR), también las emitidas con `enviar_automatico: false`. Cada una trae su `linea` y las `lineas` del resumen.
          */
-        post: operations["enviar"];
+        post: operations["enviar_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -952,13 +1065,13 @@ export interface paths {
             cookie?: never;
         };
         /** Listar las empresas de la cuenta */
-        get: operations["listar_3"];
+        get: operations["listar_4"];
         put?: never;
         /**
          * Registrar una empresa
          * @description Alta de una razón social (RUC único en la plataforma) con su entorno SUNAT. Después hay que cargar certificado, credenciales SOL y al menos una serie antes de emitir.
          */
-        post: operations["crear_5"];
+        post: operations["crear_6"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1143,13 +1256,13 @@ export interface paths {
          * @description Los clientes de la empresa por nombre. `q` (opcional) se compara con el documento (empieza por) y con el nombre (contiene, sin distinguir mayúsculas ni tildes). El total va en
          *     `X-Total-Count`.
          */
-        get: operations["listar_4"];
+        get: operations["listar_5"];
         put?: never;
         /**
          * Guardar un cliente
          * @description Crea el cliente. `409 DUPLICADO` si la empresa ya tiene uno con ese documento; `422 RECEPTOR_INVALIDO` si el documento o el nombre no cumplen las reglas del comprador.
          */
-        post: operations["crear_6"];
+        post: operations["crear_7"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1402,7 +1515,7 @@ export interface paths {
          * Crear un tenant (empresa) con su primera API key
          * @description Alta administrativa de una empresa sin pasar por el portal; devuelve la API key inicial, que se muestra una sola vez.
          */
-        post: operations["crear_7"];
+        post: operations["crear_8"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1422,7 +1535,7 @@ export interface paths {
          *     vigente. `limites` son los que mandan en el ciclo en curso; `limites_programados` es un cambio ya decidido que entra al inicio del ciclo
          *     siguiente (el mes calendario en America/Lima), si lo hay. Un límite sin tope viene con `ilimitado: true` y sin `maximo`.
          */
-        get: operations["listar_5"];
+        get: operations["listar_6"];
         put?: never;
         /**
          * Crear un plan
@@ -1431,7 +1544,7 @@ export interface paths {
          *     LIMITE_INVALIDO`); retención de al menos un año (`422 RETENCION_INVALIDA`). Un límite que se omite se rechaza: nunca se vuelve «ilimitado» en
          *     silencio. Queda en la bitácora.
          */
-        post: operations["crear_8"];
+        post: operations["crear_9"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1635,7 +1748,7 @@ export interface paths {
          *     portal, no el uso por API key. **Las cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
          *     `SOLO` devuelve únicamente esas; el total las trata igual. El plan de la cuenta se agregará más adelante.
          */
-        get: operations["listar_8"];
+        get: operations["listar_9"];
         put?: never;
         /**
          * Dar de alta a un cliente: cuenta, empresa y primera serie
@@ -1651,7 +1764,7 @@ export interface paths {
          *     reintento responde `409 IDEMPOTENCIA_VENCIDA` (el alta ya está hecha; el cliente crea otra API key desde su portal). La
          *     misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`.
          */
-        post: operations["crear_9"];
+        post: operations["crear_10"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2048,7 +2161,7 @@ export interface paths {
          * Crear una cuenta de administrador
          * @description Alta de un administrador de la plataforma (email + password); no pertenece a ninguna cuenta de cliente.
          */
-        post: operations["crear_10"];
+        post: operations["crear_11"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2141,6 +2254,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/guias-remision/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar una guía de remisión
+         * @description Estado, ticket, respuesta de SUNAT (`cdr`), datos del traslado y enlaces de descarga.
+         */
+        get: operations["obtener_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/{id}/xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar el XML firmado
+         * @description El `DespatchAdvice` tal como se envió a SUNAT. Nombre `RUC-09-SERIE-NUMERO.xml` (o `-31-`).
+         */
+        get: operations["xml"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar la representación impresa (PDF)
+         * @description Emisor, destinatario, datos del traslado (motivo, modalidad, partida, llegada, transportista, vehículos y conductores), bienes y el valor resumen. Lleva
+         *     el QR con la URL de consulta que SUNAT pone en el CDR cuando la trae; antes de eso, sale sin QR. Se genera la primera vez y se guarda.
+         */
+        get: operations["pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guias-remision/{id}/cdr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar la constancia de recepción (CDR)
+         * @description El ZIP que devolvió SUNAT al consultar el ticket; con `formato=xml`, el `ApplicationResponse`. `404 SIN_CDR` mientras no haya.
+         */
+        get: operations["cdr"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/facturas/{id}": {
         parameters: {
             query?: never;
@@ -2156,7 +2350,7 @@ export interface paths {
          *     historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa
          *     tiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.
          */
-        get: operations["obtener_1"];
+        get: operations["obtener_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2176,7 +2370,7 @@ export interface paths {
          * Descargar el XML firmado
          * @description El XML UBL 2.1 exactamente como se envió a SUNAT (firma XML-DSig incluida). Nombre de archivo `RUC-01-SERIE-NUMERO.xml`.
          */
-        get: operations["xml"];
+        get: operations["xml_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2198,7 +2392,7 @@ export interface paths {
          *     tipo y número de documento del adquirente|hash) y el valor resumen (hash de la firma). Se genera la primera vez que se
          *     pide y se guarda junto al XML. Disponible desde que el comprobante está `FIRMADO`; `422 SIN_FIRMA` antes.
          */
-        get: operations["pdf"];
+        get: operations["pdf_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2225,7 +2419,7 @@ export interface paths {
          *     `R-<RUC>-03-<serie>-<número>`; lo que lo distingue es la cabecera `X-Cdr-Resumen` con el identificador del resumen
          *     (`RC-aaaammdd-n`), que también trae `cdr.resumen` en la consulta del comprobante. Sin la cabecera, el CDR es el del propio comprobante.
          */
-        get: operations["cdr"];
+        get: operations["cdr_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2570,7 +2764,7 @@ export interface paths {
          * Consultar una comunicación de baja
          * @description Si está `ENVIADA`, consulta el ticket en SUNAT en el acto y devuelve el resultado actualizado.
          */
-        get: operations["obtener_3"];
+        get: operations["obtener_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2661,7 +2855,7 @@ export interface paths {
          *     de SUNAT, los intentos y, si hay un reintento programado, cuándo. `q` busca el cliente por RUC (prefijo), razón social, o nombre o correo de su cuenta, sin distinguir
          *     mayúsculas ni tildes. Solo lectura.
          */
-        get: operations["listar_6"];
+        get: operations["listar_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2687,7 +2881,7 @@ export interface paths {
          *     responden `400`. **Las empresas de cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
          *     `SOLO` devuelve únicamente esas; el total las trata igual. Las empresas sin cuenta nunca están de baja.
          */
-        get: operations["listar_7"];
+        get: operations["listar_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2827,7 +3021,7 @@ export interface paths {
          *     de mayor a menor, los planes sin tope al final) o `DOCUMENTOS`. `mes` es `AAAA-MM`; sin él, el mes en curso. Paginado; el total, que refleja el filtro, va en
          *     `X-Total-Count`.
          */
-        get: operations["listar_9"];
+        get: operations["listar_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4044,12 +4238,12 @@ export interface components {
         };
         SerieRequest: {
             /**
-             * @description 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 20=retención, 40=percepción (estos dos, solo si la empresa es agente de ese tipo: `422 AGENTE_NO_DESIGNADO`)
+             * @description 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 09=guía de remisión remitente (serie T###), 20=retención, 31=guía de remisión transportista (serie V###), 40=percepción (20 y 40, solo si la empresa es agente de ese tipo: `422 AGENTE_NO_DESIGNADO`)
              * @example 01
              */
             tipo: string;
             /**
-             * @description Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas, `R###` retención, `P###` percepción
+             * @description Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas, `T###` guía remitente, `V###` guía transportista, `R###` retención, `P###` percepción
              * @example F001
              */
             serie: string;
@@ -5761,6 +5955,370 @@ export interface components {
              * @example 02
              */
             condicion: string;
+        };
+        GuiaRemisionConductorRequest: {
+            /**
+             * @description Tipo de documento, catálogo 06 (1 DNI, 4 carné de extranjería, 7 pasaporte…)
+             * @example 1
+             */
+            tipo_doc: string;
+            /** @example 45678912 */
+            num_doc: string;
+            /** @example JUAN */
+            nombres: string;
+            /** @example QUISPE MAMANI */
+            apellidos: string;
+            /**
+             * @description Licencia de conducir, de 9 a 10 letras o dígitos
+             * @example Q45678912
+             */
+            licencia: string;
+        };
+        GuiaRemisionDocumentoRequest: {
+            /**
+             * @description Tipo, catálogo 61 (01 factura, 03 boleta, 09 guía remitente, 50 DAM…)
+             * @example 01
+             */
+            tipo: string;
+            /**
+             * @description Número; serie-número en los comprobantes y guías
+             * @example F001-123
+             */
+            numero: string;
+            /**
+             * @description RUC de quien emitió el documento; obligatorio en los comprobantes y guías
+             * @example 20100066603
+             */
+            ruc_emisor?: string;
+        };
+        /** @description Datos del traslado */
+        GuiaRemisionEnvioRequest: {
+            /**
+             * Format: date
+             * @description Inicio del traslado (o entrega al transportista), no anterior a la emisión (3343). Obligatoria
+             * @example 2026-10-21
+             */
+            fecha_inicio?: string;
+            /**
+             * @description Peso bruto total, mayor que cero, hasta 3 decimales (2880). Obligatorio
+             * @example 25.5
+             */
+            peso_bruto?: number;
+            /**
+             * @description `KGM` (por defecto) o `TNE`
+             * @example KGM
+             */
+            unidad_peso?: string;
+            /**
+             * Format: int32
+             * @description Bultos o pallets: solo en una importación (4195), que khipu aún no emite; debe omitirse
+             */
+            bultos?: number;
+            partida: components["schemas"]["GuiaRemisionPuntoRequest"];
+            llegada: components["schemas"]["GuiaRemisionPuntoRequest"];
+            /** @description El primero es el principal; hasta dos secundarios (4389) */
+            vehiculos?: components["schemas"]["GuiaRemisionVehiculoRequest"][];
+            /** @description El primero es el principal; hasta dos secundarios (4376) */
+            conductores?: components["schemas"]["GuiaRemisionConductorRequest"][];
+            /** @description Indicadores especiales: `vehiculo_m1_o_l` (autos o motos: sin vehículo ni conductor), `retorno_vehiculo_envase_vacio`, `retorno_vehiculo_vacio`, `transbordo_programado`, `vehiculos_conductores_transportista` (público: el remitente registra los del transportista) */
+            indicadores?: string[];
+        };
+        GuiaRemisionItemRequest: {
+            /** @example LAP-15 */
+            codigo?: string;
+            /** @example Laptop 15 pulgadas */
+            descripcion: string;
+            /**
+             * @description Unidad, catálogo 03
+             * @example NIU
+             */
+            unidad: string;
+            /** @example 2 */
+            cantidad: number;
+            /**
+             * @description Código de producto SUNAT (UNSPSC, 8 dígitos), opcional
+             * @example 43211503
+             */
+            codigo_sunat?: string;
+        };
+        /** @description Solo transportista: quien envía los bienes */
+        GuiaRemisionParteRequest: {
+            /**
+             * @description Tipo de documento, catálogo 06
+             * @example 6
+             */
+            tipo_doc: string;
+            /** @example 20601234565 */
+            num_doc: string;
+            /**
+             * @description Nombre o razón social, de 3 a 250 caracteres
+             * @example COMERCIAL ANDINA S.A.C.
+             */
+            nombre: string;
+        };
+        GuiaRemisionPuntoRequest: {
+            /**
+             * @description Ubigeo del catálogo 13. Con solo `establecimiento` (de la propia empresa en una guía remitente) khipu lo completa
+             * @example 150101
+             */
+            ubigeo?: string;
+            /**
+             * @description Dirección detallada, de 3 a 500 caracteres
+             * @example Av. Argentina 1234, Cercado de Lima
+             */
+            direccion?: string;
+            /**
+             * @description Código de 4 dígitos del establecimiento anexo (`0000` el domicilio fiscal). Los de la empresa se toman de `GET /v1/empresa/establecimientos`
+             * @example 0001
+             */
+            establecimiento?: string;
+            /**
+             * @description RUC al que pertenece el establecimiento (3410); por defecto el del remitente
+             * @example 20100066603
+             */
+            ruc?: string;
+        };
+        GuiaRemisionRequest: {
+            /**
+             * @description Serie registrada en `POST /v1/series` (tipo `09` o `31`). Su letra decide la guía: `T` + 3 alfanuméricos la remitente (09), `V` + 3 alfanuméricos la transportista (31)
+             * @example T001
+             */
+            serie: string;
+            /**
+             * Format: date
+             * @description Fecha de emisión (`YYYY-MM-DD`), no futura. Por defecto, hoy
+             * @example 2026-10-20
+             */
+            fecha_emision?: string;
+            destinatario: components["schemas"]["GuiaRemisionParteRequest"];
+            /**
+             * @description Solo remitente. Motivo de traslado, catálogo 20 (`GET /v1/catalogos/20`): `01` venta, `02` compra, `03` venta con entrega a terceros, `04` traslado entre establecimientos de la misma empresa, `05` consignación, `06` devolución, `07` recojo de bienes transformados, `13` otros, `14` venta sujeta a confirmación, `17` traslado para transformación. Aún no: `08` importación, `09` exportación y `18` emisor itinerante
+             * @example 01
+             */
+            motivo?: string;
+            /**
+             * @description Solo remitente. Descripción del motivo (hasta 100 caracteres); obligatoria con `13` (otros). Por defecto, la del catálogo
+             * @example Venta
+             */
+            descripcion_motivo?: string;
+            /**
+             * @description Solo remitente. Modalidad, catálogo 18: `01` transporte público (va `transportista`, sin vehículos ni conductores) o `02` privado (van `vehiculos` y `conductores`)
+             * @example 02
+             */
+            modalidad?: string;
+            transportista?: components["schemas"]["GuiaRemisionTransportistaRequest"];
+            remitente?: components["schemas"]["GuiaRemisionParteRequest"];
+            /**
+             * @description Solo transportista: su número de registro del MTC (obligatorio, regla 4391)
+             * @example 1512345CNG
+             */
+            registro_mtc?: string;
+            traslado: components["schemas"]["GuiaRemisionEnvioRequest"];
+            /** @description Bienes que se trasladan, de 1 a 9999 */
+            items: components["schemas"]["GuiaRemisionItemRequest"][];
+            /** @description Documentos que sustentan el traslado (catálogo 61): la factura de la venta, la guía remitente que lleva el transportista, la DAM… */
+            documentos_relacionados?: components["schemas"]["GuiaRemisionDocumentoRequest"][];
+            /**
+             * @description Observaciones (`cbc:Note`), hasta 250 caracteres en una línea
+             * @example Mercadería frágil
+             */
+            observaciones?: string;
+            /**
+             * @description Enviar a SUNAT en la misma llamada (por defecto `true`). Con `false` queda `FIRMADO` y se envía con `POST /v1/guias-remision/{id}/enviar`
+             * @example true
+             */
+            enviar_automatico?: boolean;
+        };
+        /** @description Solo remitente en transporte público: la empresa de transporte */
+        GuiaRemisionTransportistaRequest: {
+            /** @example 20480072872 */
+            ruc: string;
+            /** @example TRANSPORTES DEL SUR S.A.C. */
+            razon_social: string;
+            /**
+             * @description Número de registro del MTC (opcional)
+             * @example 1512345CNG
+             */
+            registro_mtc?: string;
+        };
+        GuiaRemisionVehiculoRequest: {
+            /**
+             * @description Placa, de 6 a 8 letras o dígitos (los guiones se quitan)
+             * @example ABC123
+             */
+            placa: string;
+        };
+        ApiResponseGuiaRemisionResponse: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["GuiaRemisionResponse"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        GuiaRemisionCdrResponse: {
+            codigo?: string;
+            descripcion?: string;
+            observaciones?: string[];
+        };
+        GuiaRemisionConductorResponse: {
+            tipo_doc?: string;
+            num_doc?: string;
+            nombres?: string;
+            apellidos?: string;
+            licencia?: string;
+            principal?: boolean;
+        };
+        GuiaRemisionDocumentoResponse: {
+            tipo?: string;
+            descripcion?: string;
+            numero?: string;
+            ruc_emisor?: string;
+        };
+        /** @description Descargas; ausente en `/validar` */
+        GuiaRemisionEnlacesResponse: {
+            xml?: string;
+            pdf?: string;
+            cdr?: string;
+        };
+        GuiaRemisionEnvioResponse: {
+            /** Format: date */
+            fecha_inicio?: string;
+            peso_bruto?: number;
+            unidad_peso?: string;
+            partida?: components["schemas"]["GuiaRemisionPuntoResponse"];
+            llegada?: components["schemas"]["GuiaRemisionPuntoResponse"];
+            vehiculos?: components["schemas"]["GuiaRemisionVehiculoResponse"][];
+            conductores?: components["schemas"]["GuiaRemisionConductorResponse"][];
+            indicadores?: string[];
+        };
+        GuiaRemisionItemResponse: {
+            codigo?: string;
+            descripcion?: string;
+            unidad?: string;
+            cantidad?: number;
+            codigo_sunat?: string;
+        };
+        GuiaRemisionParteResponse: {
+            tipo_doc?: string;
+            num_doc?: string;
+            nombre?: string;
+        };
+        GuiaRemisionPuntoResponse: {
+            ubigeo?: string;
+            direccion?: string;
+            establecimiento?: string;
+            ruc?: string;
+        };
+        GuiaRemisionResponse: {
+            /**
+             * Format: uuid
+             * @description Id de la guía; en `/validar` es provisional y no existe
+             */
+            id?: string;
+            /**
+             * @description `09` remitente o `31` transportista
+             * @example 09
+             */
+            tipo?: string;
+            /** @example T001 */
+            serie?: string;
+            /**
+             * Format: int64
+             * @description Correlativo; `null` en `/validar`
+             * @example 15
+             */
+            numero?: number;
+            /** @example 20100066603-09-T001-15 */
+            nombre_archivo?: string;
+            /**
+             * Format: date
+             * @example 2026-10-20
+             */
+            fecha_emision?: string;
+            /** @example 10:04:05 */
+            hora_emision?: string;
+            /**
+             * @description `FIRMADO`, `ERROR_ENVIO`, `ENVIANDO` (envío en curso), `ENVIADO_PENDIENTE_TICKET`, `ACEPTADO`, `ACEPTADO_CON_OBS` o `RECHAZADO` (`RECIBIDO` solo en `/validar`)
+             * @example ACEPTADO
+             */
+            estado?: string;
+            destinatario?: components["schemas"]["GuiaRemisionParteResponse"];
+            /** @example 01 */
+            motivo?: string;
+            /** @example Venta */
+            descripcion_motivo?: string;
+            /** @example 02 */
+            modalidad?: string;
+            transportista?: components["schemas"]["GuiaRemisionTransportistaResponse"];
+            remitente?: components["schemas"]["GuiaRemisionParteResponse"];
+            /** @example 1512345CNG */
+            registro_mtc?: string;
+            traslado?: components["schemas"]["GuiaRemisionEnvioResponse"];
+            items?: components["schemas"]["GuiaRemisionItemResponse"][];
+            documentos_relacionados?: components["schemas"]["GuiaRemisionDocumentoResponse"][];
+            observaciones?: string;
+            /** @description Valor resumen de la firma (DigestValue) */
+            hash?: string;
+            /**
+             * @description Ticket que dio SUNAT al recibirla
+             * @example 7f7b00ab-4fee-4ae2-9e04-fbd16ca18677
+             */
+            ticket?: string;
+            /**
+             * Format: date-time
+             * @description Fecha de recepción que informó SUNAT (hora de Lima)
+             */
+            fecha_recepcion?: string;
+            /**
+             * Format: int32
+             * @description Envíos intentados
+             * @example 1
+             */
+            intentos?: number;
+            /**
+             * Format: int32
+             * @description Consultas del ticket hechas
+             * @example 2
+             */
+            consultas_ticket?: number;
+            /** @description Si khipu sigue solo: reintenta el envío (ERROR_ENVIO) o consulta el ticket (ENVIADO_PENDIENTE_TICKET). `false` en ERROR_ENVIO: corrija lo que dice `ultimo_error` y reenvíe; en ENVIADO_PENDIENTE_TICKET: reconsulte el ticket */
+            reintento_automatico?: boolean;
+            /** @description El último fallo del envío o de la consulta del ticket */
+            ultimo_error?: string;
+            cdr?: components["schemas"]["GuiaRemisionCdrResponse"];
+            /** @description URL de consulta de la guía que trae el CDR (la del QR de la representación impresa), si la trae */
+            enlace_consulta?: string;
+            enlaces?: components["schemas"]["GuiaRemisionEnlacesResponse"];
+        };
+        GuiaRemisionTransportistaResponse: {
+            ruc?: string;
+            razon_social?: string;
+            registro_mtc?: string;
+        };
+        GuiaRemisionVehiculoResponse: {
+            placa?: string;
+            /** @description El primero es el principal */
+            principal?: boolean;
         };
         /** @description Facturas de anticipo que se regularizan en esta factura. Los ítems describen la operación completa y khipu descuenta cada anticipo de la base (código 04/05/06) y del importe a pagar. */
         AnticipoDto: {
@@ -7851,6 +8409,33 @@ export interface components {
             /** @example 29 */
             precio_mensual?: number;
             limites?: components["schemas"]["LimitesDto"];
+        };
+        ApiResponseListGuiaRemisionResponse: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["GuiaRemisionResponse"][];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
         };
         ApiResponseListComprobanteResponse: {
             /**
@@ -10514,7 +11099,7 @@ export interface operations {
             };
         };
     };
-    obtener_2: {
+    obtener_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -11347,6 +11932,166 @@ export interface operations {
     listar_2: {
         parameters: {
             query?: {
+                /** @description Estado de la guía */
+                estado?: "RECIBIDO" | "FIRMADO" | "ERROR_ENVIO" | "ENVIANDO" | "ENVIADO_PENDIENTE_TICKET" | "ACEPTADO" | "ACEPTADO_CON_OBS" | "RECHAZADO";
+                /**
+                 * @description `09` remitente o `31` transportista
+                 * @example 09
+                 */
+                tipo?: string;
+                /**
+                 * @description Serie exacta (T001, V001…)
+                 * @example T001
+                 */
+                serie?: string;
+                /** @description Fecha de emisión mínima, `YYYY-MM-DD` */
+                desde?: string;
+                /** @description Fecha de emisión máxima, `YYYY-MM-DD` */
+                hasta?: string;
+                /** @description Página, desde 1 */
+                pagina?: number;
+                /** @description Resultados por página, 1–100 */
+                por_pagina?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListGuiaRemisionResponse"];
+                };
+            };
+        };
+    };
+    crear_4: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Clave única por guía (un UUID), para repetir el pedido sin emitir dos veces
+                 * @example 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f
+                 */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuiaRemisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Pedido repetido con la misma `Idempotency-Key`: la guía ya emitida, en su estado actual */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+            /** @description Guía emitida; `estado` dice si SUNAT ya la aceptó */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+            /** @description Datos inválidos o regla de SUNAT incumplida; `codigo` y `mensaje` dicen cuál */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+        };
+    };
+    ticket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+        };
+    };
+    enviar: {
+        parameters: {
+            query?: {
+                /** @description Retoma una guía que quedó `ENVIANDO` sin respuesta hace más de 10 min. No se sabe si SUNAT la recibió: úselo solo después de revisar en SOL que no llegó */
+                forzar?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+        };
+    };
+    validar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuiaRemisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
+                };
+            };
+        };
+    };
+    listar_3: {
+        parameters: {
+            query?: {
                 /** @description Estado del comprobante (ver *Estados del comprobante*) */
                 estado?: "RECIBIDO" | "INVALIDO" | "FIRMADO" | "ERROR_ENVIO" | "PENDIENTE_AGRUPACION" | "ENVIADO" | "ACEPTADO" | "ACEPTADO_CON_OBS" | "RECHAZADO" | "ANULADO" | "FUERA_DE_PLAZO" | "DESCARTADO";
                 /**
@@ -11401,7 +12146,7 @@ export interface operations {
             };
         };
     };
-    crear_4: {
+    crear_5: {
         parameters: {
             query?: never;
             header?: {
@@ -11458,7 +12203,7 @@ export interface operations {
             };
         };
     };
-    enviar: {
+    enviar_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11596,7 +12341,7 @@ export interface operations {
             };
         };
     };
-    listar_3: {
+    listar_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -11616,7 +12361,7 @@ export interface operations {
             };
         };
     };
-    crear_5: {
+    crear_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -11861,7 +12606,7 @@ export interface operations {
             };
         };
     };
-    listar_4: {
+    listar_5: {
         parameters: {
             query?: {
                 /** @description Texto a buscar en el documento o el nombre */
@@ -11888,7 +12633,7 @@ export interface operations {
             };
         };
     };
-    crear_6: {
+    crear_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -12156,7 +12901,7 @@ export interface operations {
             };
         };
     };
-    crear_7: {
+    crear_8: {
         parameters: {
             query?: never;
             header?: never;
@@ -12180,7 +12925,7 @@ export interface operations {
             };
         };
     };
-    listar_5: {
+    listar_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -12200,7 +12945,7 @@ export interface operations {
             };
         };
     };
-    crear_8: {
+    crear_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -12424,7 +13169,7 @@ export interface operations {
             };
         };
     };
-    listar_8: {
+    listar_9: {
         parameters: {
             query?: {
                 /**
@@ -12456,7 +13201,7 @@ export interface operations {
             };
         };
     };
-    crear_9: {
+    crear_10: {
         parameters: {
             query?: never;
             header?: {
@@ -12942,7 +13687,7 @@ export interface operations {
             };
         };
     };
-    crear_10: {
+    crear_11: {
         parameters: {
             query?: never;
             header?: never;
@@ -13098,7 +13843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                    "*/*": components["schemas"]["ApiResponseGuiaRemisionResponse"];
                 };
             };
         };
@@ -13148,6 +13893,97 @@ export interface operations {
         };
     };
     cdr: {
+        parameters: {
+            query?: {
+                /** @description `zip` (por defecto) o `xml` */
+                formato?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    obtener_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseComprobanteResponse"];
+                };
+            };
+        };
+    };
+    xml_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    pdf_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    cdr_1: {
         parameters: {
             query?: {
                 /** @description `zip` (por defecto) o `xml` */
@@ -13619,7 +14455,7 @@ export interface operations {
             };
         };
     };
-    obtener_3: {
+    obtener_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -13701,7 +14537,7 @@ export interface operations {
             };
         };
     };
-    listar_6: {
+    listar_7: {
         parameters: {
             query?: {
                 /** @description Solo esta clase de error */
@@ -13735,7 +14571,7 @@ export interface operations {
             };
         };
     };
-    listar_7: {
+    listar_8: {
         parameters: {
             query?: {
                 /** @description Solo las empresas de ese entorno */
@@ -13898,7 +14734,7 @@ export interface operations {
             };
         };
     };
-    listar_9: {
+    listar_10: {
         parameters: {
             query?: {
                 /**

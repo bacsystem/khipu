@@ -13,7 +13,7 @@ import {
 const CAMPOS: CampoReferencia[] = [
   { campo: "tenant_id", tipo: "uuid", descripcion: "Empresa emisora dueña de la serie", clave: true },
   { campo: "tipo", tipo: "varchar(2)", descripcion: "Tipo de comprobante · catálogo SUNAT N.º 01", clave: true },
-  { campo: "codigo", tipo: "varchar(4)", descripcion: "Serie alfanumérica (F###, B###)", clave: true },
+  { campo: "codigo", tipo: "varchar(4)", descripcion: "Serie alfanumérica (F###, B###, T###, V###)", clave: true },
   { campo: "ultimo_numero", tipo: "bigint", descripcion: "Último correlativo asignado; 0 = sin emisiones" },
   { campo: "activa", tipo: "boolean", descripcion: "Si acepta nuevas emisiones" },
 ];
@@ -23,6 +23,8 @@ const FORMATOS: Array<{ tipo: string; nombre: string; formato: string; nota: str
   { tipo: "03", nombre: "Boleta de venta", formato: "B###", nota: "Inicia con B + 3 alfanuméricos" },
   { tipo: "07", nombre: "Nota de crédito", formato: "F### / B###", nota: "Prefijo del comprobante que modifica" },
   { tipo: "08", nombre: "Nota de débito", formato: "F### / B###", nota: "Prefijo del comprobante que modifica" },
+  { tipo: "09", nombre: "Guía de remisión remitente", formato: "T###", nota: "Inicia con T + 3 alfanuméricos; se emite por la API" },
+  { tipo: "31", nombre: "Guía de remisión transportista", formato: "V###", nota: "Inicia con V + 3 alfanuméricos; se emite por la API" },
 ];
 
 /** Definición de la entidad y regla de formato SUNAT, como referencia en un modal. */

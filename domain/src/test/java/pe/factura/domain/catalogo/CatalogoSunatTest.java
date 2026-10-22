@@ -37,6 +37,16 @@ class CatalogoSunatTest {
         assertThat(CatalogoSunat.porId("53").orElseThrow().entrada("62").orElseThrow().descripcion()).containsIgnoringCase("retenci");
     }
 
+    /** #39: los catálogos de la guía de remisión, tal como los trae la hoja «Catálogos» (modalidad 18, motivo 20, documentos relacionados 61 con su GRE aplicable). */
+    @Test void losCatalogosDeLaGuiaDeRemision() {
+        assertThat(CatalogoSunat.porId("18").orElseThrow().entradas()).extracting(CatalogoSunat.Entrada::codigo).containsExactly("01", "02");
+        assertThat(CatalogoSunat.porId("20").orElseThrow().entradas()).hasSize(13);
+        assertThat(CatalogoSunat.descripcion("20", "04")).contains("Traslado entre establecimientos de la misma empresa");
+        assertThat(CatalogoSunat.porId("61").orElseThrow().entradas()).hasSize(26);
+        assertThat(CatalogoSunat.porId("61").orElseThrow().entrada("31").orElseThrow().extra()).containsEntry("GRE aplicable", "solo transportista");
+        assertThat(CatalogoSunat.porId("61").orElseThrow().entrada("49").orElseThrow().extra()).containsEntry("GRE aplicable", "solo remitente");
+    }
+
     @Test void codigoInexistente() {
         assertThat(CatalogoSunat.descripcion("07", "99")).isEmpty();
         assertThat(CatalogoSunat.porId("99")).isEmpty();
