@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Alerta } from "@/components/feedback/alerta";
-import { BotonAsync } from "@/components/patrones/boton-async";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";

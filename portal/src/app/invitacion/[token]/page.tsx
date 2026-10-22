@@ -1,6 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AceptarInvitacionForm } from "@/components/auth/aceptar-invitacion-form";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { consultarInvitacion, type InvitacionRecibida } from "@/lib/api/equipo";
 import { ApiError } from "@/lib/api/types";
 import { messages } from "@/lib/messages";

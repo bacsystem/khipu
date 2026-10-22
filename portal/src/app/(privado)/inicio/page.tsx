@@ -1,7 +1,7 @@
 import { ReceiptTextIcon } from "lucide-react";
 import Link from "next/link";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
-import { EstadoVacio } from "@/components/feedback/estado-vacio";
+import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
 import { AlertasDelPanel } from "@/components/inicio/alertas-del-panel";
 import { GraficoDeEmision } from "@/components/inicio/grafico-de-emision";
 import { KpisDelMes } from "@/components/inicio/kpis-del-mes";

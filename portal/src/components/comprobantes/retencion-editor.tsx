@@ -1,6 +1,6 @@
 "use client";
 
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { errorDeRetencion, type RetencionForm } from "@/lib/comprobantes/retencion";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";

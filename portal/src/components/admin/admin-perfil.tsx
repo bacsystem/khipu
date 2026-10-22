@@ -3,8 +3,8 @@
 import { ChevronsUpDownIcon, LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { ThemeToggle } from "@/components/nav/theme-toggle";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "khipu-design-system/ui/menu";
+import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";

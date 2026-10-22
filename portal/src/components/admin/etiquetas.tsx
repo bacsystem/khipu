@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "khipu-design-system/ui/badge";
 import type { EstadoCertificado } from "@/lib/api/admin-cuenta-detalle";
 import type { EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { formatearFecha } from "@/lib/formato";

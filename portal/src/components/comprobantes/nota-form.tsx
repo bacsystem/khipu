@@ -8,7 +8,7 @@ import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { EntradaFecha } from "@/components/formularios/entrada-fecha";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";

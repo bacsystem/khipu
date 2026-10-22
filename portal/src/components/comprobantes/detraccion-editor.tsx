@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
 import { CODIGOS_SIN_FORMULARIO, errorDeDetraccion, PORCENTAJE_SUGERIDO, type DetraccionForm } from "@/lib/comprobantes/detraccion";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";

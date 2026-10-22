@@ -4,7 +4,7 @@ import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Etiqueta } from "@/components/admin/etiquetas";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { BoletasSinInformar, ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision, ResumenesSinRespuesta } from "@/lib/api/admin-monitor";
 import { apiRequest } from "@/lib/api/browser";
 import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";

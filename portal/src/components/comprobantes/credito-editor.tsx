@@ -2,8 +2,8 @@
 
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Campo } from "@/components/formularios/campo";
-import { EntradaFecha } from "@/components/formularios/entrada-fecha";
+import { Campo } from "khipu-design-system/formularios/campo";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { type CreditoForm, repartirEnCuotas, sumaDeCuotas } from "@/lib/comprobantes/credito";
 import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { formatearMonto, sumarDias } from "@/lib/formato";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LogoMarca } from "@/components/nav/logo";
-import { Button } from "@/components/ui/button";
+import { Button } from "khipu-design-system/ui/button";
 import { contactoUrl, registroAbierto } from "@/lib/acceso";
 
 export function SiteHeader() {

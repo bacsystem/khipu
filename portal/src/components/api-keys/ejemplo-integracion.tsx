@@ -3,8 +3,8 @@
 import { BookOpenIcon, TerminalSquareIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";

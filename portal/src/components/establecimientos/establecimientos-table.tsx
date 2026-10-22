@@ -4,7 +4,7 @@ import { BanIcon, RefreshCwIcon, StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Serie } from "@/lib/api/series";

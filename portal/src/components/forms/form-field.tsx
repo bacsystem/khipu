@@ -1,6 +1,6 @@
 import type { ChangeEvent, ComponentProps } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
-import { Campo, Entrada } from "@/components/formularios/campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 
 /**
  * Campo de un formulario hecho con react-hook-form: el `Campo` y la `Entrada` del panel (etiqueta de 12 px, control `CAMPO` de h-9, error en rojo o ayuda

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Tabs, type TabItem } from "@/components/navegacion/tabs";
+import { Tabs, type TabItem } from "khipu-design-system/navegacion/tabs";
 import type { Seccion } from "@/lib/empresa/secciones";
 
 const ETIQUETAS: Record<Seccion, string> = {

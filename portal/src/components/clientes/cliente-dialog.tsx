@@ -2,7 +2,7 @@
 
 import { PencilIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { useSoloLectura } from "@/lib/solo-lectura";

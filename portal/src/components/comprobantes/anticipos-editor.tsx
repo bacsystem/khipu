@@ -1,6 +1,6 @@
 "use client";
 
-import { Campo } from "@/components/formularios/campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { AFECTACIONES_ANTICIPO, anticipoInicial, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";

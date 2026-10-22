@@ -2,15 +2,15 @@
 
 import { RefreshCwIcon, RotateCwIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
 import { listarEntregas } from "@/lib/api/webhooks-browser";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { mensajeError } from "@/lib/messages";
-import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_ESTADO_ENTREGA, etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";

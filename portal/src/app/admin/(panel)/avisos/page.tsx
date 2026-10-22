@@ -5,7 +5,7 @@ import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefEmpresas } from "@/lib/api/admin-empresas";
 import { hrefAvisos, hrefSiFueraDeRango, listarCertificadosEnRiesgo, listarCredencialesSolFallando, paramsAvisosDesdeUrl } from "@/lib/api/admin-avisos";
 import { messages } from "@/lib/messages";
-import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 
 export const metadata = { title: "Avisos · Backoffice" };
 

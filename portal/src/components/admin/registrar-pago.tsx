@@ -3,7 +3,7 @@
 import { BanknoteIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";

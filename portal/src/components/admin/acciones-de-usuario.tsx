@@ -4,12 +4,12 @@ import { EyeIcon, KeyRoundIcon, MailCheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { messages, mensajeError } from "@/lib/messages";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
 
 const t = messages.admin.detalle.acceso;

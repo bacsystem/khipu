@@ -3,7 +3,7 @@
 import { SaveIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { Alerta } from "@/components/feedback/alerta";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { apiRequest } from "@/lib/api/browser";
 import type { CuerpoDeEnvioAlCliente, PreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO } from "@/lib/estilos";

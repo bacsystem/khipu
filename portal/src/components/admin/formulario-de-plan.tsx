@@ -3,14 +3,14 @@
 import { PencilIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { messages, mensajeError } from "@/lib/messages";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
 
 const t = messages.admin.planes;

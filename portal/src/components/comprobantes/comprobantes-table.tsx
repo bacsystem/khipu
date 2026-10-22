@@ -4,11 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarIcon, FileCheck2Icon, InboxIcon, RefreshCwIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { esClickSimple } from "@/lib/navegacion";
-import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
+import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { esClickSimple } from "khipu-design-system/lib/navegacion";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import {
   esEstadoFinal,
   ETIQUETAS_TIPO,
@@ -25,7 +25,7 @@ import {
 } from "@/lib/api/facturas";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { BusquedaDelListado } from "./busqueda-del-listado";
 import { DescargaMasiva } from "./descarga-masiva";

@@ -1,12 +1,14 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import * as estilos from "@/lib/estilos";
 
 /**
  * Todos los controles del portal miden lo mismo: h-9 (36 px), la altura única del design system v0.2.0. Botones, inputs, selects, filtros, acciones de fila y
  * pie de diálogo quedan alineados donde sea que se junten. Se vigila de tres formas: las recetas de estilos.ts miden h-9, ningún componente les cambia la
  * altura (`cn(CAMPO, "h-8")`, `` `${BOTON_PRIMARIO} h-10` ``) y ningún `<button>`/`<input>`/`<select>`/enlace declara otra altura a mano. `h-auto` sí vale:
  * es un textarea, que crece con su contenido y no forma fila con nadie.
+ * Los componentes que vienen de khipu-design-system no están en `src/` y no se escanean aquí: su escala la vigila el DS.
  */
 const RECETA = String.raw`(?:CAMPO\w*|BOTON_\w+|ACCION_\w+|CONTROL_FILTRO|SELECT_NATIVO|SEGMENT\w*)`;
 const ALTURA = /(?<![\w-])(?:[a-z-]+:)*h-(?!auto\b)[\d.[]/;
@@ -75,10 +77,6 @@ const EXCEPCIONES: Record<string, string> = {
   "components/empresa/certificado-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/empresa/credenciales-sol-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/empresa/credenciales-api-sunat-form.tsx": "mostrar/ocultar la clave va dentro del input",
-  "components/formularios/entrada-monto.tsx": "el selector de moneda va dentro del input",
-  "components/nav/theme-toggle.tsx": "segmentos de h-7 dentro de su caja de h-9",
-  "components/ui/selector-por-pagina.tsx": "segmentos de h-7 dentro de su caja de h-9",
-  "lib/estilos.ts": "SEGMENTO (h-7) va dentro de SEGMENTADO (h-9); las recetas de control tienen su propio test",
 };
 
 function archivosTsx(dir: string): string[] {
@@ -105,12 +103,17 @@ describe("alturas de los controles", () => {
   });
 
   it("toda receta de control mide h-9, la altura única", () => {
-    const estilos = readFileSync(resolve(__dirname, "estilos.ts"), "utf8");
-    const recetas = [...estilos.matchAll(/export const ((?:CAMPO|BOTON_\w+|ACCION_\w+|CONTROL_FILTRO|SELECT_NATIVO))\s*=\s*\n?\s*"([^"]*)"/g)];
-    expect(recetas.map((r) => r[1])).toEqual(
+    // `@/lib/estilos` es una fachada del paquete: se miran los VALORES exportados, no el texto del archivo (que ya no tiene recetas).
+    const recetas = Object.entries(estilos).filter(([nombre]) => new RegExp(`^${RECETA}$`).test(nombre) && !nombre.startsWith("SEGMENT"));
+    expect(recetas.map(([nombre]) => nombre)).toEqual(
       expect.arrayContaining(["ACCION_PRINCIPAL", "ACCION_SECUNDARIA", "CONTROL_FILTRO", "CAMPO", "SELECT_NATIVO", "BOTON_PRIMARIO", "BOTON_SECUNDARIO", "BOTON_DESTRUCTIVO"]),
     );
-    expect(recetas.filter((r) => !/(?<![\w-])h-9(?![\w.])/.test(r[2])).map((r) => r[1])).toEqual([]);
+    expect(recetas.filter(([, clases]) => typeof clases !== "string" || !/(?<![\w-])h-9(?![\w.])/.test(clases)).map(([nombre]) => nombre)).toEqual([]);
+  });
+
+  it("el control segmentado: caja de h-9 (o más, si se parte en filas) con segmentos de h-7", () => {
+    expect(estilos.SEGMENTADO).toMatch(/(?<![\w-])min-h-9(?![\w.])/);
+    expect(estilos.SEGMENTO).toMatch(/(?<![\w-])h-7(?![\w.])/);
   });
 
   it("detecta un control que declara otra altura", () => {

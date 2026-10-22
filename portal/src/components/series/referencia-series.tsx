@@ -8,7 +8,7 @@ import {
   ReglaReferencia,
   SeccionReferencia,
   TablaCampos,
-} from "@/components/ui/referencia-tecnica";
+} from "@/components/compartidos/referencia-tecnica";
 
 const CAMPOS: CampoReferencia[] = [
   { campo: "tenant_id", tipo: "uuid", descripcion: "Empresa emisora dueña de la serie", clave: true },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "khipu-design-system/ui/button";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Validez } from "@/lib/api/validez";
 import { mensajeError } from "@/lib/messages";

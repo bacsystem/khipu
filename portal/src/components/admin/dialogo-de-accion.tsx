@@ -3,11 +3,11 @@
 import { TriangleAlertIcon, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { mensajeError } from "@/lib/messages";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
 
 export type DialogoDeAccionProps = {

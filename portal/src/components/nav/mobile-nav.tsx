@@ -3,8 +3,8 @@
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "khipu-design-system/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "khipu-design-system/ui/sheet";
 import type { Usuario } from "@/lib/api/auth";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa } from "@/lib/api/empresas";

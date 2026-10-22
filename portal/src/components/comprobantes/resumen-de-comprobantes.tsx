@@ -1,4 +1,4 @@
-import { Metrica } from "@/components/ui/metrica";
+import { Metrica } from "@/components/compartidos/metrica";
 import type { PeriodoDelResumen, ResumenDeFacturas } from "@/lib/api/facturas";
 import { formatearMonto } from "@/lib/formato";
 

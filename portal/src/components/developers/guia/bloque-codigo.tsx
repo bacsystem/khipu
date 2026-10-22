@@ -1,4 +1,4 @@
-import { BotonCopiar } from "@/components/ui/boton-copiar";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 
 /** Bloque de código con etiqueta y botón de copiar; mismo aspecto que el diálogo "Prueba de emisión". */
 export function BloqueCodigo({ titulo, codigo, lenguaje = "json" }: { titulo?: string; codigo: string; lenguaje?: string }) {

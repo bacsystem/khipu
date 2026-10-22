@@ -1,5 +1,5 @@
 import { EyeIcon } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { AccesoDeSoporte } from "@/lib/api/accesos-de-soporte";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
