@@ -70,6 +70,34 @@ describe("RestablecerForm", () => {
     expect(screen.getByText(/¿Olvidaste tu contraseña\?/)).toBeTruthy();
   });
 
+  it("mientras envía, el botón queda ocupado con el texto de espera, como los del panel (#12)", async () => {
+    let responder: (r: Response) => void = () => undefined;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (responder = resolve))));
+    render(<RestablecerForm token="tok" />);
+
+    elegirPassword("Segura123");
+
+    const boton = await screen.findByRole("button", { name: /Restableciendo…/ });
+    expect(boton.getAttribute("aria-busy")).toBe("true");
+    expect((boton as HTMLButtonElement).disabled).toBe(true);
+    responder(new Response(JSON.stringify({ estado: "exito", datos: null, mensaje: null, codigo: null, errores: null }), { status: 200 }));
+    // El éxito también es la `Alerta` del panel (tono ok, `role="status"`).
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Tu contraseña se actualizó"));
+  });
+
+  it("el error del envío llega en la alerta del panel, no en un texto suelto (#12)", async () => {
+    stubFetch(422, { estado: "error", codigo: "TOKEN_INVALIDO", mensaje: "x" });
+    render(<RestablecerForm token="tok" />);
+
+    elegirPassword("Segura123");
+
+    const alerta = await screen.findByRole("alert");
+    expect(alerta.textContent).toContain("El enlace de recuperación es inválido o venció");
+    // La `Alerta` de tono error del panel: banda con borde e icono.
+    expect(alerta.className).toContain("border-destructive-border");
+    expect(alerta.querySelector("svg")).not.toBeNull();
+  });
+
   it("un enlace de restablecer vencido conserva su mensaje de siempre", async () => {
     stubFetch(422, { estado: "error", codigo: "TOKEN_INVALIDO", mensaje: "x" });
     render(<RestablecerForm token="tok" />);

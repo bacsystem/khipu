@@ -1,5 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { VerificarCorreoForm } from "@/components/auth/verificar-correo-form";
+import { Alerta } from "@/components/feedback/alerta";
 import { messages } from "@/lib/messages";
 import { tokenDeEnlace } from "@/lib/token-de-enlace";
 
@@ -12,7 +13,7 @@ export default async function VerificarPage({ params }: { params: Promise<{ toke
   return (
     <AuthShell title={messages.auth.verificar.titulo} subtitle={messages.auth.verificar.subtitulo}>
       {token === null ? (
-        <p role="alert" className="text-sm text-destructive">{messages.auth.verificar.enlaceInvalido}</p>
+        <Alerta tono="error">{messages.auth.verificar.enlaceInvalido}</Alerta>
       ) : (
         <VerificarCorreoForm token={token} />
       )}

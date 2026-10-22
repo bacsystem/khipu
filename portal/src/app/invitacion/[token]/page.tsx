@@ -1,5 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AceptarInvitacionForm } from "@/components/auth/aceptar-invitacion-form";
+import { Alerta } from "@/components/feedback/alerta";
 import { consultarInvitacion, type InvitacionRecibida } from "@/lib/api/equipo";
 import { ApiError } from "@/lib/api/types";
 import { messages } from "@/lib/messages";
@@ -28,7 +29,7 @@ export default async function AceptarInvitacionPage({ params }: { params: Promis
   if (!invitacion || token === null) {
     return (
       <AuthShell title={t.titulo} subtitle={t.subtitulo}>
-        <p role="alert" className="text-sm text-destructive">{t.enlaceInvalido}</p>
+        <Alerta tono="error">{t.enlaceInvalido}</Alerta>
       </AuthShell>
     );
   }
@@ -37,7 +38,7 @@ export default async function AceptarInvitacionPage({ params }: { params: Promis
   return (
     <AuthShell title={t.titulo} subtitle={t.subtitulo}>
       <div className="grid gap-4">
-        <div className="grid gap-1 text-sm">
+        <div className="grid gap-1 text-[13px]">
           <p data-testid="invitacion-detalle">{t.invitado.replace("{cuenta}", invitacion.cuenta).replace("{rol}", rol)}</p>
           <p className="text-muted-foreground">{t.email.replace("{email}", invitacion.email)}</p>
         </div>

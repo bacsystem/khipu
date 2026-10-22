@@ -152,14 +152,82 @@ bloquean ese correo 15 minutos) funciona siempre. El de IP (20 fallos en 15 minu
 portal y contar por ella dejaría que veinte fallos de cualquiera bloquearan el login de todos. Calibrar las dos variables (abajo)
 lo enciende sin tocar nada más.
 
-### Qué se sabe de Railway, y qué no
+### La cadena en Railway, salto por salto
 
-**No hay documentación oficial de este comportamiento y las fuentes se contradicen.** En hilos del foro de Railway (Central
-Station) un empleado dice que el borde *borra* el `X-Forwarded-For` del cliente y sobrescribe `X-Real-IP`; en otro, que
-`X-Forwarded-For` es lo más fiable y que `X-Real-IP` trae la IP del borde (lo llama un bug); usuarios dicen que el borde *agrega*
-sin borrar, que la red interna es `100.0.0.0/8`, y alguno vio solo IPs de Railway y Cloudflare. Por eso el número de saltos no está
-fijado en el código: **se mide en tu despliegue**, y puede cambiar si Railway cambia su borde. Repetir la calibración si cambia
-algo en el borde, el dominio o Cloudflare.
+```
+navegador ──HTTPS──▶ borde de Railway ──HTTP──▶ portal (Next) ──red privada──▶ backend (Tomcat) ──▶ auditoria_admin.ip
+   (1)                     (2)                       (3)                             (4)
+```
+
+| Salto | Quién escribe la IP | ¿De confianza? | Qué lo garantiza en khipu |
+|---|---|---|---|
+| (1) navegador → borde | el navegador puede mandar cualquier `X-Forwarded-For` o `X-Real-IP` | **No**, nunca | Nada de lo que el navegador antepone se lee: el portal cuenta desde la derecha |
+| (2) borde → portal | el borde de Railway, que termina el TLS y conoce la IP real de la conexión | **Sí**, si el portal solo es alcanzable por el borde (su dominio público de Railway o uno propio apuntado a él) | `TRUSTED_PROXY_HOPS` = cuántas entradas de la derecha del `X-Forwarded-For` escribió el borde (o el borde y Cloudflare, si hay Cloudflare delante). El portal no comprueba la IP del borde: Railway no la publica. Ojo: cualquier otro servicio del mismo proyecto de Railway puede llegar a `portal.railway.internal` con un `X-Forwarded-For` inventado y el portal lo tomaría; el riesgo exige controlar un servicio del propio proyecto, pero conviene no desplegar ahí código ajeno |
+| (3) portal → backend | el portal, que manda **una sola IP ya resuelta** en `X-Forwarded-For` por `API_BASE_URL` (`backend.railway.internal`) | **Sí**, solo desde la dirección privada del portal | `TRUSTED_PROXIES` en el backend: Tomcat acepta la cabecera solo si el par de la conexión casa con la regex |
+| (4) backend | Tomcat reescribe `getRemoteAddr()` y la bitácora la guarda | — | — |
+
+El backend **también** tiene dominio público (`API_PUBLIC_URL`, integradores y el «Try it» de `/developers`). Esas peticiones llegan
+desde el borde, no desde el portal: `TRUSTED_PROXIES` no debe cubrir las direcciones del borde, solo la del portal en la red
+privada. Así, un `X-Forwarded-For` que alguien mande directo al backend nunca cambia la IP registrada: se registra la dirección
+del borde. Consecuencia para el límite de intentos por IP de #261: con `TRUSTED_PROXIES` configurado, un login hecho **directo** al
+dominio público del backend se cuenta por la dirección del borde, compartida por todos los que entran así (los logins del portal se
+cuentan por la IP real que resolvió el portal).
+
+### Qué dice Railway, y qué hay que verificar en el despliegue
+
+Lo que está **documentado** (consultado el 2026-10-20):
+
+- La página de especificaciones de la red pública lista, entre las cabeceras de la petición, `X-Real-IP` «for identifying client's
+  remote IP», `X-Forwarded-Proto` (siempre `https`) y `X-Forwarded-Host`. **No menciona `X-Forwarded-For`**, no dice si el borde
+  reemplaza o agrega a lo que mandó el cliente y no publica las IPs de origen del borde
+  ([Public Networking · Specs & Limits](https://docs.railway.com/networking/public-networking/specs-and-limits)).
+- La red privada da a cada servicio un nombre `<servicio>.railway.internal`; en los entornos creados desde el 2025-10-16 resuelve a
+  IPv4 e IPv6, en los anteriores solo a IPv6, y el tráfico «never leaves Railway's infrastructure and is not exposed to the public
+  internet». **No dice qué rango de direcciones usa ni si una dirección se mantiene entre despliegues**
+  ([Private Networking · How it works](https://docs.railway.com/networking/private-networking/how-it-works)).
+
+Lo que **no** está documentado y solo aparece en el foro (Central Station), con respuestas que no coinciden:
+
+- Un moderador afirma que el borde sobrescribe `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` y `X-Forwarded-Host` en cada
+  petición ([hilo del 2026-09-29](https://station.railway.com/questions/which-client-address-headers-does-the-ra-fb9e36d7));
+  en otro hilo un usuario reporta que un `X-Real-IP` puesto por el cliente sí llegó a su aplicación, y un empleado dice que
+  `100.0.0.0/8` (el rango del ejemplo de Caddy) «is not guaranteed to be stable»
+  ([hilo del 2026-09-09](https://station.railway.com/questions/supported-trust-model-for-client-ip-head-aafb68bc)).
+
+**A verificar por el dueño en su despliegue** (no se puede deducir desde local, y puede cambiar si Railway cambia su borde):
+
+1. Si el borde **reemplaza** el `X-Forwarded-For` del navegador o **agrega** a la derecha, y cuántas entradas escribe: eso fija
+   `TRUSTED_PROXY_HOPS`. Si el borde escribe una sola entrada (la IP de quien se le conectó), en los dos casos es la de más a la
+   derecha y `1` es el valor esperado sin Cloudflare; con Cloudflare delante puede ser `2`. Es una expectativa, no un dato: se mide.
+2. La dirección del portal en la red privada, que fija `TRUSTED_PROXIES`, y si cambia al redesplegar el portal. Railway no publica
+   el rango: si cambia, hay que cubrir el rango observado (lo más estrecho posible), no «toda la red privada».
+3. Que la dirección con que el borde llega al backend **no** case con `TRUSTED_PROXIES`.
+
+khipu lee solo `X-Forwarded-For`, no `X-Real-IP`, aunque esta última sea la que Railway documenta. Si la verificación mostrara que
+`X-Forwarded-For` no sirve (ningún valor de `TRUSTED_PROXY_HOPS` da la IP pública propia), leer `X-Real-IP` sería un cambio de
+código en `portal/src/lib/origen.ts`, no de configuración.
+
+#### Procedimiento de verificación
+
+Hace falta la IP pública propia (`curl https://ifconfig.me`), una sesión de administrador en el portal y la cookie
+`khipu_admin_access` de esa sesión (DevTools → Application → Cookies) para las pruebas con `curl`.
+
+1. **Cadena tal como llega.** Con `TRUSTED_PROXY_HOPS=0` y `TRUSTED_PROXIES` vacío, abrir `https://<portal>/api/admin/origen`.
+   Anotar `cadena_recibida` (lo que escribió el borde) e `ip_backend` (la dirección privada del portal: es lo que va en
+   `TRUSTED_PROXIES`).
+2. **¿Reemplaza o agrega?** Repetir con una cabecera falsa:
+   `curl -s -H "X-Forwarded-For: 6.6.6.6" -H "Cookie: khipu_admin_access=<valor>" https://<portal>/api/admin/origen`.
+   Si `cadena_recibida` es solo tu IP, el borde reemplaza; si es `6.6.6.6, <tu IP>`, agrega. En los dos casos se sigue con el paso 3.
+3. **Fijar las variables** como dice «Calibrar» (abajo) y repetir el `curl` del paso 2: `ip_resuelta` e `ip_backend` deben ser tu IP
+   pública, **nunca `6.6.6.6`**.
+4. **El borde no es de confianza en el backend.** Llamar al dominio público del backend con la clave de plataforma:
+   `curl -s -H "X-Platform-Key: <clave>" -H "X-Forwarded-For: 6.6.6.6" https://<backend-publico>/v1/admin/origen`.
+   `datos.ip` debe ser una dirección del borde de Railway: ni `6.6.6.6` ni tu IP pública. Si sale `6.6.6.6` o tu IP, Tomcat aceptó el
+   `X-Forwarded-For` del borde: `TRUSTED_PROXIES` es demasiado amplio y cubre también al borde.
+5. **Estabilidad.** Redesplegar el portal y repetir el paso 1: si `ip_backend` cambió y ya no casa con `TRUSTED_PROXIES`, la bitácora
+   vuelve a registrar la dirección del portal (falla segura, no falsificable) hasta ampliar la regex al rango observado.
+
+Anotar en este README los valores medidos y la fecha. Repetir la verificación si cambia el borde, el dominio o se agrega Cloudflare.
 
 ### Calibrar
 

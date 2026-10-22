@@ -6,9 +6,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "@/components/patrones/boton-async";
+import { Alerta } from "@/components/feedback/alerta";
 import { postJson } from "@/lib/api/browser";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { mensajeError, messages } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import { passwordSchema } from "@/lib/validacion";
 
 const schema = z.object({ password: passwordSchema });
@@ -42,10 +45,10 @@ export function RestablecerForm({ token, invitacion = false }: { token: string; 
   if (listo) {
     return (
       <div className="grid gap-4">
-        <p className="text-sm text-muted-foreground">{t.exito}</p>
-        <Button render={<Link href="/login" />} nativeButton={false} className="w-full">
+        <Alerta tono="ok">{t.exito}</Alerta>
+        <Link href="/login" className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.irALogin}
-        </Button>
+        </Link>
       </div>
     );
   }
@@ -61,10 +64,10 @@ export function RestablecerForm({ token, invitacion = false }: { token: string; 
         error={errors.password?.message}
         hint={t.ayudaPassword}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? t.enviando : t.enviar}
-      </Button>
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={t.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {t.enviar}
+      </BotonAsync>
     </form>
   );
 }
