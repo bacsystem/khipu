@@ -61,6 +61,7 @@ import pe.factura.adapters.sunatrest.RestValidezGateway;
 import pe.factura.adapters.sunatrest.UrlPorEntorno;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
 import pe.factura.adapters.scheduler.EntregarWebhooksWorker;
+import pe.factura.adapters.scheduler.EnviarAlClienteWorker;
 import pe.factura.adapters.scheduler.VigilarOperacionWorker;
 import pe.factura.adapters.sunat.XmlCdrParser;
 import pe.factura.adapters.pdf.FlyingSaucerPdfGenerator;
@@ -630,6 +631,13 @@ public class AppConfig {
         return new EntregarWebhooksService(webhooks, destino, cifrador, uow, clock, avisos, correo, pool);
     }
     @Bean EntregarWebhooksWorker entregarWebhooksWorker(EntregarWebhooksUseCase entregas) { return new EntregarWebhooksWorker(entregas); }
+    // #325: envío automático del comprobante aceptado a su cliente. Sin SMTP (MAIL_HABILITADO) no se puede activar y lo pendiente se omite con el motivo.
+    @Bean EnvioAlClienteRepository envioAlClienteRepository(JdbcTemplate jdbc) { return new JdbcEnvioAlClienteRepository(jdbc); }
+    @Bean EnviarAlClienteUseCase enviarAlCliente(EnvioAlClienteRepository envios, ConsultarComprobanteUseCase consultar, TenantRepository tenants, CorreoSender correo, UnitOfWork uow, Clock clock,
+                                                 BajaRepository bajas) {
+        return new EnviarAlClienteService(envios, consultar, tenants, correo, uow, clock, bajas);
+    }
+    @Bean EnviarAlClienteWorker enviarAlClienteWorker(EnviarAlClienteUseCase envios) { return new EnviarAlClienteWorker(envios); }
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
     @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(JdbcApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones,

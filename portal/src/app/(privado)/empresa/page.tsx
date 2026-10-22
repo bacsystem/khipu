@@ -8,6 +8,7 @@ import {
   FileKey2Icon,
   HelpCircleIcon,
   KeyRoundIcon,
+  MailIcon,
   PaletteIcon,
   ShieldAlertIcon,
 } from "lucide-react";
@@ -20,7 +21,8 @@ import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { SeccionesEmpresa } from "@/components/empresa/secciones-empresa";
-import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf } from "@/lib/api/empresas";
+import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf, obtenerPreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
+import { EnvioAlClienteForm } from "@/components/empresa/envio-al-cliente-form";
 import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
@@ -93,10 +95,12 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas, personalizacion, series, { seccion }] = await Promise.all([
+  const [empresa, empresas, personalizacion, envioAlCliente, series, { seccion }] = await Promise.all([
     obtenerEmpresaActual(access, empresaId),
     listarEmpresas(access),
     obtenerPersonalizacionPdf(access, empresaId),
+    // #325: si no carga, la pestaña lo dice y el resto de la página sigue.
+    obtenerPreferenciaDeEnvioAlCliente(access, empresaId).catch(() => null),
     // Solo alimenta la guía: si no carga, la página sigue y la guía no afirma nada de las series.
     listarSeries(access, empresaId).catch(() => null),
     searchParams,
@@ -461,6 +465,30 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           </FormulariosDeEscritura>
         </div>
       </section>
+          ),
+          correo: (
+          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="seccion-envio-al-cliente">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className={TITULO_SECCION}>
+                <MailIcon className="size-4" />
+                Envío del comprobante al cliente
+              </div>
+              {envioAlCliente ? (
+                <Pill tono={envioAlCliente.enviar_automaticamente ? "ok" : "neutro"}>{envioAlCliente.enviar_automaticamente ? "Activado" : "Desactivado"}</Pill>
+              ) : null}
+            </div>
+            <div className="mt-4">
+              {envioAlCliente ? (
+                <FormulariosDeEscritura>
+                  <EnvioAlClienteForm inicial={envioAlCliente} />
+                </FormulariosDeEscritura>
+              ) : (
+                <Alerta tono="error" titulo="No se pudo cargar la preferencia">
+                  Vuelve a intentarlo en unos minutos.
+                </Alerta>
+              )}
+            </div>
+          </section>
           ),
         }}
       />

@@ -9,6 +9,7 @@ const ETIQUETAS: Record<Seccion, string> = {
   certificado: "Certificado",
   sol: "Credenciales SOL",
   pdf: "PDF",
+  correo: "Envío al cliente",
   empresas: "Empresas",
 };
 

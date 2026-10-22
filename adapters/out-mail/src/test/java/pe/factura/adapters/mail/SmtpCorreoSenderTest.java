@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import pe.factura.application.port.out.Adjunto;
+import pe.factura.application.port.out.CorreoNoEnviadoException;
 import pe.factura.domain.plataforma.RemitenteDeCorreo;
 
 import java.util.ArrayList;
@@ -153,7 +154,7 @@ class SmtpCorreoSenderTest {
         logger.addAppender(registro);
         try {
             assertThatThrownBy(() -> sender.enviar("cliente@empresa.pe", "Bienvenida", "Enlace secreto: /restablecer/token-secreto"))
-                    .isInstanceOf(MailSendException.class);
+                    .isInstanceOf(CorreoNoEnviadoException.class).hasCauseInstanceOf(MailSendException.class);
         } finally {
             logger.detachAppender(registro);
         }
@@ -161,9 +162,31 @@ class SmtpCorreoSenderTest {
         assertThat(registro.list).hasSize(1);
         ILoggingEvent evento = registro.list.get(0);
         assertThat(evento.getLevel()).isEqualTo(Level.ERROR);
-        assertThat(evento.getFormattedMessage()).contains("cliente@empresa.pe").doesNotContain("token-secreto");
+        // #325: el destinatario va enmascarado, nunca entero.
+        assertThat(evento.getFormattedMessage()).contains("c***@empresa.pe").doesNotContain("cliente@empresa.pe").doesNotContain("token-secreto");
         assertThat(evento.getThrowableProxy()).as("la causa va con el registro").isNotNull();
         assertThat(evento.getThrowableProxy().getMessage()).contains("SMTP caído");
+    }
+
+    /** #325-H3: lo que sube es la clase de fallo; el host y el puerto internos del SMTP de la plataforma quedan en la causa, que solo va al log. */
+    @Test void elFalloQueSubeNoDiceElHostInternoSinoLaClaseDeFallo() {
+        doThrow(new MailSendException("Mail server connection failed; nested exception is com.sun.mail.util.MailConnectException: Couldn't connect to host, port: smtp.interno.khipu:587",
+                new java.net.ConnectException("Connection refused: smtp.interno.khipu:587"))).when(mailSender).send(any(MimeMessage.class));
+
+        assertThatThrownBy(() -> sender.enviar("cliente@empresa.pe", "Factura", "cuerpo", List.of()))
+                .isInstanceOf(CorreoNoEnviadoException.class)
+                .hasMessage("No se pudo conectar con el servidor de correo")
+                .hasMessageNotContaining("smtp.interno")
+                .extracting("motivo").isEqualTo(CorreoNoEnviadoException.Motivo.CONEXION);
+    }
+
+    @Test void clasificaAutenticacionDestinatarioYElResto() throws Exception {
+        assertThat(SmtpCorreoSender.motivoDe(new org.springframework.mail.MailAuthenticationException("535 bad creds"))).isEqualTo(CorreoNoEnviadoException.Motivo.AUTENTICACION);
+        var rechazado = new jakarta.mail.SendFailedException("550 no such user", null, new jakarta.mail.Address[0], new jakarta.mail.Address[0], new jakarta.mail.Address[]{new InternetAddress("x@y.pe")});
+        assertThat(SmtpCorreoSender.motivoDe(new MailSendException("falló", rechazado))).isEqualTo(CorreoNoEnviadoException.Motivo.DESTINATARIO_RECHAZADO);
+        assertThat(SmtpCorreoSender.motivoDe(new MailSendException("algo raro"))).isEqualTo(CorreoNoEnviadoException.Motivo.OTRO);
+        assertThat(SmtpCorreoSender.enmascarado("ana.perez@cliente.pe")).isEqualTo("a***@cliente.pe");
+        assertThat(SmtpCorreoSender.enmascarado("sin-arroba")).isEqualTo("***");
     }
 
     /** El helper anida multipart/mixed → multipart/related → texto; los adjuntos cuelgan del mixed con su fileName. */

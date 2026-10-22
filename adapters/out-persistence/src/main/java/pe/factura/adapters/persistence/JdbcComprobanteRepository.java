@@ -58,8 +58,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
               retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra,
               fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas,
-              receptor_pais, incoterm, pais_uso, tipo_cambio, vendedor_ubigeo, vendedor_condicion, lugar_direccion, lugar_ubigeo, lugar_condicion, retencion_renta_tasa)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              receptor_pais, incoterm, pais_uso, tipo_cambio, vendedor_ubigeo, vendedor_condicion, lugar_direccion, lugar_ubigeo, lugar_condicion, retencion_renta_tasa,
+              receptor_email)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -73,7 +74,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.observaciones(), c.tasaIgv(), c.leyendas().isEmpty() ? null : String.join(",", c.leyendas()),
                 c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso(), c.tipoCambio(),
                 lc == null ? null : lc.ubigeoVendedor(), lc == null ? null : lc.condicionVendedor(), lc == null ? null : lc.lugarOperacion().direccion(),
-                lc == null ? null : lc.lugarOperacion().ubigeo(), lc == null ? null : lc.lugarOperacion().condicion(), lc == null ? null : lc.tasaRetencionRenta());
+                lc == null ? null : lc.lugarOperacion().ubigeo(), lc == null ? null : lc.lugarOperacion().condicion(), lc == null ? null : lc.tasaRetencionRenta(),
+                c.correoCliente());
         int nDoc = 1;
         for (GuiaRelacionada g : c.referencias().guias()) {
             jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
@@ -119,8 +121,23 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             jdbc.update("INSERT INTO evento_documento (documento_id, estado_anterior, estado_nuevo, detalle, ocurrido_en) VALUES (?, ?, ?, ?, clock_timestamp())",
                     c.id(), e.estadoAnterior() == null ? null : e.estadoAnterior().name(), e.estadoNuevo().name(), e.detalle());
             encolarWebhooks(c, e);
+            anotarEnvioAlCliente(c, e);
         }
         c.eventosGuardados();
+    }
+
+    /**
+     * #325: en la misma transacción que el paso a aceptado, el envío del comprobante a su cliente, si trae correo y la empresa tiene activado el envío automático (outbox
+     * transaccional: si el estado no se guarda, tampoco el envío). Uno por comprobante: la clave primaria y el {@code ON CONFLICT DO NOTHING} hacen que un segundo paso a aceptado,
+     * o una segunda réplica, no anote otro.
+     */
+    private void anotarEnvioAlCliente(Comprobante c, EventoDocumento e) {
+        if (c.correoCliente() == null || !EnvioAlCliente.correspondeA(e)) return;
+        jdbc.update("""
+                INSERT INTO envio_al_cliente (documento_id, tenant_id, destinatario)
+                SELECT ?, t.id, ? FROM tenant t WHERE t.id = ? AND t.envio_automatico_al_cliente
+                ON CONFLICT (documento_id) DO NOTHING
+                """, c.id(), c.correoCliente(), c.tenantId());
     }
 
     /**
@@ -248,7 +265,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra, c.fecha_vencimiento, c.redondeo,
                c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas,
                c.receptor_pais, c.incoterm, c.pais_uso, c.tipo_cambio,
-               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa
+               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa, c.receptor_email
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -389,6 +406,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .firma(rs.getString("hash"), rs.getString("nombre_archivo"), rs.getString("xml_key"))
                 .cdr(cdr, rs.getString("cdr_key"))
                 .envio(rs.getInt("intentos"), rs.getString("ultimo_error"))
+                .correoCliente(rs.getString("receptor_email"))
                 .rehidratar();
         c.anotar(rs.getString("observaciones"));
         return c;

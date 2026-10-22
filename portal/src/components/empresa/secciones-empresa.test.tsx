@@ -7,10 +7,11 @@ const paneles = {
   certificado: <p>panel certificado</p>,
   sol: <p>panel sol</p>,
   pdf: <p>panel pdf</p>,
+  correo: <p>panel correo</p>,
   empresas: <p>panel empresas</p>,
 };
 
-function renderizar(inicial: "datos" | "certificado" | "sol" | "pdf" | "empresas", pendientes: Array<"certificado" | "sol"> = []) {
+function renderizar(inicial: "datos" | "certificado" | "sol" | "pdf" | "correo" | "empresas", pendientes: Array<"certificado" | "sol"> = []) {
   return render(<SeccionesEmpresa inicial={inicial} pendientes={pendientes} empresas={2} paneles={paneles} />);
 }
 

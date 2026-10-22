@@ -55,6 +55,7 @@ class CasosDeLaGuiaTest {
     @MockBean DarDeBajaUseCase bajas;
     @MockBean CompartirComprobanteUseCase compartir;
     @MockBean RecuperarCdrUseCase cdrs;
+    @MockBean pe.factura.application.port.in.EnviarAlClienteUseCase envioAlCliente;
 
     UUID tenant = UUID.randomUUID();
 

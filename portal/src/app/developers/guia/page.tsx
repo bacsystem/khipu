@@ -160,6 +160,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             ["tipo_operacion", "Naturaleza de la operación.", <><Codigo>0101</Codigo> venta interna (por defecto), <Codigo>1001</Codigo> sujeta a detracción, <Codigo>0200</Codigo>–<Codigo>0208</Codigo> exportación (ítems <Codigo>40</Codigo>, cliente del exterior con <Codigo>pais</Codigo>; sin <Codigo>0202</Codigo> ni <Codigo>0205</Codigo>), <Codigo>0401</Codigo> no domiciliados y <Codigo>2001</Codigo> percepción; un tipo que khipu aún no emite responde <Codigo>422</Codigo> antes de numerar — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-51">catálogo 51</Link>.</>],
             ["cliente.tipo_doc", "Tipo de documento del adquirente.", <>En factura de venta interna, <Codigo>6</Codigo> (RUC); en exportación, el documento del cliente del exterior; en boleta, cualquiera del catálogo, o <Codigo>-</Codigo> sin documento (solo en soles y hasta S/ 700) —<Link className="text-primary hover:underline" href="/developers/catalogos#cat-06">catálogo 06</Link>.</>],
             ["cliente.num_doc", "Número del documento.", <>RUC de 11 dígitos; en boleta, DNI de 8 dígitos, los demás hasta 15 caracteres, o <Codigo>-</Codigo>.</>],
+            ["cliente.email", "Correo del adquirente. Opcional.", <>Hasta 150 caracteres; no va al XML. Con el envío automático activado (<Codigo>PUT /v1/empresa/envio-al-cliente</Codigo>), recibe el PDF, el XML y el CDR cuando SUNAT acepta. Mal formado: <Codigo>422 RECEPTOR_INVALIDO</Codigo> sin consumir número.</>],
             ["items[].unidad", "Unidad de medida.", <><Codigo>NIU</Codigo> unidad (bienes), <Codigo>ZZ</Codigo> unidad (servicios), <Codigo>KGM</Codigo>, <Codigo>HUR</Codigo>… — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-03">catálogo 03</Link>.</>],
             ["items[].precio_unitario", "Precio de venta unitario.", "Con IGV incluido para gravados; khipu obtiene el valor unitario y el IGV."],
             ["items[].tipo_afectacion_igv", "Cómo tributa el ítem.", <><Codigo>10</Codigo> gravado, <Codigo>20</Codigo> exonerado, <Codigo>30</Codigo> inafecto; gratuitas 11–17/21/31–37 — <Link className="text-primary hover:underline" href="/developers/catalogos#cat-07">catálogo 07</Link>.</>],
@@ -352,6 +353,14 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             <strong className="text-foreground">Entregue el comprobante al cliente</strong> con <Codigo>POST /v1/facturas/{"{id}"}/correo</Codigo>{" "}
             <Codigo>{"{ email, mensaje? }"}</Codigo>: khipu adjunta PDF, XML y CDR. Solo comprobantes aceptados (<Codigo>409 NO_ACEPTADO</Codigo>); el
             QR del PDF codifica <Codigo>RUC|tipo|serie|número|IGV|total|fecha|tipo y nº de documento del cliente|hash</Codigo>.
+          </li>
+          <li>
+            <strong className="text-foreground">O que salga solo:</strong> active <Codigo>PUT /v1/empresa/envio-al-cliente</Codigo>{" "}
+            <Codigo>{"{ \"enviar_automaticamente\": true }"}</Codigo> y emita con <Codigo>cliente.email</Codigo>. Cuando SUNAT acepta, khipu manda el correo una sola vez
+            (una nota va al correo del comprobante que modifica; una boleta del resumen diario, cuando SUNAT acepta el resumen) y reintenta hasta 5 veces si el servidor de
+            correo falla. <Codigo>envio_al_cliente</Codigo> en <Codigo>GET /v1/facturas/{"{id}"}</Codigo> dice si salió (<Codigo>ENVIADO</Codigo>), sigue{" "}
+            <Codigo>PENDIENTE</Codigo>, quedó <Codigo>FALLIDO</Codigo> u <Codigo>OMITIDO</Codigo>, con el motivo. Sin correo configurado en el servidor no se puede activar
+            (<Codigo>503 CORREO_NO_CONFIGURADO</Codigo>).
           </li>
           <li>
             <strong className="text-foreground">No consulte en bucle:</strong> registre un{" "}

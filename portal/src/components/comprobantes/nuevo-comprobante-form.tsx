@@ -138,6 +138,8 @@ export function NuevoComprobanteForm({
   const [numDoc, setNumDoc] = useState(plantilla?.cliente.numDoc ?? "");
   const [razonSocial, setRazonSocial] = useState(plantilla ? (plantilla.cliente.tipoDoc === SIN_DOCUMENTO ? COMPRADOR_SIN_DOCUMENTO : plantilla.cliente.razonSocial) : "");
   const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
+  // #325: el correo del cliente viaja con el comprobante; si la empresa activó el envío automático, le llega el PDF y el XML cuando SUNAT lo acepta.
+  const [email, setEmail] = useState(plantilla?.cliente.email ?? "");
   // #319: guardar al comprador en «Clientes» al emitir (el guardado es idempotente y conserva lo que ya estaba guardado), y el aviso de un cliente guardado que no sirve para este comprobante.
   const [guardarCliente, setGuardarCliente] = useState(true);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
@@ -231,6 +233,7 @@ export function NuevoComprobanteForm({
     // La boleta no muestra la dirección: no se arrastra una que la persona no ve ni puede borrar.
     setDireccion(boleta ? "" : (c.direccion ?? ""));
     setPais(c.pais ?? "");
+    setEmail(c.email ?? "");
     setGuardarCliente(false);
   }
 
@@ -354,7 +357,14 @@ export function NuevoComprobanteForm({
           : boleta
             ? { tipo_doc: "1", num_doc: "12345678", razon_social: "Comprador" }
             : { tipo_doc: "6", num_doc: "20131312955", razon_social: "Cliente" }
-        : { tipo_doc: tipoDoc, num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(), razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined },
+        : {
+            tipo_doc: tipoDoc,
+            num_doc: sinDocumento ? SIN_DOCUMENTO : numDoc.trim(),
+            razon_social: razonSocial.trim(),
+            direccion: direccion.trim() || undefined,
+            pais: exportacion && pais ? pais : undefined,
+            email: email.trim() || undefined,
+          },
       items: lineasCompletas.map((l) => ({
         codigo: l.codigo,
         codigo_sunat: l.codigoSunat,
@@ -398,6 +408,7 @@ export function NuevoComprobanteForm({
     numDoc.trim() !== "" ||
     (razonSocial.trim() !== "" && razonSocial !== COMPRADOR_SIN_DOCUMENTO) ||
     direccion.trim() !== "" ||
+    email.trim() !== "" ||
     lineas.some((l) => l.descripcion.trim() !== "" || l.precioUnitario !== null);
   useEffect(() => {
     onCambioDatos?.(hayDatos);
@@ -543,7 +554,7 @@ export function NuevoComprobanteForm({
     if (guardarCliente && !sinDocumento && numDoc.trim() !== "") {
       void apiRequest(`/api/proxy/clientes/documento/${encodeURIComponent(tipoDoc)}/${encodeURIComponent(numDoc.trim())}`, {
         method: "PUT",
-        body: { razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined },
+        body: { razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined, email: email.trim() || undefined },
       }).catch(() => undefined);
     }
     onEmitido?.();
@@ -755,6 +766,19 @@ export function NuevoComprobanteForm({
           </div>
         </div>
         )}
+        <Campo id="nc-email" etiqueta="Correo del cliente" opcional ayuda="Si activaste el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepte">
+          <input
+            id="nc-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="compras@cliente.pe"
+            // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
+            maxLength={150}
+            autoComplete="off"
+            className={CAMPO_DENSO}
+          />
+        </Campo>
       </section>
 
       {/* #309: forma de pago, solo en factura. Al crédito se arman las cuotas; la boleta se emite siempre al contado. */}

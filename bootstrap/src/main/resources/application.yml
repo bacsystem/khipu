@@ -97,6 +97,9 @@ app:
     intervalo-ms: ${WEBHOOKS_INTERVALO_MS:5000}
     # Hilos que entregan en paralelo (un endpoint por hilo, en orden). 1 a 64.
     hilos: ${WEBHOOKS_HILOS:8}
+  # #325: envío automático del comprobante aceptado a su cliente (lo activa cada empresa; necesita MAIL_HABILITADO). Cada cuánto se mandan los pendientes.
+  envio-al-cliente:
+    intervalo-ms: ${ENVIO_AL_CLIENTE_INTERVALO_MS:10000}
   # #341: alertas al operador de la plataforma cuando algo falla en silencio (envíos a SUNAT, FUERA_DE_PLAZO, resúmenes sin respuesta, respaldo, correo, certificados). Siempre
   # salen por el log (ERROR); con ALERTAS_EMAIL y/o ALERTAS_WEBHOOK_URL también llegan a ese canal. Detalle y cómo probarlo: deploy/README.md §11.
   alertas:

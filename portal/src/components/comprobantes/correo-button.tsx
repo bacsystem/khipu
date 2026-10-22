@@ -10,13 +10,13 @@ import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
- * `POST /v1/facturas/{id}/correo`: envía al adquirente el PDF, el XML firmado y el CDR. El correo lo escribe el usuario cada vez
- * (el comprobante no guarda el email del cliente); el mensaje es opcional y encabeza el cuerpo.
+ * `POST /v1/facturas/{id}/correo`: envía al adquirente el PDF, el XML firmado y el CDR. Propone el correo con que se emitió el comprobante (#325), si lo tiene; se puede
+ * cambiar por cualquier otro. El mensaje es opcional y encabeza el cuerpo.
  */
-export function CorreoButton({ id, numero }: { id: string; numero: string }) {
+export function CorreoButton({ id, numero, correoDelCliente = null }: { id: string; numero: string; correoDelCliente?: string | null }) {
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(correoDelCliente ?? "");
   const [mensaje, setMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function CorreoButton({ id, numero }: { id: string; numero: string }) {
     }
     setEnviadoA(email.trim());
     setAbierto(false);
-    setEmail("");
+    setEmail(correoDelCliente ?? "");
     setMensaje("");
   }
 
