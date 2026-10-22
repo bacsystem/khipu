@@ -50,6 +50,9 @@ class DeveloperPortalE2ETest {
         assertThat(tieneSecurityEnGet(paths, "/v1/facturas")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/series")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/empresa")).isTrue();
+        // #322: el SIRE acepta X-Api-Key (lo usa así su e2e) y el OpenAPI lo declara.
+        assertThat(tieneSecurityEnGet(paths, "/v1/sire/rvie")).isTrue();
+        assertThat(tieneSecurityEnPost(paths, "/v1/sire/rvie/conciliacion")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/empresas")).isFalse();
         assertThat(paths.containsKey("/v1/auth/login")).isTrue();
         assertThat(tieneSecurityEnPost(paths, "/v1/auth/login")).isFalse();

@@ -45,6 +45,7 @@ public interface ComprobanteRepository {
     long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro);
     /** #321: ver {@link ConsultarComprobanteUseCase#listarPorLlave}. */
     ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, java.util.Set<EstadoDocumento> excluidos,
-                                                              ConsultarComprobanteUseCase.Llave despues, int limite);
-    long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, java.util.Set<EstadoDocumento> excluidos);
+                                                              java.util.Set<TipoDocumento> tipos, ConsultarComprobanteUseCase.Llave despues, int limite);
+    /** #321: ver {@link ConsultarComprobanteUseCase#contar(UUID, ConsultarComprobanteUseCase.Filtro, java.util.Set, java.util.Set)}. */
+    long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, java.util.Set<EstadoDocumento> excluidos, java.util.Set<TipoDocumento> tipos);
 }

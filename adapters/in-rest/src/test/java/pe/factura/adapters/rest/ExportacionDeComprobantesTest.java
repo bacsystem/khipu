@@ -55,7 +55,7 @@ class ExportacionDeComprobantesTest {
 
     /** Una sola página (menos que {@link ExportacionDeComprobantes#PAGINA}): el recorrido termina con ella. */
     String csv(char separador, List<Comprobante> lista) throws Exception {
-        when(consultar.listarPorLlave(eq(tenant), any(), any(), isNull(), anyInt())).thenReturn(new PaginaPorLlave(lista, lista.isEmpty() ? null : new Llave(Instant.EPOCH, UUID.randomUUID())));
+        when(consultar.listarPorLlave(eq(tenant), any(), any(), any(), isNull(), anyInt())).thenReturn(new PaginaPorLlave(lista, lista.isEmpty() ? null : new Llave(Instant.EPOCH, UUID.randomUUID())));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ExportacionDeComprobantes.escribir(out, consultar, tenant, Filtro.NINGUNO, ExportacionDeComprobantes.Formato.CSV, separador);
         return out.toString(StandardCharsets.UTF_8);
@@ -175,32 +175,38 @@ class ExportacionDeComprobantesTest {
 
     @Test void sinFiltroDeEstadoQuedanFueraLosQueNoSonVentasYConElFiltroMandaElFiltro() throws Exception {
         csv(',', List.of());
-        verify(consultar).listarPorLlave(eq(tenant), eq(Filtro.NINGUNO), eq(Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO)), isNull(), anyInt());
+        verify(consultar).listarPorLlave(eq(tenant), eq(Filtro.NINGUNO), eq(Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO)), eq(TipoDocumento.ventas()),
+                isNull(), anyInt());
 
         Filtro rechazados = new Filtro(EstadoDocumento.RECHAZADO, null, null);
         assertThat(ExportacionDeComprobantes.excluidos(rechazados)).isEmpty();
-        when(consultar.contar(tenant, rechazados, Set.of())).thenReturn(3L);
+        when(consultar.contar(tenant, rechazados, Set.of(), TipoDocumento.ventas())).thenReturn(3L);
         assertThat(ExportacionDeComprobantes.verificar(consultar, tenant, rechazados)).isEqualTo(3);
     }
 
-    /** Sin filtro de tipo, lo que no es una venta (TipoDocumento#esVenta: 04, 20, 40) no sale: sus columnas no cuadran con una venta. Pedir el tipo sí lo trae. */
+    /**
+     * Sin filtro de tipo, lo que no es una venta (TipoDocumento#esVenta: 04, 20, 40) no sale: sus columnas no cuadran con una venta. Pedir el tipo sí lo trae. El filtro va a la
+     * consulta, la del tope y la de la lectura por igual: el tope cuenta las mismas filas que tendrá el archivo, no las retenciones que después se saltarían.
+     */
     @Test void sinFiltroDeTipoQuedanFueraLosTiposQueNoSonVentasYConElFiltroMandaElFiltro() throws Exception {
-        Comprobante liquidacion = org.mockito.Mockito.mock(Comprobante.class);
-        when(liquidacion.tipo()).thenReturn(TipoDocumento.LIQUIDACION_COMPRA);
-        when(liquidacion.id()).thenReturn(UUID.randomUUID());
-        Comprobante venta = factura(3);
-
-        String[] lineas = csv(',', List.of(liquidacion, venta)).split("\r\n");
-
-        assertThat(lineas).hasSize(2);
-        assertThat(fila(lineas[1]).get("tipo")).isEqualTo("01");
+        assertThat(ExportacionDeComprobantes.tipos(Filtro.NINGUNO)).containsExactlyInAnyOrder(TipoDocumento.FACTURA, TipoDocumento.BOLETA, TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO);
         for (TipoDocumento noVenta : List.of(TipoDocumento.LIQUIDACION_COMPRA, TipoDocumento.RETENCION, TipoDocumento.PERCEPCION)) {
-            Comprobante c = org.mockito.Mockito.mock(Comprobante.class);
-            when(c.tipo()).thenReturn(noVenta);
-            assertThat(ExportacionDeComprobantes.entra(Filtro.NINGUNO, c)).as(noVenta.name()).isFalse();
-            assertThat(ExportacionDeComprobantes.entra(new Filtro(null, null, null, null, noVenta.codigo(), null, null), c)).as(noVenta.name() + " pedido").isTrue();
+            Filtro pedido = new Filtro(null, null, null, null, noVenta.codigo(), null, null);
+            assertThat(ExportacionDeComprobantes.tipos(Filtro.NINGUNO)).as(noVenta.name()).doesNotContain(noVenta);
+            assertThat(ExportacionDeComprobantes.tipos(pedido)).as(noVenta.name() + " pedido: manda el filtro").isEmpty();
         }
-        assertThat(ExportacionDeComprobantes.entra(Filtro.NINGUNO, venta)).isTrue();
+
+        // El tope cuenta con los mismos tipos que la lectura: 4 999 ventas entran aunque haya 2 000 retenciones en el rango, que la consulta ya no cuenta.
+        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS, TipoDocumento.ventas())).thenReturn((long) ExportacionDeComprobantes.MAXIMO - 1);
+        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS, Set.of())).thenReturn((long) ExportacionDeComprobantes.MAXIMO + 2000);
+        assertThat(ExportacionDeComprobantes.verificar(consultar, tenant, Filtro.NINGUNO)).isEqualTo(ExportacionDeComprobantes.MAXIMO - 1);
+
+        csv(',', List.of(factura(3)));
+        verify(consultar).listarPorLlave(eq(tenant), eq(Filtro.NINGUNO), any(), eq(TipoDocumento.ventas()), isNull(), anyInt());
+        Filtro retenciones = new Filtro(null, null, null, null, "20", null, null);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ExportacionDeComprobantes.escribir(out, consultar, tenant, retenciones, ExportacionDeComprobantes.Formato.CSV, ',');
+        verify(consultar).listarPorLlave(eq(tenant), eq(retenciones), any(), eq(Set.of()), isNull(), anyInt());
     }
 
     @Test void losTextosQueEmpiezanComoFormulaSeNeutralizanYLosQueLlevanElSeparadorVanEntreComillas() throws Exception {
@@ -222,8 +228,8 @@ class ExportacionDeComprobantesTest {
         List<Comprobante> todos = new ArrayList<>();
         for (int n = 1; n <= pagina + 3; n++) todos.add(factura(n));
         Llave primera = new Llave(Instant.parse("2026-09-13T10:00:00Z"), todos.get(pagina - 1).id());
-        when(consultar.listarPorLlave(eq(tenant), any(), any(), isNull(), eq(pagina))).thenReturn(new PaginaPorLlave(todos.subList(0, pagina), primera));
-        when(consultar.listarPorLlave(eq(tenant), any(), any(), eq(primera), eq(pagina))).thenReturn(new PaginaPorLlave(todos.subList(pagina - 1, pagina + 3), new Llave(Instant.EPOCH, UUID.randomUUID())));
+        when(consultar.listarPorLlave(eq(tenant), any(), any(), any(), isNull(), eq(pagina))).thenReturn(new PaginaPorLlave(todos.subList(0, pagina), primera));
+        when(consultar.listarPorLlave(eq(tenant), any(), any(), any(), eq(primera), eq(pagina))).thenReturn(new PaginaPorLlave(todos.subList(pagina - 1, pagina + 3), new Llave(Instant.EPOCH, UUID.randomUUID())));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ExportacionDeComprobantes.escribir(out, consultar, tenant, Filtro.NINGUNO, ExportacionDeComprobantes.Formato.CSV, ',');
@@ -235,9 +241,9 @@ class ExportacionDeComprobantesTest {
     }
 
     @Test void elTopeSeCompruebaAntesYCeroNoEsError() {
-        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS)).thenReturn((long) ExportacionDeComprobantes.MAXIMO + 1);
+        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS, TipoDocumento.ventas())).thenReturn((long) ExportacionDeComprobantes.MAXIMO + 1);
         assertThatThrownBy(() -> ExportacionDeComprobantes.verificar(consultar, tenant, Filtro.NINGUNO)).extracting("codigo").isEqualTo("EXPORTACION_EXCEDE_EL_TOPE");
-        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS)).thenReturn(0L);
+        when(consultar.contar(tenant, Filtro.NINGUNO, ExportacionDeComprobantes.NO_SON_VENTAS, TipoDocumento.ventas())).thenReturn(0L);
         assertThat(ExportacionDeComprobantes.verificar(consultar, tenant, Filtro.NINGUNO)).isZero();
     }
 
@@ -257,7 +263,7 @@ class ExportacionDeComprobantesTest {
 
     /** En el XLSX los importes son números (no textos) con formato 0.00, y el nombre del cliente va como texto: una hoja de cálculo nunca lo evalúa. */
     @Test void elXlsxLlevaLosImportesComoNumerosYLosTextosComoTexto() throws Exception {
-        when(consultar.listarPorLlave(eq(tenant), any(), any(), isNull(), anyInt())).thenReturn(new PaginaPorLlave(
+        when(consultar.listarPorLlave(eq(tenant), any(), any(), any(), isNull(), anyInt())).thenReturn(new PaginaPorLlave(
                 List.of(factura(5, "=1+1", List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))), null));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ExportacionDeComprobantes.escribir(out, consultar, tenant, Filtro.NINGUNO, ExportacionDeComprobantes.Formato.XLSX, ',');

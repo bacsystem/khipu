@@ -2521,8 +2521,10 @@ export interface paths {
          * @description Una foto de la empresa en un rango de fecha de emisión (`desde`/`hasta`, inclusive; un lado ausente deja el rango abierto de ese lado): cuántos comprobantes
          *     se **emitieron** (firmados, en cualquier estado), cuántos **aceptó SUNAT con su CDR**, cuántos piden **atención** (rechazados, con error de envío y fuera de plazo,
          *     cada clase por separado) y cuánto se **facturó por moneda**. Lo facturado cuenta lo aceptado y lo que está en camino, no lo rechazado, lo que se pasó del plazo
-         *     ni lo dado de baja; las notas de crédito restan y las de débito suman. `desde > hasta` responde `400 RANGO_INVALIDO`; una fecha mal formada,
-         *     `400 PARAMETRO_INVALIDO`.
+         *     ni lo dado de baja; las notas de crédito restan y las de débito suman. **Emitidos, aceptados y facturado cuentan solo ventas** (factura 01, boleta 03 y sus
+         *     notas 07 y 08): la liquidación de compra (04) es una compra y la retención (20) y la percepción (40) son un impuesto. **En camino y la atención requerida
+         *     cuentan todos los tipos**, porque un 04 rechazado o un 20 con error de envío también tienen plazo ante SUNAT: cada número cuadra con
+         *     `GET /v1/facturas?estado=...` en el mismo rango. `desde > hasta` responde `400 RANGO_INVALIDO`; una fecha mal formada, `400 PARAMETRO_INVALIDO`.
          */
         get: operations["resumen"];
         put?: never;
@@ -2543,8 +2545,8 @@ export interface paths {
         /**
          * Emisión por día de un período
          * @description La emisión de la empresa día por día en un rango de fecha de emisión (`desde`/`hasta`, inclusive, **los dos obligatorios**, hasta 62 días): por cada día con
-         *     comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen`. Los días sin comprobantes no
-         *     vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.
+         *     comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen` (solo ventas). Los días sin
+         *     comprobantes no vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.
          */
         get: operations["porDia"];
         put?: never;
@@ -8731,7 +8733,7 @@ export interface components {
             /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
             avisos?: components["schemas"]["Aviso"][];
         };
-        /** @description Lo que pide que el emisor haga algo: rechazados, con error de envío, fuera de plazo y boletas sin enviar */
+        /** @description Lo que pide que el emisor haga algo, de todos los tipos (liquidación de compra, retención y percepción incluidas): rechazados, con error de envío, fuera de plazo y boletas sin enviar */
         AtencionRequerida: {
             /**
              * Format: int64
@@ -8764,7 +8766,7 @@ export interface components {
              */
             boletas_sin_enviar?: number;
         };
-        /** @description Lo facturado por moneda, ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja */
+        /** @description Lo facturado por moneda (solo ventas), ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja */
         Facturado: {
             /** @example PEN */
             moneda?: string;
@@ -8789,24 +8791,24 @@ export interface components {
             hasta?: string;
             /**
              * Format: int64
-             * @description Comprobantes firmados del período, en cualquier estado (rechazados y dados de baja incluidos)
+             * @description Ventas (factura, boleta y sus notas) firmadas en el período, en cualquier estado (rechazadas y dadas de baja incluidas); no cuenta la liquidación de compra, la retención ni la percepción
              * @example 120
              */
             emitidos?: number;
             /**
              * Format: int64
-             * @description Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR
+             * @description Ventas aceptadas por SUNAT, con o sin observaciones: las que ya tienen su CDR
              * @example 100
              */
             aceptados_con_cdr?: number;
             /**
              * Format: int64
-             * @description En camino a SUNAT, sin nada que corregir: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario. Las boletas sin enviar desde el 5.º día cuentan acá y también en `atencion_requerida.boletas_sin_enviar`
+             * @description En camino a SUNAT, sin nada que corregir, de todos los tipos: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario. Las boletas sin enviar desde el 5.º día cuentan acá y también en `atencion_requerida.boletas_sin_enviar`
              * @example 8
              */
             en_camino?: number;
             atencion_requerida?: components["schemas"]["AtencionRequerida"];
-            /** @description Lo facturado por moneda, ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja */
+            /** @description Lo facturado por moneda (solo ventas), ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja */
             facturado?: components["schemas"]["Facturado"][];
         };
         ApiResponseEmisionPorDiaResponse: {

@@ -237,7 +237,9 @@ public class AppConfig {
      * scoped a tenant (ApiKeyFilter → TenantActual) aceptan X-Api-Key.
      */
     @Bean GlobalOpenApiCustomizer apiKeySecurityCustomizer() {
-        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/liquidaciones-compra", "/v1/retenciones", "/v1/percepciones", "/v1/bajas", "/v1/guias-remision");
+        List<String> conApiKey = List.of("/v1/empresa", "/v1/series", "/v1/facturas", "/v1/notas", "/v1/liquidaciones-compra", "/v1/retenciones", "/v1/percepciones", "/v1/bajas", "/v1/guias-remision",
+                // #322: el registro de ventas del SIRE y su conciliación (X-Api-Key o sesión, como dice el @Tag de SireController).
+                "/v1/sire");
         return openApi -> {
             if (openApi.getComponents() == null) openApi.setComponents(new Components());
             openApi.getComponents().addSecuritySchemes("ApiKey",

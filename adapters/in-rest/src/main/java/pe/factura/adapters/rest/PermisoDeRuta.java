@@ -48,10 +48,19 @@ final class PermisoDeRuta {
     private static final List<Pattern> LECTURA_POR_POST = List.of(
             Pattern.compile("/v1/sire/rvie/conciliacion"));
 
+    /**
+     * Si la petición solo mira: un método que no escribe (GET, HEAD, OPTIONS) o un POST de {@link #LECTURA_POR_POST}. La única definición de «lectura»: la usan el rol
+     * ({@link #requerido}) y los cortes de {@link JwtFilter} que dejan mirar pero no escribir (soporte, correo sin verificar, términos pendientes), para que un POST que solo
+     * lee no pase por el rol y lo frene otro corte.
+     */
+    static boolean esLectura(String metodo, String ruta) {
+        return LECTURAS.contains(metodo) || "POST".equals(metodo) && coincide(LECTURA_POR_POST, ruta);
+    }
+
     static Permiso requerido(String metodo, String ruta) {
         if (EQUIPO.matcher(ruta).matches()) return Permiso.GESTIONAR_EQUIPO;
         if (LECTURAS.contains(metodo)) return coincide(LECTURA_RESERVADA, ruta) ? Permiso.CONFIGURAR : Permiso.LEER;
-        if ("POST".equals(metodo) && coincide(LECTURA_POR_POST, ruta)) return Permiso.LEER;
+        if (esLectura(metodo, ruta)) return Permiso.LEER;
         return coincide(EMISION, ruta) ? Permiso.EMITIR : Permiso.CONFIGURAR;
     }
 

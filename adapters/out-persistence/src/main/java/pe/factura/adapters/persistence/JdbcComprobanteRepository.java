@@ -249,9 +249,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
      * dejó de cumplir el filtro) no corre las páginas, así que lo que no cambia mientras se recorre sale exactamente una vez.
      */
     @Override public ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos,
-                                                                         ConsultarComprobanteUseCase.Llave despues, int limite) {
+                                                                         Set<TipoDocumento> tipos, ConsultarComprobanteUseCase.Llave despues, int limite) {
         List<Object> args = new ArrayList<>();
-        StringBuilder where = new StringBuilder(where(tenantId, filtro, args)).append(sinEstados(excluidos, args));
+        StringBuilder where = new StringBuilder(where(tenantId, filtro, args)).append(sinEstados(excluidos, args)).append(soloTipos(tipos, args));
         if (despues != null) {
             where.append(" AND (d.created_at, d.id) < (?, ?)");
             args.add(java.sql.Timestamp.from(despues.creadoEn()));
@@ -265,9 +265,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return new ConsultarComprobanteUseCase.PaginaPorLlave(filas, new ConsultarComprobanteUseCase.Llave(creado, ultimo));
     }
 
-    @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos) {
+    @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos, Set<TipoDocumento> tipos) {
         List<Object> args = new ArrayList<>();
-        String where = where(tenantId, filtro, args) + sinEstados(excluidos, args);
+        String where = where(tenantId, filtro, args) + sinEstados(excluidos, args) + soloTipos(tipos, args);
         Long total = jdbc.queryForObject("SELECT count(*) FROM documento d JOIN comprobante c ON c.documento_id = d.id" + where, Long.class, args.toArray());
         return total == null ? 0 : total;
     }
@@ -276,6 +276,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         if (excluidos == null || excluidos.isEmpty()) return "";
         excluidos.forEach(e -> args.add(e.name()));
         return " AND d.estado NOT IN (" + String.join(", ", java.util.Collections.nCopies(excluidos.size(), "?")) + ")";
+    }
+
+    /** #321: solo los de esos tipos (la exportación sin filtro de tipo pide las ventas); vacío, de cualquier tipo. Contar y listar usan la misma condición, así el tope cuadra con el archivo. */
+    private static String soloTipos(Set<TipoDocumento> tipos, List<Object> args) {
+        if (tipos == null || tipos.isEmpty()) return "";
+        tipos.stream().map(TipoDocumento::codigo).sorted().forEach(args::add);
+        return " AND d.tipo IN (" + String.join(", ", java.util.Collections.nCopies(tipos.size(), "?")) + ")";
     }
 
     @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {

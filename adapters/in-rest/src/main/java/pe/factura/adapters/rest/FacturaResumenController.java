@@ -18,7 +18,9 @@ import java.time.LocalDate;
 
 /**
  * El resumen de los comprobantes de la empresa en un período (#15), para las métricas del portal: lo emitido, lo aceptado, lo que pide atención y lo facturado por moneda;
- * y la emisión día por día (#24), para el gráfico del dashboard.
+ * y la emisión día por día (#24), para el gráfico del dashboard. Lo emitido, lo aceptado y lo facturado son ventas (factura, boleta y sus notas); lo que está en camino y lo
+ * que pide atención cuentan todos los tipos —liquidación de compra, retención y percepción incluidas—, porque también tienen plazo ante SUNAT y así cada número cuadra con
+ * {@code GET /v1/facturas?estado=...}, que lista todos los tipos.
  * Se autentica como el resto de {@code /v1/facturas} (API key o JWT del portal con {@code X-Empresa}). Solo lectura.
  */
 @RestController
@@ -33,8 +35,10 @@ public class FacturaResumenController {
             Una foto de la empresa en un rango de fecha de emisión (`desde`/`hasta`, inclusive; un lado ausente deja el rango abierto de ese lado): cuántos comprobantes
             se **emitieron** (firmados, en cualquier estado), cuántos **aceptó SUNAT con su CDR**, cuántos piden **atención** (rechazados, con error de envío y fuera de plazo,
             cada clase por separado) y cuánto se **facturó por moneda**. Lo facturado cuenta lo aceptado y lo que está en camino, no lo rechazado, lo que se pasó del plazo
-            ni lo dado de baja; las notas de crédito restan y las de débito suman. `desde > hasta` responde `400 RANGO_INVALIDO`; una fecha mal formada,
-            `400 PARAMETRO_INVALIDO`.""")
+            ni lo dado de baja; las notas de crédito restan y las de débito suman. **Emitidos, aceptados y facturado cuentan solo ventas** (factura 01, boleta 03 y sus
+            notas 07 y 08): la liquidación de compra (04) es una compra y la retención (20) y la percepción (40) son un impuesto. **En camino y la atención requerida
+            cuentan todos los tipos**, porque un 04 rechazado o un 20 con error de envío también tienen plazo ante SUNAT: cada número cuadra con
+            `GET /v1/facturas?estado=...` en el mismo rango. `desde > hasta` responde `400 RANGO_INVALIDO`; una fecha mal formada, `400 PARAMETRO_INVALIDO`.""")
     public ApiResponse<ResumenDeComprobantesResponse> resumen(HttpServletRequest req,
             @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
@@ -44,8 +48,8 @@ public class FacturaResumenController {
     @GetMapping("/resumen/por-dia")
     @Operation(summary = "Emisión por día de un período", description = """
             La emisión de la empresa día por día en un rango de fecha de emisión (`desde`/`hasta`, inclusive, **los dos obligatorios**, hasta 62 días): por cada día con
-            comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen`. Los días sin comprobantes no
-            vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.""")
+            comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen` (solo ventas). Los días sin
+            comprobantes no vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.""")
     public ApiResponse<EmisionPorDiaResponse> porDia(HttpServletRequest req,
             @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-10-01") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive); a lo más 61 días después de `desde`", example = "2026-10-31") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {

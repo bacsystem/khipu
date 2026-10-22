@@ -223,11 +223,15 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
     }
 
     List<Long> recorrerPorLlave(UUID tenant, Filtro f, java.util.Set<EstadoDocumento> excluidos, int pagina, Runnable entrePaginas) {
+        return recorrerPorLlave(tenant, f, excluidos, java.util.Set.of(), pagina, entrePaginas);
+    }
+
+    List<Long> recorrerPorLlave(UUID tenant, Filtro f, java.util.Set<EstadoDocumento> excluidos, java.util.Set<TipoDocumento> tipos, int pagina, Runnable entrePaginas) {
         List<Long> numeros = new ArrayList<>();
         pe.factura.application.port.in.ConsultarComprobanteUseCase.Llave despues = null;
         boolean primera = true;
         while (true) {
-            var p = escritura.listarPorLlave(tenant, f, excluidos, despues, pagina);
+            var p = escritura.listarPorLlave(tenant, f, excluidos, tipos, despues, pagina);
             p.filas().forEach(c -> numeros.add(c.numero()));
             if (p.filas().size() < pagina) return numeros;
             despues = p.ultima();
@@ -278,8 +282,26 @@ class JdbcComprobanteConsultasTest extends PersistenciaTestBase {
         var excluidos = java.util.Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO);
 
         assertThat(recorrerPorLlave(t, TODOS, excluidos, 10, () -> {})).containsExactly(2L);
-        assertThat(escritura.contar(t, TODOS, excluidos)).isEqualTo(1);
-        assertThat(escritura.contar(t, TODOS, java.util.Set.of())).isEqualTo(2);
-        assertThat(escritura.listarPorLlave(tenantDePrueba(), TODOS, excluidos, null, 10).filas()).as("otra empresa no ve nada").isEmpty();
+        assertThat(escritura.contar(t, TODOS, excluidos, java.util.Set.of())).isEqualTo(1);
+        assertThat(escritura.contar(t, TODOS, java.util.Set.of(), java.util.Set.of())).isEqualTo(2);
+        assertThat(escritura.listarPorLlave(tenantDePrueba(), TODOS, excluidos, java.util.Set.of(), null, 10).filas()).as("otra empresa no ve nada").isEmpty();
+    }
+
+    /**
+     * H2: la exportación sin filtro de tipo pide solo las ventas, y el conteo del tope y la lectura usan la misma condición en el SQL: lo que no es venta (acá una retención) ni
+     * se cuenta ni se lee, así que el tope cuenta las filas que tendrá el archivo. Sin tipos, cuenta todo.
+     */
+    @Test void porLlaveSoloLosTiposPedidosSalenYSeCuentan() {
+        UUID t = tenantDePrueba();
+        simple(t, 1);
+        Comprobante retencion = simple(t, 2);
+        simple(t, 3);
+        jdbc.update("UPDATE documento SET tipo = '20' WHERE id = ?", retencion.id());
+        var ventas = TipoDocumento.ventas();
+
+        assertThat(recorrerPorLlave(t, TODOS, java.util.Set.of(), ventas, 10, () -> {})).containsExactly(3L, 1L);
+        assertThat(escritura.contar(t, TODOS, java.util.Set.of(), ventas)).isEqualTo(2);
+        assertThat(escritura.contar(t, TODOS, java.util.Set.of(), java.util.Set.of())).as("sin tipos, de cualquier tipo").isEqualTo(3);
+        assertThat(escritura.contar(t, TODOS, java.util.Set.of(), java.util.Set.of(TipoDocumento.RETENCION))).isEqualTo(1);
     }
 }

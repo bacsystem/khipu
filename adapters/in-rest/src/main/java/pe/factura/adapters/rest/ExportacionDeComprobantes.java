@@ -38,7 +38,8 @@ import java.util.function.Consumer;
  *
  * <p><b>Qué entra.</b> Sin filtro de {@code estado} quedan fuera los que no son ventas ({@link #NO_SON_VENTAS}: los que SUNAT rechazó, los que no pasaron la validación y los que un
  * administrador descartó); pedir uno de esos estados con {@code estado} sí los trae. Sin filtro de {@code tipo} quedan fuera también los tipos que no son ventas
- * ({@link TipoDocumento#esVenta()}: liquidación de compra, retención, percepción), cuyas columnas no cuadran con la venta; pedir el tipo con {@code tipo} sí los trae. Una nota de crédito sale con sus importes en negativo —el archivo es para el contador y así la
+ * ({@link TipoDocumento#esVenta()}: liquidación de compra, retención, percepción), cuyas columnas no cuadran con la venta; pedir el tipo con {@code tipo} sí los trae. Los dos
+ * filtros van en el SQL, del conteo del tope y de la lectura por igual, así que el tope cuenta exactamente las filas del archivo. Una nota de crédito sale con sus importes en negativo —el archivo es para el contador y así la
  * columna suma la venta neta—; la de débito, en positivo como la factura.
  *
  * <p><b>Cómo cuadra el total.</b> {@code total} = gravado + exonerado + inafecto + exportacion + igv + ivap + isc + icbper + otros_tributos + total_cargos − total_descuentos +
@@ -96,8 +97,8 @@ final class ExportacionDeComprobantes {
     /** Los estados que no entran: los que no son ventas, salvo que el filtro pida un estado concreto (entonces manda el filtro). */
     static Set<EstadoDocumento> excluidos(Filtro filtro) { return filtro.estado() != null ? Set.of() : NO_SON_VENTAS; }
 
-    /** Sin filtro de tipo solo las ventas; con él, manda el filtro (como con el estado). */
-    static boolean entra(Filtro filtro, Comprobante c) { return filtro.tipo() != null || c.tipo().esVenta(); }
+    /** Los tipos que entran: sin filtro de tipo solo las ventas; con él, manda el filtro (como con el estado) y no se acota nada más ({@code Set.of()}: cualquier tipo). */
+    static Set<TipoDocumento> tipos(Filtro filtro) { return filtro.tipo() != null ? Set.of() : TipoDocumento.ventas(); }
 
     /** Los valores de la fila de un comprobante, en el orden de {@link #COLUMNAS}; {@code null} es una celda vacía. */
     static List<Object> valores(Comprobante c) {
@@ -123,9 +124,12 @@ final class ExportacionDeComprobantes {
         return v;
     }
 
-    /** Valida el tope; devuelve cuántos comprobantes entran (puede ser cero: un mes sin ventas también es una respuesta, y el archivo sale solo con la cabecera). */
+    /**
+     * Valida el tope; devuelve cuántos comprobantes entran, con los mismos estados y tipos que la lectura ({@link #excluidos}, {@link #tipos}): las filas que tendrá el archivo
+     * (puede ser cero: un mes sin ventas también es una respuesta, y el archivo sale solo con la cabecera).
+     */
     static long verificar(ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro) {
-        long total = consultar.contar(tenant, filtro, excluidos(filtro));
+        long total = consultar.contar(tenant, filtro, excluidos(filtro), tipos(filtro));
         if (total > MAXIMO)
             throw new DomainException("EXPORTACION_EXCEDE_EL_TOPE", "Hay " + total + " comprobantes con esos filtros y una exportación admite hasta " + MAXIMO + ": acote las fechas y exporte por tramos");
         return total;
@@ -151,12 +155,12 @@ final class ExportacionDeComprobantes {
     private static void recorrer(ConsultarComprobanteUseCase consultar, UUID tenant, Filtro filtro, Consumer<Comprobante> cada) {
         Set<UUID> vistos = new HashSet<>();
         Set<EstadoDocumento> excluidos = excluidos(filtro);
+        Set<TipoDocumento> tipos = tipos(filtro);
         Llave despues = null;
         while (vistos.size() < MAXIMO) {
-            PaginaPorLlave pagina = consultar.listarPorLlave(tenant, filtro, excluidos, despues, PAGINA);
+            PaginaPorLlave pagina = consultar.listarPorLlave(tenant, filtro, excluidos, tipos, despues, PAGINA);
             for (Comprobante c : pagina.filas()) {
                 if (vistos.size() >= MAXIMO) return;
-                if (!entra(filtro, c)) continue;
                 if (vistos.add(c.id())) cada.accept(c);
             }
             if (pagina.filas().size() < PAGINA || pagina.ultima() == null) return;

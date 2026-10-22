@@ -570,13 +570,13 @@ class FacturaControllerTest {
     static final java.util.Set<EstadoDocumento> NO_SON_VENTAS = java.util.Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO);
 
     private void conPagina(UUID t, ConsultarComprobanteUseCase.Filtro filtro, List<Comprobante> filas) {
-        when(consultar.listarPorLlave(eq(t), eq(filtro), any(), isNull(), anyInt())).thenReturn(new ConsultarComprobanteUseCase.PaginaPorLlave(filas, null));
+        when(consultar.listarPorLlave(eq(t), eq(filtro), any(), any(), isNull(), anyInt())).thenReturn(new ConsultarComprobanteUseCase.PaginaPorLlave(filas, null));
     }
 
     @Test void exportaEnCsvConLosMismosFiltrosDelListado() throws Exception {
         Comprobante a = aceptado(tenant);
         var filtro = new ConsultarComprobanteUseCase.Filtro(EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "F001", "01", "andina", 7L);
-        when(consultar.contar(tenant, filtro, java.util.Set.of())).thenReturn(1L);
+        when(consultar.contar(eq(tenant), eq(filtro), eq(java.util.Set.of()), any())).thenReturn(1L);
         conPagina(tenant, filtro, List.of(a));
 
         var inicio = mvc.perform(get("/v1/facturas/exportacion?estado=ACEPTADO&desde=2026-09-01&hasta=2026-09-30&serie=f001&tipo=01&cliente=andina&numero=7")
@@ -590,13 +590,13 @@ class FacturaControllerTest {
         assertThat(csv).startsWith("\uFEFFtipo,serie,numero,fecha_emision,");
         assertThat(csv).contains("\r\n01,F001,601,2026-09-13,6,20601234565,CLIENTE SAC,PEN,,100.00,0.00,0.00,0.00,0.00,18.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,118.00,ACEPTADO,\r\n");
         // Con el filtro de estado manda el filtro: no se excluye nada más.
-        verify(consultar).listarPorLlave(eq(tenant), eq(filtro), eq(java.util.Set.of()), isNull(), anyInt());
+        verify(consultar).listarPorLlave(eq(tenant), eq(filtro), eq(java.util.Set.of()), any(), isNull(), anyInt());
     }
 
     @Test void exportaEnXlsxSinLosQueNoSonVentas() throws Exception {
         Comprobante a = aceptado(tenant);
         var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
-        when(consultar.contar(tenant, todos, NO_SON_VENTAS)).thenReturn(1L);
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(1L);
         conPagina(tenant, todos, List.of(a));
 
         var inicio = mvc.perform(get("/v1/facturas/exportacion?formato=XLSX").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
@@ -608,19 +608,19 @@ class FacturaControllerTest {
         var libro = ExportacionDeComprobantesTest.libro(respuesta.getContentAsByteArray());
         assertThat(libro).containsKey("xl/worksheets/sheet1.xml");
         assertThat(libro.get("xl/sharedStrings.xml")).contains("CLIENTE SAC").contains("documento_modificado");
-        verify(consultar).listarPorLlave(eq(tenant), eq(todos), eq(NO_SON_VENTAS), isNull(), anyInt());
+        verify(consultar).listarPorLlave(eq(tenant), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()), isNull(), anyInt());
     }
 
     /** El tope se comprueba antes de escribir: un 422 con cuántos hay, no un archivo cortado. Sin resultados sale el archivo con la cabecera sola; los parámetros raros, 400. */
     @Test void exportacionRespetaElTopeYValidaLosParametros() throws Exception {
         var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
-        when(consultar.contar(tenant, todos, NO_SON_VENTAS)).thenReturn(5001L);
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(5001L);
         mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("EXPORTACION_EXCEDE_EL_TOPE"))
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("5001")));
-        verify(consultar, never()).listarPorLlave(any(), any(), any(), any(), anyInt());
+        verify(consultar, never()).listarPorLlave(any(), any(), any(), any(), any(), anyInt());
 
-        when(consultar.contar(tenant, todos, NO_SON_VENTAS)).thenReturn(0L);
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(0L);
         conPagina(tenant, todos, List.of());
         var inicio = mvc.perform(get("/v1/facturas/exportacion?separador=punto_y_coma").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
         String vacio = new String(mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
@@ -638,14 +638,14 @@ class FacturaControllerTest {
     @Test void exportacionSoloLeeLoDeSuEmpresa() throws Exception {
         UUID otro = UUID.randomUUID();
         var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
-        when(consultar.contar(otro, todos, NO_SON_VENTAS)).thenReturn(1L);
+        when(consultar.contar(otro, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(1L);
         conPagina(otro, todos, List.of(aceptado(otro)));
         var inicio = mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, otro)).andExpect(request().asyncStarted()).andReturn();
         mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk());
-        verify(consultar).contar(eq(otro), eq(todos), eq(NO_SON_VENTAS));
-        verify(consultar).listarPorLlave(eq(otro), eq(todos), eq(NO_SON_VENTAS), isNull(), anyInt());
-        verify(consultar, never()).contar(eq(tenant), any(), any());
-        verify(consultar, never()).listarPorLlave(eq(tenant), any(), any(), any(), anyInt());
+        verify(consultar).contar(eq(otro), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()));
+        verify(consultar).listarPorLlave(eq(otro), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()), isNull(), anyInt());
+        verify(consultar, never()).contar(eq(tenant), any(), any(), any());
+        verify(consultar, never()).listarPorLlave(eq(tenant), any(), any(), any(), any(), anyInt());
     }
 
     @Test void obtenerPorId() throws Exception {
