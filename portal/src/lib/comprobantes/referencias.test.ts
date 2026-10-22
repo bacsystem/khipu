@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { errorDeReferencias, hayReferencias, numeroDeGuiaValido, REFERENCIAS_VACIAS, referenciasAApi, TIPOS_DE_DOCUMENTO, type ReferenciasForm } from "./referencias";
+import { errorDeReferencias, hayReferencias, numeroDeGuiaValido, REFERENCIAS_VACIAS, referenciasAApi, tiposDeDocumento, type ReferenciasForm } from "./referencias";
+import es from "@/messages/es.json";
 
 const ref = (p: Partial<ReferenciasForm>): ReferenciasForm => ({ ...REFERENCIAS_VACIAS, ...p });
 
 describe("referencias (#300)", () => {
   it("sin nada escrito no hay error ni nada que mandar", () => {
-    expect(errorDeReferencias(REFERENCIAS_VACIAS, false)).toBeNull();
-    expect(referenciasAApi(REFERENCIAS_VACIAS, false)).toEqual({});
+    expect(errorDeReferencias(REFERENCIAS_VACIAS, false, es)).toBeNull();
+    expect(referenciasAApi(REFERENCIAS_VACIAS, false, es)).toEqual({});
     expect(hayReferencias(REFERENCIAS_VACIAS)).toBe(false);
   });
 
@@ -16,46 +17,46 @@ describe("referencias (#300)", () => {
   });
 
   it("una guía mal escrita, vacía o repetida se dice con su código", () => {
-    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "123" }] }), false)).toMatch(/4006/);
-    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: " " }] }), false)).toMatch(/Falta el número de una guía/);
-    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "T001-1" }, { tipo: "09", numero: "T001-1" }] }), false)).toMatch(/2364/);
+    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "123" }] }), false, es)).toMatch(/4006/);
+    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: " " }] }), false, es)).toMatch(/Falta el número de una guía/);
+    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "T001-1" }, { tipo: "09", numero: "T001-1" }] }), false, es)).toMatch(/2364/);
     // La misma serie-número con otro tipo de guía no es la misma guía.
-    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "T001-1" }, { tipo: "31", numero: "T001-1" }] }), false)).toBeNull();
+    expect(errorDeReferencias(ref({ guias: [{ tipo: "09", numero: "T001-1" }, { tipo: "31", numero: "T001-1" }] }), false, es)).toBeNull();
   });
 
   it("un documento relacionado: hasta 30 caracteres sin espacios (4010), sin repetir (2365) y 06/07 solo en factura (4009)", () => {
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "SCOP 1" }] }), false)).toMatch(/4010/);
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "S".repeat(31) }] }), false)).toMatch(/4010/);
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "S".repeat(30) }] }), false)).toBeNull();
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "A-1" }, { tipo: "05", numero: "A-1" }] }), false)).toMatch(/2365/);
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "06", numero: "F001-1" }] }), false)).toBeNull();
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "06", numero: "F001-1" }] }), true)).toMatch(/4009/);
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "07", numero: "T001-1" }] }), true)).toMatch(/4009/);
-    expect(errorDeReferencias(ref({ documentos: [{ tipo: "99", numero: "X-1" }] }), true)).toBeNull();
-    expect(TIPOS_DE_DOCUMENTO.filter((t) => t.soloFactura).map((t) => t.codigo)).toEqual(["06", "07"]);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "SCOP 1" }] }), false, es)).toMatch(/4010/);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "S".repeat(31) }] }), false, es)).toMatch(/4010/);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "S".repeat(30) }] }), false, es)).toBeNull();
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "05", numero: "A-1" }, { tipo: "05", numero: "A-1" }] }), false, es)).toMatch(/2365/);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "06", numero: "F001-1" }] }), false, es)).toBeNull();
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "06", numero: "F001-1" }] }), true, es)).toMatch(/4009/);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "07", numero: "T001-1" }] }), true, es)).toMatch(/4009/);
+    expect(errorDeReferencias(ref({ documentos: [{ tipo: "99", numero: "X-1" }] }), true, es)).toBeNull();
+    expect(tiposDeDocumento(es).filter((t) => t.soloFactura).map((t) => t.codigo)).toEqual(["06", "07"]);
   });
 
   it("la orden de compra tiene hasta 20 caracteres y solo es de la factura (4233)", () => {
-    expect(errorDeReferencias(ref({ ordenCompra: "O".repeat(21) }), false)).toMatch(/4233/);
-    expect(errorDeReferencias(ref({ ordenCompra: "OC-2026-0457" }), false)).toBeNull();
-    expect(errorDeReferencias(ref({ ordenCompra: "OC\n1" }), false)).toMatch(/4233/);
-    expect(referenciasAApi(ref({ ordenCompra: "OC-1" }), true)).toEqual({});
+    expect(errorDeReferencias(ref({ ordenCompra: "O".repeat(21) }), false, es)).toMatch(/4233/);
+    expect(errorDeReferencias(ref({ ordenCompra: "OC-2026-0457" }), false, es)).toBeNull();
+    expect(errorDeReferencias(ref({ ordenCompra: "OC\n1" }), false, es)).toMatch(/4233/);
+    expect(referenciasAApi(ref({ ordenCompra: "OC-1" }), true, es)).toEqual({});
   });
 
   it("las observaciones admiten hasta 1000 caracteres", () => {
-    expect(errorDeReferencias(ref({ observaciones: "x".repeat(1000) }), false)).toBeNull();
-    expect(errorDeReferencias(ref({ observaciones: "x".repeat(1001) }), false)).toMatch(/1000/);
+    expect(errorDeReferencias(ref({ observaciones: "x".repeat(1000) }), false, es)).toBeNull();
+    expect(errorDeReferencias(ref({ observaciones: "x".repeat(1001) }), false, es)).toMatch(/1000/);
   });
 
   it("manda solo lo llenado, sin espacios en los extremos, y nada si algo no vale", () => {
     const completo = ref({ ordenCompra: " OC-1 ", guias: [{ tipo: "09", numero: " T001-123 " }], documentos: [{ tipo: "05", numero: "SCOP-1" }], observaciones: " Entrega en almacén\ncentral " });
-    expect(referenciasAApi(completo, false)).toEqual({
+    expect(referenciasAApi(completo, false, es)).toEqual({
       orden_compra: "OC-1",
       guias: [{ tipo: "09", numero: "T001-123" }],
       documentos_relacionados: [{ tipo: "05", numero: "SCOP-1" }],
       observaciones: "Entrega en almacén\ncentral",
     });
     expect(hayReferencias(completo)).toBe(true);
-    expect(referenciasAApi(ref({ guias: [{ tipo: "09", numero: "mal" }] }), false)).toEqual({});
+    expect(referenciasAApi(ref({ guias: [{ tipo: "09", numero: "mal" }] }), false, es)).toEqual({});
   });
 });

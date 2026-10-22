@@ -1,3 +1,4 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { Comprobante } from "@/lib/api/facturas";
 
 /**
@@ -77,24 +78,30 @@ export function anticipoInicial(c: Candidato): AnticipoForm {
 }
 
 /** Por qué los anticipos elegidos no valen, o `null`. El resto (que el anticipo exista, sea del cliente y no exceda lo facturado en esta venta) lo dice el backend al calcular. */
-export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato[]): string | null {
+export function errorDeAnticipos(elegidos: AnticipoForm[], candidatos: Candidato[], messages: Mensajes): string | null {
+  const t = messages.comprobantes.validacion.anticipo;
   for (const a of elegidos) {
     const etiqueta = `${a.serie}-${a.numero}`;
     const monto = a.monto.trim();
-    if (!/^\d+(\.\d{1,2})?$/.test(monto) || Number(monto) <= 0) return `El monto a descontar del anticipo ${etiqueta} es un valor sin IGV mayor que cero, con hasta 2 decimales.`;
+    if (!/^\d+(\.\d{1,2})?$/.test(monto) || Number(monto) <= 0) return interpolar(t.monto, { etiqueta });
     const c = candidatos.find((x) => x.serie === a.serie && x.numero === a.numero);
     const yaTotal = c ? c.regularizado.gravado + c.regularizado.exonerado + c.regularizado.inafecto : 0;
     if (c && Number(monto) > c.disponible[a.afectacion] + 0.005)
-      return `El anticipo ${etiqueta} solo tiene ${c.disponible[a.afectacion].toFixed(2)} por descontar en ${a.afectacion}${yaTotal > 0 ? ` (ya se regularizaron ${yaTotal.toFixed(2)})` : ""}.`;
+      return interpolar(t.disponible, {
+        etiqueta,
+        disponible: c.disponible[a.afectacion].toFixed(2),
+        afectacion: messages.documentos.afectacionAnticipo[a.afectacion],
+        ya: yaTotal > 0 ? interpolar(t.ya, { monto: yaTotal.toFixed(2) }) : "",
+      });
   }
   const claves = elegidos.map((a) => `${a.serie}-${a.numero}`);
-  if (new Set(claves).size < claves.length) return "El mismo anticipo aparece más de una vez (3215).";
+  if (new Set(claves).size < claves.length) return t.repetido;
   return null;
 }
 
 export type AnticipoApi = { serie: string; numero: number; monto: number; afectacion: Afectacion };
 
-export function anticiposAApi(elegidos: AnticipoForm[], candidatos: Candidato[]): AnticipoApi[] | undefined {
-  if (elegidos.length === 0 || errorDeAnticipos(elegidos, candidatos) !== null) return undefined;
+export function anticiposAApi(elegidos: AnticipoForm[], candidatos: Candidato[], messages: Mensajes): AnticipoApi[] | undefined {
+  if (elegidos.length === 0 || errorDeAnticipos(elegidos, candidatos, messages) !== null) return undefined;
   return elegidos.map((a) => ({ serie: a.serie, numero: a.numero, monto: Number(a.monto), afectacion: a.afectacion }));
 }

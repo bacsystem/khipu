@@ -2,9 +2,9 @@
 
 import { HomeIcon, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { useMessages } from "next-intl";
 import { usePathname } from "next/navigation";
-import { SECCIONES_ADMIN } from "@/lib/admin-secciones";
-import { messages } from "@/lib/messages";
+import { seccionesAdmin } from "@/lib/admin-secciones";
 import { cn } from "@/lib/utils";
 
 const ITEM_BASE =
@@ -32,16 +32,17 @@ function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; e
 
 /**
  * Menú del backoffice agrupado por sección (Clientes · Comercial · Operación · Plataforma), como el del portal de clientes y como la miga de la cabecera:
- * todos salen de `SECCIONES_ADMIN`. El detalle de una cuenta o empresa deja marcada su lista.
+ * todos salen de `seccionesAdmin`. El detalle de una cuenta o empresa deja marcada su lista.
  */
 export function AdminSidebarNav() {
+  const messages = useMessages();
   const pathname = usePathname();
   const activo = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav aria-label={messages.admin.nav.menu} className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
       <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HomeIcon} activo={pathname === "/admin"} />
-      {SECCIONES_ADMIN.map((seccion) => (
+      {seccionesAdmin(messages).map((seccion) => (
         <div key={seccion.titulo} role="group" aria-label={seccion.titulo} className="grid w-full grid-cols-1 gap-0.5">
           <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">{seccion.titulo}</span>
           {seccion.items.map((item) => (

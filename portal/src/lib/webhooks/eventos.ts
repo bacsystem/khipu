@@ -1,33 +1,30 @@
-import type { EstadoEntrega } from "@/lib/api/webhooks";
+import type { Mensajes } from "@/i18n/mensajes";
 
-/** Los eventos a los que se puede suscribir un webhook (#19), con el estado del comprobante que los dispara. Tiene que coincidir con `EventoWebhook` del backend. */
+/**
+ * Los eventos a los que se puede suscribir un webhook (#19), con el estado del comprobante que los dispara. Tiene que coincidir con `EventoWebhook` del backend.
+ * `clave` apunta a su etiqueta y su detalle en `messages.webhooks.eventos`.
+ */
 export const EVENTOS_WEBHOOK = [
-  { evento: "comprobante.aceptado", etiqueta: "Aceptado", detalle: "SUNAT aceptó el comprobante" },
-  { evento: "comprobante.aceptado_con_obs", etiqueta: "Aceptado con observaciones", detalle: "SUNAT lo aceptó y dejó observaciones" },
-  { evento: "comprobante.rechazado", etiqueta: "Rechazado", detalle: "SUNAT lo rechazó: hay que corregir y emitir otro" },
-  { evento: "comprobante.error_envio", etiqueta: "Error de envío", detalle: "No se pudo enviar a SUNAT; khipu reintenta" },
-  { evento: "comprobante.fuera_de_plazo", etiqueta: "Fuera de plazo", detalle: "Pasó el plazo de envío: hay que emitir de nuevo" },
-  { evento: "comprobante.anulado", etiqueta: "Anulado", detalle: "Se dio de baja ante SUNAT" },
-  { evento: "comprobante.descartado", etiqueta: "Descartado", detalle: "Un administrador dejó de intentar el envío" },
+  { evento: "comprobante.aceptado", clave: "aceptado" },
+  { evento: "comprobante.aceptado_con_obs", clave: "aceptadoConObs" },
+  { evento: "comprobante.rechazado", clave: "rechazado" },
+  { evento: "comprobante.error_envio", clave: "errorEnvio" },
+  { evento: "comprobante.fuera_de_plazo", clave: "fueraDePlazo" },
+  { evento: "comprobante.anulado", clave: "anulado" },
+  { evento: "comprobante.descartado", clave: "descartado" },
 ] as const;
 
-const ETIQUETAS = new Map<string, string>([...EVENTOS_WEBHOOK.map((e) => [e.evento, e.etiqueta] as [string, string]), ["webhook.prueba", "Prueba"]]);
-
-export function etiquetaDeEvento(evento: string): string {
-  return ETIQUETAS.get(evento) ?? evento;
+export function etiquetaDeEvento(evento: string, messages: Mensajes): string {
+  if (evento === "webhook.prueba") return messages.webhooks.eventoPrueba;
+  const conocido = EVENTOS_WEBHOOK.find((e) => e.evento === evento);
+  return conocido ? messages.webhooks.eventos[conocido.clave].etiqueta : evento;
 }
 
 /** «Todos los eventos» si están los siete; si no, sus etiquetas. */
-export function resumenDeEventos(eventos: string[]): string {
-  if (EVENTOS_WEBHOOK.every((e) => eventos.includes(e.evento))) return "Todos los eventos";
-  return eventos.map(etiquetaDeEvento).join(", ");
+export function resumenDeEventos(eventos: string[], messages: Mensajes): string {
+  if (EVENTOS_WEBHOOK.every((e) => eventos.includes(e.evento))) return messages.webhooks.todosLosEventos;
+  return eventos.map((e) => etiquetaDeEvento(e, messages)).join(", ");
 }
-
-export const ETIQUETA_ESTADO_ENTREGA: Record<EstadoEntrega, string> = {
-  PENDIENTE: "Pendiente",
-  EXITOSA: "Entregada",
-  FALLIDA: "Fallida",
-};
 
 /** Con cuántos intentos fallidos seguidos khipu apaga el endpoint; coincide con `EntregarWebhooksService.PAUSA_TRAS_FALLOS`. */
 export const PAUSA_TRAS_FALLOS = 10;
@@ -40,18 +37,19 @@ export function resultadoDelIntento(ultimoHttp: number | null | undefined, ultim
 }
 
 /** Una URL https válida para un webhook; devuelve el mensaje si no lo es. Es la misma regla de forma que `UrlDeWebhook` (el backend decide además si apunta a una red interna). */
-export function errorDeUrlWebhook(url: string): string | null {
+export function errorDeUrlWebhook(url: string, messages: Mensajes): string | null {
+  const t = messages.webhooks.url;
   const limpia = url.trim();
-  if (limpia === "") return "Escribe la URL que recibirá los eventos";
-  if (limpia.length > 500) return "La URL no puede pasar de 500 caracteres";
+  if (limpia === "") return t.vacia;
+  if (limpia.length > 500) return t.larga;
   let u: URL;
   try {
     u = new URL(limpia);
   } catch {
-    return "No es una URL válida; por ejemplo https://mi-sistema.pe/khipu";
+    return t.invalida;
   }
-  if (u.protocol !== "https:") return "La URL debe empezar con https://";
-  if (u.username !== "" || u.password !== "") return "La URL no puede llevar usuario ni contraseña; usa el secreto de firma";
-  if (u.hash !== "") return "La URL no puede llevar fragmento (#)";
+  if (u.protocol !== "https:") return t.https;
+  if (u.username !== "" || u.password !== "") return t.credenciales;
+  if (u.hash !== "") return t.fragmento;
   return null;
 }

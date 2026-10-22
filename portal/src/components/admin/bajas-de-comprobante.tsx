@@ -1,8 +1,9 @@
+import { useLocale, useMessages } from "next-intl";
+import { interpolar } from "@/i18n/mensajes";
 import type { BajaAdmin } from "@/lib/api/admin-comprobante";
-import { AVISO_ALTA_FUERA_DE_PLAZO, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
+import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 function Dato({ etiqueta, children, testId }: { etiqueta: string; children: React.ReactNode; testId: string }) {
@@ -22,6 +23,8 @@ function Dato({ etiqueta, children, testId }: { etiqueta: string; children: Reac
  * `tipo` es el del comprobante: dice si un alta informa una boleta o una nota. Sin bajas no se pinta nada.
  */
 export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: string }) {
+  const messages = useMessages();
+  const locale = useLocale();
   if (bajas.length === 0) return null;
   const t = messages.admin.comprobanteDetalle.bajas;
   const que = tipo === "03" ? "boleta" : "nota";
@@ -44,7 +47,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
               </h3>
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Dato etiqueta={t.estado} testId="baja-estado">
-                  {etiquetaDeBaja(b, que)}
+                  {etiquetaDeBaja(b, que, messages)}
                 </Dato>
                 <Dato etiqueta={t.ticket} testId="baja-ticket">
                   <span className="font-mono">{b.ticket ?? t.sinDato}</span>
@@ -55,10 +58,10 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
                   {resumenDiario && !alta ? <span className="mt-1 block text-[12px] text-muted-foreground">{t.motivoSoloKhipu}</span> : null}
                 </Dato>
                 <Dato etiqueta={t.generada} testId="baja-generada">
-                  {formatearFecha(b.fecha_generacion)}
+                  {formatearFecha(b.fecha_generacion, locale)}
                 </Dato>
                 <Dato etiqueta={t.emision} testId="baja-emision">
-                  {formatearFecha(b.fecha_referencia)}
+                  {formatearFecha(b.fecha_referencia, locale)}
                 </Dato>
                 <Dato etiqueta={vencida ? t.detalle : b.cdr ? t.respuesta : t.ultimoIntento} testId="baja-respuesta">
                   {b.cdr ? (
@@ -69,14 +72,14 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
                   ) : (
                     <span className="font-mono text-[12px]">
                       {b.ultimo_error ?? t.sinDato}
-                      {b.intentos > 1 ? ` (${b.intentos} intentos)` : ""}
+                      {b.intentos > 1 ? interpolar(t.intentos, { n: b.intentos }) : ""}
                     </span>
                   )}
                 </Dato>
               </dl>
               {alta && b.fuera_de_plazo ? (
                 <p className="mt-3 text-[12px] text-warning-foreground" data-testid="baja-fuera-de-plazo">
-                  {AVISO_ALTA_FUERA_DE_PLAZO}
+                  {avisoAltaFueraDePlazo(messages)}
                 </p>
               ) : null}
             </article>

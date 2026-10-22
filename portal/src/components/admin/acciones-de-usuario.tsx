@@ -1,6 +1,7 @@
 "use client";
 
 import { EyeIcon, KeyRoundIcon, MailCheckIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
@@ -8,11 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.detalle.acceso;
 
 type Tipo = "restablecer" | "verificar";
 
@@ -25,6 +25,9 @@ const ICONO = { restablecer: KeyRoundIcon, verificar: MailCheckIcon } as const;
  * hasta que el administrador lo cierre: un correo que no salió no puede pasar desapercibido.
  */
 function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cuentaId: string; usuarioId: string; correo: string }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.detalle.acceso;
   const router = useRouter();
   const textos = t[tipo];
   const Icono = ICONO[tipo];
@@ -58,7 +61,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el correo salió: se dice, y no se reintenta solo (reintentar manda otro correo).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Revisa la bitácora de la cuenta antes de volver a intentarlo.`);
+      setError(interpolar(messages.admin.recargar.revisarBitacora, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito" || !res.datos) {
@@ -131,6 +134,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
  * permanente dice que se está actuando como él. `irA` es para las pruebas: por defecto navega de verdad.
  */
 function Impersonar({ cuentaId, usuarioId, correo, irA }: { cuentaId: string; usuarioId: string; correo: string; irA: (url: string) => void }) {
+  const t = useMessages().admin.detalle.acceso;
   const i = t.impersonar;
   return (
     <DialogoDeAccion

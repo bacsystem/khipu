@@ -133,6 +133,7 @@ export async function exportarConsumoDeCuentas(access: string, params: ParamsCon
         return null;
       }
     })();
+    // eslint-disable-next-line khipu/no-literal-de-ui -- mensaje técnico del ApiError, igual que en client.ts: la pantalla muestra el texto de `codigo`
     throw new ApiError(res.status, json?.codigo ?? null, json?.mensaje ?? "Error de comunicación con la API", json?.errores ?? null);
   }
   return { cuerpo, disposicion: res.headers.get("content-disposition") };

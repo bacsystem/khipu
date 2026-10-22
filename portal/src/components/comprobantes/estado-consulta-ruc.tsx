@@ -1,4 +1,6 @@
+import { useMessages } from "next-intl";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { interpolar } from "@/i18n/mensajes";
 import { observacionesDeSunat, type ResultadoConsultaRuc } from "@/lib/api/consulta-ruc";
 import { AYUDA_CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
@@ -25,10 +27,12 @@ export function EstadoConsultaRuc({
   onUsarNombre: (nombre: string) => void;
   className?: string;
 }) {
+  const messages = useMessages();
+  const t = messages.comprobantes.consultaRuc;
   if (consultando) {
     return (
       <p role="status" data-testid="consulta-ruc" data-estado="consultando" className={cn(AYUDA_CAMPO, className)}>
-        Consultando SUNAT…
+        {t.consultando}
       </p>
     );
   }
@@ -37,18 +41,18 @@ export function EstadoConsultaRuc({
   switch (resultado.tipo) {
     case "encontrado": {
       const c = resultado.contribuyente;
-      const observaciones = observacionesDeSunat(c);
+      const observaciones = observacionesDeSunat(c, messages);
       const otroNombre = nombreActual.trim() !== "" && nombreActual.trim() !== c.razon_social;
       return (
         <div className={cn("grid gap-2", className)} data-testid="consulta-ruc" data-estado="encontrado">
           <p role="status" className={AYUDA_CAMPO}>
-            Encontrado en SUNAT · {c.estado} · {c.condicion}
+            {interpolar(t.encontrado, { estado: c.estado, condicion: c.condicion })}
           </p>
           {otroNombre ? (
             <p className="text-[12px] text-muted-foreground">
-              SUNAT lo registra como <strong className="font-medium text-foreground">{c.razon_social}</strong>.{" "}
+              {t.registraComo} <strong className="font-medium text-foreground">{c.razon_social}</strong>.{" "}
               <button type="button" className={ACCION} onClick={() => onUsarNombre(c.razon_social)}>
-                Usar este nombre
+                {t.usarNombre}
               </button>
             </p>
           ) : null}
@@ -64,22 +68,21 @@ export function EstadoConsultaRuc({
       return (
         <Alerta tono="aviso" className={cn("px-3 py-2", className)}>
           <span data-testid="consulta-ruc" data-estado="no-encontrado">
-            Este RUC no figura en el padrón de SUNAT, que se actualiza cada día: si lo inscribieron hoy, puede tardar un día en aparecer. SUNAT rechaza los
-            comprobantes a un RUC que no existe, así que confirma el número. Puedes digitar los datos a mano.
+            {t.noEncontrado}
           </span>
         </Alerta>
       );
     case "sin-padron":
       return (
         <p role="status" data-testid="consulta-ruc" data-estado="sin-padron" className={cn(AYUDA_CAMPO, className)}>
-          La consulta de RUC no está disponible por ahora: digita los datos a mano.
+          {t.sinPadron}
         </p>
       );
     case "cupo":
       return (
         <Alerta tono="aviso" className={cn("px-3 py-2", className)} accion={<ReintentarBoton onReintentar={onReintentar} />}>
           <span data-testid="consulta-ruc" data-estado="cupo">
-            Hiciste muchas consultas seguidas. Espera un momento para consultar de nuevo, o digita los datos a mano.
+            {t.cupo}
           </span>
         </Alerta>
       );
@@ -87,7 +90,7 @@ export function EstadoConsultaRuc({
       return (
         <Alerta tono="aviso" className={cn("px-3 py-2", className)} accion={<ReintentarBoton onReintentar={onReintentar} />}>
           <span data-testid="consulta-ruc" data-estado="error">
-            No se pudo consultar SUNAT. Reintenta o digita los datos a mano.
+            {t.error}
           </span>
         </Alerta>
       );
@@ -95,9 +98,10 @@ export function EstadoConsultaRuc({
 }
 
 function ReintentarBoton({ onReintentar }: { onReintentar: () => void }) {
+  const t = useMessages().comprobantes.consultaRuc;
   return (
     <button type="button" className={ACCION} onClick={onReintentar}>
-      Consultar de nuevo
+      {t.reintentar}
     </button>
   );
 }

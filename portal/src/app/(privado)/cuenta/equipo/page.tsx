@@ -1,11 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getMessages } from "next-intl/server";
 import { EquipoView } from "@/components/equipo/equipo-view";
 import { esRolInsuficiente, SinPermisoDePagina } from "@/components/sin-permiso";
 import { listarInvitaciones, listarMiembros } from "@/lib/api/equipo";
-import { messages } from "@/lib/messages";
 import { getServerSession } from "@/lib/session-server";
 
-export const metadata = { title: `Equipo · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.nav.items.equipo} · ${messages.app.nombre}` };
+}
 
 /** #21: quiénes entran a la cuenta y con qué rol, y las invitaciones pendientes. Solo administradores: el backend responde 403 a los demás. */
 export default async function EquipoPage() {
@@ -20,6 +24,7 @@ export default async function EquipoPage() {
     },
   );
   if (cargado === null) return <SinPermisoDePagina />;
+  const messages = await getMessages();
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">

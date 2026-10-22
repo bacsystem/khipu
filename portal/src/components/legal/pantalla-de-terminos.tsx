@@ -1,6 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AceptarTerminos } from "@/components/legal/aceptar-terminos";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 import type { Usuario } from "@/lib/api/auth";
 
 /**
@@ -14,6 +14,7 @@ export function debeAceptarTerminos(usuario: Pick<Usuario, "terminos_pendientes"
 
 /** Ocupa toda la página en lugar del panel: no hay menú ni nada detrás a lo que llegar sin aceptar. */
 export function PantallaDeTerminos() {
+  const messages = useMessages();
   return (
     <AuthShell title={messages.aceptarTerminos.titulo} subtitle={messages.app.nombre}>
       <AceptarTerminos />

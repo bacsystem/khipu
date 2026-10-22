@@ -1,7 +1,5 @@
 import type { FaultDeSunat, ResultadoDeReintento } from "@/lib/api/admin-errores";
-import { messages } from "@/lib/messages";
-
-const r = messages.admin.errores.resultado;
+import type { Mensajes } from "@/i18n/mensajes";
 
 /** El fault en una línea: «0109 - El sistema no puede responder», o solo el mensaje si no hay código. Sin fault, vacío. */
 export function faultEnPalabras(fault: FaultDeSunat | undefined): string {
@@ -13,7 +11,13 @@ export function faultEnPalabras(fault: FaultDeSunat | undefined): string {
  * Qué le pasó a un comprobante al reintentar su envío, dicho para el administrador. Que SUNAT vuelva a fallar no es un error de la acción: el comprobante sigue en la cola y
  * el mensaje dice por qué (con el intento en que va).
  */
-export function mensajeDeReintento(res: ResultadoDeReintento, comprobante: string, etiquetaDelEstado: (estado: string) => string): string {
+export function mensajeDeReintento(
+  res: ResultadoDeReintento,
+  comprobante: string,
+  etiquetaDelEstado: (estado: string) => string,
+  messages: Mensajes,
+): string {
+  const r = messages.admin.errores.resultado;
   switch (res.estado) {
     case "ACEPTADO":
     case "ACEPTADO_CON_OBS":
@@ -29,6 +33,6 @@ export function mensajeDeReintento(res: ResultadoDeReintento, comprobante: strin
   }
 }
 
-export function mensajeDeDescarte(comprobante: string): string {
-  return r.descartado.replace("{comprobante}", comprobante);
+export function mensajeDeDescarte(comprobante: string, messages: Mensajes): string {
+  return messages.admin.errores.resultado.descartado.replace("{comprobante}", comprobante);
 }

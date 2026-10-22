@@ -1,14 +1,15 @@
 "use client";
 
 import { SaveIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
-import { etiquetaDelPrecio, GRUPOS_AFECTACION } from "@/lib/comprobantes/tributos";
+import { etiquetaDelPrecio, gruposAfectacion } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
 
@@ -16,6 +17,9 @@ const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
 
 /** Alta (`POST`) o edición (`PUT`) de un producto guardado. Las reglas son las de una línea de comprobante: el backend las valida igual y lo guardado siempre se puede emitir. */
 export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?: ProductoGuardado | null; onGuardado?: (p: ProductoGuardado) => void; onCancelar?: () => void }) {
+  const messages = useMessages();
+  const t = messages.productos.form;
+  const mensajeError = useMensajeError();
   const [descripcion, setDescripcion] = useState(existente?.descripcion ?? "");
   const [codigo, setCodigo] = useState(existente?.codigo ?? "");
   const [unidad, setUnidad] = useState(existente?.unidad ?? "NIU");
@@ -39,12 +43,12 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
     };
   }, []);
 
-  const errorDescripcion = descripcion.trim() === "" ? "Escribe la descripción" : descripcion.trim().length > 500 ? "Hasta 500 caracteres" : null;
+  const errorDescripcion = descripcion.trim() === "" ? t.errorDescripcion : descripcion.trim().length > 500 ? t.errorDescripcionLarga : null;
   const precioValido = /^\d{1,12}(\.\d{1,10})?$/.test(precioTexto.trim());
   const precio = precioValido ? Number(precioTexto.trim()) : null;
-  const errorPrecio = precioTexto.trim() !== "" && !precioValido ? "Hasta 12 enteros y 10 decimales" : precio === null || precio <= 0 ? "El precio debe ser mayor que cero" : null;
-  const errorCodigoSunat = codigoSunat.trim() !== "" && !/^\d{8}$/.test(codigoSunat.trim()) ? "Son 8 dígitos (UNSPSC, catálogo 25)" : null;
-  const errorCodigo = codigo.trim().length > 30 ? "Hasta 30 caracteres" : null;
+  const errorPrecio = precioTexto.trim() !== "" && !precioValido ? t.errorPrecioFormato : precio === null || precio <= 0 ? t.errorPrecioCero : null;
+  const errorCodigoSunat = codigoSunat.trim() !== "" && !/^\d{8}$/.test(codigoSunat.trim()) ? t.errorCodigoSunat : null;
+  const errorCodigo = codigo.trim().length > 30 ? t.errorCodigo : null;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -72,11 +76,11 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="producto-form">
-      <Campo id="prod-descripcion" etiqueta="Descripción" error={intento ? errorDescripcion : null}>
-        <input id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder="Ej. Servicio de consultoría" className={CAMPO_DENSO} />
+      <Campo id="prod-descripcion" etiqueta={t.descripcion} error={intento ? errorDescripcion : null}>
+        <input id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder={t.descripcionPlaceholder} className={CAMPO_DENSO} />
       </Campo>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo id="prod-unidad" etiqueta="Unidad de medida" ayuda="Catálogo 03">
+        <Campo id="prod-unidad" etiqueta={t.unidad} ayuda={t.unidadAyuda}>
           <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
             {(unidades ?? []).some((u) => u.codigo === unidad) ? null : <option value={unidad}>{unidad}</option>}
             {(unidades ?? []).map((u) => (
@@ -86,9 +90,9 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
             ))}
           </select>
         </Campo>
-        <Campo id="prod-afectacion" etiqueta="Afectación del IGV" ayuda="Catálogo 07">
+        <Campo id="prod-afectacion" etiqueta={t.afectacion} ayuda={t.afectacionAyuda}>
           <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={CAMPO_DENSO}>
-            {GRUPOS_AFECTACION.map((g) => (
+            {gruposAfectacion(messages).map((g) => (
               <optgroup key={g.grupo} label={g.grupo}>
                 {g.opciones.map((a) => (
                   <option key={a.codigo} value={a.codigo}>
@@ -97,17 +101,17 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
                 ))}
               </optgroup>
             ))}
-            <option value="40">40 · Exportación de bienes o servicios</option>
+            <option value="40">{t.exportacion}</option>
           </select>
         </Campo>
-        <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion)} error={intento ? errorPrecio : null} ayuda="Sin moneda: se usa en la del comprobante">
+        <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion, messages)} error={intento ? errorPrecio : null} ayuda={t.precioAyuda}>
           <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO_DENSO, "text-right font-mono tabular-nums")} />
         </Campo>
-        <Campo id="prod-codigo" etiqueta="Código interno" opcional error={intento ? errorCodigo : null} ayuda="Único por empresa">
+        <Campo id="prod-codigo" etiqueta={t.codigo} opcional error={intento ? errorCodigo : null} ayuda={t.codigoAyuda}>
           <input id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" className={cn(CAMPO_DENSO, "font-mono")} />
         </Campo>
       </div>
-      <Campo id="prod-codigo-sunat" etiqueta="Código de producto SUNAT" opcional error={intento ? errorCodigoSunat : null} ayuda="8 dígitos (UNSPSC, catálogo 25); lo exigen los padrones obligados">
+      <Campo id="prod-codigo-sunat" etiqueta={t.codigoSunat} opcional error={intento ? errorCodigoSunat : null} ayuda={t.codigoSunatAyuda}>
         <input
           id="prod-codigo-sunat"
           value={codigoSunat}
@@ -127,12 +131,12 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
         {onCancelar ? (
           <button type="button" onClick={onCancelar} className={BOTON_SECUNDARIO}>
-            Cancelar
+            {messages.comun.cancelar}
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
           <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : existente ? "Guardar cambios" : "Guardar producto"}
+          {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
         </button>
       </div>
     </form>

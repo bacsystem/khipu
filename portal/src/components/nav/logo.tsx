@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 
 export function LogoMarca({ href = "/inicio" }: { href?: string }) {
+  const messages = useMessages();
   return (
     <Link href={href} className="group flex min-w-0 items-center gap-2.5">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary to-primary-light text-primary-foreground shadow-xs">

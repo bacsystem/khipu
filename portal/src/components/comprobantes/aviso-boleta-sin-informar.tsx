@@ -1,11 +1,13 @@
 import { TriangleAlertIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { AvisoDePlazo } from "@/lib/comprobantes/plazo";
 import { formatearFecha } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
 /** «queda 1 día» / «quedan 3 días». */
-function cuantoQueda(dias: number): string {
-  return dias === 1 ? "queda 1 día" : `quedan ${dias} días`;
+function cuantoQueda(dias: number, t: Mensajes["comprobantes"]["avisoBoleta"]): string {
+  return dias === 1 ? t.quedaUno : interpolar(t.quedanVarios, { n: dias });
 }
 
 /**
@@ -14,8 +16,10 @@ function cuantoQueda(dias: number): string {
  * las dos últimas se marcan como urgentes. El botón para enviarla está arriba, junto a las demás acciones de la ficha.
  */
 export function AvisoBoletaSinInformar({ aviso, que }: { aviso: AvisoDePlazo; que: "boleta" | "nota" }) {
+  const messages = useMessages();
+  const t = messages.comprobantes.avisoBoleta;
   const urgente = aviso.fase === "ultimo-dia-resumen" || aviso.fase === "fuera-de-plazo";
-  const limite = formatearFecha(aviso.limite);
+  const limite = formatearFecha(aviso.limite, useLocale());
   return (
     <section
       role="status"
@@ -29,13 +33,13 @@ export function AvisoBoletaSinInformar({ aviso, que }: { aviso: AvisoDePlazo; qu
     >
       <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
       <div className="space-y-1">
-        <p className="font-semibold">Esta {que} todavía no se informó a SUNAT</p>
+        <p className="font-semibold">{interpolar(t.titulo, { que: messages.comprobantes.estadoBaja.que[que] })}</p>
         <p className="text-[13px] leading-relaxed">
-          {aviso.fase === "ultimo-dia-individual" ? `Hoy es el último día para enviarla sola; desde mañana solo se informa en el resumen diario, hasta el ${limite}.` : null}
-          {aviso.fase === "solo-resumen" ? `Ya no se puede enviar sola: se informa en el resumen diario hasta el ${limite} (${cuantoQueda(aviso.diasRestantes)}).` : null}
-          {aviso.fase === "ultimo-dia-resumen" ? `Hoy vence el plazo del resumen diario (${limite}). Pasado hoy se informa fuera de plazo y SUNAT puede observarla.` : null}
-          {aviso.fase === "fuera-de-plazo" ? `El plazo venció el ${limite}: al enviarla se informa en un resumen diario fuera de plazo y SUNAT puede observarla.` : null}{" "}
-          Envíala ahora con el botón de arriba.
+          {aviso.fase === "ultimo-dia-individual" ? interpolar(t.ultimoDiaIndividual, { limite }) : null}
+          {aviso.fase === "solo-resumen" ? interpolar(t.soloResumen, { limite, queda: cuantoQueda(aviso.diasRestantes, t) }) : null}
+          {aviso.fase === "ultimo-dia-resumen" ? interpolar(t.ultimoDiaResumen, { limite }) : null}
+          {aviso.fase === "fuera-de-plazo" ? interpolar(t.fueraDePlazo, { limite }) : null}{" "}
+          {t.enviala}
         </p>
       </div>
     </section>

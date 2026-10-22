@@ -1,9 +1,11 @@
 "use client";
 
 import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "khipu-design-system/ui/sheet";
+import { interpolar } from "@/i18n/mensajes";
 import { formatearXml } from "@/lib/xml";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
@@ -28,6 +30,7 @@ export function VistaPrevia({
   nombreArchivo: string | null;
   tieneCdr: boolean;
 }) {
+  const t = useMessages().comprobantes.vistaPrevia;
   const [abierto, setAbierto] = useState<Documento | null>(null);
   const [cache, setCache] = useState<Partial<Record<Documento, Estado>>>({});
   const pedidos = useRef<Set<Documento>>(new Set());
@@ -40,7 +43,7 @@ export function VistaPrevia({
     setCache((c) => ({ ...c, [activo]: { estado: "cargando" } }));
     fetch(urlDe(id, activo, false))
       .then(async (res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "El documento todavía no existe." : `Error ${res.status} al obtener el documento.`);
+        if (!res.ok) throw new Error(res.status === 404 ? t.noExiste : interpolar(t.errorHttp, { estado: res.status }));
         return res.text();
       })
       .then((texto) => setCache((c) => ({ ...c, [activo]: { estado: "ok", texto: formatearXml(texto) } })))
@@ -48,22 +51,22 @@ export function VistaPrevia({
         pedidos.current.delete(activo);
         setCache((c) => ({ ...c, [activo]: { estado: "error", mensaje: e.message } }));
       });
-  }, [activo, id]);
+  }, [activo, id, t]);
 
   const contenido = activo ? cache[activo] : undefined;
-  const titulo = activo === "cdr" ? "Constancia de recepción (CDR)" : "XML firmado";
+  const titulo = activo === "cdr" ? t.tituloCdr : t.tituloXml;
   const archivo = activo === "cdr" ? `R-${nombreArchivo ?? numero}.zip` : `${nombreArchivo ?? numero}.xml`;
 
   return (
     <>
       <button type="button" onClick={() => setAbierto("xml")} className={ACCION_SECUNDARIA}>
         <FileCodeIcon className="size-4 text-muted-foreground" />
-        Ver XML
+        {t.verXml}
       </button>
       {tieneCdr ? (
         <button type="button" onClick={() => setAbierto("cdr")} className={ACCION_SECUNDARIA}>
           <BadgeCheckIcon className="size-4 text-success-foreground" />
-          Ver CDR
+          {t.verCdr}
         </button>
       ) : null}
 
@@ -95,7 +98,7 @@ export function VistaPrevia({
               {activo ? (
                 <a href={urlDe(id, activo, true)} className={ACCION_PRINCIPAL}>
                   <DownloadIcon className="size-3.5" />
-                  Descargar {activo === "cdr" ? "ZIP" : "XML"}
+                  {interpolar(t.descargar, { formato: activo === "cdr" ? "ZIP" : "XML" })}
                 </a>
               ) : null}
             </div>
@@ -105,7 +108,7 @@ export function VistaPrevia({
             {!contenido || contenido.estado === "cargando" ? (
               <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
                 <Loader2Icon className="size-4 animate-spin" />
-                Cargando documento…
+                {t.cargando}
               </div>
             ) : contenido.estado === "error" ? (
               <div className="m-5 rounded-lg border border-destructive-border bg-destructive/10 p-3 text-xs text-destructive">{contenido.mensaje}</div>

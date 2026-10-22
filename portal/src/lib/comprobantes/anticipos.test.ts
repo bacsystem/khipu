@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
 import { afectacionPorDefecto, anticipoInicial, anticiposAApi, candidatosDeAnticipo, errorDeAnticipos } from "./anticipos";
+import es from "@/messages/es.json";
 
 type Parcial = Partial<Comprobante> & { serie: string; numero: number };
 const comp = (p: Parcial): Comprobante =>
@@ -46,7 +47,7 @@ describe("anticipos (#312)", () => {
     const [d] = candidatosDeAnticipo([mixto, final(12, "ACEPTADO", "exonerado", 400)], CLIENTE, "PEN");
     expect(d.disponible.gravado).toBe(600); // 1000 − los 400 regularizados en exonerado: lo que el backend compararía
     expect(d.disponible.exonerado).toBe(0);
-    expect(errorDeAnticipos([{ serie: "F001", numero: 1, monto: "601", afectacion: "gravado" }], [d])).toMatch(/solo tiene 600\.00 por descontar en gravado \(ya se regularizaron 400\.00\)/);
+    expect(errorDeAnticipos([{ serie: "F001", numero: 1, monto: "601", afectacion: "gravado" }], [d], es)).toMatch(/solo tiene 600\.00 por descontar en gravado \(ya se regularizaron 400\.00\)/);
   });
 
   it("elige la afectación con algo disponible y propone descontarlo todo", () => {
@@ -58,16 +59,16 @@ describe("anticipos (#312)", () => {
   it("valida el monto, que no pase de lo disponible y que no se repita el anticipo", () => {
     const [c] = candidatosDeAnticipo([comp({ serie: "F001", numero: 1 })], CLIENTE, "PEN");
     const a = (monto: string) => ({ serie: "F001", numero: 1, monto, afectacion: "gravado" as const });
-    expect(errorDeAnticipos([a("1000")], [c])).toBeNull();
-    for (const mal of ["", "0", "-5", "abc", "10.123"]) expect(errorDeAnticipos([a(mal)], [c]), mal).toMatch(/mayor que cero/);
-    expect(errorDeAnticipos([a("1000.01")], [c])).toMatch(/solo tiene 1000\.00 por descontar en gravado/);
-    expect(errorDeAnticipos([a("500"), a("400")], [c])).toMatch(/3215/);
+    expect(errorDeAnticipos([a("1000")], [c], es)).toBeNull();
+    for (const mal of ["", "0", "-5", "abc", "10.123"]) expect(errorDeAnticipos([a(mal)], [c], es), mal).toMatch(/mayor que cero/);
+    expect(errorDeAnticipos([a("1000.01")], [c], es)).toMatch(/solo tiene 1000\.00 por descontar en gravado/);
+    expect(errorDeAnticipos([a("500"), a("400")], [c], es)).toMatch(/3215/);
   });
 
   it("manda serie, número, monto y afectación; nada si algo no vale", () => {
     const [c] = candidatosDeAnticipo([comp({ serie: "F001", numero: 1 })], CLIENTE, "PEN");
-    expect(anticiposAApi([{ serie: "F001", numero: 1, monto: "500.50", afectacion: "gravado" }], [c])).toEqual([{ serie: "F001", numero: 1, monto: 500.5, afectacion: "gravado" }]);
-    expect(anticiposAApi([], [c])).toBeUndefined();
-    expect(anticiposAApi([{ serie: "F001", numero: 1, monto: "9999", afectacion: "gravado" }], [c])).toBeUndefined();
+    expect(anticiposAApi([{ serie: "F001", numero: 1, monto: "500.50", afectacion: "gravado" }], [c], es)).toEqual([{ serie: "F001", numero: 1, monto: 500.5, afectacion: "gravado" }]);
+    expect(anticiposAApi([], [c], es)).toBeUndefined();
+    expect(anticiposAApi([{ serie: "F001", numero: 1, monto: "9999", afectacion: "gravado" }], [c], es)).toBeUndefined();
   });
 });

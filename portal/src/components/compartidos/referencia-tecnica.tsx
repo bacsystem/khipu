@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpenIcon, KeyRoundIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ export function ReferenciaTecnicaDialog({
   pie?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = useMessages().referenciaTecnica;
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -40,7 +42,7 @@ export function ReferenciaTecnicaDialog({
         }
       >
         <BookOpenIcon className="size-4" />
-        Referencia técnica
+        {t.abrir}
       </DialogTrigger>
 
       {/* Ancho por estilo inline: no depende de breakpoints ni del orden de las utilidades. */}
@@ -68,7 +70,7 @@ export function ReferenciaTecnicaDialog({
             onClick={() => setAbierto(false)}
             className="inline-flex h-9 items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
           >
-            Entendido
+            {t.entendido}
           </button>
         </div>
       </DialogContent>
@@ -108,16 +110,17 @@ export function SeccionReferencia({
 }
 
 /** Tabla campo · tipo · descripción de una entidad; `nota` es la franja inferior (claves, cifrado…). */
-export function TablaCampos({ campos, etiquetaClave = "Clave primaria", nota }: { campos: CampoReferencia[]; etiquetaClave?: string; nota?: React.ReactNode }) {
+export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoReferencia[]; etiquetaClave?: string; nota?: React.ReactNode }) {
+  const t = useMessages().referenciaTecnica;
   return (
     <>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted">
-              <th className={TH}>Campo</th>
-              <th className={TH}>Tipo</th>
-              <th className={TH}>Descripción</th>
+              <th className={TH}>{t.campo}</th>
+              <th className={TH}>{t.tipo}</th>
+              <th className={TH}>{t.descripcion}</th>
             </tr>
           </thead>
           <tbody>
@@ -126,7 +129,7 @@ export function TablaCampos({ campos, etiquetaClave = "Clave primaria", nota }: 
                 <td className="px-4 py-2 whitespace-nowrap">
                   <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-foreground">
                     {c.campo}
-                    {c.clave ? <KeyRoundIcon className="size-3 text-warning-solid" aria-label={etiquetaClave} /> : null}
+                    {c.clave ? <KeyRoundIcon className="size-3 text-warning-solid" aria-label={etiquetaClave ?? t.clavePrimaria} /> : null}
                   </span>
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap">

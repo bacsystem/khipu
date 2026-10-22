@@ -1,3 +1,4 @@
+import type { Mensajes } from "@/i18n/mensajes";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
 
 /** Los mismos límites del backend (`BannerDeMantenimiento`): acá solo guían al administrador; quien decide es el backend. */
@@ -36,13 +37,17 @@ export function valoresDeAviso(b: BannerConfigurado): ValoresDeAviso {
 export type ErroresDeAviso = { texto?: string; desde?: string; hasta?: string };
 
 /** Solo lo que se puede decir sin preguntarle al backend: que haya texto y que las dos fechas sean fechas. Los límites y el orden los pone el backend, una sola vez. */
-export function cuerpoDeAviso(v: ValoresDeAviso): { cuerpo: { texto: string; desde: string; hasta: string } } | { errores: ErroresDeAviso } {
+export function cuerpoDeAviso(
+  v: ValoresDeAviso,
+  messages: Mensajes,
+): { cuerpo: { texto: string; desde: string; hasta: string } } | { errores: ErroresDeAviso } {
+  const t = messages.admin.configuracion.aviso.errores;
   const errores: ErroresDeAviso = {};
-  if (v.texto.trim() === "") errores.texto = "Escribe el texto del aviso.";
+  if (v.texto.trim() === "") errores.texto = t.textoRequerido;
   const desde = limaAInstante(v.desde);
   const hasta = limaAInstante(v.hasta);
-  if (desde === null) errores.desde = "Indica desde cuándo se muestra.";
-  if (hasta === null) errores.hasta = "Indica hasta cuándo se muestra.";
+  if (desde === null) errores.desde = t.desdeRequerido;
+  if (hasta === null) errores.hasta = t.hastaRequerido;
   if (errores.texto || errores.desde || errores.hasta || desde === null || hasta === null) return { errores };
   return { cuerpo: { texto: v.texto, desde, hasta } };
 }

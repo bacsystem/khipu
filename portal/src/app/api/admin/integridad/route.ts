@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMessages } from "next-intl/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { verificarIntegridad } from "@/lib/api/admin-integridad";
 import { errorResponse } from "@/lib/api/http";
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   if ("error" in leido) return leido.error;
   const { desde, hasta } = leido.cuerpo as { desde?: unknown; hasta?: unknown };
   if (typeof desde !== "string" || typeof hasta !== "string") return ERROR(400, "PARAMETRO_INVALIDO", "Faltan las fechas del rango");
-  const rango = validarRango(desde, hasta);
+  const rango = validarRango(desde, hasta, await getMessages());
   if ("errores" in rango) return ERROR(400, "PARAMETRO_INVALIDO", Object.values(rango.errores).join(" "));
 
   try {

@@ -1,6 +1,7 @@
 "use client";
 
 import { InboxIcon, RefreshCwIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
@@ -8,33 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "k
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
-import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
+import { etiquetasTipo } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";
+import { interpolar } from "@/i18n/mensajes";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const TODOS = "todos";
 
-const ITEMS_ESTADO: Record<string, string> = {
-  [TODOS]: "Estado: Todas",
-  activa: "Activas",
-  inactiva: "Inactivas",
-};
-
 const TIPOS_FILTRO = ["01", "03", "04", "07", "08", "09", "20", "31", "40"] as const;
-const ITEMS_TIPO: Record<string, string> = {
-  [TODOS]: "Tipo: Todos",
-  ...Object.fromEntries(TIPOS_FILTRO.map((t) => [t, `${t} · ${ETIQUETAS_TIPO[t] ?? t}`])),
-};
-
-const SUBTITULO_TIPO: Record<string, string> = {
-  "01": "UBL 2.1 · Tributario",
-  "03": "Consumidor final",
-  "07": "Afecta facturas o boletas",
-  "08": "Penalidades / ajustes",
-  "09": "Traslado de bienes · API REST",
-  "31": "Transportista · API REST",
-};
 
 function mascara(serie: string): string {
   return serie.replace(/[0-9]/g, "#");
@@ -46,6 +29,9 @@ function numero(n: number): string {
 
 
 export function SeriesTable({ series }: { series: Serie[] }) {
+  const messages = useMessages();
+  const t = messages.series.tabla;
+  const ETIQUETAS_TIPO = etiquetasTipo(messages);
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
   const [estado, setEstado] = useState(TODOS);
@@ -64,6 +50,13 @@ export function SeriesTable({ series }: { series: Serie[] }) {
       }),
     [series, estado, tipo],
   );
+
+  const itemsEstado = useMemo<Record<string, string>>(() => ({ [TODOS]: t.estadoTodas, activa: t.activas, inactiva: t.inactivas }), [t]);
+  const itemsTipo = useMemo<Record<string, string>>(
+    () => ({ [TODOS]: t.tipoTodos, ...Object.fromEntries(TIPOS_FILTRO.map((tipo) => [tipo, `${tipo} · ${ETIQUETAS_TIPO[tipo] ?? tipo}`])) }),
+    [t, ETIQUETAS_TIPO],
+  );
+  const subtitulos: Record<string, string> = t.subtitulos;
 
   const total = filtradas.length;
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
@@ -88,12 +81,12 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           veían deshabilitados. El tipo se filtra con su selector. */}
       <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Select items={ITEMS_ESTADO} value={estado} onValueChange={cambiarEstado}>
+          <Select items={itemsEstado} value={estado} onValueChange={cambiarEstado}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ITEMS_ESTADO).map(([valor, etiqueta]) => (
+              {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
                 <SelectItem key={valor} value={valor}>
                   {etiqueta}
                 </SelectItem>
@@ -101,12 +94,12 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             </SelectContent>
           </Select>
 
-          <Select items={ITEMS_TIPO} value={tipo} onValueChange={cambiarTipo}>
+          <Select items={itemsTipo} value={tipo} onValueChange={cambiarTipo}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-32 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ITEMS_TIPO).map(([valor, etiqueta]) => (
+              {Object.entries(itemsTipo).map(([valor, etiqueta]) => (
                 <SelectItem key={valor} value={valor}>
                   {etiqueta}
                 </SelectItem>
@@ -117,7 +110,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           <button
             type="button"
             onClick={() => startTransition(() => router.refresh())}
-            title="Refrescar lista"
+            title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
@@ -129,12 +122,12 @@ export function SeriesTable({ series }: { series: Serie[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Tipo de comprobante</TableHead>
-              <TableHead className={CABECERA_TABLA}>Código serie</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>Último número (correlativo)</TableHead>
-              <TableHead className={CABECERA_TABLA}>Establecimiento</TableHead>
-              <TableHead className={CABECERA_TABLA}>Formato / longitud</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.tipo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.codigo}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>{t.columnas.ultimoNumero}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.establecimiento}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.formato}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -151,8 +144,8 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                       {s.tipo}
                     </div>
                     <div className="flex flex-col">
-                      <span className="leading-snug font-semibold text-foreground">{ETIQUETAS_TIPO[s.tipo] ?? s.tipo} electrónica</span>
-                      <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">{SUBTITULO_TIPO[s.tipo] ?? "Comprobante SUNAT"}</span>
+                      <span className="leading-snug font-semibold text-foreground">{interpolar(t.tipoElectronico, { tipo: ETIQUETAS_TIPO[s.tipo] ?? s.tipo })}</span>
+                      <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">{subtitulos[s.tipo] ?? t.comprobanteSunat}</span>
                     </div>
                   </div>
                 </TableCell>
@@ -166,7 +159,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                     >
                       {s.serie}
                     </span>
-                    <BotonCopiar texto={s.serie} titulo="Copiar serie" className="opacity-0 group-hover:opacity-100" />
+                    <BotonCopiar texto={s.serie} titulo={t.copiar} className="opacity-0 group-hover:opacity-100" />
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 text-right whitespace-nowrap">
@@ -174,7 +167,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                     {numero(s.ultimo_numero)}
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80 tabular-nums">
-                    {s.ultimo_numero === 0 ? "Sin emisiones previas" : `Siguiente: #${numero(s.ultimo_numero + 1)}`}
+                    {s.ultimo_numero === 0 ? t.sinEmisionesPrevias : interpolar(t.siguiente, { numero: numero(s.ultimo_numero + 1) })}
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
@@ -185,19 +178,19 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                 <TableCell className="px-3 py-2 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">{mascara(s.serie)}</span>
-                    <span>({s.serie.length} caracteres)</span>
+                    <span>{interpolar(t.caracteres, { cantidad: s.serie.length })}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
                   {s.activa ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
                       <span className="size-1.5 rounded-full bg-success-solid" />
-                      Activa
+                      {t.activa}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
                       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-                      Inactiva
+                      {t.inactiva}
                     </span>
                   )}
                 </TableCell>
@@ -209,7 +202,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">
-                      {series.length === 0 ? "Todavía no tienes series. Crea la primera con «Nueva serie»." : "No hay series con los filtros seleccionados."}
+                      {series.length === 0 ? t.vacio : t.sinCoincidencias}
                     </p>
                   </div>
                 </TableCell>
@@ -222,13 +215,13 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="series"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Los correlativos se asignan de forma atómica y secuencial por cada emisión"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

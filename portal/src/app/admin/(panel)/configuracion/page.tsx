@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConfiguracionDeLaPlataforma, type ContenidoDeConfiguracion } from "@/components/admin/configuracion-de-la-plataforma";
@@ -10,11 +12,11 @@ import {
   paramsConfiguracionDesdeUrl,
   type ParamsConfiguracion,
 } from "@/lib/api/admin-configuracion";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Configuración · Backoffice" };
-
-const t = messages.admin.configuracion;
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.configuracion };
+}
 
 /** Solo se pide lo que se ve: la sección va en la URL. */
 async function cargar(access: string, p: ParamsConfiguracion): Promise<ContenidoDeConfiguracion> {
@@ -33,6 +35,8 @@ async function cargar(access: string, p: ParamsConfiguracion): Promise<Contenido
  * separado: el layout del panel valida la sesión del administrador (`/me`) en cada render, así que un token vencido ya redirigió a /admin/login antes de llegar aquí.
  */
 export default async function AdminConfiguracionPage({ searchParams }: { searchParams: Promise<{ seccion?: string; plantilla?: string }> }) {
+  const messages = await getMessages();
+  const t = messages.admin.configuracion;
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 

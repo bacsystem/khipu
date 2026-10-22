@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { SeriesTable } from "@/components/series/series-table";
-import { ETIQUETAS_TIPO, listarFacturas } from "@/lib/api/facturas";
+import { etiquetasTipo, listarFacturas } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
 import { formatearFecha } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/compartidos/metrica";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { getLocale, getMessages } from "next-intl/server";
+import { interpolar } from "@/i18n/mensajes";
+import type { Locale } from "@/i18n/config";
 
-export const metadata = { title: `Series correlativas · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.nav.items.series} · ${messages.app.nombre}` };
+}
 
 const TIPOS_SOPORTADOS = ["01", "03", "07", "08"] as const;
 
@@ -20,13 +26,16 @@ function numero(n: number): string {
 
 export default async function SeriesPage() {
   const { access, empresaId } = await getServerSession();
+  const messages = await getMessages();
+  const locale = (await getLocale()) as Locale;
+  const t = messages.series.pagina;
 
   if (!access || !empresaId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Configura primero una empresa para crear series.{" "}
+        {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
-          Configurar empresa
+          {t.configurarEmpresa}
         </Link>
       </p>
     );
@@ -47,29 +56,29 @@ export default async function SeriesPage() {
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
         <Metrica
-          etiqueta="Series habilitadas"
+          etiqueta={t.seriesHabilitadas}
           ayuda={
             <span className={cn("flex items-center gap-1", porcentaje === 100 ? "text-success-foreground" : "text-warning-foreground")}>
               <span className={cn("size-1.5 shrink-0 rounded-full", porcentaje === 100 ? "bg-success-solid" : "bg-warning-solid")} />
-              {porcentaje}% operativas
+              {interpolar(t.operativas, { porcentaje })}
             </span>
           }
         >
           {activas}
-          <span className="text-[12px] font-normal text-muted-foreground">/ {series.length} configuradas</span>
+          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.configuradas, { total: series.length })}</span>
         </Metrica>
 
         <Metrica
-          etiqueta="Último correlativo emitido"
+          etiqueta={t.ultimoCorrelativo}
           ayuda={
             ultimo ? (
               <>
-                <span className="truncate">{ETIQUETAS_TIPO[ultimo.tipo] ?? ultimo.tipo} electrónica</span>
+                <span className="truncate">{interpolar(t.tipoElectronico, { tipo: etiquetasTipo(messages)[ultimo.tipo] ?? ultimo.tipo })}</span>
                 <span className="text-muted-foreground/40">·</span>
-                <span className="shrink-0 font-mono">{formatearFecha(ultimo.fecha_emision)}</span>
+                <span className="shrink-0 font-mono">{formatearFecha(ultimo.fecha_emision, locale)}</span>
               </>
             ) : (
-              "Sin emisiones todavía"
+              t.sinEmisiones
             )
           }
         >
@@ -84,23 +93,23 @@ export default async function SeriesPage() {
         </Metrica>
 
         <Metrica
-          etiqueta="Cobertura de comprobantes"
+          etiqueta={t.cobertura}
           ayuda={
             <>
               <span className="truncate">
-                {cubiertos.length === 0 ? "Sin series configuradas" : cubiertos.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}
+                {cubiertos.length === 0 ? t.sinSeriesConfiguradas : cubiertos.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}
               </span>
               <span className="text-muted-foreground/40">·</span>
-              <span className="shrink-0 text-primary">UBL 2.1</span>
+              <span className="shrink-0 text-primary">{messages.nav.ubl}</span>
             </>
           }
         >
           {cubiertos.length}
-          <span className="text-[12px] font-normal text-muted-foreground">/ {TIPOS_SOPORTADOS.length} tipos</span>
+          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.tipos, { total: TIPOS_SOPORTADOS.length })}</span>
         </Metrica>
 
         <Metrica
-          etiqueta="Tipos sin serie"
+          etiqueta={t.tiposSinSerie}
           ayuda={
             sinSerie.length > 0 ? (
               <span className="flex min-w-0 items-center gap-1 text-destructive">
@@ -108,7 +117,7 @@ export default async function SeriesPage() {
                 <span className="truncate">{sinSerie.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}</span>
               </span>
             ) : (
-              <span className="text-success-foreground">Todos los tipos cubiertos</span>
+              <span className="text-success-foreground">{t.todosCubiertos}</span>
             )
           }
         >

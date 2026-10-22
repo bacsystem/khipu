@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/config";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 
@@ -15,22 +17,23 @@ export type ResumenDePlan = {
 /** Desde aquí se avisa que el consumo se acerca al tope: el mismo 80 % que usa el backoffice en Consumo (#193). */
 const UMBRAL_CERCA = 0.8;
 
-/** Lo que el menú dice del plan del cliente (C1): el estado de pago pesa más que el consumo. */
-export function resumenDePlan(cuenta: MiCuenta): ResumenDePlan {
+/** Lo que el menú dice del plan del cliente (C1): el estado de pago pesa más que el consumo. Los textos, en el idioma de `messages`. */
+export function resumenDePlan(cuenta: MiCuenta, messages: Mensajes, locale: Locale): ResumenDePlan {
+  const t = messages.resumenDePlan;
   const { documentos, maximo } = cuenta.consumo;
   const base = { plan: cuenta.plan.plan.nombre };
 
-  const consumo = maximo === undefined ? `${documentos} documentos` : `${documentos} / ${maximo}`;
+  const consumo = maximo === undefined ? interpolar(t.documentos, { n: documentos }) : `${documentos} / ${maximo}`;
   const porcentaje = maximo === undefined ? null : maximo === 0 ? 100 : Math.min(100, Math.round((documentos / maximo) * 100));
 
-  if (cuenta.plan.estado === "VENCIDA") return { ...base, consumo, porcentaje, tono: "error", aviso: "Tu plan venció: escríbenos para renovarlo" };
+  if (cuenta.plan.estado === "VENCIDA") return { ...base, consumo, porcentaje, tono: "error", aviso: t.vencido };
   // `>` y no `>=`: el backend rechaza recién el documento que pasa el tope, y el backoffice usa la misma regla (265-H1).
-  if (maximo !== undefined && documentos > maximo) return { ...base, consumo, porcentaje, tono: "error", aviso: "Superaste el tope de documentos del mes" };
-  if (maximo !== undefined && documentos === maximo) return { ...base, consumo, porcentaje, tono: "aviso", aviso: "Llegaste al tope de documentos del mes" };
+  if (maximo !== undefined && documentos > maximo) return { ...base, consumo, porcentaje, tono: "error", aviso: t.superaste };
+  if (maximo !== undefined && documentos === maximo) return { ...base, consumo, porcentaje, tono: "aviso", aviso: t.llegaste };
   if (cuenta.plan.estado === "EN_GRACIA") {
-    const hasta = cuenta.plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(cuenta.plan.hasta_cuando_cubre)) : null;
-    return { ...base, consumo, porcentaje, tono: "aviso", aviso: hasta ? `Pago vencido: se sirve hasta el ${hasta}` : "Pago vencido" };
+    const hasta = cuenta.plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(cuenta.plan.hasta_cuando_cubre), locale) : null;
+    return { ...base, consumo, porcentaje, tono: "aviso", aviso: hasta ? interpolar(t.pagoVencidoHasta, { fecha: hasta }) : t.pagoVencido };
   }
-  if (maximo !== undefined && documentos >= maximo * UMBRAL_CERCA) return { ...base, consumo, porcentaje, tono: "aviso", aviso: "Cerca del tope de documentos del mes" };
+  if (maximo !== undefined && documentos >= maximo * UMBRAL_CERCA) return { ...base, consumo, porcentaje, tono: "aviso", aviso: t.cerca };
   return { ...base, consumo, porcentaje, tono: "ok", aviso: null };
 }

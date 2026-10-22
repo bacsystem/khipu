@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { FormulariosDeEscritura, motivosDeRestriccion, SoloLectura } from "./solo-lectura";
+import es from "@/messages/es.json";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn() }));
@@ -103,8 +104,8 @@ describe("permisos por rol", () => {
   });
 
   it("un rol desconocido es el más restringido", () => {
-    expect(motivosDeRestriccion(false, "DUENO").emitir).not.toBeNull();
-    expect(motivosDeRestriccion(false, "DUENO").configurar).not.toBeNull();
-    expect(motivosDeRestriccion(false, "DUENO").sesion).toBeNull();
+    expect(motivosDeRestriccion(false, "DUENO", es).emitir).not.toBeNull();
+    expect(motivosDeRestriccion(false, "DUENO", es).configurar).not.toBeNull();
+    expect(motivosDeRestriccion(false, "DUENO", es).sesion).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { alertasDelPanel, serieDiaria } from "@/lib/inicio/panel";
 import { AlertasDelPanel } from "./alertas-del-panel";
 import { descripcionDelDia, GraficoDeEmision, resumenDelGrafico } from "./grafico-de-emision";
 import { KpisDelMes } from "./kpis-del-mes";
+import es from "@/messages/es.json";
 
 afterEach(cleanup);
 
@@ -80,7 +81,7 @@ describe("GraficoDeEmision (#24)", () => {
 
     const svg = screen.getByRole("img", { name: /Emisión por día/ });
     expect(svg.getAttribute("aria-labelledby")).toBe("grafico-emision-titulo grafico-emision-desc");
-    expect(screen.getByText(resumenDelGrafico(serie))).toBeTruthy();
+    expect(screen.getByText(resumenDelGrafico(serie, es, "es"))).toBeTruthy();
     const dias = screen.getAllByTestId("grafico-emision-dia");
     expect(dias.map((d) => d.getAttribute("data-emitidos"))).toEqual(["0", "2", "0", "4", "0"]);
     expect(dias.map((d) => d.querySelectorAll("rect").length)).toEqual([1, 2, 1, 2, 1]);
@@ -102,7 +103,7 @@ describe("GraficoDeEmision (#24)", () => {
     expect(titulos[1]).toBe("2 Oct 2026: 2 comprobantes · S/ 236.00");
     expect(titulos[3]).toBe("4 Oct 2026: 4 comprobantes · S/ 100.00 · $ 50.50");
     expect(titulos[0]).toBe("1 Oct 2026: 0 comprobantes");
-    expect(descripcionDelDia({ fecha: "2026-10-09", emitidos: 1, facturado: {} })).toBe("9 Oct 2026: 1 comprobante");
+    expect(descripcionDelDia({ fecha: "2026-10-09", emitidos: 1, facturado: {} }, es, "es")).toBe("9 Oct 2026: 1 comprobante");
   });
 
   it("trae la misma información como tabla, con una columna por moneda", () => {
@@ -117,7 +118,7 @@ describe("GraficoDeEmision (#24)", () => {
   });
 
   it("el resumen para lectores de pantalla dice cuántos, en cuántos días y el pico", () => {
-    expect(resumenDelGrafico(serie)).toBe("6 comprobantes emitidos en 2 de 5 días, del 1 Oct 2026 al 5 Oct 2026. El día de más emisión fue el 4 Oct 2026, con 4.");
+    expect(resumenDelGrafico(serie, es, "es")).toBe("6 comprobantes emitidos en 2 de 5 días, del 1 Oct 2026 al 5 Oct 2026. El día de más emisión fue el 4 Oct 2026, con 4.");
   });
 
   it("sin emisión en el mes no dibuja barras y lo dice", () => {
@@ -145,7 +146,7 @@ describe("AlertasDelPanel (#24)", () => {
       { atencion_requerida: { total: 1, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 1, boletas_sin_enviar: 0 } },
       { desde: "2026-10-01", hasta: HOY },
       HOY,
-    );
+     es, "es");
     render(<AlertasDelPanel alertas={alertas} incompleto={false} />);
 
     const avisos = screen.getAllByTestId("alerta-del-panel");

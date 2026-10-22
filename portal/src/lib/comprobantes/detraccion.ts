@@ -1,3 +1,5 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+
 /**
  * #288, #297: detracción (SPOT) de una factura o de una boleta. El portal pregunta y avisa; decidir si el servicio está sujeto es del emisor y su contador. El monto lo calcula el backend (en
  * soles: total × porcentaje, redondeado al sol); aquí solo se arman los datos que pide `FacturaRequest.DetraccionDto` (códigos 3127–3129, 3208).
@@ -54,19 +56,20 @@ function positivoHasta5(texto: string): boolean {
 }
 
 /** Por qué la detracción no vale tal como está, o `null`. */
-export function errorDeDetraccion(d: DetraccionForm, moneda: string): string | null {
+export function errorDeDetraccion(d: DetraccionForm, moneda: string, messages: Mensajes): string | null {
+  const t = messages.comprobantes.validacion.detraccion;
   if (!d.activa) return null;
-  if (d.codigo === "") return "Elija el bien o servicio sujeto a detracción (catálogo 54).";
-  if (!positivoHasta5(d.porcentaje)) return "El porcentaje de la detracción es un número mayor que cero y hasta 100, con hasta 5 decimales.";
-  if (d.cuenta.trim() === "") return "Falta la cuenta de detracciones del Banco de la Nación (3034).";
-  if (moneda !== "PEN" && !/^\d*\.?\d+$/.test(d.montoEnSoles.trim())) return `En una factura en ${moneda} el monto de la detracción se indica en soles (3208).`;
+  if (d.codigo === "") return t.sinCodigo;
+  if (!positivoHasta5(d.porcentaje)) return t.porcentaje;
+  if (d.cuenta.trim() === "") return t.sinCuenta;
+  if (moneda !== "PEN" && !/^\d*\.?\d+$/.test(d.montoEnSoles.trim())) return interpolar(t.montoEnSoles, { moneda });
   return null;
 }
 
 export type DetraccionApi = { codigo_bien_servicio: string; porcentaje: number; medio_pago: string; cuenta_banco_nacion: string; monto?: number };
 
-export function detraccionAApi(d: DetraccionForm, moneda: string): DetraccionApi | undefined {
-  if (!d.activa || errorDeDetraccion(d, moneda) !== null) return undefined;
+export function detraccionAApi(d: DetraccionForm, moneda: string, messages: Mensajes): DetraccionApi | undefined {
+  if (!d.activa || errorDeDetraccion(d, moneda, messages) !== null) return undefined;
   return {
     codigo_bien_servicio: d.codigo,
     porcentaje: Number(d.porcentaje),

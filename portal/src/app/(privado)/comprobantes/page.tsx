@@ -9,9 +9,13 @@ import { obtenerEmpresaActual } from "@/lib/api/empresas";
 import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { getServerSession } from "@/lib/session-server";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 
-export const metadata = { title: `Comprobantes · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.comprobantes.pagina.titulo} · ${messages.app.nombre}` };
+}
 
 export default async function ComprobantesPage({
   searchParams,
@@ -26,11 +30,12 @@ export default async function ComprobantesPage({
   const filtros = filtrosDesdeParams(resto);
 
   if (!access || !empresaId) {
+    const t = (await getMessages()).comprobantes.pagina;
     return (
       <p className="text-sm text-muted-foreground">
-        Primero registra una empresa para ver tus comprobantes.{" "}
+        {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
-          Configurar empresa
+          {t.configurarEmpresa}
         </Link>
       </p>
     );
@@ -38,18 +43,19 @@ export default async function ComprobantesPage({
 
   // La franja de métricas resume el período de los filtros de fecha (o el mes en curso) y, si no carga, no tumba la lista: se muestra atenuada y lo dice.
   const periodo = periodoDelResumen(filtros, hoyLima());
-  const [{ datos, total }, series, resumen, empresa] = await Promise.all([
+  const [{ datos, total }, series, resumen, empresa, messages] = await Promise.all([
     listarFacturas(access, empresaId, { ...filtros, pagina: paginaNum, porPagina }),
     // `null` = no se pudo leer: la guía no afirma que falten series y la tabla sigue sin el filtro por serie.
     listarSeries(access, empresaId).catch(() => null),
     resumirFacturas(access, empresaId, periodo).catch(() => null),
     // La guía es una ayuda: si la empresa no se puede leer, la lista de comprobantes sigue sin ella.
     obtenerEmpresaActual(access, empresaId).catch(() => null),
+    getMessages(),
   ]);
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      {empresa ? <GuiaParaEmitir pasos={pasosParaEmitir(empresa, series, hoyLima())} /> : null}
+      {empresa ? <GuiaParaEmitir pasos={pasosParaEmitir(empresa, series, hoyLima(), messages)} /> : null}
 
       <ResumenDeComprobantes resumen={resumen} periodo={periodo} />
 

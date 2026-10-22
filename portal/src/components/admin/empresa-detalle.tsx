@@ -1,22 +1,20 @@
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CambiarEntorno, ProbarConexion, RevocarApiKey } from "@/components/admin/acciones-de-empresa";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
-import { ETIQUETAS_ESTADO, EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { EstadoBadge } from "@/components/comprobantes/estado-badge";
 import { Tabs } from "khipu-design-system/navegacion/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import type { DomicilioEmpresa, EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { estadoCertificadoDeEmpresa } from "@/lib/api/admin-empresas";
-import { PLANTILLAS_PDF } from "@/lib/api/empresas";
-import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
+import { plantillasPdf } from "@/lib/api/empresas";
 import { CABECERA_TABLA, ETIQUETA_DATO } from "@/lib/estilos";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
-import { messages } from "@/lib/messages";
-
-const t = messages.admin.empresaDetalle;
+import type { Mensajes } from "@/i18n/mensajes";
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -27,7 +25,10 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
   );
 }
 
-const SIN_DATO = <span className="text-muted-foreground">{t.fiscales.ninguno}</span>;
+/** «—» o lo que diga el catálogo cuando un dato no está. */
+function SinDato() {
+  return <span className="text-muted-foreground">{useMessages().admin.empresaDetalle.fiscales.ninguno}</span>;
+}
 
 function direccion(d: DomicilioEmpresa): string {
   return [d.direccion, d.urbanizacion, [d.distrito, d.provincia, d.departamento].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
@@ -35,17 +36,18 @@ function direccion(d: DomicilioEmpresa): string {
 
 const numero = (serie: string, n: number) => `${serie}-${String(n).padStart(8, "0")}`;
 
-function etiquetaEstado(estado: string): string {
-  return ETIQUETAS_ESTADO[estado as EstadoDocumento] ?? estado;
+function etiquetaEstado(estado: string, messages: Mensajes): string {
+  return (messages.documentos.estados as Record<string, string>)[estado] ?? estado;
 }
 
 function Fiscales({ e }: { e: EmpresaDetalleAdmin }) {
+  const t = useMessages().admin.empresaDetalle;
   const f = t.fiscales;
   return (
     <Seccion titulo={f.titulo} id="empresa-fiscales">
       <dl className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
         <Dato etiqueta={f.razonSocial}>{e.razon_social}</Dato>
-        <Dato etiqueta={f.nombreComercial}>{e.nombre_comercial ?? SIN_DATO}</Dato>
+        <Dato etiqueta={f.nombreComercial}>{e.nombre_comercial ?? <SinDato />}</Dato>
         <Dato etiqueta={f.ruc}>
           <span className="font-mono">{e.ruc}</span>
         </Dato>
@@ -62,7 +64,7 @@ function Fiscales({ e }: { e: EmpresaDetalleAdmin }) {
             <span className="text-muted-foreground">{f.sinDomicilio}</span>
           )}
         </Dato>
-        <Dato etiqueta={f.detracciones}>{e.cuenta_detracciones ? <span className="font-mono">{e.cuenta_detracciones}</span> : SIN_DATO}</Dato>
+        <Dato etiqueta={f.detracciones}>{e.cuenta_detracciones ? <span className="font-mono">{e.cuenta_detracciones}</span> : <SinDato />}</Dato>
         <Dato etiqueta={f.padron}>{e.padron_tasa_especial_igv ? f.si : f.no}</Dato>
       </dl>
     </Seccion>
@@ -70,6 +72,7 @@ function Fiscales({ e }: { e: EmpresaDetalleAdmin }) {
 }
 
 function Conexion({ e }: { e: EmpresaDetalleAdmin }) {
+  const t = useMessages().admin.empresaDetalle;
   const c = t.conexion;
   return (
     <Seccion titulo={c.titulo} id="empresa-conexion">
@@ -90,6 +93,8 @@ function Conexion({ e }: { e: EmpresaDetalleAdmin }) {
 }
 
 function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
+  const messages = useMessages();
+  const t = messages.admin.empresaDetalle;
   const s = t.series;
   return (
     <Seccion titulo={s.titulo} id="empresa-series">
@@ -108,7 +113,7 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
             <TableRow key={`${x.tipo}-${x.codigo}`} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.codigo}</TableCell>
               <TableCell className="px-3 py-2 text-[12px]" title={x.tipo}>
-                {ETIQUETAS_TIPO[x.tipo] ?? x.tipo}
+                {(messages.documentos.tipos as Record<string, string>)[x.tipo] ?? x.tipo}
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.ultimo_numero}</TableCell>
               <TableCell className="px-3 py-2">
@@ -125,6 +130,7 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
 }
 
 function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetalleAdmin["establecimientos"] }) {
+  const t = useMessages().admin.empresaDetalle;
   const s = t.establecimientos;
   return (
     <Seccion titulo={s.titulo} id="empresa-establecimientos">
@@ -156,6 +162,8 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
 }
 
 function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSocial: string; keys: EmpresaDetalleAdmin["api_keys"] }) {
+  const locale = useLocale();
+  const t = useMessages().admin.empresaDetalle;
   const k = t.apiKeys;
   return (
     <Seccion titulo={k.titulo} id="empresa-api-keys">
@@ -176,8 +184,8 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? k.activa : k.revocada}</Etiqueta>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.creada_en)}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en) : SIN_DATO}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.creada_en, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en, locale) : <SinDato />}</TableCell>
               <TableCell className="py-2 pr-4 pl-3 text-right">
                 {x.activa ? <RevocarApiKey empresaId={empresaId} apiKeyId={x.id} prefijo={x.prefijo} razonSocial={razonSocial} /> : null}
               </TableCell>
@@ -192,16 +200,18 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
 }
 
 /** El backend manda la plantilla en mayúsculas (`CLASICO`) y el catálogo del portal la nombra en minúsculas: se busca sin importar eso. */
-function nombreDePlantilla(plantilla: string): string {
-  return PLANTILLAS_PDF.find((x) => x.id === plantilla.toLowerCase())?.nombre ?? plantilla;
+function nombreDePlantilla(plantilla: string, messages: Mensajes): string {
+  return plantillasPdf(messages).find((x) => x.id === plantilla.toLowerCase())?.nombre ?? plantilla;
 }
 
 function Pdf({ pdf }: { pdf: EmpresaDetalleAdmin["pdf"] }) {
+  const messages = useMessages();
+  const t = messages.admin.empresaDetalle;
   const p = t.pdf;
   return (
     <Seccion titulo={p.titulo} id="empresa-pdf">
       <dl className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Dato etiqueta={p.plantilla}>{nombreDePlantilla(pdf.plantilla)}</Dato>
+        <Dato etiqueta={p.plantilla}>{nombreDePlantilla(pdf.plantilla, messages)}</Dato>
         <Dato etiqueta={p.color}>
           <span className="inline-flex items-center gap-2 font-mono">
             <span className="inline-block size-3.5 rounded-sm border border-border" style={{ backgroundColor: pdf.color_primario }} aria-hidden="true" />
@@ -211,14 +221,16 @@ function Pdf({ pdf }: { pdf: EmpresaDetalleAdmin["pdf"] }) {
         <Dato etiqueta={p.logo}>
           <Etiqueta tono={pdf.tiene_logo ? "ok" : "neutro"}>{pdf.tiene_logo ? p.conLogo : p.sinLogo}</Etiqueta>
         </Dato>
-        <Dato etiqueta={p.pie}>{pdf.pie_de_pagina ?? SIN_DATO}</Dato>
-        <Dato etiqueta={p.observaciones}>{pdf.observaciones_por_defecto ?? SIN_DATO}</Dato>
+        <Dato etiqueta={p.pie}>{pdf.pie_de_pagina ?? <SinDato />}</Dato>
+        <Dato etiqueta={p.observaciones}>{pdf.observaciones_por_defecto ?? <SinDato />}</Dato>
       </dl>
     </Seccion>
   );
 }
 
 function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["comprobantes"] }) {
+  const locale = useLocale();
+  const t = useMessages().admin.empresaDetalle;
   const c = t.comprobantes;
   return (
     <Seccion titulo={c.titulo} id="empresa-comprobantes">
@@ -241,11 +253,11 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
                   {numero(x.serie, x.numero)}
                 </Link>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision)}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
               <TableCell className="px-3 py-2">
                 <EstadoBadge estado={x.estado} />
               </TableCell>
-              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total)}</TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total, locale)}</TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.intentos}</TableCell>
               <TableCell className="py-2 pr-4 pl-3 text-[12px]">
                 {x.cdr ? (
@@ -282,6 +294,9 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
 }
 
 function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.empresaDetalle;
   const v = t.eventos;
   return (
     <Seccion titulo={v.titulo} id="empresa-eventos">
@@ -299,10 +314,10 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
             <TableRow key={`${x.comprobante}-${x.ocurrido_en}-${i}`} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.comprobante}</TableCell>
               <TableCell className="px-3 py-2 text-[12px]">
-                {x.estado_anterior ? etiquetaEstado(x.estado_anterior) : v.inicio} → <span className="font-medium">{etiquetaEstado(x.estado_nuevo)}</span>
+                {x.estado_anterior ? etiquetaEstado(x.estado_anterior, messages) : v.inicio} → <span className="font-medium">{etiquetaEstado(x.estado_nuevo, messages)}</span>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.detalle ?? SIN_DATO}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en)}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.detalle ?? <SinDato />}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
             </TableRow>
           ))}
           {eventos.length === 0 ? <Vacio columnas={4} texto={v.vacio} /> : null}
@@ -313,6 +328,8 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
 }
 
 function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
+  const locale = useLocale();
+  const t = useMessages().admin.empresaDetalle;
   const o = t.outbox;
   return (
     <Seccion titulo={o.titulo} id="empresa-outbox">
@@ -332,8 +349,8 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
                 <span className="font-medium">{x.accion}</span> <span className="text-muted-foreground">{x.agregado}</span>
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.intentos}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.siguiente_intento)}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-destructive">{x.ultimo_error ?? SIN_DATO}</TableCell>
+              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.siguiente_intento, locale)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-destructive">{x.ultimo_error ?? <SinDato />}</TableCell>
             </TableRow>
           ))}
           {outbox.proximas.length === 0 ? <Vacio columnas={4} texto={o.vacio} /> : null}
@@ -356,6 +373,9 @@ type Pestana = "datos" | "emision" | "apiKeys" | "comprobantes" | "envios";
  * establecimientos y diseño del PDF), las API keys, los comprobantes con sus cambios de estado y la cola de envíos pendientes.
  */
 export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.empresaDetalle;
   const p = t.pestanas;
   const pestanas: Array<{ id: Pestana; etiqueta: string; contador?: number }> = [
     { id: "datos", etiqueta: p.datos },
@@ -385,7 +405,7 @@ export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
               {empresa.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
             </Etiqueta>
           </Dato>
-          <Dato etiqueta={t.alta}>{formatearFechaHora(empresa.creada_en)}</Dato>
+          <Dato etiqueta={t.alta}>{formatearFechaHora(empresa.creada_en, locale)}</Dato>
         </dl>
         <CambiarEntorno empresaId={empresa.id} razonSocial={empresa.razon_social} entorno={empresa.entorno} />
       </div>

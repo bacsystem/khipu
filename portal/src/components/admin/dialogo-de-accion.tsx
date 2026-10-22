@@ -1,12 +1,14 @@
 "use client";
 
 import { TriangleAlertIcon, type LucideIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,8 @@ export type DialogoDeAccionProps = {
  * debe ver el resultado), y un corte de red no se reintenta a ciegas, porque no se sabe si el cambio llegó.
  */
 export function DialogoDeAccion(p: DialogoDeAccionProps) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -86,7 +90,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
     enviandoRef.current = false;
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.`);
+      setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {

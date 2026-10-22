@@ -1,11 +1,15 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CuentasTabla } from "@/components/admin/cuentas-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefCuentas, hrefSiFueraDeRango, listarCuentasAdmin, paramsCuentasDesdeUrl } from "@/lib/api/admin-cuentas";
-import { messages } from "@/lib/messages";
 
-export const metadata = { title: "Cuentas · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.cuentas };
+}
 
 /**
  * Listado de cuentas (#180). Los filtros viven en la URL y se aplican ya en el render del servidor. No captura el 401
@@ -17,6 +21,7 @@ export default async function AdminCuentasPage({
 }: {
   searchParams: Promise<{ q?: string; bajas?: string; pagina?: string; por_pagina?: string }>;
 }) {
+  const messages = await getMessages();
   const { access } = await getAdminServerSession();
   if (!access) redirect("/admin/login");
 

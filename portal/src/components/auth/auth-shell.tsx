@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { LogoMarca } from "@/components/nav/logo";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 
 /**
  * Marco de las pantallas públicas de acceso (login, registro, recuperar, restablecer, verificar, cuenta suspendida): la marca a un lado y el formulario al otro.
@@ -19,6 +19,7 @@ export function AuthShell({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const messages = useMessages();
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar px-12 py-12 text-sidebar-foreground md:flex">

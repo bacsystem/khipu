@@ -1,5 +1,8 @@
+import { useLocale, useMessages } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { CABECERA_TABLA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import type { Locale } from "@/i18n/config";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { monedasDeLaSerie, type PuntoDelDia } from "@/lib/inicio/panel";
 import { cn } from "@/lib/utils";
@@ -14,20 +17,30 @@ function dia(fecha: string): number {
 }
 
 /** «5 Oct 2026: 3 comprobantes · S/ 1,180.00» — lo que dice el `title` de cada barra y lo que lee un lector de pantalla en la tabla. */
-export function descripcionDelDia(p: PuntoDelDia): string {
-  const comprobantes = `${p.emitidos} ${p.emitidos === 1 ? "comprobante" : "comprobantes"}`;
+export function descripcionDelDia(p: PuntoDelDia, messages: Mensajes, locale: Locale): string {
+  const t = messages.inicio.grafico;
+  const comprobantes = interpolar(p.emitidos === 1 ? t.comprobanteUno : t.comprobanteVarios, { n: p.emitidos });
   const montos = Object.entries(p.facturado)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([moneda, total]) => formatearMonto(moneda, total));
-  return [`${formatearFecha(p.fecha)}: ${comprobantes}`, ...montos].join(" · ");
+    .map(([moneda, total]) => formatearMonto(moneda, total, locale));
+  return [`${formatearFecha(p.fecha, locale)}: ${comprobantes}`, ...montos].join(" · ");
 }
 
 /** El resumen que lee un lector de pantalla del gráfico entero: cuántos, cuántos días y el día de más emisión. */
-export function resumenDelGrafico(serie: PuntoDelDia[]): string {
+export function resumenDelGrafico(serie: PuntoDelDia[], messages: Mensajes, locale: Locale): string {
+  const t = messages.inicio.grafico;
   const total = serie.reduce((s, p) => s + p.emitidos, 0);
   const pico = serie.reduce((max, p) => (p.emitidos > max.emitidos ? p : max), serie[0]);
   const conEmision = serie.filter((p) => p.emitidos > 0).length;
-  return `${total} ${total === 1 ? "comprobante emitido" : "comprobantes emitidos"} en ${conEmision} de ${serie.length} días, del ${formatearFecha(serie[0].fecha)} al ${formatearFecha(serie[serie.length - 1].fecha)}. El día de más emisión fue el ${formatearFecha(pico.fecha)}, con ${pico.emitidos}.`;
+  return interpolar(t.resumen, {
+    emitidos: interpolar(total === 1 ? t.emitidoUno : t.emitidoVarios, { n: total }),
+    conEmision,
+    dias: serie.length,
+    desde: formatearFecha(serie[0].fecha, locale),
+    hasta: formatearFecha(serie[serie.length - 1].fecha, locale),
+    pico: formatearFecha(pico.fecha, locale),
+    picoEmitidos: pico.emitidos,
+  });
 }
 
 /** Qué días llevan rótulo en el eje: el primero, cada cinco y el último (hoy). En un teléfono 31 rótulos no caben. */
@@ -41,6 +54,9 @@ function conRotulo(i: number, total: number, fecha: string): boolean {
  * el puntero no tenga que acertarle a una barra baja; y la misma información como tabla, plegada. `serie` en `null`: no se pudo cargar.
  */
 export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | null; titulo: string }) {
+  const messages = useMessages();
+  const locale = useLocale() as Locale;
+  const t = messages.inicio.grafico;
   const maximo = serie ? Math.max(0, ...serie.map((p) => p.emitidos)) : 0;
   const monedas = serie ? monedasDeLaSerie(serie) : [];
 
@@ -50,16 +66,16 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
         <h2 id="grafico-emision-titulo" className={TITULO_SECCION}>
           {titulo}
         </h2>
-        {serie && maximo > 0 ? <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">Comprobantes emitidos por día</span> : null}
+        {serie && maximo > 0 ? <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{t.subtitulo}</span> : null}
       </div>
 
       {serie === null ? (
         <p data-testid="grafico-emision-error" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
-          No se pudo cargar la emisión por día. Los indicadores y los avisos de arriba siguen al día.
+          {t.error}
         </p>
       ) : maximo === 0 ? (
         <p data-testid="grafico-emision-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
-          Todavía no hay comprobantes emitidos este mes.
+          {t.vacio}
         </p>
       ) : (
         <>
@@ -77,14 +93,14 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
               preserveAspectRatio="none"
               className="h-40 w-full overflow-visible"
             >
-              <desc id="grafico-emision-desc">{resumenDelGrafico(serie)}</desc>
+              <desc id="grafico-emision-desc">{resumenDelGrafico(serie, messages, locale)}</desc>
               <line x1={0} x2={serie.length * ANCHO_DIA} y1={ALTO / 2} y2={ALTO / 2} className="stroke-border" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
               <line x1={0} x2={serie.length * ANCHO_DIA} y1={ALTO} y2={ALTO} className="stroke-border" vectorEffect="non-scaling-stroke" />
               {serie.map((p, i) => {
                 const alto = (p.emitidos / maximo) * ALTO;
                 return (
                   <g key={p.fecha} data-testid="grafico-emision-dia" data-fecha={p.fecha} data-emitidos={p.emitidos} className="group">
-                    <title>{descripcionDelDia(p)}</title>
+                    <title>{descripcionDelDia(p, messages, locale)}</title>
                     <rect x={i * ANCHO_DIA} y={0} width={ANCHO_DIA} height={ALTO} className="fill-transparent group-hover:fill-muted/60" />
                     {p.emitidos > 0 ? (
                       <rect x={i * ANCHO_DIA + (ANCHO_DIA - ANCHO_BARRA) / 2} y={ALTO - alto} width={ANCHO_BARRA} height={alto} className="fill-chart-1 group-hover:opacity-80" />
@@ -104,16 +120,16 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
           </div>
 
           <details className="text-[13px]">
-            <summary className="cursor-pointer text-[12px] text-primary">Ver como tabla</summary>
+            <summary className="cursor-pointer text-[12px] text-primary">{t.verTabla}</summary>
             <div className="mt-2 overflow-x-auto rounded-lg border border-border/90">
               <Table data-testid="grafico-emision-tabla">
                 <TableHeader>
                   <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-                    <TableHead className={`${CABECERA_TABLA} pl-3`}>Día</TableHead>
-                    <TableHead className={`${CABECERA_TABLA} text-right`}>Emitidos</TableHead>
+                    <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.dia}</TableHead>
+                    <TableHead className={`${CABECERA_TABLA} text-right`}>{t.emitidos}</TableHead>
                     {monedas.map((m) => (
                       <TableHead key={m} className={`${CABECERA_TABLA} text-right`}>
-                        Facturado {m}
+                        {interpolar(t.facturadoMoneda, { moneda: m })}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -121,11 +137,11 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
                 <TableBody className="text-[13px] tabular-nums">
                   {serie.map((p) => (
                     <TableRow key={p.fecha} className="border-b border-border/60">
-                      <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha)}</TableCell>
+                      <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha, locale)}</TableCell>
                       <TableCell className="py-1.5 text-right">{p.emitidos}</TableCell>
                       {monedas.map((m) => (
                         <TableCell key={m} className="py-1.5 text-right">
-                          {formatearMonto(m, p.facturado[m] ?? 0)}
+                          {formatearMonto(m, p.facturado[m] ?? 0, locale)}
                         </TableCell>
                       ))}
                     </TableRow>

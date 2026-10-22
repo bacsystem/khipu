@@ -11,6 +11,7 @@ import {
   valoresDeAviso,
   valoresNuevoAviso,
 } from "./configuracion-formulario";
+import es from "@/messages/es.json";
 
 describe("límites", () => {
   it("son los del backend", () => {
@@ -63,28 +64,28 @@ describe("valores iniciales", () => {
 
 describe("cuerpoDeAviso", () => {
   it("con texto y fechas arma el cuerpo en instantes UTC, sin recortar el texto (eso lo hace el backend)", () => {
-    const r = cuerpoDeAviso({ texto: "  Mantenimiento  ", desde: "2026-10-15T22:00", hasta: "2026-10-16T01:00" });
+    const r = cuerpoDeAviso({ texto: "  Mantenimiento  ", desde: "2026-10-15T22:00", hasta: "2026-10-16T01:00" }, es);
 
     expect(r).toEqual({ cuerpo: { texto: "  Mantenimiento  ", desde: "2026-10-16T03:00:00.000Z", hasta: "2026-10-16T06:00:00.000Z" } });
   });
 
   it("sin texto, o con solo espacios, pide el texto", () => {
-    for (const texto of ["", "   ", "\t"]) expect(cuerpoDeAviso({ texto, desde: "2026-10-15T22:00", hasta: "2026-10-16T01:00" }), JSON.stringify(texto)).toEqual({ errores: { texto: "Escribe el texto del aviso." } });
+    for (const texto of ["", "   ", "\t"]) expect(cuerpoDeAviso({ texto, desde: "2026-10-15T22:00", hasta: "2026-10-16T01:00" }, es), JSON.stringify(texto)).toEqual({ errores: { texto: "Escribe el texto del aviso." } });
   });
 
   it("sin fechas pide cada una por separado", () => {
-    expect(cuerpoDeAviso({ texto: "x", desde: "", hasta: "2026-10-16T01:00" })).toEqual({ errores: { desde: "Indica desde cuándo se muestra." } });
-    expect(cuerpoDeAviso({ texto: "x", desde: "2026-10-15T22:00", hasta: "" })).toEqual({ errores: { hasta: "Indica hasta cuándo se muestra." } });
+    expect(cuerpoDeAviso({ texto: "x", desde: "", hasta: "2026-10-16T01:00" }, es)).toEqual({ errores: { desde: "Indica desde cuándo se muestra." } });
+    expect(cuerpoDeAviso({ texto: "x", desde: "2026-10-15T22:00", hasta: "" }, es)).toEqual({ errores: { hasta: "Indica hasta cuándo se muestra." } });
   });
 
   it("junta todos los errores a la vez", () => {
-    expect(cuerpoDeAviso({ texto: "", desde: "", hasta: "" })).toEqual({
+    expect(cuerpoDeAviso({ texto: "", desde: "", hasta: "" }, es)).toEqual({
       errores: { texto: "Escribe el texto del aviso.", desde: "Indica desde cuándo se muestra.", hasta: "Indica hasta cuándo se muestra." },
     });
   });
 
   it("el orden y los límites no se comprueban acá: los pone el backend", () => {
-    const r = cuerpoDeAviso({ texto: "x", desde: "2026-10-16T01:00", hasta: "2026-10-15T22:00" });
+    const r = cuerpoDeAviso({ texto: "x", desde: "2026-10-16T01:00", hasta: "2026-10-15T22:00" }, es);
 
     expect("cuerpo" in r).toBe(true);
   });

@@ -25,8 +25,10 @@ export function leerSoporte(env: Record<string, string | undefined> = process.en
     } catch {
       // queda null y cae en el error de abajo
     }
+    // eslint-disable-next-line khipu/no-literal-de-ui -- configuración inválida para quien despliega: va a console.error, no a pantalla
     if (protocolo !== "https:") throw new Error(`SUPPORT_URL tiene que ser un enlace https (p. ej. https://ayuda.tu-dominio.pe); llegó «${url}»`);
   }
+  // eslint-disable-next-line khipu/no-literal-de-ui -- configuración inválida para quien despliega: va a console.error, no a pantalla
   if (email !== null && !CORREO.test(email)) throw new Error(`SUPPORT_EMAIL no es un correo válido (p. ej. soporte@tu-dominio.pe); llegó «${email}»`);
   return { url, email };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { MailIcon, Undo2Icon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
@@ -8,10 +9,9 @@ import type { Direccion, RemitenteConfigurado } from "@/lib/api/admin-configurac
 import { apiRequest } from "@/lib/api/browser";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.configuracion.correo;
 
 /** «khipu <avisos@khipu.pe>» o solo la dirección, como la verá el cliente. */
 export function direccionEnPalabras(d: Direccion): string {
@@ -24,6 +24,10 @@ export function direccionEnPalabras(d: Direccion): string {
  * Que quedó guardado lo dice quien lo contiene ({@code alResultado}): al guardar, la página se recarga y este formulario se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
 export function FormularioDeRemitente({ remitente, alResultado }: { remitente: RemitenteConfigurado; alResultado: (mensaje: string | null) => void }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.configuracion.correo;
   const router = useRouter();
   const [nombre, setNombre] = useState(remitente.vigente.nombre ?? "");
   const [email, setEmail] = useState(remitente.vigente.email);
@@ -53,7 +57,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.`);
+      setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -78,7 +82,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
           {t.vigente.replace("{remitente}", direccionEnPalabras(remitente.vigente))}
         </p>
         <p data-testid="correo-origen" className="text-[12px] text-muted-foreground">
-          {remitente.personalizado && remitente.actualizado_en ? t.personalizado.replace("{quien}", remitente.actualizado_por ?? "un administrador").replace("{fecha}", formatearFechaHora(remitente.actualizado_en)) : t.delServidor}
+          {remitente.personalizado && remitente.actualizado_en ? t.personalizado.replace("{quien}", remitente.actualizado_por ?? messages.admin.unAdministrador).replace("{fecha}", formatearFechaHora(remitente.actualizado_en, locale)) : t.delServidor}
         </p>
       </div>
 

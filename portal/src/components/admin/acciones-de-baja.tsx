@@ -1,6 +1,7 @@
 "use client";
 
 import { ArchiveIcon, ArchiveRestoreIcon, TriangleAlertIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -8,10 +9,9 @@ import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.baja;
 
 /**
  * Dar de baja o reponer una cuenta (#201). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón que
@@ -19,6 +19,9 @@ const t = messages.admin.baja;
  * que NO hace: no corta el acceso (para eso está suspender). Según el estado que llega de la página se ofrece una sola acción.
  */
 export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: string; estado: EstadoCuentaAdmin }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.baja;
   const router = useRouter();
   const deBaja = estado === "BAJA";
   const textos = deBaja ? t.reponer : t.darDeBaja;
@@ -55,7 +58,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (el backend responde 409 si ya estaba hecho).
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real de la cuenta.`);
+      setError(interpolar(messages.admin.recargar.estadoDeLaCuenta, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -116,7 +119,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
               />
               <span className={AYUDA_CAMPO}>
                 {t.darDeBaja.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? ` Llegaste al máximo de ${MOTIVO_MAX}.` : ""}
+                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
               </span>
             </div>
           )}

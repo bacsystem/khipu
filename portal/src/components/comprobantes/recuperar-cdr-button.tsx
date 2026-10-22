@@ -1,11 +1,12 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "khipu-design-system/ui/button";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Comprobante } from "@/lib/api/facturas";
-import { mensajeError } from "@/lib/messages";
 import { useSoloLectura } from "@/lib/solo-lectura";
 
 /**
@@ -14,6 +15,9 @@ import { useSoloLectura } from "@/lib/solo-lectura";
  */
 export function RecuperarCdrButton({ id, estado }: { id: string; estado: string }) {
   const soloLectura = useSoloLectura();
+  const messages = useMessages();
+  const t = messages.comprobantes.recuperarCdr;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [consultando, setConsultando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tono: "error" | "info"; texto: string } | null>(null);
@@ -28,7 +32,7 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
     enCursoRef.current = false;
     setConsultando(false);
     if (noSeSabeSiLlego(res)) {
-      setMensaje({ tono: "error", texto: "Se cortó la conexión mientras se consultaba a SUNAT. Reintente: consultar no cambia nada si SUNAT no tiene la constancia." });
+      setMensaje({ tono: "error", texto: t.cortado });
       return;
     }
     // Otro proceso (el envío, el barrido horario) resolvió el comprobante mientras la ficha estaba abierta: no es un error, es que la ficha quedó vieja.
@@ -41,7 +45,7 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
       return;
     }
     if (res.datos.estado_documento === estado) {
-      setMensaje({ tono: "info", texto: "SUNAT todavía no tiene la constancia de este comprobante. Si ya pasó un rato, reenvíelo." });
+      setMensaje({ tono: "info", texto: t.sinConstancia });
       return;
     }
     router.refresh();
@@ -50,7 +54,7 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
   return (
     <div className="flex flex-col items-end gap-1.5">
       <Button variant="outline" disabled={consultando || soloLectura !== null} title={soloLectura ?? undefined} onClick={recuperar} data-testid="recuperar-cdr">
-        {consultando ? "Consultando a SUNAT…" : "Recuperar constancia de SUNAT"}
+        {consultando ? messages.comprobantes.acciones.consultandoSunat : t.boton}
       </Button>
       {mensaje ? (
         <p role={mensaje.tono === "error" ? "alert" : "status"} className={mensaje.tono === "error" ? "max-w-md text-right text-sm text-destructive" : "max-w-md text-right text-sm text-muted-foreground"} data-testid="recuperar-cdr-mensaje">

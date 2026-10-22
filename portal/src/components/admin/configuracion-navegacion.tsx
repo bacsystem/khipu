@@ -1,13 +1,12 @@
 import Link from "next/link";
+import { useMessages } from "next-intl";
 import { hrefConfiguracion, SECCIONES_DE_CONFIGURACION, type PlantillaDeCorreo, type SeccionDeConfiguracion } from "@/lib/api/admin-configuracion";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
-const t = messages.admin.configuracion;
-
 /** Las tres cosas que se configuran: enlaces (la sección vive en la URL, así que se puede compartir y el servidor solo pide lo que se ve). */
 export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfiguracion }) {
+  const t = useMessages().admin.configuracion;
   return (
     <nav aria-label={t.secciones} className={SEGMENTADO}>
       {SECCIONES_DE_CONFIGURACION.map((s) => (
@@ -26,6 +25,7 @@ export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfigur
 
 /** Los correos que la plataforma manda, con una marca en los que alguien editó. El elegido va en la URL. */
 export function ListaDePlantillas({ plantillas, actual }: { plantillas: PlantillaDeCorreo[]; actual: string }) {
+  const t = useMessages().admin.configuracion;
   return (
     <nav aria-label={t.plantillas.lista} className="grid content-start gap-0.5 rounded-xl border border-border bg-card p-1.5 shadow-2xs">
       {plantillas.map((p) => (

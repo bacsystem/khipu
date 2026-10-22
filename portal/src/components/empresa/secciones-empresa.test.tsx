@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { SeccionesEmpresa } from "./secciones-empresa";
 
 const paneles = {
@@ -48,5 +49,13 @@ describe("SeccionesEmpresa", () => {
     expect(screen.getByRole("tab", { name: /Certificado/ })).toHaveAccessibleName("Certificado, pendiente");
     expect(screen.getByRole("tab", { name: /Credenciales SOL/ })).toHaveAccessibleName("Credenciales SOL");
     expect(screen.getByRole("tab", { name: /Empresas/ })).toHaveTextContent("2");
+  });
+
+  it("en inglés, las pestañas y el aviso de pendiente salen traducidos (#25)", () => {
+    fijarLocaleDePrueba("en");
+    renderizar("datos", ["sol"]);
+    expect(screen.getByRole("tab", { name: "Tax details" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /SOL credentials/ })).toHaveAccessibleName("SOL credentials, pending");
+    expect(screen.getByRole("tab", { name: /Customer delivery/ })).toBeInTheDocument();
   });
 });

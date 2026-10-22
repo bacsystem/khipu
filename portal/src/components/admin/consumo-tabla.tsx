@@ -1,6 +1,7 @@
 "use client";
 
 import { InboxIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
@@ -20,11 +21,7 @@ import {
 } from "@/lib/api/admin-consumo";
 import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.consumo;
-const columnas = t.columnas;
 
 const TONO_DEL_PLAN: Record<EstadoDelPlan, Tono> = { VIGENTE: "ok", EN_GRACIA: "aviso", VENCIDA: "error" };
 
@@ -36,6 +33,7 @@ const alTope = (c: CuentaConsumo) => c.porcentaje !== undefined && c.porcentaje 
 
 /** La barra de uso: llena hasta el porcentaje, sin pasarse del cien; el color dice si está tranquila, cerca del límite o ya en él. */
 function BarraDeUso({ cuenta }: { cuenta: CuentaConsumo }) {
+  const columnas = useMessages().admin.consumo.columnas;
   const pct = Math.min(cuenta.porcentaje ?? 0, 100);
   return (
     <div role="progressbar" aria-label={columnas.uso} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
@@ -50,6 +48,10 @@ function BarraDeUso({ cuenta }: { cuenta: CuentaConsumo }) {
  * «Exportar CSV» no está acá: es la acción principal de la página y va en la cabecera del backoffice, que lo arma con el mismo mes, filtro y orden de la URL.
  */
 export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas; total: number; params: ParamsConsumo }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.consumo;
+  const columnas = t.columnas;
   const router = useRouter();
 
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
@@ -150,7 +152,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
                     <span data-estado={c.estado_del_plan}>
                       <Etiqueta tono={TONO_DEL_PLAN[c.estado_del_plan]}>{messages.admin.planDeCuenta.estados[c.estado_del_plan]}</Etiqueta>
                     </span>
-                    {c.pagado_hasta ? <span className="text-[11px] text-muted-foreground">{t.pagadoHasta.replace("{fecha}", formatearFecha(ultimoDiaCubierto(c.pagado_hasta)))}</span> : null}
+                    {c.pagado_hasta ? <span className="text-[11px] text-muted-foreground">{t.pagadoHasta.replace("{fecha}", formatearFecha(ultimoDiaCubierto(c.pagado_hasta), locale))}</span> : null}
                   </div>
                 </TableCell>
               </TableRow>

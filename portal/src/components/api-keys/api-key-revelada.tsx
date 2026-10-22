@@ -1,23 +1,19 @@
 "use client";
 
 import { CheckIcon, CopyIcon, TriangleAlertIcon } from "lucide-react";
+import { useMessages, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { BOTON_SECUNDARIO, ETIQUETA_DATO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
-
-const AVISO_DEL_PORTAL = (
-  <p>
-    Guárdala ahora en un lugar seguro: <strong className="font-semibold">no volverá a mostrarse</strong>. Solo se conserva un hash, así que si la
-    pierdes tendrás que revocarla y crear otra.
-  </p>
-);
 
 /**
  * Una API key recién creada, que se muestra una sola vez (el backend guarda un hash). La usan el diálogo de «Crear API key» del
  * portal de clientes y el alta asistida del backoffice, con el mismo tratamiento. `aviso` permite otro texto: en el backoffice
  * quien la ve no la guarda para sí, la entrega a un cliente.
  */
-export function ApiKeyRevelada({ apiKey, etiqueta = "Tu API key", aviso = AVISO_DEL_PORTAL }: { apiKey: string; etiqueta?: string; aviso?: ReactNode }) {
+export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; etiqueta?: string; aviso?: ReactNode }) {
+  const t = useMessages().apiKeys.revelada;
+  const tr = useTranslations("apiKeys.revelada");
   const [copiada, setCopiada] = useState(false);
 
   async function copiar() {
@@ -32,7 +28,7 @@ export function ApiKeyRevelada({ apiKey, etiqueta = "Tu API key", aviso = AVISO_
   return (
     <>
       <div>
-        <span className={cn(ETIQUETA_DATO, "mb-1.5")}>{etiqueta}</span>
+        <span className={cn(ETIQUETA_DATO, "mb-1.5")}>{etiqueta ?? t.etiqueta}</span>
         <div className="flex items-center gap-2">
           {/* La caja mide lo mismo que el botón de al lado (h-10, la de un campo): el texto se recorta dentro de un span porque `truncate` no corta en un flex. */}
           <code
@@ -47,13 +43,13 @@ export function ApiKeyRevelada({ apiKey, etiqueta = "Tu API key", aviso = AVISO_
             className={cn(BOTON_SECUNDARIO, "shrink-0", copiada && "border-success-border bg-success text-success-foreground")}
           >
             {copiada ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
-            {copiada ? "Copiada" : "Copiar"}
+            {copiada ? t.copiada : t.copiar}
           </button>
         </div>
       </div>
       <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-[12px] leading-relaxed text-warning-foreground">
         <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-        {aviso}
+        {aviso ?? <p>{tr.rich("aviso", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}</p>}
       </div>
     </>
   );

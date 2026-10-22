@@ -2,6 +2,7 @@
 
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
+import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { NuevoComprobanteForm, tipoInicial, type TipoEmitible } from "@/components/comprobantes/nuevo-comprobante-form";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -9,6 +10,7 @@ import { Spinner } from "khipu-design-system/feedback/spinner";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { GrupoBotones } from "khipu-design-system/ui/grupo-botones";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
@@ -23,11 +25,11 @@ import { hoyLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
 
-const FALTANTES: Record<Faltante, string> = {
-  certificado: "Cargar el certificado digital (.p12 o .pfx) de la empresa.",
-  "certificado-vencido": "Renovar el certificado digital: el cargado ya venció.",
-  "credenciales-sol": "Guardar el usuario SOL secundario y su clave.",
-};
+const faltantes = (t: Mensajes["comprobantes"]["dialogo"]["faltantes"]): Record<Faltante, string> => ({
+  certificado: t.certificado,
+  "certificado-vencido": t.certificadoVencido,
+  "credenciales-sol": t.credencialesSol,
+});
 
 /**
  * Carga un recurso mientras el diálogo está abierto, y lo deja reintentable.
@@ -80,6 +82,8 @@ function useRecursoDelDialogo<T>(abierto: boolean, ruta: string) {
  * props que la cabecera —que es común a todas las páginas— no tiene de dónde sacar.
  */
 export function NuevoComprobanteDialog({ className }: { className?: string }) {
+  const messages = useMessages();
+  const t = messages.comprobantes.dialogo;
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
   // Mientras el usuario no elige (`null`), el que la empresa puede emitir (#286, `tipoInicial`). Cada apertura vuelve a ese: como las series, que se
@@ -102,6 +106,11 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   }, [abierto]);
   // Cada pedido de duplicar lleva un número: solo vale la respuesta del último, y abrir el diálogo a mano anula los pendientes (si no, una copia que llega tarde pisaría lo que se está escribiendo).
   const pedido = useRef(0);
+  // El suscriptor se registra una vez; lee los textos del idioma vigente por ref (`omitidos` de la copia).
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   useEffect(
     () =>
       alPedirDuplicado((id) => {
@@ -110,7 +119,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
         apiRequest<Comprobante>(`/api/proxy/facturas/${id}`, { method: "GET" })
           .then((res) => {
             if (mio !== pedido.current) return;
-            const copia = res.estado === "exito" && res.datos ? plantillaDesde(res.datos) : null;
+            const copia = res.estado === "exito" && res.datos ? plantillaDesde(res.datos, messagesRef.current) : null;
             setFalloLaCopia(copia === null);
             setPlantilla(copia);
             setTipo(copia?.tipo ?? null);
@@ -147,12 +156,12 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   const ambiente =
     // El detalle lo da el aviso del cuerpo; acá solo se deja de afirmar un ambiente que no se conoce.
     empresa.error
-      ? "Ambiente sin confirmar"
+      ? t.ambiente.sinConfirmar
       : empresa.dato?.entorno === "PRODUCCION"
-        ? "Ambiente: Producción — se emite ante SUNAT"
+        ? t.ambiente.produccion
         : empresa.dato
-          ? "Ambiente: Homologación (beta de SUNAT)"
-          : "Cargando ambiente…";
+          ? t.ambiente.homologacion
+          : t.ambiente.cargando;
 
   return (
     <Dialog
@@ -177,23 +186,23 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
     >
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className}>
         <PlusIcon className="size-4" />
-        Nuevo comprobante
+        {t.titulo}
       </DialogTrigger>
       <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
         <CabeceraDialogo
           icon={FileTextIcon}
-          titulo="Nuevo comprobante"
+          titulo={t.titulo}
           descripcion={ambiente}
         />
         {/* C2: si el backend va a rechazar la emisión (sin certificado, vencido o sin credenciales SOL), se dice antes de que el
             usuario llene nada, y se lo lleva a donde se arregla. */}
         {faltan.length > 0 ? (
           <div className="flex flex-col gap-3 px-5 py-4">
-            <Alerta tono="aviso" titulo="Esta empresa todavía no puede emitir">
-              <p>Para firmar y enviar comprobantes a SUNAT falta:</p>
+            <Alerta tono="aviso" titulo={t.noPuedeEmitir.titulo}>
+              <p>{t.noPuedeEmitir.falta}</p>
               <ul className="mt-1 list-disc pl-5">
                 {faltan.map((f) => (
-                  <li key={f}>{FALTANTES[f]}</li>
+                  <li key={f}>{faltantes(t.faltantes)[f]}</li>
                 ))}
               </ul>
             </Alerta>
@@ -203,27 +212,25 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               onClick={() => setAbierto(false)}
               className={cn(BOTON_PRIMARIO, "self-end")}
             >
-              Ir a Fiscal &amp; certificado
+              {t.noPuedeEmitir.ir}
             </Link>
           </div>
         ) : vencido && cuenta.dato ? (
           <div className="flex flex-col gap-3 px-5 py-4">
-            <Alerta tono="aviso" titulo="Tu plan venció">
-              Tu plan {cuenta.dato.plan.plan.nombre} venció y terminaron sus días de gracia. Vuelves a emitir cuando lo renueves; lo ya emitido lo sigues
-              viendo y puedes darlo de baja.
+            <Alerta tono="aviso" titulo={t.vencido.titulo}>
+              {interpolar(t.vencido.texto, { plan: cuenta.dato.plan.plan.nombre })}
             </Alerta>
             <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
-              Ver plan y consumo
+              {t.verPlan}
             </Link>
           </div>
         ) : enElTope && cuenta.dato ? (
           <div className="flex flex-col gap-3 px-5 py-4">
-            <Alerta tono="aviso" titulo="Llegaste al tope de documentos del mes">
-              Tu plan {cuenta.dato.plan.plan.nombre} permite {consumo.maximo} documentos al mes y ya los usaste. Vuelves a emitir el mes que viene, o antes si
-              cambias a un plan más grande.
+            <Alerta tono="aviso" titulo={t.tope.titulo}>
+              {interpolar(t.tope.texto, { plan: cuenta.dato.plan.plan.nombre, maximo: consumo.maximo ?? "" })}
             </Alerta>
             <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
-              Ver plan y consumo
+              {t.verPlan}
             </Link>
           </div>
         ) : /* El dato primero: así TypeScript sabe que `series.dato` no es null al pasárselo al formulario. Y la empresa y la cuenta ya
@@ -237,15 +244,14 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               <div className="shrink-0 px-5 pt-4">
                 <Alerta
                   tono="aviso"
-                  titulo="No se pudo leer la configuración de la empresa"
+                  titulo={t.sinEmpresa.titulo}
                   accion={
                     <button type="button" className={ACCION_SECUNDARIA} onClick={empresa.reintentar}>
-                      Reintentar
+                      {t.reintentar}
                     </button>
                   }
                 >
-                  Se emitirá contra el ambiente que tenga configurado y los totales se previsualizan con IGV {TASA_GENERAL} %: si
-                  está en el padrón de tasa especial ({TASA_PADRON} %), no coincidirán con los del comprobante.
+                  {interpolar(t.sinEmpresa.texto, { general: TASA_GENERAL, padron: TASA_PADRON })}
                 </Alerta>
               </div>
             ) : null}
@@ -255,14 +261,14 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               <div className="shrink-0 px-5 pt-4">
                 <Alerta
                   tono="aviso"
-                  titulo="SUNAT rechazó las credenciales SOL de esta empresa"
+                  titulo={t.solRechazadas.titulo}
                   accion={
                     <Link href={enlaceASeccion("sol")} onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
-                      Corregirlas
+                      {t.solRechazadas.corregir}
                     </Link>
                   }
                 >
-                  El comprobante se firma y queda guardado, pero SUNAT no lo va a recibir hasta que las corrijas: entonces sale solo.
+                  {t.solRechazadas.texto}
                 </Alerta>
               </div>
             ) : null}
@@ -270,7 +276,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
               <div className="shrink-0 px-5 pt-4" data-testid="confirmar-cierre">
                 <Alerta
                   tono="aviso"
-                  titulo="¿Descartar lo que escribiste?"
+                  titulo={t.cerrar.titulo}
                   accion={
                     <span className="flex gap-3">
                       <button type="button" className={ACCION_SECUNDARIA} onClick={() => {
@@ -279,7 +285,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                         }}
                         autoFocus
                       >
-                        Seguir editando
+                        {t.cerrar.seguir}
                       </button>
                       <button
                         type="button"
@@ -289,38 +295,38 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                           setAbierto(false);
                         }}
                       >
-                        Descartar
+                        {t.cerrar.descartar}
                       </button>
                     </span>
                   }
                 >
-                  El comprobante no se ha emitido: si cierras ahora se pierde el cliente y las líneas que cargaste.
+                  {t.cerrar.texto}
                 </Alerta>
               </div>
             ) : null}
             {plantilla && plantilla.omitidos.length > 0 ? (
               <div className="shrink-0 px-5 pt-4" data-testid="copia-omitidos">
-                <Alerta tono="aviso" titulo="Se copió el cliente y las líneas, no todo">
-                  No se copió: {plantilla.omitidos.join("; ")}. Si la nueva operación lo necesita, indícalo de nuevo.
+                <Alerta tono="aviso" titulo={t.copia.titulo}>
+                  {interpolar(t.copia.omitidos, { omitidos: plantilla.omitidos.join("; ") })}
                 </Alerta>
               </div>
             ) : null}
             {falloLaCopia ? (
               <div className="shrink-0 px-5 pt-4">
-                <Alerta tono="aviso" titulo="No se pudo copiar el comprobante">
-                  Puede ser un problema pasajero de conexión, o el comprobante no se puede duplicar (una nota no se copia). Puedes emitir uno nuevo desde cero.
+                <Alerta tono="aviso" titulo={t.copia.falloTitulo}>
+                  {t.copia.falloTexto}
                 </Alerta>
               </div>
             ) : null}
             {/* #20: factura o boleta. Las dos se emiten igual; cambian las series que se ofrecen y lo que se pide del comprador. */}
             <div className="shrink-0 px-5 pt-4">
               <GrupoBotones
-                etiqueta="Tipo de comprobante"
+                etiqueta={t.tipo}
                 valor={tipo}
                 onCambio={setTipo}
                 opciones={[
-                  { valor: "factura", etiqueta: "Factura" },
-                  { valor: "boleta", etiqueta: "Boleta" },
+                  { valor: "factura", etiqueta: messages.documentos.tipos["01"] },
+                  { valor: "boleta", etiqueta: messages.documentos.tipos["03"] },
                 ]}
               />
             </div>
@@ -329,17 +335,17 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">
-            <Alerta tono="error" titulo="No se pudieron cargar tus series">
-              Puede ser un problema pasajero de conexión. Tus series y sus correlativos no se tocaron.
+            <Alerta tono="error" titulo={t.series.titulo}>
+              {t.series.texto}
             </Alerta>
             <button type="button" className={cn(ACCION_SECUNDARIA, "self-end")} onClick={series.reintentar}>
-              Reintentar
+              {t.reintentar}
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 px-5 py-8 text-sm text-muted-foreground">
             <Spinner tamano="sm" />
-            Cargando…
+            {messages.comun.cargando}
           </div>
         )}
       </DialogContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
@@ -9,15 +9,17 @@ import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { emailSchema } from "@/lib/validacion";
+import { esquemas } from "@/lib/validacion";
 
-const schema = z.object({ email: emailSchema });
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = { email: string };
 
 export function RecuperarForm() {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => z.object({ email: esquemas(messages).email }), [messages]);
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
   const {

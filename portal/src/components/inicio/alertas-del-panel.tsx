@@ -1,5 +1,6 @@
 import { CheckCircle2Icon } from "lucide-react";
 import Link from "next/link";
+import { useMessages } from "next-intl";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import type { AlertaDelPanel } from "@/lib/inicio/panel";
@@ -10,10 +11,11 @@ import type { AlertaDelPanel } from "@/lib/inicio/panel";
  * pendientes (`guiaPendiente`) tampoco se dice que todo está en orden: lo que falta lo dice la guía.
  */
 export function AlertasDelPanel({ alertas, incompleto, guiaPendiente = false }: { alertas: AlertaDelPanel[]; incompleto: boolean; guiaPendiente?: boolean }) {
+  const t = useMessages().inicio.avisos;
   return (
     <section aria-labelledby="alertas-del-panel-titulo" data-testid="alertas-del-panel" className="grid gap-2">
       <h2 id="alertas-del-panel-titulo" className="sr-only">
-        Avisos
+        {t.titulo}
       </h2>
       {alertas.map((a) => (
         <div key={a.id} data-testid="alerta-del-panel" data-alerta={a.id} data-tono={a.tono}>
@@ -32,12 +34,12 @@ export function AlertasDelPanel({ alertas, incompleto, guiaPendiente = false }: 
       ))}
       {incompleto ? (
         <p data-testid="alertas-incompletas" className="text-[12px] text-muted-foreground">
-          No se pudo revisar todo: puede haber avisos que no se ven aquí. Vuelve a cargar la página en un momento.
+          {t.incompleto}
         </p>
       ) : alertas.length === 0 && !guiaPendiente ? (
         <p data-testid="alertas-sin-avisos" className="flex items-center gap-1.5 text-[12px] text-success-foreground">
           <CheckCircle2Icon className="size-3.5 shrink-0" aria-hidden />
-          Sin avisos: certificado, credenciales SOL y comprobantes recientes en orden.
+          {t.sinAvisos}
         </p>
       ) : null}
     </section>

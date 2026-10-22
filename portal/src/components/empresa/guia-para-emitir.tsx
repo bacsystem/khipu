@@ -1,5 +1,7 @@
 import { CheckCircle2Icon, CircleIcon } from "lucide-react";
 import Link from "next/link";
+import { useMessages } from "next-intl";
+import { interpolar } from "@/i18n/mensajes";
 import { hayPasosPendientes, type PasoGuia } from "@/lib/empresa/guia-emision";
 import { ACCION_SECUNDARIA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
@@ -9,6 +11,7 @@ import { cn } from "@/lib/utils";
  * está todo hecho. Es un Server Component: al guardar un paso el formulario hace `router.refresh()` y la guía se vuelve a calcular.
  */
 export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
+  const t = useMessages().guiaEmision;
   if (!hayPasosPendientes(pasos)) return null;
   const listos = pasos.filter((p) => p.listo).length;
 
@@ -16,10 +19,10 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
     <section aria-labelledby="guia-emitir-titulo" data-testid="guia-emitir" className={cn(TARJETA, "p-5")}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
         <h2 id="guia-emitir-titulo" className={TITULO_SECCION}>
-          Para empezar a emitir
+          {t.titulo}
         </h2>
         <span className="font-mono text-[11px] text-muted-foreground" data-testid="guia-emitir-avance">
-          {listos} de {pasos.length} listos
+          {interpolar(t.avance, { listos, total: pasos.length })}
         </span>
       </div>
       <ol className="mt-3 divide-y divide-border/60">
@@ -33,8 +36,8 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
             <div className="min-w-0 flex-1 basis-56">
               <p className="text-[13px] font-medium text-foreground">
                 {paso.titulo}
-                <span className="sr-only">{paso.listo ? ", listo" : ", pendiente"}</span>
-                {paso.recomendado && !paso.listo ? <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">recomendado</span> : null}
+                <span className="sr-only">{paso.listo ? t.listo : t.pendiente}</span>
+                {paso.recomendado && !paso.listo ? <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">{t.recomendado}</span> : null}
               </p>
               <p className="text-[12px] leading-relaxed text-muted-foreground">{paso.detalle}</p>
             </div>

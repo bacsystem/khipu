@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { ArrowLeftIcon, MailIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -13,15 +15,19 @@ import { ApiError } from "@/lib/api/types";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { correoDeSoporte, soporteParaMostrar } from "@/lib/soporte";
-import { messages } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
 
-export const metadata = { title: "Cuenta · Backoffice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.cuenta };
+}
 
 /**
  * Detalle de una cuenta (#181), solo lectura. Un id que no es un UUID ni siquiera llega al backend; un 404 del backend es «no existe».
  * Cualquier otro fallo muestra el error con «Reintentar» (la misma página). El 401 lo atiende el layout del panel, como en el listado.
  */
 export default async function AdminCuentaPage({ params }: { params: Promise<{ id: string }> }) {
+  const messages = await getMessages();
   const { id } = await params;
   if (!esIdDeCuenta(id)) notFound();
 
@@ -63,9 +69,9 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
           <h1 className="font-heading text-2xl">{resultado.cuenta?.nombre ?? messages.admin.cuentas.titulo}</h1>
           {/* #250: el correo a soporte ya dice de qué cuenta se trata; solo nombre e id, nada sensible. */}
           {resultado.cuenta && soporte.email ? (
-            <a href={correoDeSoporte(soporte.email, `Cuenta ${resultado.cuenta.nombre} (${id})`)} className={ACCION_SECUNDARIA}>
+            <a href={correoDeSoporte(soporte.email, interpolar(t.asuntoSoporte, { nombre: resultado.cuenta.nombre, id }))} className={ACCION_SECUNDARIA}>
               <MailIcon className="size-4" aria-hidden />
-              Escribir a soporte
+              {t.escribirASoporte}
             </a>
           ) : null}
         </div>

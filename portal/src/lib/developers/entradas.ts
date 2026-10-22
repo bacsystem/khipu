@@ -1,7 +1,8 @@
-import { CODIGOS, ESTADOS, HTTP } from "@/components/developers/errores-datos";
-import { ENTORNOS, INDICE_ENTORNOS, LIMITES, REINTENTOS } from "@/components/developers/entornos-datos";
-import { CASOS } from "@/components/developers/guia/casos-emision";
-import { INDICE_ERRORES, INDICE_GUIA } from "@/components/developers/indices";
+import { codigosDeError, codigosHttp, estados } from "@/components/developers/errores-datos";
+import { entornos, indiceEntornos, limites, reintentos } from "@/components/developers/entornos-datos";
+import { casos } from "@/components/developers/guia/casos-emision";
+import { indiceErrores, indiceGuia } from "@/components/developers/indices";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { EntradaDeBusqueda } from "./indice";
 
 /** Lo que viaja al navegador de cada entrada: el detalle se corta, porque el buscador solo necesita las primeras palabras para ubicar y los casos traen párrafos enteros. */
@@ -15,26 +16,42 @@ const entrada = (id: string, titulo: string, seccion: string, href: string, deta
   detalle: detalle.length > MAXIMO_DEL_DETALLE ? detalle.slice(0, MAXIMO_DEL_DETALLE) : detalle,
 });
 
-/** Los temas de la guía que se buscan por su nombre propio aunque no sean un título de sección. Cada uno lleva a una ancla que existe (lo comprueba una prueba). */
-const TEMAS_DE_LA_GUIA: Array<[id: string, titulo: string, href: string, detalle: string]> = [
-  ["verificar-firma", "Verificar la firma de un webhook", "/developers/guia#webhooks", "X-Khipu-Signature HMAC SHA-256 firma entrega secreto Node Python PHP"],
-  ["idempotency", "Idempotency-Key: reintento seguro", "/developers/guia#idempotency-key", "Idempotency-Key reintentar timeout duplicado 24 horas"],
-  ["correo", "Enviar el comprobante al cliente por correo", "/developers/guia#buenas-practicas", "correo PDF XML CDR adquirente /correo"],
-  ["emitir-sin-enviar", "Emitir ahora y enviar después", "/developers/guia#sin-enviar", "enviar_automatico false FIRMADO POST enviar lote"],
-  ["conciliar-rvie", "Conciliar con la propuesta del SIRE", "/developers/guia#sire", "RVIE SIRE propuesta registro de ventas conciliación LE 140400 periodo"],
+/**
+ * Los temas de la guía que se buscan por su nombre propio aunque no sean un título de sección: el id, la clave de su título y sus palabras en
+ * `messages.developers.buscador.temas`, y el ancla. Cada uno lleva a una ancla que existe (lo comprueba una prueba).
+ */
+const TEMAS_DE_LA_GUIA: Array<[id: string, clave: keyof Mensajes["developers"]["buscador"]["temas"], href: string]> = [
+  ["verificar-firma", "verificarFirma", "/developers/guia#webhooks"],
+  ["idempotency", "idempotency", "/developers/guia#idempotency-key"],
+  ["correo", "correo", "/developers/guia#buenas-practicas"],
+  ["emitir-sin-enviar", "emitirSinEnviar", "/developers/guia#sin-enviar"],
+  ["conciliar-rvie", "conciliarRvie", "/developers/guia#sire"],
 ];
 
-/** Todo lo que se busca, en el orden en que se ofrece. Sale de los mismos datos que muestran las páginas, así que una fila nueva en una tabla se encuentra sola. */
-export const ENTRADAS: readonly EntradaDeBusqueda[] = [
-  ...INDICE_GUIA.filter((s) => !s.label.startsWith("· ")).map((s) => entrada(`guia-${s.id}`, s.label, "Guía de emisión", `/developers/guia#${s.id}`)),
-  ...CASOS.map((c) => entrada(`caso-${c.id}`, c.titulo, "Guía · caso de emisión", `/developers/guia#${c.id}`, c.cuando)),
-  ...TEMAS_DE_LA_GUIA.map(([id, titulo, href, detalle]) => entrada(`tema-${id}`, titulo, "Guía de emisión", href, detalle)),
-  ...INDICE_ENTORNOS.map((s) => entrada(`entorno-${s.id}`, s.label, "Entornos y límites", `/developers/entornos#${s.id}`)),
-  ...ENTORNOS.map(([aspecto, beta, produccion], i) => entrada(`entorno-fila-${i}`, aspecto, "Entornos · BETA y producción", "/developers/entornos#entornos", `${beta} ${produccion}`)),
-  ...LIMITES.map(([que, limite, cuando], i) => entrada(`limite-${i}`, que, "Entornos · límites y cuotas", "/developers/entornos#limites", `${limite} ${cuando}`)),
-  ...REINTENTOS.map(([que, cuanto], i) => entrada(`reintento-${i}`, que, "Entornos · reintentos y vigencias", "/developers/entornos#reintentos", cuanto)),
-  ...INDICE_ERRORES.map((s) => entrada(`errores-${s.id}`, s.label, "Errores y estados", `/developers/errores#${s.id}`)),
-  ...ESTADOS.map(([estado, significado]) => entrada(`estado-${estado}`, estado, "Estado del comprobante", "/developers/errores#estados", significado)),
-  ...HTTP.map(([http, cuando]) => entrada(`http-${http}`, http, "Código HTTP", "/developers/errores#http", cuando)),
-  ...CODIGOS.map(([codigo, http, significado]) => entrada(`codigo-${codigo}`, codigo, `Código de error · HTTP ${http}`, "/developers/errores#codigos", significado)),
-];
+/**
+ * Todo lo que se busca, en el orden en que se ofrece y en el idioma de `messages`. Sale de los mismos datos que muestran las páginas, así que una fila nueva en una tabla se
+ * encuentra sola.
+ */
+export function entradas(messages: Mensajes): EntradaDeBusqueda[] {
+  const s = messages.developers.buscador.secciones;
+  const temas = messages.developers.buscador.temas;
+  return [
+    ...indiceGuia(messages)
+      .filter((i) => !i.esCaso)
+      .map((i) => entrada(`guia-${i.id}`, i.label, s.guia, `/developers/guia#${i.id}`)),
+    ...casos(messages).map((c) => entrada(`caso-${c.id}`, c.titulo, s.caso, `/developers/guia#${c.id}`, c.cuando)),
+    ...TEMAS_DE_LA_GUIA.map(([id, clave, href]) => entrada(`tema-${id}`, temas[clave][0], s.guia, href, temas[clave][1])),
+    ...indiceEntornos(messages).map((i) => entrada(`entorno-${i.id}`, i.label, s.entornos, `/developers/entornos#${i.id}`)),
+    ...entornos(messages).map(([aspecto, beta, produccion], i) =>
+      entrada(`entorno-fila-${i}`, aspecto, s.entornosFila, "/developers/entornos#entornos", `${beta} ${produccion}`),
+    ),
+    ...limites(messages).map(([que, limite, cuando], i) => entrada(`limite-${i}`, que, s.limite, "/developers/entornos#limites", `${limite} ${cuando}`)),
+    ...reintentos(messages).map(([que, cuanto], i) => entrada(`reintento-${i}`, que, s.reintento, "/developers/entornos#reintentos", cuanto)),
+    ...indiceErrores(messages).map((i) => entrada(`errores-${i.id}`, i.label, s.errores, `/developers/errores#${i.id}`)),
+    ...estados(messages).map(([estado, significado]) => entrada(`estado-${estado}`, estado, s.estado, "/developers/errores#estados", significado)),
+    ...codigosHttp(messages).map(([http, cuando]) => entrada(`http-${http}`, http, s.http, "/developers/errores#http", cuando)),
+    ...codigosDeError(messages).map(([codigo, http, significado]) =>
+      entrada(`codigo-${codigo}`, codigo, interpolar(s.codigo, { http }), "/developers/errores#codigos", significado),
+    ),
+  ];
+}

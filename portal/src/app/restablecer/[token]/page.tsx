@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RestablecerForm } from "@/components/auth/restablecer-form";
-import { messages } from "@/lib/messages";
+import { getMessages } from "next-intl/server";
 
 type BusquedaRestablecer = Promise<{ invitacion?: string }>;
 
@@ -12,11 +12,12 @@ type BusquedaRestablecer = Promise<{ invitacion?: string }>;
  */
 async function textos(searchParams: BusquedaRestablecer) {
   const invitacion = (await searchParams).invitacion === "1";
-  return { invitacion, t: invitacion ? messages.auth.invitacion : messages.auth.restablecer };
+  const messages = await getMessages();
+  return { invitacion, messages, t: invitacion ? messages.auth.invitacion : messages.auth.restablecer };
 }
 
 export async function generateMetadata({ searchParams }: { searchParams: BusquedaRestablecer }): Promise<Metadata> {
-  const { t } = await textos(searchParams);
+  const { messages, t } = await textos(searchParams);
   return { title: `${t.titulo} · ${messages.app.nombre}` };
 }
 

@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DocumentosDeAgente, ImportesDeAgente } from "./agente-detalle";
-import { esDeAgente, ETIQUETAS_TIPO, TIPOS_FILTRABLES, type ComprobanteDeAgente } from "@/lib/api/facturas";
+import { esDeAgente, etiquetasTipo, TIPOS_FILTRABLES, type ComprobanteDeAgente } from "@/lib/api/facturas";
 import { puedeRecuperarCdr } from "@/lib/comprobantes/consultas-sunat";
+import es from "@/messages/es.json";
 
 /** #40: la ficha de una retención o una percepción muestra los documentos pagados o cobrados y sus totales en soles, no las líneas de venta que no tiene. */
 const agente: ComprobanteDeAgente = {
@@ -43,8 +44,8 @@ describe("detalle de una retención o una percepción", () => {
   });
 
   it("los tipos 20 y 40 tienen etiqueta, se filtran y no consultan getStatusCdr", () => {
-    expect(ETIQUETAS_TIPO["20"]).toBe("Retención");
-    expect(ETIQUETAS_TIPO["40"]).toBe("Percepción");
+    expect(etiquetasTipo(es)["20"]).toBe("Retención");
+    expect(etiquetasTipo(es)["40"]).toBe("Percepción");
     expect(TIPOS_FILTRABLES).toContain("20");
     expect(TIPOS_FILTRABLES).toContain("40");
     expect(esDeAgente({ tipo: "20" })).toBe(true);

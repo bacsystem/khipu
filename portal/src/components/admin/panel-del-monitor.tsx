@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Etiqueta } from "@/components/admin/etiquetas";
@@ -8,12 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "k
 import type { BoletasSinInformar, ColaDeEnvios, EstadoDeServicio, Franja, MonitorDeEmision, ResumenesSinRespuesta } from "@/lib/api/admin-monitor";
 import { apiRequest } from "@/lib/api/browser";
 import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
-import { messages, mensajeError } from "@/lib/messages";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { duracionEnPalabras, formatearHoraConSegundos, formatearHoraDeLima, formatearTasa, proporcionDeBarra } from "@/lib/monitor-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.monitor;
 
 /** Cada cuánto se pide una lectura nueva: lo mismo que el backend guarda la de SUNAT, así que pedir más seguido no averiguaría nada más. */
 export const INTERVALO_DEL_MONITOR_MS = 30_000;
@@ -21,7 +21,7 @@ export const INTERVALO_DEL_MONITOR_MS = 30_000;
 type Categoria = "aceptados" | "rechazados" | "con_error" | "en_camino" | "otros";
 
 /** De abajo hacia arriba en cada barra. Lo bueno abajo, lo que pide atención arriba, donde se ve. */
-const CATEGORIAS: ReadonlyArray<{ clave: Categoria; mensaje: keyof typeof t.categoriasAyuda; color: string }> = [
+const CATEGORIAS: ReadonlyArray<{ clave: Categoria; mensaje: keyof Mensajes["admin"]["monitor"]["categoriasAyuda"]; color: string }> = [
   { clave: "aceptados", mensaje: "aceptados", color: "bg-success-foreground/70" },
   { clave: "en_camino", mensaje: "enCamino", color: "bg-primary/60" },
   { clave: "otros", mensaje: "otros", color: "bg-muted-foreground/30" },
@@ -35,6 +35,8 @@ const CATEGORIAS: ReadonlyArray<{ clave: Categoria; mensaje: keyof typeof t.cate
  * peor que uno que falla); si la sesión terminó deja de pedir, porque cada pedido seguiría fallando.
  */
 export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_MS }: { inicial: MonitorDeEmision | null; intervaloMs?: number }) {
+  const t = useMessages().admin.monitor;
+  const mensajeError = useMensajeError();
   const [monitor, setMonitor] = useState<MonitorDeEmision | null>(inicial);
   const [fallo, setFallo] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
@@ -60,7 +62,7 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
       setSesionTerminada(true);
     }
     setFallo(res.codigo === "NO_AUTORIZADO" ? t.sesionTerminada : (res.mensaje ?? mensajeError(res.codigo)));
-  }, []);
+  }, [t.sesionTerminada, mensajeError]);
 
   useEffect(() => {
     if (!inicial) void leer();
@@ -113,6 +115,7 @@ function Lectura({ monitor }: { monitor: MonitorDeEmision }) {
 }
 
 function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
+  const t = useMessages().admin.monitor;
   const tiempo = duracionEnPalabras(outbox.vencido_hace_segundos ?? 0);
   const texto = outbox.vencidos === 1 ? t.alerta.uno.replace("{tiempo}", tiempo) : t.alerta.varios.replace("{n}", String(outbox.vencidos)).replace("{tiempo}", tiempo);
   return (
@@ -128,6 +131,7 @@ function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
 
 /** #362 B14: tono de aviso (no el rojo del outbox caído): el trabajo corre, es SUNAT la que no resuelve un ticket, y pide una revisión, no un reinicio. */
 function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) {
+  const t = useMessages().admin.monitor;
   const tiempo = duracionEnPalabras(resumenes.mas_viejo_hace_segundos ?? 0);
   const umbral = String(resumenes.umbral_horas);
   const texto = resumenes.cantidad === 1
@@ -150,7 +154,8 @@ function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) 
  * que cierre el resumen diario. El detalle empresa por empresa está en la cola de errores.
  */
 function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
-  const fecha = formatearFecha(boletas.mas_antigua_emitida_el ?? "");
+  const t = useMessages().admin.monitor;
+  const fecha = formatearFecha(boletas.mas_antigua_emitida_el ?? "", useLocale());
   const texto = boletas.cantidad === 1 ? t.alertaBoletas.uno.replace("{fecha}", fecha) : t.alertaBoletas.varios.replace("{n}", String(boletas.cantidad)).replace("{fecha}", fecha);
   return (
     <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
@@ -171,6 +176,7 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
 }
 
 function Hoy({ franja }: { franja: Franja }) {
+  const t = useMessages().admin.monitor;
   return (
     <section aria-labelledby="monitor-hoy" className={cn(TARJETA, "grid gap-3 p-4")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -209,6 +215,7 @@ function Cifra({ testid, etiqueta, ayuda, valor }: { testid: string; etiqueta: s
 }
 
 function Horas({ horas }: { horas: Franja[] }) {
+  const t = useMessages().admin.monitor;
   const maximo = Math.max(0, ...horas.map((h) => h.total));
   return (
     <section aria-labelledby="monitor-horas" className={cn(TARJETA, "grid gap-3 p-4")}>
@@ -276,6 +283,7 @@ function Horas({ horas }: { horas: Franja[] }) {
 }
 
 function Barra({ franja, alto, conEtiqueta }: { franja: Franja; alto: number; conEtiqueta: boolean }) {
+  const t = useMessages().admin.monitor;
   const hora = formatearHoraDeLima(franja.desde);
   return (
     <div
@@ -296,6 +304,8 @@ function Barra({ franja, alto, conEtiqueta }: { franja: Franja; alto: number; co
 }
 
 function Cola({ outbox }: { outbox: ColaDeEnvios }) {
+  const t = useMessages().admin.monitor;
+  const locale = useLocale();
   return (
     <section aria-labelledby="monitor-outbox" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
       <div className="grid gap-0.5">
@@ -314,7 +324,7 @@ function Cola({ outbox }: { outbox: ColaDeEnvios }) {
         </p>
       ) : (
         <p className="text-[13px] text-muted-foreground">
-          {outbox.mas_viejo_desde ? <span data-testid="monitor-outbox-antiguo">{t.outbox.masAntiguo} {formatearFechaHora(outbox.mas_viejo_desde)}. </span> : null}
+          {outbox.mas_viejo_desde ? <span data-testid="monitor-outbox-antiguo">{t.outbox.masAntiguo} {formatearFechaHora(outbox.mas_viejo_desde, locale)}. </span> : null}
           {outbox.vencido_hace_segundos !== undefined ? (
             <span data-testid="monitor-outbox-vencido-hace">{t.outbox.vencidoHace.replace("{tiempo}", duracionEnPalabras(outbox.vencido_hace_segundos))}</span>
           ) : null}
@@ -325,6 +335,7 @@ function Cola({ outbox }: { outbox: ColaDeEnvios }) {
 }
 
 function Sunat({ servicios }: { servicios: EstadoDeServicio[] }) {
+  const t = useMessages().admin.monitor;
   return (
     <section aria-labelledby="monitor-sunat" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
       <div className="grid gap-0.5">

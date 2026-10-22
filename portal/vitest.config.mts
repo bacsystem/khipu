@@ -7,7 +7,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    // eslint-rules/: las pruebas de las reglas propias de ESLint (#25).
+    include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
   },
   resolve: {
     alias: {

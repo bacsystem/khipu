@@ -1,38 +1,27 @@
 "use client";
 
 import { SearchIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useMemo, useState } from "react";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { useSeccionActiva } from "@/lib/seccion-activa";
 import { cn } from "@/lib/utils";
 import { Rico } from "./guia/rico";
 
-/** Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía). */
-const USO: Record<string, string> = {
-  "01": "Tipo de comprobante (`tipo` en las respuestas) y `guias[].tipo` (solo `09` y `31`).",
-  "02": "`moneda` del comprobante.",
-  "03": "`items[].unidad`. La UN/ECE rec 20 completa, con las unidades más usadas primero (columna «Más usada»); un código fuera del catálogo responde `422` (2936) antes de consumir numeración.",
-  "05": "Tributos que khipu escribe en el XML según la afectación de cada ítem; no se envía en la API.",
-  "06": "`cliente.tipo_doc`. En factura de venta interna, `6` (RUC); en exportación, el documento del cliente del exterior. En boleta cualquiera, o `-` sin documento: solo en soles y hasta S/ 700.00.",
-  "07": "`items[].tipo_afectacion_igv`. Onerosas 10/20/30; gratuitas 11–16, 21, 31–37 (precio = valor referencial, no se cobran). 17 IVAP (arroz pilado, 4 % en vez del IGV; comprobante entero); 40 exportación (sin IGV, solo con tipo de operación 0200–0208). Columna adicional: código de tributo que genera.",
-  "08": "`items[].isc.sistema`.",
-  "09": "`motivo` de una nota de crédito (`POST /v1/notas` con `tipo: 07`); `13` reprograma cuotas con importe 0.",
-  "10": "`motivo` de una nota de débito (`POST /v1/notas` con `tipo: 08`).",
-  "12": "`documentos_relacionados[].tipo` (`04`–`09`, `99`; en boleta no se admiten `06` ni `07`); `02` lo escribe khipu para las facturas de anticipo (`anticipos`).",
-  "16": "Tipo de precio de la línea: `01` precio de venta, `02` valor referencial en gratuitas. Lo asigna khipu.",
-  "22": "`percepcion.regimen`.",
-  "23": "Régimen de retención.",
-  "25": "`items[].codigo_sunat` (8 dígitos UNSPSC). Solo los listados 25.1 (padrón obligado), 25.2 (detracciones) y 25.3 (percepciones); la API acepta cualquier código de 8 dígitos y SUNAT observa los que no están en su catálogo completo.",
-  "51": "`tipo_operacion`. Columna adicional: comprobantes en los que aplica; un código fuera del catálogo, o que khipu todavía no emite en ese comprobante, responde `422` (la lista está en la guía de emisión).",
-  "52": "Leyendas que khipu añade al XML (monto en letras 1000, gratuitas 1002, detracción 2006…). No se envían en la API.",
-  "53": "Los asigna khipu: descuentos 00–03 y cargos 46–50 según `afecta_base_igv` y `motivo` (46 = `recargo_consumo`), retención 62, percepción 51–53 y anticipos 04–06; la respuesta devuelve el `codigo` derivado. Columna adicional: nivel (línea o global).",
-  "54": "`detraccion.codigo_bien_servicio`.",
-  "59": "`detraccion.medio_pago`.",
-  "60": "Tipo de dirección del emisor.",
-};
+/**
+ * Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía): el texto
+ * está en `messages.developers.catalogos.uso`, por número de catálogo.
+ */
+function uso(messages: Mensajes, id: string): string | undefined {
+  const usos: Record<string, string> = messages.developers.catalogos.uso;
+  return Object.hasOwn(usos, id) ? usos[id] : undefined;
+}
 
 export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
   const [filtro, setFiltro] = useState("");
+  const messages = useMessages();
+  const t = messages.developers.catalogos;
   const q = filtro.trim().toLowerCase();
   const visibles = useMemo(
     () =>
@@ -55,8 +44,8 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            placeholder="Buscar código o texto…"
-            aria-label="Buscar en los catálogos"
+            placeholder={t.buscarPlaceholder}
+            aria-label={t.buscarAria}
             className="h-9 w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
           />
         </div>
@@ -88,24 +77,23 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
 
       <div className="min-w-0 space-y-8">
         <header className="space-y-2">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Catálogos SUNAT</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{t.titulo}</h1>
           <p className="text-[14px] leading-relaxed text-muted-foreground">
-            Códigos oficiales que esperan los campos de la API (Anexo 8 de las reglas de validación de SUNAT, versión 2026-08-26). Los mismos datos están
-            disponibles por API, sin credenciales: <code className="rounded bg-secondary px-1 font-mono text-[12px] text-foreground">GET /v1/catalogos/{"{id}"}</code>.
+            <Rico texto={t.intro} />
           </p>
         </header>
-        {visibles.length === 0 ? <p className="text-[13px] text-muted-foreground">Sin coincidencias para “{filtro}”.</p> : null}
+        {visibles.length === 0 ? <p className="text-[13px] text-muted-foreground">{interpolar(t.sinCoincidencias, { filtro })}</p> : null}
         {visibles.map((c) => (
           <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16 overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
             <div className="border-b border-border/60 px-4 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">Catálogo {c.id}</span>
+                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">{interpolar(t.catalogo, { id: c.id })}</span>
                 <h2 className="text-[15px] font-semibold text-foreground">{c.nombre}</h2>
-                <span className="font-mono text-[11px] text-muted-foreground">{c.entradas.length} códigos</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{interpolar(t.codigos, { n: c.entradas.length })}</span>
               </div>
-              {USO[c.id] ? (
+              {uso(messages, c.id) ? (
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  <Rico texto={USO[c.id]} />
+                  <Rico texto={uso(messages, c.id) ?? ""} />
                 </p>
               ) : null}
             </div>

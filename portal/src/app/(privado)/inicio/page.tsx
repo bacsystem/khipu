@@ -1,5 +1,7 @@
 import { ReceiptTextIcon } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getMessages } from "next-intl/server";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
 import { AlertasDelPanel } from "@/components/inicio/alertas-del-panel";
@@ -12,18 +14,24 @@ import { hayPasosPendientes, pasosParaEmitir } from "@/lib/empresa/guia-emision"
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { alertasDelPanel, esEmpresaNueva, mesEnCurso, mismoTramoDelMesAnterior, serieDiaria, sinLoQueYaDiceLaGuia, ventanaDeAtencion } from "@/lib/inicio/panel";
-import { messages } from "@/lib/messages";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { getServerSession } from "@/lib/session-server";
 
-export const metadata = { title: `Inicio · ${messages.app.nombre}` };
-
-const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre"];
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.nav.items.inicio} · ${messages.app.nombre}` };
+}
 
 /** «Octubre de 2026, del 1 al 20» (o «el 1» el primer día del mes). */
-function mesEnPalabras(hoy: string): string {
+function mesEnPalabras(hoy: string, messages: Mensajes): string {
+  const t = messages.inicio.periodo;
   const [anio, mes, dia] = hoy.split("-").map(Number);
-  const nombre = MESES[mes - 1];
-  return `${nombre[0].toUpperCase()}${nombre.slice(1)} de ${anio}, ${dia === 1 ? "el 1" : `del 1 al ${dia}`}`;
+  const nombre = t.meses[mes - 1];
+  return interpolar(t.texto, {
+    mes: `${nombre[0].toUpperCase()}${nombre.slice(1)}`,
+    anio,
+    dias: dia === 1 ? t.primerDia : interpolar(t.rango, { dia }),
+  });
 }
 
 /**
@@ -34,12 +42,15 @@ function mesEnPalabras(hoy: string): string {
  */
 export default async function InicioPage() {
   const { access, empresaId } = await getServerSession();
+  const messages = await getMessages();
+  const locale = await getLocale();
+  const t = messages.inicio;
   if (!access || !empresaId) {
     return (
       <p className="text-sm text-muted-foreground">
-        Primero registra una empresa para ver tu panel.{" "}
+        {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
-          Configurar empresa
+          {t.configurarEmpresa}
         </Link>
       </p>
     );
@@ -62,8 +73,8 @@ export default async function InicioPage() {
   ]);
   const resumenDeAtencion = atencionAparte ? resumenDeLaVentana : resumen;
 
-  const pasos = empresa ? pasosParaEmitir(empresa, series, hoy) : null;
-  const alertas = sinLoQueYaDiceLaGuia(alertasDelPanel(empresa, resumenDeAtencion, ventana, hoy), pasos);
+  const pasos = empresa ? pasosParaEmitir(empresa, series, hoy, messages) : null;
+  const alertas = sinLoQueYaDiceLaGuia(alertasDelPanel(empresa, resumenDeAtencion, ventana, hoy, messages, locale), pasos);
   const guiaPendiente = pasos !== null && hayPasosPendientes(pasos);
   // Solo una empresa que nunca emitió (series en 0) ve la invitación en vez de indicadores: una con historia que hoy no emitió nada sigue viendo los suyos.
   const sinEmision = esEmpresaNueva(series) && (resumen === null || resumen.emitidos === 0);
@@ -71,7 +82,7 @@ export default async function InicioPage() {
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4" data-testid="panel-de-inicio">
       <p className="text-[13px] text-muted-foreground" data-testid="panel-periodo">
-        {mesEnPalabras(hoy)}
+        {mesEnPalabras(hoy, messages)}
         {empresa ? <span className="text-muted-foreground/80"> · {empresa.razon_social}</span> : null}
       </p>
 
@@ -82,21 +93,19 @@ export default async function InicioPage() {
       {sinEmision ? (
         <EstadoVacio
           icon={ReceiptTextIcon}
-          titulo="Aún no emites comprobantes"
+          titulo={t.sinEmision.titulo}
           accion={
             <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
-              Ir a Comprobantes
+              {t.sinEmision.irAComprobantes}
             </Link>
           }
         >
-          {guiaPendiente
-            ? "Completa los pasos de «Para empezar a emitir» y emite tu primer comprobante con «Nuevo comprobante», arriba a la derecha."
-            : "Emite tu primer comprobante con «Nuevo comprobante», arriba a la derecha, o desde tu sistema con la API. Aquí verás cómo va el mes."}
+          {guiaPendiente ? t.sinEmision.conGuia : t.sinEmision.sinGuia}
         </EstadoVacio>
       ) : (
         <>
           <KpisDelMes resumen={resumen} anterior={resumenAnterior} />
-          <GraficoDeEmision serie={emision ? serieDiaria(emision, mes) : null} titulo="Emisión por día" />
+          <GraficoDeEmision serie={emision ? serieDiaria(emision, mes) : null} titulo={t.graficoTitulo} />
         </>
       )}
     </div>

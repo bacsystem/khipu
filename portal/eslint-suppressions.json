@@ -1,0 +1,17 @@
+{
+  "src/lib/api/browser.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 6
+    }
+  },
+  "src/lib/api/client.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 2
+    }
+  },
+  "src/lib/api/http.ts": {
+    "khipu/no-literal-de-ui": {
+      "count": 1
+    }
+  }
+}

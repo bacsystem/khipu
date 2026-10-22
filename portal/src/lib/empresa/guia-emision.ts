@@ -1,3 +1,4 @@
+import type { Mensajes } from "@/i18n/mensajes";
 import type { EmpresaDetalle } from "@/lib/api/empresas";
 import type { Serie } from "@/lib/api/series";
 import { enlaceASeccion, seccionesPendientes } from "@/lib/empresa/secciones";
@@ -32,7 +33,8 @@ function hayCamino(series: Serie[]): boolean {
  * a su vez usa `faltaParaEmitir` (las reglas de `Tenant.exigirListoParaEmitir`): aquí no hay una tercera copia. `series` en `null` es
  * «no se pudo leer»: ese paso se omite en vez de afirmar que falta. `hoy` en `YYYY-MM-DD` (Lima).
  */
-export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, hoy: string): PasoGuia[] {
+export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, hoy: string, messages: Mensajes): PasoGuia[] {
+  const t = messages.guiaEmision;
   const pendientes = seccionesPendientes(empresa, hoy);
   const certificadoVencido = empresa.tiene_certificado && pendientes.includes("certificado");
   const solRechazada = Boolean(empresa.credenciales_sol_rechazadas);
@@ -40,40 +42,30 @@ export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, 
   const pasos: PasoGuia[] = [
     {
       id: "certificado",
-      titulo: "Certificado digital",
-      detalle: !pendientes.includes("certificado")
-        ? "Cargado y vigente."
-        : certificadoVencido
-          ? "El certificado venció: carga uno vigente (.p12 o .pfx)."
-          : "Carga el certificado digital (.p12 o .pfx) con el que se firman los comprobantes.",
+      titulo: t.certificado.titulo,
+      detalle: !pendientes.includes("certificado") ? t.certificado.listo : certificadoVencido ? t.certificado.vencido : t.certificado.falta,
       listo: !pendientes.includes("certificado"),
       recomendado: false,
       enlace: enlaceASeccion("certificado"),
-      accion: certificadoVencido ? "Renovar certificado" : "Cargar certificado",
+      accion: certificadoVencido ? t.certificado.renovar : t.certificado.cargar,
     },
     {
       id: "sol",
-      titulo: "Credenciales SOL",
-      detalle: !pendientes.includes("sol")
-        ? "Usuario secundario configurado."
-        : solRechazada
-          ? "SUNAT rechazó las credenciales guardadas: corrígelas para que se reanuden los envíos."
-          : "Guarda el usuario SOL secundario y su clave para enviar a SUNAT.",
+      titulo: t.sol.titulo,
+      detalle: !pendientes.includes("sol") ? t.sol.listo : solRechazada ? t.sol.rechazada : t.sol.falta,
       listo: !pendientes.includes("sol"),
       recomendado: false,
       enlace: enlaceASeccion("sol"),
-      accion: solRechazada ? "Corregir credenciales" : "Guardar credenciales",
+      accion: solRechazada ? t.sol.corregir : t.sol.guardar,
     },
     {
       id: "domicilio",
-      titulo: "Domicilio fiscal",
-      detalle: empresa.domicilio
-        ? "Registrado."
-        : "Va como dirección del emisor en el XML y en la representación impresa; SUNAT no bloquea la emisión sin ella.",
+      titulo: t.domicilio.titulo,
+      detalle: empresa.domicilio ? t.domicilio.listo : t.domicilio.falta,
       listo: Boolean(empresa.domicilio),
       recomendado: true,
       enlace: enlaceASeccion("datos"),
-      accion: "Completar domicilio",
+      accion: t.domicilio.accion,
     },
   ];
 
@@ -83,16 +75,12 @@ export function pasosParaEmitir(empresa: EstadoEmpresa, series: Serie[] | null, 
     const hayInactivas = series.some((s) => !s.activa && (s.tipo === "01" || s.tipo === "03"));
     pasos.push({
       id: "series",
-      titulo: "Series de comprobantes",
-      detalle: listo
-        ? "Hay una serie activa de factura o de boleta."
-        : hayInactivas
-          ? "Tus series de factura y boleta están inactivas: crea una con otro número (por ejemplo F002 o B002)."
-          : "Crea al menos una serie de factura (F001) o de boleta (B001).",
+      titulo: t.series.titulo,
+      detalle: listo ? t.series.listo : hayInactivas ? t.series.inactivas : t.series.falta,
       listo,
       recomendado: false,
       enlace: "/series",
-      accion: "Crear serie",
+      accion: t.series.accion,
     });
   }
 

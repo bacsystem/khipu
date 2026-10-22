@@ -2,6 +2,7 @@
 
 import { BanIcon, KeyRoundIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLocale, useMessages } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
@@ -10,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "k
 import type { ApiKeyResumen } from "@/lib/api/api-keys";
 import { apiRequest } from "@/lib/api/browser";
 import { formatearFechaHora } from "@/lib/formato";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { cn } from "@/lib/utils";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
@@ -18,25 +20,20 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 const TODAS = "todas";
 
-const ITEMS_ESTADO: Record<string, string> = {
-  [TODAS]: "Estado: Todas",
-  activa: "Activas",
-  revocada: "Revocadas",
-};
-
 const ACCION =
   "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activa }: { activa: boolean }) {
+  const t = useMessages().apiKeys.tabla;
   return activa ? (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
       <span className="size-1.5 rounded-full bg-success-solid" />
-      Activa
+      {t.activa}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-      Revocada
+      {t.revocada}
     </span>
   );
 }
@@ -44,6 +41,9 @@ function Estado({ activa }: { activa: boolean }) {
 /** Acciones de una fila: "Revocar" pide confirmación en línea antes de llamar a la API (es irreversible). */
 function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
   const soloLectura = useSinPermisoDeConfigurar();
+  const messages = useMessages();
+  const t = messages.apiKeys.tabla;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,10 +69,10 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
       <div className="flex items-center justify-end gap-1">
         {confirmando ? (
           <>
-            <span className="mr-1 text-[11px] text-muted-foreground">¿Revocar de forma permanente?</span>
+            <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarRevocar}</span>
             <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
               {revocando ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <BanIcon className="size-3.5" />}
-              Sí, revocar
+              {t.siRevocar}
             </button>
             <button
               type="button"
@@ -80,14 +80,14 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
               onClick={() => setConfirmando(false)}
               className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}
             >
-              Cancelar
+              {messages.comun.cancelar}
             </button>
           </>
         ) : (
           // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
           <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
             <BanIcon className="size-3.5" />
-            Revocar
+            {t.revocar}
           </button>
         )}
       </div>
@@ -97,6 +97,9 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
 }
 
 export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
+  const locale = useLocale();
+  const t = useMessages().apiKeys.tabla;
+  const itemsEstado: Record<string, string> = { [TODAS]: t.filtro.todas, activa: t.filtro.activas, revocada: t.filtro.revocadas };
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
   const [estado, setEstado] = useState(TODAS);
@@ -129,14 +132,14 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
             <KeyRoundIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">Llaves de acceso</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">Solo se guarda el hash · el secreto se muestra una vez, al crearla</p>
+            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Select
-            items={ITEMS_ESTADO}
+            items={itemsEstado}
             value={estado}
             onValueChange={(v) => {
               setEstado(v ?? TODAS);
@@ -147,7 +150,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ITEMS_ESTADO).map(([valor, etiqueta]) => (
+              {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
                 <SelectItem key={valor} value={valor}>
                   {etiqueta}
                 </SelectItem>
@@ -158,7 +161,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
           <button
             type="button"
             onClick={() => startTransition(() => router.refresh())}
-            title="Refrescar lista"
+            title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
@@ -170,11 +173,11 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Llave</TableHead>
-              <TableHead className={CABECERA_TABLA}>Creada</TableHead>
-              <TableHead className={CABECERA_TABLA}>Revocada</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.llave}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.creada}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.revocada}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -191,15 +194,15 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
                       {k.prefijo}
                     </span>
                     <span className="font-mono text-[12px] tracking-[0.2em] text-muted-foreground/50 select-none">••••••••••</span>
-                    <BotonCopiar texto={k.prefijo} titulo="Copiar prefijo" className="opacity-0 group-hover:opacity-100" />
+                    <BotonCopiar texto={k.prefijo} titulo={t.copiarPrefijo} className="opacity-0 group-hover:opacity-100" />
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80" title={k.id}>
-                    id: {k.id.slice(0, 8)}
+                    {interpolar(t.id, { id: k.id.slice(0, 8) })}
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap text-foreground tabular-nums">{formatearFechaHora(k.creada_en)}</TableCell>
+                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap text-foreground tabular-nums">{formatearFechaHora(k.creada_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap text-muted-foreground tabular-nums">
-                  {k.revocada_en ? formatearFechaHora(k.revocada_en) : "—"}
+                  {k.revocada_en ? formatearFechaHora(k.revocada_en, locale) : "—"}
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
                   <Estado activa={k.activa} />
@@ -215,7 +218,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <KeyRoundIcon className="size-6" />
                     <p className="text-sm">
-                      {apiKeys.length === 0 ? "Todavía no tienes API keys. Crea la primera con «Crear API key»." : "No hay llaves con el filtro seleccionado."}
+                      {apiKeys.length === 0 ? t.vacia : t.sinResultados}
                     </p>
                   </div>
                 </TableCell>
@@ -228,13 +231,13 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="llaves"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Revocar es irreversible: la llave deja de autenticar al instante"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

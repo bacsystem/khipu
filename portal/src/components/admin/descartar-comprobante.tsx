@@ -1,15 +1,13 @@
 "use client";
 
 import { BanIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { ErrorDeEmision } from "@/lib/api/admin-errores";
 import { AYUDA_CAMPO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { mensajeDeDescarte } from "@/lib/errores-formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.errores.descarte;
 
 /**
  * Una boleta o una nota que la modifica (serie B: la de una nota empieza como la del comprobante que modifica). SUNAT no les contesta getStatusCdr, así que el backend no
@@ -25,6 +23,8 @@ const MAX_MOTIVO = 200;
  * lo rechaza y el diálogo muestra su mensaje (una sola regla, la del backend). Es irreversible, así que el diálogo es de peligro y lo dice.
  */
 export function DescartarComprobante({ comprobante, alResultado }: { comprobante: ErrorDeEmision; alResultado: (mensaje: string) => void }) {
+  const messages = useMessages();
+  const t = messages.admin.errores.descarte;
   const [motivo, setMotivo] = useState("");
   const id = `errores-motivo-${comprobante.comprobante_id}`;
 
@@ -47,7 +47,7 @@ export function DescartarComprobante({ comprobante, alResultado }: { comprobante
       estadoViejo={["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO", "SUNAT_YA_LO_TIENE"]}
       alEstadoViejo={(mensaje) => alResultado(`${comprobante.nombre_archivo}: ${mensaje}`)}
       alCerrar={() => setMotivo("")}
-      alExito={() => alResultado(mensajeDeDescarte(comprobante.nombre_archivo))}
+      alExito={() => alResultado(mensajeDeDescarte(comprobante.nombre_archivo, messages))}
     >
       <div className="grid gap-1.5">
         <label htmlFor={id} className={ETIQUETA_CAMPO}>

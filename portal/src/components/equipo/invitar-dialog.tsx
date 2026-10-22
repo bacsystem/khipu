@@ -2,21 +2,23 @@
 
 import { ChevronDownIcon, MailPlusIcon, SendIcon, UserPlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionEnviada, type Rol } from "@/lib/api/equipo";
 import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError, messages } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
-
-const t = messages.equipo.invitar;
-const roles = messages.roles;
 
 /** #21: invitar a alguien a la cuenta con un rol. Solo un administrador (el backend lo vuelve a exigir). */
 export function InvitarDialog({ className }: { className?: string }) {
   const sinPermiso = useSinPermisoDeConfigurar();
+  const messages = useMessages();
+  const t = messages.equipo.invitar;
+  const roles = messages.roles;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [email, setEmail] = useState("");

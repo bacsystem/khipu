@@ -1,27 +1,33 @@
 "use client";
 
 import { PackageIcon, SearchIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useMessages } from "next-intl";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
-import { AFECTACIONES } from "@/lib/comprobantes/tributos";
+import { afectaciones } from "@/lib/comprobantes/tributos";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearPrecioUnitario } from "@/lib/formato";
-import { mensajeError } from "@/lib/messages";
+import type { Locale } from "@/i18n/config";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSoloLectura } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { alCambiarLosProductos, avisarQueCambiaronLosProductos } from "./eventos";
 import { ProductoDialog } from "./producto-dialog";
 
-const ETIQUETA_AFECTACION = new Map<string, string>([...AFECTACIONES.map((a) => [a.codigo, a.etiqueta] as const), ["40", "Exportación"]]);
 const ACCION = "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** La lista de productos guardados (#320): búsqueda por código o descripción, páginas y las acciones de cambiar y eliminar. */
 export function ProductosTable() {
+  const messages = useMessages();
+  const t = messages.productos.tabla;
+  const locale = useLocale() as Locale;
+  const mensajeError = useMensajeError();
+  const etiquetaAfectacion = useMemo(() => new Map<string, string>([...afectaciones(messages).map((a) => [a.codigo, a.etiqueta] as const), ["40", t.exportacion]]), [messages, t.exportacion]);
   const soloLectura = useSoloLectura();
   const [texto, setTexto] = useState("");
   const [q, setQ] = useState("");
@@ -48,7 +54,7 @@ export function ProductosTable() {
 
   const cargar = useCallback(async () => {
     const mia = ++ultimaLectura.current;
-    const res = await buscarProductos({ q, pagina, porPagina });
+    const res = await buscarProductos({ q, pagina, porPagina }, messages);
     if (mia !== ultimaLectura.current) return;
     if (res.estado === "exito") {
       // Borrar la única fila de la última página deja esa página vacía: se vuelve a la última que tiene productos.
@@ -63,7 +69,7 @@ export function ProductosTable() {
     } else {
       setError(res.mensaje);
     }
-  }, [q, pagina, porPagina]);
+  }, [q, pagina, porPagina, messages]);
 
   useEffect(() => {
     void cargar();
@@ -94,18 +100,18 @@ export function ProductosTable() {
             <PackageIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">Productos y servicios guardados</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">Aparecen al buscar en los ítems de «Nuevo comprobante» · el código interno es único por empresa</p>
+            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
         <label className="relative">
-          <span className="sr-only">Buscar productos</span>
+          <span className="sr-only">{t.buscar}</span>
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             type="search"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Buscar por código o descripción"
+            placeholder={t.buscarPlaceholder}
             className={cn(CONTROL_FILTRO, "w-72 max-w-full pr-3 pl-9 font-normal")}
           />
         </label>
@@ -121,12 +127,12 @@ export function ProductosTable() {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>Producto</TableHead>
-              <TableHead className={CABECERA_TABLA}>Código</TableHead>
-              <TableHead className={CABECERA_TABLA}>Unidad</TableHead>
-              <TableHead className={CABECERA_TABLA}>Afectación</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "text-right")}>Precio</TableHead>
-              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>Acciones</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.producto}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.codigo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.unidad}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.afectacion}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "text-right")}>{t.columnas.precio}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -137,19 +143,19 @@ export function ProductosTable() {
                 <TableCell className="px-3 py-2 font-mono">{p.unidad}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <span className="font-mono">{p.tipo_afectacion_igv}</span>
-                  <span className="ml-1.5 text-[11px] text-muted-foreground">{ETIQUETA_AFECTACION.get(p.tipo_afectacion_igv) ?? ""}</span>
+                  <span className="ml-1.5 text-[11px] text-muted-foreground">{etiquetaAfectacion.get(p.tipo_afectacion_igv) ?? ""}</span>
                 </TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearPrecioUnitario(p.precio_unitario)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearPrecioUnitario(p.precio_unitario, locale)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-2 text-right">
                   <div className="flex items-center justify-end gap-1">
                     {confirmando === p.id ? (
                       <>
-                        <span className="mr-1 text-[11px] text-muted-foreground">¿Eliminar de la lista?</span>
+                        <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarEliminar}</span>
                         <button type="button" disabled={eliminando === p.id} onClick={() => eliminar(p)} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                          Sí, eliminar
+                          {t.siEliminar}
                         </button>
                         <button type="button" onClick={() => setConfirmando(null)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                          Cancelar
+                          {messages.comun.cancelar}
                         </button>
                       </>
                     ) : (
@@ -157,7 +163,7 @@ export function ProductosTable() {
                         <ProductoDialog existente={p} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted")} />
                         <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(p.id)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
                           <Trash2Icon className="size-3.5" />
-                          Eliminar
+                          {t.eliminar}
                         </button>
                       </>
                     )}
@@ -170,7 +176,7 @@ export function ProductosTable() {
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <PackageIcon className="size-6" />
-                    <p className="text-sm">{q ? "Ningún producto coincide con la búsqueda." : "Todavía no tienes productos guardados. Crea el primero con «Nuevo producto»."}</p>
+                    <p className="text-sm">{q ? t.sinCoincidencias : t.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -178,7 +184,7 @@ export function ProductosTable() {
             {productos === null && !error ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center text-sm text-muted-foreground">
-                  Cargando productos…
+                  {t.cargando}
                 </TableCell>
               </TableRow>
             ) : null}
@@ -188,13 +194,13 @@ export function ProductosTable() {
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="productos"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Eliminar un producto no toca los comprobantes ya emitidos"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

@@ -1,16 +1,20 @@
+import type { Metadata } from "next";
+import { getMessages } from "next-intl/server";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
-import { SECCIONES_ADMIN } from "@/lib/admin-secciones";
+import { seccionesAdmin } from "@/lib/admin-secciones";
 import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Inicio · Backoffice" };
-
-const t = messages.admin.inicio;
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: messages.admin.metadatos.inicio };
+}
 
 /** El inicio del backoffice: cada sección del menú con sus páginas y para qué sirve cada una. */
-export default function AdminInicioPage() {
+export default async function AdminInicioPage() {
+  const messages = await getMessages();
+  const t = messages.admin.inicio;
   return (
     <div className="grid gap-4">
       <div className="grid gap-1">
@@ -18,7 +22,7 @@ export default function AdminInicioPage() {
         <p className="text-sm text-muted-foreground">{t.descripcion}</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {SECCIONES_ADMIN.map((seccion) => (
+        {seccionesAdmin(messages).map((seccion) => (
           <section key={seccion.titulo} aria-labelledby={`inicio-${seccion.titulo}`} className={cn(TARJETA, "overflow-hidden")}>
             <h2 id={`inicio-${seccion.titulo}`} className={cn(TITULO_SECCION, "border-b border-border/60 px-4 py-3")}>
               {seccion.titulo}

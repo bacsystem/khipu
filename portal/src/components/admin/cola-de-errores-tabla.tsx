@@ -1,26 +1,22 @@
 "use client";
 
 import { FilterIcon, InboxIcon, SearchIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DescartarComprobante } from "@/components/admin/descartar-comprobante";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { ReintentarEnvio } from "@/components/admin/reintentar-envio";
-import { ETIQUETAS_ESTADO } from "@/components/comprobantes/estado-badge";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
-import { ETIQUETAS_TIPO, type EstadoDocumento } from "@/lib/api/facturas";
 import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { faultEnPalabras } from "@/lib/errores-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.errores;
 
 /** Un error de envío todavía se puede arreglar (aviso); un rechazo de formato y un fuera de plazo ya son terminales (error). */
 const TONO_DE_CLASE: Record<ClaseDeError, Tono> = { ERROR_DE_ENVIO: "aviso", ERROR_DE_FORMATO: "error", FUERA_DE_PLAZO: "error", BOLETA_SIN_ENVIAR: "aviso" };
@@ -31,6 +27,11 @@ const TONO_DE_CLASE: Record<ClaseDeError, Tono> = { ERROR_DE_ENVIO: "aviso", ERR
  * fila lo dice. Lo que pasó con la última acción se muestra arriba y sobrevive a la recarga que sigue.
  */
 export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorDeEmision[]; total: number; params: ParamsErrores }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.errores;
+  const tipos = messages.documentos.tipos as Record<string, string>;
+  const estados = messages.documentos.estados as Record<string, string>;
   const router = useRouter();
   const [resultado, setResultado] = useState<string | null>(null);
 
@@ -139,14 +140,14 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                       {e.nombre_archivo}
                     </Link>
                     <span className="text-[11px] text-muted-foreground">
-                      {ETIQUETAS_TIPO[e.tipo] ?? e.tipo} · {formatearFecha(e.fecha_emision)}
+                      {tipos[e.tipo] ?? e.tipo} · {formatearFecha(e.fecha_emision, locale)}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2">
                   <div className="grid justify-items-start gap-1">
                     <Etiqueta tono={TONO_DE_CLASE[e.clase]}>{t.filtros[e.clase]}</Etiqueta>
-                    <span className="text-[11px] text-muted-foreground">{ETIQUETAS_ESTADO[e.estado as EstadoDocumento] ?? e.estado}</span>
+                    <span className="text-[11px] text-muted-foreground">{estados[e.estado] ?? e.estado}</span>
                   </div>
                 </TableCell>
                 <TableCell className="max-w-xs px-3 py-2 font-mono text-[11px] break-words text-muted-foreground" data-testid="errores-fault">
@@ -158,7 +159,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                       {e.intentos}
                     </span>
                     {e.proximo_intento ? (
-                      <span className="text-[11px] whitespace-nowrap text-muted-foreground">{t.proximoIntento.replace("{fecha}", formatearFechaHora(e.proximo_intento))}</span>
+                      <span className="text-[11px] whitespace-nowrap text-muted-foreground">{t.proximoIntento.replace("{fecha}", formatearFechaHora(e.proximo_intento, locale))}</span>
                     ) : e.accionable ? (
                       <span className="text-[11px] text-muted-foreground">{t.sinReintento}</span>
                     ) : null}

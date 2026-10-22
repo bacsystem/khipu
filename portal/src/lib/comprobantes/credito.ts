@@ -1,3 +1,4 @@
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { sumarDias } from "@/lib/formato";
 
 /**
@@ -46,18 +47,19 @@ export function sumaDeCuotas(cuotas: CuotaForm[]): number {
 }
 
 /** Por qué el crédito no vale tal como está escrito, o `null`. El resto de las reglas las dice el backend al calcular. */
-export function errorDeCredito(credito: CreditoForm, neto: number, emision: string): string | null {
+export function errorDeCredito(credito: CreditoForm, neto: number, emision: string, messages: Mensajes): string | null {
+  const t = messages.comprobantes.validacion.credito;
   const pendiente = credito.montoPendiente.trim() === "" ? neto : Number(credito.montoPendiente);
-  if (credito.montoPendiente.trim() !== "" && !montoValido(credito.montoPendiente)) return "El neto pendiente es un importe mayor que cero con hasta 2 decimales.";
-  if (credito.cuotas.length === 0) return "Una factura al crédito lleva al menos una cuota (3259).";
+  if (credito.montoPendiente.trim() !== "" && !montoValido(credito.montoPendiente)) return t.netoPendiente;
+  if (credito.cuotas.length === 0) return t.sinCuotas;
   for (const [i, q] of credito.cuotas.entries()) {
-    if (!montoValido(q.monto)) return `La cuota ${i + 1} es un importe mayor que cero con hasta 2 decimales (3253).`;
-    if (!q.vencimiento) return `La cuota ${i + 1} necesita su fecha de vencimiento.`;
-    if (q.vencimiento <= emision) return `El vencimiento de la cuota ${i + 1} es posterior a la fecha de emisión (3256).`;
-    if (i > 0 && q.vencimiento <= credito.cuotas[i - 1].vencimiento) return `El vencimiento de la cuota ${i + 1} es posterior al de la cuota ${i} (3267).`;
+    if (!montoValido(q.monto)) return interpolar(t.cuotaMonto, { n: i + 1 });
+    if (!q.vencimiento) return interpolar(t.cuotaSinVencimiento, { n: i + 1 });
+    if (q.vencimiento <= emision) return interpolar(t.vencimientoTrasEmision, { n: i + 1 });
+    if (i > 0 && q.vencimiento <= credito.cuotas[i - 1].vencimiento) return interpolar(t.vencimientoTrasCuota, { n: i + 1, anterior: i });
   }
   if (aCentimos(sumaDeCuotas(credito.cuotas)) !== aCentimos(pendiente))
-    return `Las cuotas suman ${sumaDeCuotas(credito.cuotas).toFixed(2)} y el neto pendiente es ${pendiente.toFixed(2)}: tienen que ser iguales (3250).`;
+    return interpolar(t.suma, { suma: sumaDeCuotas(credito.cuotas).toFixed(2), pendiente: pendiente.toFixed(2) });
   return null;
 }
 

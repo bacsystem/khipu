@@ -1,21 +1,18 @@
+import type { Mensajes } from "@/i18n/mensajes";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
 export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "ANULADO", "INVALIDO"] as const;
 
-export const ETIQUETAS_TIPO: Record<string, string> = {
-  "01": "Factura",
-  "03": "Boleta",
-  "04": "Liquidación de compra",
-  "07": "Nota de crédito",
-  "08": "Nota de débito",
-  // #39: las guías de remisión se emiten por la API (/v1/guias-remision); el portal solo las nombra donde muestra tipos (series).
-  "09": "Guía de remisión remitente",
-  "20": "Retención",
-  "31": "Guía de remisión transportista",
-  "40": "Percepción",
-};
+/** Un catálogo de SUNAT con sus etiquetas: código → texto. Los textos están en `messages.documentos` (#25). */
+export type Catalogo = Record<string, string>;
+
+/**
+ * Tipos de comprobante (catálogo 01). #39: las guías de remisión se emiten por la API (/v1/guias-remision); el portal solo las nombra donde muestra tipos (series).
+ * Con el locale de la sesión: `etiquetasTipo(messages)` y las demás funciones de abajo reciben los textos (sin valor por defecto, #25).
+ */
+export const etiquetasTipo = (messages: Mensajes): Catalogo => messages.documentos.tipos;
 
 /** #40: comprobante de retención (20) o de percepción (40), que solo emite una empresa designada agente por SUNAT. */
 export function esDeAgente(c: { tipo: string }): boolean {
@@ -146,18 +143,11 @@ export type TransporteCarga = {
   }>;
 };
 
-export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };
+/** Guías de remisión (catálogo 01: 09 y 31). */
+export const etiquetasGuia = (messages: Mensajes): Catalogo => ({ "09": messages.documentos.tipos["09"], "31": messages.documentos.tipos["31"] });
 
 /** Catálogo 12 (tipos admitidos como "otro documento relacionado"). */
-export const ETIQUETAS_DOC_RELACIONADO: Record<string, string> = {
-  "04": "Ticket de salida ENAPU",
-  "05": "Código SCOP",
-  "06": "Factura electrónica remitente",
-  "07": "Guía de remisión remitente",
-  "08": "Declaración de salida del depósito franco",
-  "09": "Declaración simplificada de importación",
-  "99": "Otros",
-};
+export const etiquetasDocRelacionado = (messages: Mensajes): Catalogo => messages.documentos.relacionados;
 
 export type NotaResumen = {
   id: string;
@@ -261,44 +251,11 @@ export function seInformaFueraDePlazo(
   return !sinResumen && diasEntre(c.fecha_limite_envio, hoy) > 0;
 }
 
-export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
-  "1": "DNI",
-  "4": "Carné de extranjería",
-  "6": "RUC",
-  "7": "Pasaporte",
-  "0": "Doc. tributario no domiciliado",
-  A: "Cédula diplomática",
-  B: "Doc. identidad país de residencia",
-  C: "TIN (persona natural)",
-  D: "IN (persona jurídica)",
-  E: "Tarjeta Andina de Migración",
-  G: "Salvoconducto",
-  // Una boleta de hasta S/ 700 sin comprador identificado (#20): no es del catálogo 06.
-  "-": "Sin documento",
-};
+/** Documentos de identidad (catálogo 06) con su nombre corto. «-» es una boleta de hasta S/ 700 sin comprador identificado (#20): no es del catálogo 06. */
+export const etiquetasTipoDoc = (messages: Mensajes): Catalogo => messages.documentos.identidad;
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
-export const ETIQUETAS_AFECTACION: Record<string, string> = {
-  "10": "Gravado · Op. onerosa",
-  "17": "Gravado · IVAP",
-  "11": "Gravado · Retiro por premio (gratuita)",
-  "12": "Gravado · Retiro por donación (gratuita)",
-  "13": "Gravado · Retiro (gratuita)",
-  "14": "Gravado · Retiro por publicidad (gratuita)",
-  "15": "Gravado · Bonificación (gratuita)",
-  "16": "Gravado · Retiro a trabajadores (gratuita)",
-  "20": "Exonerado · Op. onerosa",
-  "21": "Exonerado · Transferencia gratuita",
-  "30": "Inafecto · Op. onerosa",
-  "31": "Inafecto · Retiro por bonificación (gratuita)",
-  "32": "Inafecto · Retiro (gratuita)",
-  "33": "Inafecto · Muestras médicas (gratuita)",
-  "34": "Inafecto · Convenio colectivo (gratuita)",
-  "35": "Inafecto · Retiro por premio (gratuita)",
-  "36": "Inafecto · Retiro por publicidad (gratuita)",
-  "37": "Inafecto · Transferencia gratuita",
-  "40": "Exportación",
-};
+export const etiquetasAfectacion = (messages: Mensajes): Catalogo => messages.documentos.afectacion;
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
 export type FormaPago = {

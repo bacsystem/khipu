@@ -1,6 +1,7 @@
 "use client";
 
 import { InboxIcon, SearchIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -22,10 +23,7 @@ import {
 } from "@/lib/api/admin-empresas";
 import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.empresas;
 
 /** Una fila con el certificado vencido o por vencer se tiñe: el administrador las ve sin leer la columna (#185). */
 const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
@@ -39,6 +37,9 @@ const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
  * cliente, no la sesión del administrador.
  */
 export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[]; total: number; params: ParamsEmpresas }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.empresas;
   const router = useRouter();
   const buscador = useRef<HTMLInputElement>(null);
 
@@ -171,7 +172,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.series}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.comprobantes_del_mes}</TableCell>
                 <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
-                  {e.ultima_emision ? formatearFecha(e.ultima_emision) : <span className="text-muted-foreground">{t.nuncaEmitio}</span>}
+                  {e.ultima_emision ? formatearFecha(e.ultima_emision, locale) : <span className="text-muted-foreground">{t.nuncaEmitio}</span>}
                 </TableCell>
               </TableRow>
             ))}

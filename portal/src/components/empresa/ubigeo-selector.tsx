@@ -1,6 +1,8 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { AYUDA_CAMPO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -23,20 +25,21 @@ export function UbigeoSelector({
   inicial?: { departamento?: string | null; provincia?: string | null } | null;
   idPrefijo?: string;
 }) {
+  const t = useMessages().empresa.ubigeo;
   const [ubigeos, setUbigeos] = useState<Ubigeo[] | null>(null);
-  const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  const [errorCatalogo, setErrorCatalogo] = useState(false);
   const [intento, setIntento] = useState(0);
   const [departamento, setDepartamento] = useState(inicial?.departamento ?? "");
   const [provincia, setProvincia] = useState(inicial?.provincia ?? "");
 
   useEffect(() => {
     let vigente = true;
-    setErrorCatalogo(null);
+    setErrorCatalogo(false);
     apiRequest<CatalogoSunat>("/api/proxy/catalogos/13", { method: "GET" })
       .then((res) => {
         if (!vigente) return;
         if (res.estado !== "exito" || !res.datos) {
-          setErrorCatalogo("No se pudo cargar el catálogo de ubigeos.");
+          setErrorCatalogo(true);
           return;
         }
         setUbigeos(
@@ -49,7 +52,7 @@ export function UbigeoSelector({
         );
       })
       .catch(() => {
-        if (vigente) setErrorCatalogo("No se pudo cargar el catálogo de ubigeos.");
+        if (vigente) setErrorCatalogo(true);
       });
     return () => {
       vigente = false;
@@ -65,21 +68,21 @@ export function UbigeoSelector({
     () => (ubigeos ?? []).filter((u) => u.departamento === departamento && u.provincia === provincia).sort((a, b) => a.distrito.localeCompare(b.distrito)),
     [ubigeos, departamento, provincia],
   );
-  const cargando = ubigeos === null && errorCatalogo === null;
+  const cargando = ubigeos === null && !errorCatalogo;
 
   return (
     <>
       {errorCatalogo ? (
         <p className="text-sm text-destructive sm:col-span-3">
-          {errorCatalogo}{" "}
+          {t.errorCatalogo}{" "}
           <button type="button" onClick={() => setIntento((n) => n + 1)} className="font-medium underline">
-            Reintentar
+            {t.reintentar}
           </button>
         </p>
       ) : null}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${idPrefijo}-departamento`} className={ETIQUETA_CAMPO}>
-          Departamento
+          {t.departamento}
         </label>
         <select
           id={`${idPrefijo}-departamento`}
@@ -92,7 +95,7 @@ export function UbigeoSelector({
           }}
           className={cn(CAMPO, "cursor-pointer")}
         >
-          <option value="">{cargando ? "Cargando ubigeos…" : errorCatalogo ? "Catálogo no disponible" : "Seleccione"}</option>
+          <option value="">{cargando ? t.cargando : errorCatalogo ? t.noDisponible : t.seleccione}</option>
           {departamentos.map((d) => (
             <option key={d} value={d}>
               {d}
@@ -102,7 +105,7 @@ export function UbigeoSelector({
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${idPrefijo}-provincia`} className={ETIQUETA_CAMPO}>
-          Provincia
+          {t.provincia}
         </label>
         <select
           id={`${idPrefijo}-provincia`}
@@ -114,7 +117,7 @@ export function UbigeoSelector({
           }}
           className={cn(CAMPO, "cursor-pointer")}
         >
-          <option value="">Seleccione</option>
+          <option value="">{t.seleccione}</option>
           {provincias.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -124,17 +127,17 @@ export function UbigeoSelector({
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${idPrefijo}-distrito`} className={ETIQUETA_CAMPO}>
-          Distrito
+          {t.distrito}
         </label>
         <select id={`${idPrefijo}-distrito`} value={value} disabled={!provincia} onChange={(e) => onChange(e.target.value)} className={cn(CAMPO, "cursor-pointer")}>
-          <option value="">Seleccione</option>
+          <option value="">{t.seleccione}</option>
           {distritos.map((d) => (
             <option key={d.codigo} value={d.codigo}>
               {d.distrito}
             </option>
           ))}
         </select>
-        <span className={AYUDA_CAMPO}>{value ? `Ubigeo ${value} (catálogo 13)` : "Ubigeo INEI, catálogo 13 de SUNAT"}</span>
+        <span className={AYUDA_CAMPO}>{value ? interpolar(t.elegido, { codigo: value }) : t.ayuda}</span>
       </div>
     </>
   );

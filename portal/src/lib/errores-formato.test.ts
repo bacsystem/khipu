@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { faultEnPalabras, mensajeDeDescarte, mensajeDeReintento } from "./errores-formato";
+import es from "@/messages/es.json";
 
 const etiqueta = (estado: string) => ({ ENVIADO: "Enviado", ANULADO: "Anulado" })[estado] ?? estado;
 const NOMBRE = "20100066603-01-F001-7";
@@ -23,32 +24,32 @@ describe("faultEnPalabras", () => {
 
 describe("mensajeDeReintento", () => {
   it("un comprobante aceptado, con o sin observaciones, dice que SUNAT lo aceptó", () => {
-    expect(mensajeDeReintento(resultado("ACEPTADO"), NOMBRE, etiqueta)).toBe(`${NOMBRE}: SUNAT lo aceptó.`);
-    expect(mensajeDeReintento(resultado("ACEPTADO_CON_OBS"), NOMBRE, etiqueta)).toBe(`${NOMBRE}: SUNAT lo aceptó.`);
+    expect(mensajeDeReintento(resultado("ACEPTADO"), NOMBRE, etiqueta, es)).toBe(`${NOMBRE}: SUNAT lo aceptó.`);
+    expect(mensajeDeReintento(resultado("ACEPTADO_CON_OBS"), NOMBRE, etiqueta, es)).toBe(`${NOMBRE}: SUNAT lo aceptó.`);
   });
 
   it("un rechazo dice el código del fault, y sin código no deja paréntesis vacíos", () => {
-    expect(mensajeDeReintento(resultado("RECHAZADO", 1, { codigo: "1033", mensaje: "ya registrado" }), NOMBRE, etiqueta)).toBe(`${NOMBRE}: SUNAT lo rechazó (1033).`);
-    expect(mensajeDeReintento(resultado("RECHAZADO"), NOMBRE, etiqueta)).toBe(`${NOMBRE}: SUNAT lo rechazó.`);
+    expect(mensajeDeReintento(resultado("RECHAZADO", 1, { codigo: "1033", mensaje: "ya registrado" }), NOMBRE, etiqueta, es)).toBe(`${NOMBRE}: SUNAT lo rechazó (1033).`);
+    expect(mensajeDeReintento(resultado("RECHAZADO"), NOMBRE, etiqueta, es)).toBe(`${NOMBRE}: SUNAT lo rechazó.`);
   });
 
   it("si SUNAT vuelve a fallar dice en qué intento va y por qué", () => {
-    expect(mensajeDeReintento(resultado("ERROR_ENVIO", 4, { codigo: "0109", mensaje: "El sistema no puede responder" }), NOMBRE, etiqueta)).toBe(
+    expect(mensajeDeReintento(resultado("ERROR_ENVIO", 4, { codigo: "0109", mensaje: "El sistema no puede responder" }), NOMBRE, etiqueta, es)).toBe(
       `${NOMBRE}: SUNAT volvió a fallar (intento 4). 0109 - El sistema no puede responder`,
     );
   });
 
   it("si vuelve a fallar sin fault no deja un espacio de más", () => {
-    expect(mensajeDeReintento(resultado("ERROR_ENVIO", 2), NOMBRE, etiqueta)).toBe(`${NOMBRE}: SUNAT volvió a fallar (intento 2).`);
+    expect(mensajeDeReintento(resultado("ERROR_ENVIO", 2), NOMBRE, etiqueta, es)).toBe(`${NOMBRE}: SUNAT volvió a fallar (intento 2).`);
   });
 
   it("cualquier otro estado lo dice con su etiqueta", () => {
-    expect(mensajeDeReintento(resultado("ENVIADO"), NOMBRE, etiqueta)).toBe(`${NOMBRE} quedó en estado Enviado.`);
+    expect(mensajeDeReintento(resultado("ENVIADO"), NOMBRE, etiqueta, es)).toBe(`${NOMBRE} quedó en estado Enviado.`);
   });
 });
 
 describe("mensajeDeDescarte", () => {
   it("dice qué comprobante se descartó", () => {
-    expect(mensajeDeDescarte(NOMBRE)).toBe(`${NOMBRE} se descartó.`);
+    expect(mensajeDeDescarte(NOMBRE, es)).toBe(`${NOMBRE} se descartó.`);
   });
 });

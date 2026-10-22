@@ -1,6 +1,7 @@
 "use client";
 
 import { LifeBuoyIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { createContext, type ReactNode, useContext } from "react";
 import { correoDeSoporte, SIN_SOPORTE, type Soporte } from "@/lib/soporte";
 import { cn } from "@/lib/utils";
@@ -22,14 +23,15 @@ export function useSoporte(): Soporte {
 /** «¿Necesitas ayuda?» con el enlace y el correo de soporte (#250). Sin ninguno configurado no se muestra. */
 export function AyudaDeSoporte({ className }: { className?: string }) {
   const { url, email } = useSoporte();
+  const t = useMessages().soporte.ayuda;
   if (!url && !email) return null;
   return (
     <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground", className)}>
       <LifeBuoyIcon className="size-3.5 shrink-0" aria-hidden />
-      <span>¿Necesitas ayuda?</span>
+      <span>{t.pregunta}</span>
       {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
-          Centro de ayuda
+          {t.centro}
         </a>
       ) : null}
       {url && email ? <span aria-hidden>·</span> : null}

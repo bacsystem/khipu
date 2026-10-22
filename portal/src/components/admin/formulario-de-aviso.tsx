@@ -1,6 +1,7 @@
 "use client";
 
 import { MegaphoneIcon, XIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
@@ -20,10 +21,9 @@ import {
 } from "@/lib/configuracion-formulario";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages, mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-
-const t = messages.admin.configuracion.aviso;
 
 /**
  * El aviso de mantenimiento (#199): su texto y su vigencia, en hora de Lima, y cómo lo verán los clientes. Hay uno solo, y publicar otro reemplaza al anterior. Siempre tiene fin.
@@ -32,6 +32,10 @@ const t = messages.admin.configuracion.aviso;
  * página se recarga y este formulario se vuelve a montar con lo guardado, y el mensaje no puede morir con él.
  */
 export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: BannerConfigurado | null; ahora: string; alResultado: (mensaje: string | null) => void }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.configuracion.aviso;
   const router = useRouter();
   const [valores, setValores] = useState<ValoresDeAviso>(banner ? valoresDeAviso(banner) : valoresNuevoAviso(new Date(ahora)));
   const [errores, setErrores] = useState<ErroresDeAviso>({});
@@ -51,7 +55,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
 
   async function publicar() {
     if (enviandoRef.current) return;
-    const r = cuerpoDeAviso(valores);
+    const r = cuerpoDeAviso(valores, messages);
     if ("errores" in r) {
       setErrores(r.errores);
       return;
@@ -65,7 +69,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
     setEnviando(false);
     if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
-      setError(`${res.mensaje ?? mensajeError(res.codigo)} Recarga la página para ver el estado real.`);
+      setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
     }
     if (res.estado !== "exito") {
@@ -95,7 +99,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
               {t.estado[estado]}
             </p>
             <p data-testid="aviso-publicado-texto">{banner.texto}</p>
-            <p className="text-[12px] text-muted-foreground">{t.vigencia.replace("{desde}", formatearFechaHora(banner.desde)).replace("{hasta}", formatearFechaHora(banner.hasta))}</p>
+            <p className="text-[12px] text-muted-foreground">{t.vigencia.replace("{desde}", formatearFechaHora(banner.desde, locale)).replace("{hasta}", formatearFechaHora(banner.hasta, locale))}</p>
           </>
         ) : (
           <p data-testid="aviso-ninguno" className="text-muted-foreground">

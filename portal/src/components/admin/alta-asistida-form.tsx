@@ -2,8 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftIcon, ArrowRightIcon, UserPlusIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { type FieldErrors, type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
@@ -18,53 +19,58 @@ import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
-import { mensajeError, messages } from "@/lib/messages";
-import { codigoSerie, MENSAJE_SERIE, razonSocialSchema, rucSchema, serieCoincideConTipo, soloDigitos, soloTelefono, telefonoSchema } from "@/lib/validacion";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { codigoSerie, esquemas, serieCoincideConTipo, soloDigitos, soloTelefono } from "@/lib/validacion";
 
-const t = messages.admin.alta;
+function esquema(messages: Mensajes) {
+  const comunes = esquemas(messages);
+  const e = messages.admin.alta.errores;
+  return z
+    .object({
+      email: z
+        .string()
+        .transform((v) => v.trim())
+        .refine((v) => v.length > 0, e.correoRequerido)
+        .refine((v) => v.length <= 254, e.correoLargo)
+        .pipe(z.email(messages.validacion.correoInvalido)),
+      nombre: z
+        .string()
+        .transform((v) => v.trim())
+        .refine((v) => v.length > 0, e.nombreRequerido)
+        .refine((v) => v.length <= 150, e.nombreLargo),
+      // Obligatorio: es el contacto directo con el cliente si la invitación no le llega. Se valida y normaliza como en el registro.
+      telefono: z
+        .string()
+        .transform((v) => v.trim())
+        .refine((v) => v.length > 0, e.celularRequerido)
+        .pipe(comunes.telefono),
+      ruc: comunes.ruc,
+      razon_social: comunes.razonSocial,
+      entorno: z.enum(["BETA", "PRODUCCION"]),
+      tipo: z.enum(["01", "03"]),
+      serie: z.string().transform((v) => v.toUpperCase().trim()),
+    })
+    .superRefine((v, ctx) => {
+      if (!serieCoincideConTipo(v.tipo, v.serie)) ctx.addIssue({ code: "custom", path: ["serie"], message: messages.validacion.serieNoCoincide });
+    });
+}
 
-const schema = z
-  .object({
-    email: z
-      .string()
-      .transform((v) => v.trim())
-      .refine((v) => v.length > 0, "Ingresa el correo del cliente")
-      .refine((v) => v.length <= 254, "El correo admite hasta 254 caracteres")
-      .pipe(z.email("Correo inválido")),
-    nombre: z
-      .string()
-      .transform((v) => v.trim())
-      .refine((v) => v.length > 0, "Ingresa el nombre del cliente")
-      .refine((v) => v.length <= 150, "El nombre admite hasta 150 caracteres"),
-    // Obligatorio: es el contacto directo con el cliente si la invitación no le llega. Se valida y normaliza como en el registro.
-    telefono: z
-      .string()
-      .transform((v) => v.trim())
-      .refine((v) => v.length > 0, "Ingresa el celular del cliente")
-      .pipe(telefonoSchema),
-    ruc: rucSchema,
-    razon_social: razonSocialSchema,
-    entorno: z.enum(["BETA", "PRODUCCION"]),
-    tipo: z.enum(["01", "03"]),
-    serie: z.string().transform((v) => v.toUpperCase().trim()),
-  })
-  .superRefine((v, ctx) => {
-    if (!serieCoincideConTipo(v.tipo, v.serie)) ctx.addIssue({ code: "custom", path: ["serie"], message: MENSAJE_SERIE });
-  });
-
-type Valores = z.input<typeof schema>;
-type Salida = z.output<typeof schema>;
+type Valores = z.input<ReturnType<typeof esquema>>;
+type Salida = z.output<ReturnType<typeof esquema>>;
 
 const VALORES_INICIALES: Valores = { email: "", nombre: "", telefono: "", ruc: "", razon_social: "", entorno: "BETA", tipo: "01", serie: "F001" };
 
 /** Los tres pasos del asistente y los campos que valida cada uno antes de dejar seguir. */
-const PASOS: ReadonlyArray<{ titulo: string; descripcion: string; campos: ReadonlyArray<keyof Valores> }> = [
-  { titulo: t.seccionCuenta, descripcion: t.subtituloCuenta, campos: ["email", "nombre", "telefono"] },
-  { titulo: t.seccionEmpresa, descripcion: t.subtituloEmpresa, campos: ["ruc", "razon_social", "entorno"] },
-  { titulo: t.seccionSerie, descripcion: t.subtituloSerie, campos: ["tipo", "serie"] },
-];
+function pasosDelAlta(t: Mensajes["admin"]["alta"]): ReadonlyArray<{ titulo: string; descripcion: string; campos: ReadonlyArray<keyof Valores> }> {
+  return [
+    { titulo: t.seccionCuenta, descripcion: t.subtituloCuenta, campos: ["email", "nombre", "telefono"] },
+    { titulo: t.seccionEmpresa, descripcion: t.subtituloEmpresa, campos: ["ruc", "razon_social", "entorno"] },
+    { titulo: t.seccionSerie, descripcion: t.subtituloSerie, campos: ["tipo", "serie"] },
+  ];
+}
 
-const ULTIMO = PASOS.length - 1;
+const ULTIMO = 2;
 
 /** La serie que se sugiere para cada tipo (H2): la primera de facturas o de boletas. */
 const SERIE_SUGERIDA: Record<Valores["tipo"], string> = { "01": "F001", "03": "B001" };
@@ -81,7 +87,7 @@ function campoDuplicado(mensaje: string | null): "email" | "ruc" | null {
 }
 
 /** Lo que dijo el backend cuando es más específico que el texto por código: un 409 puede ser el correo o el RUC. */
-function textoDeError(res: ApiEnvelope<unknown>): string {
+function textoDeError(res: ApiEnvelope<unknown>, t: Mensajes["admin"]["alta"], mensajeError: (codigo: string | null | undefined) => string): string {
   if (res.codigo === "NO_AUTORIZADO") return t.sesionExpirada;
   // Con la clave de idempotencia (#219) reenviar el mismo formulario es seguro: si el alta se hizo, vuelve la misma API key.
   if (noSeSabeSiLlego(res)) return t.corteDeConexion;
@@ -106,6 +112,11 @@ export function AltaAsistidaForm({
   /** Avisa cuándo empieza y termina el envío, para que el modal no se cierre a mitad (el administrador debe ver el resultado). */
   alCambiarEnvio?: (enviando: boolean) => void;
 }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.alta;
+  const schema = useMemo(() => esquema(messages), [messages]);
+  const PASOS = useMemo(() => pasosDelAlta(messages.admin.alta), [messages]);
   const [paso, setPaso] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [creada, setCreada] = useState<{ datos: AltaAsistidaCreada; email: string } | null>(null);
@@ -150,7 +161,7 @@ export function AltaAsistidaForm({
       setPaso(PASOS.findIndex((p) => p.campos.includes(duplicado)));
       return;
     }
-    setError(textoDeError(res));
+    setError(textoDeError(res, t, mensajeError));
   }
 
   /** Si al enviar queda un error en un paso anterior (no debería: cada paso valida al avanzar), se vuelve a ese paso para verlo. */
@@ -297,6 +308,7 @@ export function AltaAsistidaForm({
  * terminar recarga la lista de cuentas para que la nueva aparezca sin navegar.
  */
 export function AltaAsistidaDialog({ claseDelBoton }: { claseDelBoton: string }) {
+  const t = useMessages().admin.alta;
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);

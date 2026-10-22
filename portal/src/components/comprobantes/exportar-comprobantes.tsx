@@ -1,10 +1,12 @@
 "use client";
 
 import { FileSpreadsheetIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
 import { CONTROL_FILTRO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
 import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
@@ -14,10 +16,8 @@ export const EXPORTACION_MAXIMA = 5000;
 export type FormatoDeExportacion = "xlsx" | "csv";
 export type SeparadorCsv = "coma" | "punto_y_coma";
 
-const FORMATOS: Array<{ id: FormatoDeExportacion; etiqueta: string; ayuda: string }> = [
-  { id: "xlsx", etiqueta: "Excel (.xlsx)", ayuda: "Para abrirlo en Excel: los importes llegan como números." },
-  { id: "csv", etiqueta: "CSV", ayuda: "Texto separado. Los textos que empiezan por = + - @ llevan delante una comilla ('), para que la hoja de cálculo no los tome como fórmula." },
-];
+/** Los formatos ofrecidos; su nombre y su ayuda están en `messages.comprobantes.exportar.formatos` (#25). */
+const FORMATOS: FormatoDeExportacion[] = ["xlsx", "csv"];
 
 /** La dirección de la exportación: los filtros activos de la tabla, el formato y, en CSV, el separador (la coma es el valor por defecto de la API). */
 export function hrefDeExportacion(filtros: FiltrosComprobantes, formato: FormatoDeExportacion, separador: SeparadorCsv = "coma"): string {
@@ -39,12 +39,16 @@ export function nombreDelArchivo(disposicion: string | null, formato: FormatoDeE
  * {@link EXPORTACION_MAXIMA} ni se intenta: la API respondería 422.
  */
 export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosComprobantes; total: number }) {
+  const t = useMessages().comprobantes.exportar;
+  const locale = useLocale();
+  const intl = locale === "en" ? "en-US" : "es-PE";
+  const mensajeError = useMensajeError();
   const { abierto, alternar, cerrar, ref } = usePanelDesplegable("exportar-comprobantes");
   const [formato, setFormato] = useState<FormatoDeExportacion>("xlsx");
   const [separador, setSeparador] = useState<SeparadorCsv>("coma");
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const motivo = total > EXPORTACION_MAXIMA ? `Hay ${total.toLocaleString("es-PE")}: una exportación admite hasta ${EXPORTACION_MAXIMA.toLocaleString("es-PE")}. Acota las fechas.` : null;
+  const motivo = total > EXPORTACION_MAXIMA ? interpolar(t.motivo, { total: total.toLocaleString(intl), maximo: EXPORTACION_MAXIMA.toLocaleString(intl) }) : null;
 
   async function exportar() {
     setExportando(true);
@@ -68,7 +72,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
       setTimeout(() => URL.revokeObjectURL(url), 0);
       cerrar();
     } catch {
-      setError("No se pudo exportar: revisa tu conexión y vuelve a intentarlo.");
+      setError(t.errorRed);
     } finally {
       setExportando(false);
     }
@@ -84,32 +88,29 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
         className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
       >
         <FileSpreadsheetIcon className="size-4" />
-        Exportar
+        {t.boton}
       </button>
       {abierto ? (
         <div id="exportar-panel" className="absolute right-0 z-20 mt-2 grid w-72 gap-3 rounded-xl border border-border bg-card p-3 shadow-lg" data-testid="exportar-comprobantes">
-          <p className="text-[12px] text-muted-foreground">
-            Una fila por comprobante de los {total.toLocaleString("es-PE")} que muestra la lista con sus filtros: bases, IGV, ICBPER, ISC, cargos, descuentos, anticipos, total, estado y
-            documento modificado. Las notas de crédito salen en negativo; sin filtro de estado no entran los rechazados, inválidos ni descartados.
-          </p>
+          <p className="text-[12px] text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
           <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-[12px] font-medium">Formato</legend>
+            <legend className="mb-1 text-[12px] font-medium">{t.formato}</legend>
             {FORMATOS.map((f) => (
-              <label key={f.id} className="flex items-start gap-2 text-[13px]">
-                <input type="radio" name="formato-exportacion" checked={formato === f.id} onChange={() => setFormato(f.id)} className="mt-0.5 size-3.5 accent-primary" />
+              <label key={f} className="flex items-start gap-2 text-[13px]">
+                <input type="radio" name="formato-exportacion" checked={formato === f} onChange={() => setFormato(f)} className="mt-0.5 size-3.5 accent-primary" />
                 <span>
-                  {f.etiqueta}
-                  <span className="block text-[11px] text-muted-foreground">{f.ayuda}</span>
+                  {t.formatos[f].etiqueta}
+                  <span className="block text-[11px] text-muted-foreground">{t.formatos[f].ayuda}</span>
                 </span>
               </label>
             ))}
           </fieldset>
           {formato === "csv" ? (
             <label className="grid gap-1 text-[12px] font-medium">
-              Separador
+              {t.separador}
               <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(CONTROL_FILTRO, "px-2 font-normal")}>
-                <option value="coma">Coma (Excel en Perú)</option>
-                <option value="punto_y_coma">Punto y coma</option>
+                <option value="coma">{t.coma}</option>
+                <option value="punto_y_coma">{t.puntoYComa}</option>
               </select>
             </label>
           ) : null}
@@ -130,7 +131,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
             className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             data-testid="exportar-descargar"
           >
-            {exportando ? "Exportando…" : "Descargar"}
+            {exportando ? t.exportando : t.descargar}
           </button>
         </div>
       ) : null}

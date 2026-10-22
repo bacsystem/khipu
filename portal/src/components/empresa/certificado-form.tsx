@@ -2,10 +2,12 @@
 
 import { EyeIcon, EyeOffIcon, FileKey2Icon, KeyRoundIcon, LockIcon, RefreshCcwIcon, UploadCloudIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
 const EXTENSIONES = [".p12", ".pfx"];
@@ -21,6 +23,9 @@ function tamano(bytes: number) {
 
 export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolean }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.certificado;
+  const mensajeError = useMensajeError();
   const inputId = useId();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [clave, setClave] = useState("");
@@ -35,7 +40,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
     setOk(false);
     if (!f) return;
     if (!esCertificado(f)) {
-      setError("El archivo debe ser un certificado .p12 o .pfx");
+      setError(t.extensionInvalida);
       return;
     }
     setArchivo(f);
@@ -50,7 +55,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!archivo) {
-      setError("Selecciona el archivo .p12 de tu certificado");
+      setError(t.seleccionaArchivo);
       return;
     }
     setEnviando(true);
@@ -77,7 +82,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
       <div className="flex flex-col gap-1.5">
-        <span className={ETIQUETA_CAMPO}>{tieneCertificado ? "Reemplazar o renovar certificado" : "Cargar certificado"}</span>
+        <span className={ETIQUETA_CAMPO}>{tieneCertificado ? t.reemplazar : t.cargar}</span>
         {archivo ? (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-muted px-3 py-2.5">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
@@ -85,12 +90,12 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-mono text-[13px] font-medium text-foreground">{archivo.name}</p>
-              <p className={AYUDA_CAMPO}>{tamano(archivo.size)} · listo para subir</p>
+              <p className={AYUDA_CAMPO}>{interpolar(t.listoParaSubir, { tamano: tamano(archivo.size) })}</p>
             </div>
             <button
               type="button"
               onClick={() => setArchivo(null)}
-              title="Quitar archivo"
+              title={t.quitarArchivo}
               className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <XIcon className="size-4" />
@@ -111,8 +116,8 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
             )}
           >
             <UploadCloudIcon className="size-6 text-primary" />
-            <span className="text-[13px] font-medium text-foreground">Arrastra tu archivo .p12 o .pfx aquí</span>
-            <span className={AYUDA_CAMPO}>o haz clic para examinar desde tu equipo</span>
+            <span className="text-[13px] font-medium text-foreground">{t.arrastra}</span>
+            <span className={AYUDA_CAMPO}>{t.examinar}</span>
           </label>
         )}
         <input
@@ -129,7 +134,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="clave-cert" className={ETIQUETA_CAMPO}>
-          Contraseña de la clave privada
+          {t.contrasena}
         </label>
         <div className="relative">
           <KeyRoundIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -145,17 +150,17 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
           <button
             type="button"
             onClick={() => setVerClave((v) => !v)}
-            title={verClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+            title={verClave ? t.ocultarContrasena : t.mostrarContrasena}
             className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
           >
             {verClave ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
           </button>
         </div>
-        <span className={AYUDA_CAMPO}>El RUC de la empresa debe figurar en el campo OU del certificado</span>
+        <span className={AYUDA_CAMPO}>{t.ayudaOu}</span>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">Certificado actualizado.</p> : null}
+      {ok ? <p className="text-sm text-success-foreground">{t.actualizado}</p> : null}
 
       <button
         type="submit"
@@ -163,12 +168,12 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
         className={cn(BOTON_PRIMARIO, "w-full")}
       >
         <RefreshCcwIcon className="size-4" />
-        {enviando ? "Subiendo…" : tieneCertificado ? "Actualizar certificado digital" : "Cargar certificado digital"}
+        {enviando ? messages.empresa.comun.subiendo : tieneCertificado ? t.actualizarDigital : t.cargarDigital}
       </button>
 
       <div className={cn(AYUDA_CAMPO, "flex items-center gap-1.5 border-t border-border/60 pt-3")}>
         <LockIcon className="size-3.5 shrink-0" />
-        PKCS#12 cifrado en reposo con la clave maestra del servicio; la contraseña no se almacena en claro.
+        {t.cifrado}
       </div>
     </form>
   );

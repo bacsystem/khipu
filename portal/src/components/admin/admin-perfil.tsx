@@ -1,12 +1,12 @@
 "use client";
 
 import { ChevronsUpDownIcon, LogOutIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "khipu-design-system/ui/menu";
 import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
 import type { Administrador } from "@/lib/api/admin-auth";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 function iniciales(email: string): string {
@@ -16,6 +16,7 @@ function iniciales(email: string): string {
 
 /** Menú del administrador en el sidebar: solo tema y cierre de sesión — sin cambio de contraseña ni 2FA todavía (#177). */
 export function AdminPerfil({ administrador }: { administrador: Administrador }) {
+  const messages = useMessages();
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
 
@@ -29,7 +30,7 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
   return (
     <Menu>
       <MenuTrigger
-        aria-label="Menú de administrador"
+        aria-label={messages.admin.perfil.menu}
         className={cn(
           "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg border border-border/60 bg-muted/80 p-2 text-left transition-colors outline-none select-none",
           "hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-secondary",
@@ -48,7 +49,7 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
       </MenuTrigger>
 
       <MenuContent side="top" align="start" className="w-(--anchor-width) min-w-0">
-        <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">Tema</div>
+        <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">{messages.admin.perfil.tema}</div>
         <div className="px-0.5 pb-1.5">
           <ThemeToggle conTexto />
         </div>

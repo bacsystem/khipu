@@ -1,6 +1,7 @@
 "use client";
 
 import { PencilIcon, PlusIcon, UsersIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { ClienteGuardado } from "@/lib/api/clientes";
@@ -11,6 +12,7 @@ import { ClienteForm } from "./cliente-form";
 
 /** Alta (sin `existente`) o edición de un cliente guardado, en el mismo `Dialog` que series y establecimientos. */
 export function ClienteDialog({ existente, trigger, className }: { existente?: ClienteGuardado | null; trigger?: ReactNode; className?: string }) {
+  const t = useMessages().clientes.dialogo;
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
   return (
@@ -19,7 +21,7 @@ export function ClienteDialog({ existente, trigger, className }: { existente?: C
         {trigger ?? (
           <>
             {existente ? <PencilIcon className="size-3.5" /> : <PlusIcon className="size-4" />}
-            {existente ? "Editar" : "Nuevo cliente"}
+            {existente ? t.editar : t.nuevo}
           </>
         )}
       </DialogTrigger>
@@ -30,8 +32,8 @@ export function ClienteDialog({ existente, trigger, className }: { existente?: C
               <UsersIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? "Editar cliente" : "Nuevo cliente"}</DialogTitle>
-              <DialogDescription className="text-[13px]">{existente ? "Los comprobantes ya emitidos conservan sus datos" : "Lo verás al buscar en «Nuevo comprobante»"}</DialogDescription>
+              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? t.tituloEditar : t.tituloNuevo}</DialogTitle>
+              <DialogDescription className="text-[13px]">{existente ? t.descripcionEditar : t.descripcionNuevo}</DialogDescription>
             </div>
           </div>
         </DialogHeader>

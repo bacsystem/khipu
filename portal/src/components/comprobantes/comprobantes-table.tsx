@@ -4,15 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarIcon, FileCheck2Icon, InboxIcon, RefreshCwIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useMessages } from "next-intl";
+import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import {
   esEstadoFinal,
-  ETIQUETAS_TIPO,
-  ETIQUETAS_TIPO_DOC,
+  etiquetasTipo,
+  etiquetasTipoDoc,
   type FiltrosComprobantes,
   normalizarComprobante,
   paramsDeFiltros,
@@ -31,7 +34,7 @@ import { BusquedaDelListado } from "./busqueda-del-listado";
 import { DescargaMasiva } from "./descarga-masiva";
 import { ExportarComprobantes } from "./exportar-comprobantes";
 import { DuplicarButton } from "./duplicar-button";
-import { ETIQUETAS_ESTADO, EstadoBadge } from "./estado-badge";
+import { etiquetasEstado, EstadoBadge } from "./estado-badge";
 import { CONTROL_FILTRO } from "@/lib/estilos";
 
 const ESTADOS: EstadoDocumento[] = [
@@ -50,32 +53,24 @@ const ESTADOS: EstadoDocumento[] = [
 ];
 
 const TODOS_LOS_ESTADOS = "todos";
-
-const ITEMS_ESTADO: Record<string, string> = {
-  [TODOS_LOS_ESTADOS]: "Estado SUNAT: Todos",
-  ...Object.fromEntries(ESTADOS.map((e) => [e, ETIQUETAS_ESTADO[e]])),
-};
-
-
 const TODOS_LOS_TIPOS = "todos";
-const ITEMS_TIPO: Record<string, string> = { [TODOS_LOS_TIPOS]: "Tipo: Todos", ...Object.fromEntries(TIPOS_FILTRABLES.map((tp) => [tp, `Tipo: ${ETIQUETAS_TIPO[tp] ?? tp}`])) };
 
 const TODAS_LAS_SERIES = "todas";
 const ACCION = "flex h-9 items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
-async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number): Promise<PaginaComprobantes> {
+async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number, errorListar: string): Promise<PaginaComprobantes> {
   const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
   const res = await fetch(`/api/proxy/facturas?${qs}`);
   const json = await res.json();
-  if (json.estado !== "exito") throw new Error(json.mensaje ?? "Error al listar comprobantes");
+  if (json.estado !== "exito") throw new Error(json.mensaje ?? errorListar);
   const datos = (json.datos as Comprobante[]).map(normalizarComprobante);
   return { datos, total: totalDesdeHeaders(res.headers, datos.length) };
 }
 
 
-function etiquetaEstado(c: Comprobante): string | undefined {
-  if (c.estado_documento === "ACEPTADO" && tieneConstanciaCdr(c)) return "Aceptado con CDR";
-  if (c.estado_documento === "RECHAZADO" && c.cdr?.codigo) return `Rechazado (${c.cdr.codigo})`;
+function etiquetaEstado(c: Comprobante, t: Mensajes["comprobantes"]["tabla"]): string | undefined {
+  if (c.estado_documento === "ACEPTADO" && tieneConstanciaCdr(c)) return t.aceptadoConCdr;
+  if (c.estado_documento === "RECHAZADO" && c.cdr?.codigo) return interpolar(t.rechazadoCodigo, { codigo: c.cdr.codigo });
   return undefined;
 }
 
@@ -113,12 +108,29 @@ export function ComprobantesTable({
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.comprobantes.tabla;
+  const ETIQUETAS_ESTADO = etiquetasEstado(messages);
+  const ETIQUETAS_TIPO = etiquetasTipo(messages);
+  const ETIQUETAS_TIPO_DOC = etiquetasTipoDoc(messages);
+  const itemsEstado: Record<string, string> = useMemo(
+    () => ({ [TODOS_LOS_ESTADOS]: t.estadoTodos, ...Object.fromEntries(ESTADOS.map((e) => [e, etiquetasEstado(messages)[e]])) }),
+    [messages, t],
+  );
+  const itemsTipo: Record<string, string> = useMemo(
+    () => ({
+      [TODOS_LOS_TIPOS]: t.tipoTodos,
+      ...Object.fromEntries(TIPOS_FILTRABLES.map((tp) => [tp, interpolar(t.tipoOpcion, { tipo: etiquetasTipo(messages)[tp] ?? tp })])),
+    }),
+    [messages, t],
+  );
   const { estado, desde, hasta, serie, tipo, cliente, numero } = filtros;
   const hayFiltros = !!(estado || desde || hasta || serie || tipo || cliente || numero);
 
   const { data: paginaActual, isFetching, refetch } = useQuery({
     queryKey: claveComprobantes(empresaId, filtros, pagina, porPagina),
-    queryFn: () => fetchComprobantes(filtros, pagina, porPagina),
+    queryFn: () => fetchComprobantes(filtros, pagina, porPagina, t.errorListar),
     initialData: inicial,
     refetchInterval: (query) => {
       const rows = query.state.data?.datos ?? [];
@@ -157,7 +169,7 @@ export function ComprobantesTable({
   }
 
   const opcionesSerie = serie && !series.includes(serie) ? [serie, ...series] : series;
-  const itemsSerie: Record<string, string> = { [TODAS_LAS_SERIES]: "Serie: Todas", ...Object.fromEntries(opcionesSerie.map((s) => [s, `Serie: ${s}`])) };
+  const itemsSerie: Record<string, string> = { [TODAS_LAS_SERIES]: t.serieTodas, ...Object.fromEntries(opcionesSerie.map((s) => [s, interpolar(t.serieOpcion, { serie: s })])) };
 
   function hrefPagina(p: number) {
     const next = new URLSearchParams(params.toString());
@@ -176,12 +188,12 @@ export function ComprobantesTable({
           deshabilitados. */}
       <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Select items={ITEMS_ESTADO} value={estado ?? TODOS_LOS_ESTADOS} onValueChange={cambiarEstado}>
+          <Select items={itemsEstado} value={estado ?? TODOS_LOS_ESTADOS} onValueChange={cambiarEstado}>
             <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-44 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={TODOS_LOS_ESTADOS}>Estado SUNAT: Todos</SelectItem>
+              <SelectItem value={TODOS_LOS_ESTADOS}>{t.estadoTodos}</SelectItem>
               {ESTADOS.map((e) => (
                 <SelectItem key={e} value={e}>
                   {ETIQUETAS_ESTADO[e]}
@@ -190,40 +202,40 @@ export function ComprobantesTable({
             </SelectContent>
           </Select>
 
-          <Select items={ITEMS_TIPO} value={tipo ?? TODOS_LOS_TIPOS} onValueChange={(v) => cambiarFiltro("tipo", !v || v === TODOS_LOS_TIPOS ? null : v)}>
-            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label="Tipo">
+          <Select items={itemsTipo} value={tipo ?? TODOS_LOS_TIPOS} onValueChange={(v) => cambiarFiltro("tipo", !v || v === TODOS_LOS_TIPOS ? null : v)}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label={t.tipo}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={TODOS_LOS_TIPOS}>Tipo: Todos</SelectItem>
+              <SelectItem value={TODOS_LOS_TIPOS}>{t.tipoTodos}</SelectItem>
               {TIPOS_FILTRABLES.map((tp) => (
                 <SelectItem key={tp} value={tp}>
-                  Tipo: {ETIQUETAS_TIPO[tp] ?? tp}
+                  {interpolar(t.tipoOpcion, { tipo: ETIQUETAS_TIPO[tp] ?? tp })}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select items={itemsSerie} value={serie ?? TODAS_LAS_SERIES} onValueChange={(v) => cambiarFiltro("serie", !v || v === TODAS_LAS_SERIES ? null : v)}>
-            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label="Serie">
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label={t.serie}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={TODAS_LAS_SERIES}>Serie: Todas</SelectItem>
+              <SelectItem value={TODAS_LAS_SERIES}>{t.serieTodas}</SelectItem>
               {opcionesSerie.map((s) => (
                 <SelectItem key={s} value={s}>
-                  Serie: {s}
+                  {interpolar(t.serieOpcion, { serie: s })}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <BusquedaDelListado id="filtro-cliente" etiqueta="Cliente" ayuda="Documento (empieza por) o parte del nombre" placeholder="Cliente o documento" valor={cliente ?? ""} onCambio={(v) => cambiarFiltro("cliente", v.trim() || null)} ancho="w-48" maxLength={100} />
-          <BusquedaDelListado id="filtro-numero" etiqueta="Número" ayuda="Número del comprobante, sin la serie" placeholder="N.º" valor={numero ? String(numero) : ""} onCambio={(v) => cambiarFiltro("numero", v.replace(/\D/g, "").replace(/^0+/, "") || null)} ancho="w-24" soloDigitos maxLength={12} />
+          <BusquedaDelListado id="filtro-cliente" etiqueta={t.cliente.etiqueta} ayuda={t.cliente.ayuda} placeholder={t.cliente.placeholder} valor={cliente ?? ""} onCambio={(v) => cambiarFiltro("cliente", v.trim() || null)} ancho="w-48" maxLength={100} />
+          <BusquedaDelListado id="filtro-numero" etiqueta={t.numero.etiqueta} ayuda={t.numero.ayuda} placeholder={t.numero.placeholder} valor={numero ? String(numero) : ""} onCambio={(v) => cambiarFiltro("numero", v.replace(/\D/g, "").replace(/^0+/, "") || null)} ancho="w-24" soloDigitos maxLength={12} />
 
-          <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title="Fecha de emisión (inclusive)">
+          <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title={t.fechaTitulo}>
             <CalendarIcon className="size-4 text-muted-foreground/70" />
-            <label className="sr-only" htmlFor="filtro-desde">Desde</label>
+            <label className="sr-only" htmlFor="filtro-desde">{t.desde}</label>
             <input
               id="filtro-desde"
               type="date"
@@ -233,7 +245,7 @@ export function ComprobantesTable({
               className="bg-transparent text-[12px] text-foreground outline-none"
             />
             <span className="text-muted-foreground/70">–</span>
-            <label className="sr-only" htmlFor="filtro-hasta">Hasta</label>
+            <label className="sr-only" htmlFor="filtro-hasta">{t.hasta}</label>
             <input
               id="filtro-hasta"
               type="date"
@@ -251,7 +263,7 @@ export function ComprobantesTable({
           <button
             type="button"
             onClick={() => refetch()}
-            title="Refrescar lista"
+            title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", isFetching && "animate-spin")} />
@@ -268,12 +280,12 @@ export function ComprobantesTable({
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto py-2 pr-3 pl-4 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Comprobante</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Cliente / Receptor</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Fecha & Emisión</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Importe Total</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Estado SUNAT</TableHead>
-              <TableHead className="h-auto py-2 pr-4 pl-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">Acciones</TableHead>
+              <TableHead className="h-auto py-2 pr-3 pl-4 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.comprobante}</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.cliente}</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.fecha}</TableHead>
+              <TableHead className="h-auto px-4 py-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.importe}</TableHead>
+              <TableHead className="h-auto px-4 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.estado}</TableHead>
+              <TableHead className="h-auto py-2 pr-4 pl-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-[13px]">
@@ -293,13 +305,13 @@ export function ComprobantesTable({
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/comprobantes/${c.id}`}
-                          aria-label={`Ver comprobante ${numeroCompleto}, estado ${ETIQUETAS_ESTADO[c.estado_documento]}`}
+                          aria-label={interpolar(t.verComprobante, { numero: numeroCompleto, estado: ETIQUETAS_ESTADO[c.estado_documento] })}
                           onClick={(e) => e.stopPropagation()}
                           className="rounded font-mono text-[13px] font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {numeroCompleto}
                         </Link>
-                        <BotonCopiar texto={numeroCompleto} titulo="Copiar número" className="opacity-0 group-hover:opacity-100" />
+                        <BotonCopiar texto={numeroCompleto} titulo={t.copiarNumero} className="opacity-0 group-hover:opacity-100" />
                         {c.moneda !== "PEN" ? (
                           <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 font-mono text-[10px] font-medium text-warning-foreground uppercase">
                             {c.moneda}
@@ -308,7 +320,7 @@ export function ComprobantesTable({
                       </div>
                       <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/80">
                         <span className="size-1.5 rounded-full bg-border" />
-                        {ETIQUETAS_TIPO[c.tipo] ?? c.tipo} electrónica
+                        {interpolar(t.tipoElectronico, { tipo: ETIQUETAS_TIPO[c.tipo] ?? c.tipo })}
                       </div>
                     </div>
                   </TableCell>
@@ -317,7 +329,7 @@ export function ComprobantesTable({
                       <div className="flex flex-col overflow-hidden">
                         <span className="truncate leading-snug font-medium text-foreground">{c.receptor.razon_social}</span>
                         <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">
-                          {c.receptor.tipo_doc === "-" ? ETIQUETAS_TIPO_DOC["-"] : `${ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? "Doc."} ${c.receptor.num_doc}`}
+                          {c.receptor.tipo_doc === "-" ? ETIQUETAS_TIPO_DOC["-"] : `${ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? t.docGenerico} ${c.receptor.num_doc}`}
                         </span>
                       </div>
                     ) : (
@@ -325,18 +337,18 @@ export function ComprobantesTable({
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-2 whitespace-nowrap">
-                    <div className="leading-snug font-medium text-foreground/90">{formatearFecha(c.fecha_emision)}</div>
+                    <div className="leading-snug font-medium text-foreground/90">{formatearFecha(c.fecha_emision, locale)}</div>
                   </TableCell>
                   <TableCell className="px-4 py-2 text-right whitespace-nowrap">
                     <div className="font-mono text-[13px] font-semibold tracking-tight text-foreground tabular-nums">
-                      {formatearMonto(c.moneda, c.totales.total)}
+                      {formatearMonto(c.moneda, c.totales.total, locale)}
                     </div>
                     <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80 tabular-nums">
-                      IGV {formatearMonto(c.moneda, c.totales.igv)}
+                      {interpolar(t.igv, { monto: formatearMonto(c.moneda, c.totales.igv, locale) })}
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-2 whitespace-nowrap">
-                    <EstadoBadge estado={c.estado_documento} etiqueta={etiquetaEstado(c)} />
+                    <EstadoBadge estado={c.estado_documento} etiqueta={etiquetaEstado(c, t)} />
                   </TableCell>
                   <TableCell className="py-2 pr-4 pl-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1 opacity-80 transition-opacity group-hover:opacity-100">
@@ -345,27 +357,27 @@ export function ComprobantesTable({
                           href={`/api/proxy/facturas/${c.id}/pdf`}
                           target="_blank"
                           rel="noopener"
-                          title="Ver representación impresa (PDF)"
+                          title={t.verPdf}
                           className={cn(ACCION, "px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground")}
                         >
-                          PDF
+                          {t.pdf}
                         </a>
                       ) : (
-                        <button disabled title="El PDF existe desde que el comprobante está firmado" className={cn(ACCION, "cursor-not-allowed px-1.5 text-muted-foreground/60")}>
-                          PDF
+                        <button disabled title={t.pdfNoDisponible} className={cn(ACCION, "cursor-not-allowed px-1.5 text-muted-foreground/60")}>
+                          {t.pdf}
                         </button>
                       )}
                       <a
                         href={`/api/proxy/facturas/${c.id}/xml`}
-                        title="Descargar XML firmado"
+                        title={t.descargarXml}
                         className={cn(ACCION, "px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground")}
                       >
-                        XML
+                        {t.xml}
                       </a>
                       {tieneConstanciaCdr(c) ? (
                         <a
                           href={`/api/proxy/facturas/${c.id}/cdr`}
-                          title="Descargar constancia CDR"
+                          title={t.descargarCdr}
                           className={cn(ACCION, "w-9 text-muted-foreground hover:bg-secondary hover:text-foreground")}
                         >
                           <FileCheck2Icon className="size-3.5" />
@@ -383,13 +395,11 @@ export function ComprobantesTable({
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <InboxIcon className="size-6" />
                     <p className="text-sm">
-                      {hayFiltros
-                        ? "No hay comprobantes con esos filtros."
-                        : "Todavía no emitiste ningún comprobante."}
+                      {hayFiltros ? t.vacioConFiltros : t.vacio}
                     </p>
                     {hayFiltros ? (
                       <Link href="/comprobantes" className="text-xs text-primary hover:underline">
-                        Quitar filtros
+                        {t.quitarFiltros}
                       </Link>
                     ) : null}
                   </div>
@@ -403,10 +413,10 @@ export function ComprobantesTable({
           desde={primerResultado}
           hasta={ultimoResultado}
           total={total}
-          unidad="comprobantes"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => irA(1, n)}
-          nota="Plazo máx. envío SUNAT: 3 días calendario"
+          nota={t.notaPlazo}
           pagina={pagina}
           ultimaPagina={ultimaPagina}
           onPagina={irA}

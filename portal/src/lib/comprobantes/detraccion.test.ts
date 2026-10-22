@@ -1,32 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { avisoDeDetraccion, CODIGOS_SIN_FORMULARIO, DETRACCION_VACIA, detraccionAApi, errorDeDetraccion, operacionDeDetraccion, PORCENTAJE_SUGERIDO, type DetraccionForm } from "./detraccion";
+import es from "@/messages/es.json";
 
 const det = (p: Partial<DetraccionForm>): DetraccionForm => ({ ...DETRACCION_VACIA, activa: true, codigo: "022", porcentaje: "12", cuenta: "00-000-123456", ...p });
 
 describe("detracción (#288)", () => {
   it("sin activar no hay nada que decir ni que mandar", () => {
-    expect(errorDeDetraccion(DETRACCION_VACIA, "PEN")).toBeNull();
-    expect(detraccionAApi(DETRACCION_VACIA, "PEN")).toBeUndefined();
+    expect(errorDeDetraccion(DETRACCION_VACIA, "PEN", es)).toBeNull();
+    expect(detraccionAApi(DETRACCION_VACIA, "PEN", es)).toBeUndefined();
   });
 
   it("pide el bien o servicio, un porcentaje válido y la cuenta del Banco de la Nación", () => {
-    expect(errorDeDetraccion(det({ codigo: "" }), "PEN")).toMatch(/catálogo 54/);
-    expect(errorDeDetraccion(det({ porcentaje: "" }), "PEN")).toMatch(/porcentaje/);
-    expect(errorDeDetraccion(det({ porcentaje: "0" }), "PEN")).toMatch(/porcentaje/);
-    expect(errorDeDetraccion(det({ porcentaje: "101" }), "PEN")).toMatch(/porcentaje/);
-    expect(errorDeDetraccion(det({ porcentaje: "1.234567" }), "PEN")).toMatch(/5 decimales/);
-    expect(errorDeDetraccion(det({ cuenta: "  " }), "PEN")).toMatch(/cuenta de detracciones/);
-    expect(errorDeDetraccion(det({}), "PEN")).toBeNull();
+    expect(errorDeDetraccion(det({ codigo: "" }), "PEN", es)).toMatch(/catálogo 54/);
+    expect(errorDeDetraccion(det({ porcentaje: "" }), "PEN", es)).toMatch(/porcentaje/);
+    expect(errorDeDetraccion(det({ porcentaje: "0" }), "PEN", es)).toMatch(/porcentaje/);
+    expect(errorDeDetraccion(det({ porcentaje: "101" }), "PEN", es)).toMatch(/porcentaje/);
+    expect(errorDeDetraccion(det({ porcentaje: "1.234567" }), "PEN", es)).toMatch(/5 decimales/);
+    expect(errorDeDetraccion(det({ cuenta: "  " }), "PEN", es)).toMatch(/cuenta de detracciones/);
+    expect(errorDeDetraccion(det({}), "PEN", es)).toBeNull();
   });
 
   it("fuera de soles el monto a depositar se indica en soles (3208)", () => {
-    expect(errorDeDetraccion(det({}), "USD")).toMatch(/en soles/);
-    expect(errorDeDetraccion(det({ montoEnSoles: "1416" }), "USD")).toBeNull();
-    expect(detraccionAApi(det({ montoEnSoles: "1416.50" }), "USD")).toMatchObject({ monto: 1416.5 });
+    expect(errorDeDetraccion(det({}), "USD", es)).toMatch(/en soles/);
+    expect(errorDeDetraccion(det({ montoEnSoles: "1416" }), "USD", es)).toBeNull();
+    expect(detraccionAApi(det({ montoEnSoles: "1416.50" }), "USD", es)).toMatchObject({ monto: 1416.5 });
   });
 
   it("manda lo que pide la API y deja el monto al backend cuando la factura es en soles", () => {
-    expect(detraccionAApi(det({ cuenta: " 00-000-123456 " }), "PEN")).toEqual({ codigo_bien_servicio: "022", porcentaje: 12, medio_pago: "001", cuenta_banco_nacion: "00-000-123456", monto: undefined });
+    expect(detraccionAApi(det({ cuenta: " 00-000-123456 " }), "PEN", es)).toEqual({ codigo_bien_servicio: "022", porcentaje: 12, medio_pago: "001", cuenta_banco_nacion: "00-000-123456", monto: undefined });
   });
 
   it("el tipo de operación lo fija el código: 1003 para el transporte de pasajeros y 1001 para el resto", () => {

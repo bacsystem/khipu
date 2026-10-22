@@ -1,13 +1,13 @@
 "use client";
 
 import { DownloadIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
 import { hrefExportacionConsumo, paramsConsumoDesdeUrl } from "@/lib/api/admin-consumo";
 import { migaAdmin } from "@/lib/admin-migas";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { AdminMobileNav } from "./admin-mobile-nav";
 import { AltaAsistidaDialog } from "./alta-asistida-form";
 import { FormularioDePlan } from "./formulario-de-plan";
@@ -28,7 +28,8 @@ function hrefExportacionDeLaPagina(busqueda: URLSearchParams): string {
 export function AdminTopBar({ administrador }: { administrador: Administrador }) {
   const pathname = usePathname();
   const busqueda = useSearchParams();
-  const miga = migaAdmin(pathname);
+  const messages = useMessages();
+  const miga = migaAdmin(pathname, messages);
   const t = messages.admin.topbar;
 
   return (

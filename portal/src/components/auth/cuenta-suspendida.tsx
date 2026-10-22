@@ -3,14 +3,14 @@
 import { LogOutIcon } from "lucide-react";
 import { useState } from "react";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
-import { messages } from "@/lib/messages";
+import { useMessages } from "next-intl";
 
 /**
  * Lo que se le dice a un cliente cuya cuenta está suspendida (#182), con la única acción que tiene sentido: cerrar la sesión. No lleva
  * «reintentar»: no se arregla desde acá, y la suspensión no borró nada — todo vuelve en cuanto la reactiven.
  */
 export function CuentaSuspendida() {
-  const t = messages.cuentaSuspendida;
+  const t = useMessages().cuentaSuspendida;
   const [saliendo, setSaliendo] = useState(false);
 
   async function cerrarSesion() {

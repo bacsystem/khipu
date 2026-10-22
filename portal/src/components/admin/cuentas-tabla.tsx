@@ -1,6 +1,7 @@
 "use client";
 
 import { InboxIcon, SearchIcon } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -12,10 +13,7 @@ import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
 import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-
-const columnas = messages.admin.cuentas.columnas;
 
 /**
  * Listado de cuentas del backoffice (#180), paginado y filtrado en el servidor: buscar, paginar y cambiar las filas por
@@ -23,6 +21,9 @@ const columnas = messages.admin.cuentas.columnas;
  * el proxy genérico usa las cookies del cliente, no la sesión del administrador.
  */
 export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; total: number; params: ParamsCuentas }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const columnas = messages.admin.cuentas.columnas;
   const router = useRouter();
   const buscador = useRef<HTMLInputElement>(null);
 
@@ -95,9 +96,9 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
                 <TableCell className="px-3 py-2">
                   <EstadoCuentaEtiqueta estado={c.estado} />
                 </TableCell>
-                <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(c.creada_en)}</TableCell>
+                <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(c.creada_en, locale)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
-                  {c.ultimo_acceso ? formatearFechaHora(c.ultimo_acceso) : <span className="text-muted-foreground">{messages.admin.cuentas.nunca}</span>}
+                  {c.ultimo_acceso ? formatearFechaHora(c.ultimo_acceso, locale) : <span className="text-muted-foreground">{messages.admin.cuentas.nunca}</span>}
                 </TableCell>
               </TableRow>
             ))}

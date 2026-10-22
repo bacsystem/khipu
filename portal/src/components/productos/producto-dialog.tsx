@@ -1,6 +1,7 @@
 "use client";
 
 import { PackageIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { ProductoGuardado } from "@/lib/api/productos";
@@ -11,6 +12,7 @@ import { ProductoForm } from "./producto-form";
 
 /** Alta (sin `existente`) o edición de un producto guardado, en el mismo `Dialog` que clientes, series y establecimientos. */
 export function ProductoDialog({ existente, trigger, className }: { existente?: ProductoGuardado | null; trigger?: ReactNode; className?: string }) {
+  const t = useMessages().productos.dialogo;
   const soloLectura = useSoloLectura();
   const [abierto, setAbierto] = useState(false);
   return (
@@ -19,7 +21,7 @@ export function ProductoDialog({ existente, trigger, className }: { existente?: 
         {trigger ?? (
           <>
             {existente ? <PencilIcon className="size-3.5" /> : <PlusIcon className="size-4" />}
-            {existente ? "Editar" : "Nuevo producto"}
+            {existente ? t.editar : t.nuevo}
           </>
         )}
       </DialogTrigger>
@@ -30,8 +32,8 @@ export function ProductoDialog({ existente, trigger, className }: { existente?: 
               <PackageIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? "Editar producto" : "Nuevo producto"}</DialogTitle>
-              <DialogDescription className="text-[13px]">{existente ? "Los comprobantes ya emitidos conservan sus datos" : "Lo verás al buscar en los ítems de «Nuevo comprobante»"}</DialogDescription>
+              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? t.tituloEditar : t.tituloNuevo}</DialogTitle>
+              <DialogDescription className="text-[13px]">{existente ? t.descripcionEditar : t.descripcionNuevo}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
