@@ -30,10 +30,8 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
 
     /** Notas de crédito: restan de lo facturado. */
     private static final String NOTA_DE_CREDITO = "07";
-    /** Liquidación de compra (#327): es una compra de la empresa, no una venta; no cuenta como facturado. */
-    private static final String LIQUIDACION_DE_COMPRA = "04";
-    /** Retención y percepción (#40): lo que el agente retiene o percibe es un impuesto, no una venta; tampoco cuentan como facturado. */
-    private static final String RETENCION = "20", PERCEPCION = "40";
+    // Solo las ventas ({@link TiposDeVenta}, de TipoDocumento#esVenta): ni la liquidación de compra (04, #327), que es una compra, ni la retención o la percepción
+    // (20, 40, #40), un impuesto que el agente retiene o percibe, cuentan en «emitidos» ni en «facturado».
 
     @Override public Agregados resumir(UUID tenantId, LocalDate desde, LocalDate hasta, LocalDate hoy) {
         List<Object> params = new ArrayList<>();
@@ -44,15 +42,15 @@ public class JdbcResumenDeComprobantesRepository implements ResumenDeComprobante
         Object[] args = params.toArray();
 
         Map<EstadoDocumento, Long> porEstado = new EnumMap<>(EstadoDocumento.class);
-        jdbc.query("SELECT d.estado, count(*) AS n FROM documento d WHERE d.tenant_id = ?" + fechas + " GROUP BY d.estado",
+        jdbc.query("SELECT d.estado, count(*) AS n FROM documento d WHERE d.tenant_id = ? AND d.tipo IN (" + TiposDeVenta.SQL + ")" + fechas + " GROUP BY d.estado",
                 rs -> { porEstado.put(EstadoDocumento.valueOf(rs.getString("estado")), rs.getLong("n")); }, args);
 
         List<Facturado> facturado = jdbc.query("""
                 SELECT c.moneda, sum(CASE WHEN d.tipo = '%s' THEN -c.total ELSE c.total END) AS total
                 FROM documento d JOIN comprobante c ON c.documento_id = d.id
-                WHERE d.tenant_id = ? AND d.estado IN (%s) AND d.tipo NOT IN ('%s', '%s', '%s')%s
+                WHERE d.tenant_id = ? AND d.estado IN (%s) AND d.tipo IN (%s)%s
                 GROUP BY c.moneda ORDER BY c.moneda
-                """.formatted(NOTA_DE_CREDITO, ESTADOS_FACTURADOS, LIQUIDACION_DE_COMPRA, RETENCION, PERCEPCION, fechas), (rs, i) -> new Facturado(rs.getString("moneda"), rs.getBigDecimal("total")), args);
+                """.formatted(NOTA_DE_CREDITO, ESTADOS_FACTURADOS, TiposDeVenta.SQL, fechas), (rs, i) -> new Facturado(rs.getString("moneda"), rs.getBigDecimal("total")), args);
 
         // #356: la boleta FIRMADA sin enviar desde el 5.º día. El «?» del corte va antes que los de la empresa y las fechas, que están después en el texto.
         List<Object> conCorte = new ArrayList<>();

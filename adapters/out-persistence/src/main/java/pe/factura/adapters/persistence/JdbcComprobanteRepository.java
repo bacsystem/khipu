@@ -190,6 +190,15 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
         return consultar(" WHERE d.tenant_id = ? AND d.id IN (" + marcas + ")", " ORDER BY d.serie, d.numero", args);
     }
+    /** #322: los comprobantes de la empresa con esos ids, completos (con sus hijos), en el orden {@code orden}. Para quien ya eligió los ids con su propia consulta. */
+    List<Comprobante> porIds(UUID tenantId, List<UUID> ids, String orden) {
+        if (ids.isEmpty()) return List.of();
+        String marcas = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = tenantId;
+        for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
+        return consultar(" WHERE d.tenant_id = ? AND d.id IN (" + marcas + ")", orden, args);
+    }
     @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
         // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
         BigDecimal suma = jdbc.queryForObject("""

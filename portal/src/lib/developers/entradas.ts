@@ -21,6 +21,7 @@ const TEMAS_DE_LA_GUIA: Array<[id: string, titulo: string, href: string, detalle
   ["idempotency", "Idempotency-Key: reintento seguro", "/developers/guia#idempotency-key", "Idempotency-Key reintentar timeout duplicado 24 horas"],
   ["correo", "Enviar el comprobante al cliente por correo", "/developers/guia#buenas-practicas", "correo PDF XML CDR adquirente /correo"],
   ["emitir-sin-enviar", "Emitir ahora y enviar después", "/developers/guia#sin-enviar", "enviar_automatico false FIRMADO POST enviar lote"],
+  ["conciliar-rvie", "Conciliar con la propuesta del SIRE", "/developers/guia#sire", "RVIE SIRE propuesta registro de ventas conciliación LE 140400 periodo"],
 ];
 
 /** Todo lo que se busca, en el orden en que se ofrece. Sale de los mismos datos que muestran las páginas, así que una fila nueva en una tabla se encuentra sola. */

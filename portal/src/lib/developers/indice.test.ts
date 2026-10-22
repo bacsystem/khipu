@@ -50,6 +50,11 @@ describe("buscador de la documentación (#26)", () => {
     expect(buscar("webhook reintenta")[0].href).toBe("/developers/entornos#reintentos");
   });
 
+  it("los códigos del registro de ventas llevan a la página de errores y «SIRE» a su sección de la guía (#322)", () => {
+    expect(buscar("RVIE_SIN_TIPO_CAMBIO")[0].href).toBe("/developers/errores#codigos");
+    expect(buscar("SIRE")[0].href).toBe("/developers/guia#sire");
+  });
+
   it("los temas de la guía se encuentran por su nombre propio", () => {
     expect(buscar("X-Khipu-Signature")[0].href).toBe("/developers/guia#webhooks");
     expect(buscar("firma webhook")[0].href).toBe("/developers/guia#webhooks");

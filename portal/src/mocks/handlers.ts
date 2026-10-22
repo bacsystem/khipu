@@ -3508,7 +3508,9 @@ export const handlers = [
     if (sep !== "coma" && sep !== "punto_y_coma") return fail(400, "PARAMETRO_INVALIDO", `separador debe ser coma (por defecto) o punto_y_coma: ${sep}`);
     const filtrados = filtrarComprobantes(empresaId, url);
     if (filtrados instanceof Response) return filtrados;
-    const lista = url.searchParams.get("estado") ? filtrados : filtrados.filter((f) => !NO_SON_VENTAS.includes(f.estado_documento));
+    const porEstado = url.searchParams.get("estado") ? filtrados : filtrados.filter((f) => !NO_SON_VENTAS.includes(f.estado_documento));
+    // Como el backend: sin filtro de tipo solo salen las ventas (factura, boleta y sus notas; TipoDocumento#esVenta).
+    const lista = url.searchParams.get("tipo") ? porEstado : porEstado.filter((f) => ["01", "03", "07", "08"].includes(f.tipo));
     if (lista.length > EXPORTACION_MAXIMA) return fail(422, "EXPORTACION_EXCEDE_EL_TOPE", `Hay ${lista.length} comprobantes con esos filtros y una exportación admite hasta ${EXPORTACION_MAXIMA}: acote las fechas y exporte por tramos`);
     const desde = url.searchParams.get("desde");
     const hasta = url.searchParams.get("hasta");

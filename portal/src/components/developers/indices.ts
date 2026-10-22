@@ -12,6 +12,7 @@ export const INDICE_GUIA = [
   { id: "respuesta", label: "Cómo leer la respuesta" },
   { id: "errores", label: "Errores" },
   { id: "webhooks", label: "Webhooks" },
+  { id: "sire", label: "Registro de ventas (SIRE)" },
   { id: "buenas-practicas", label: "Buenas prácticas" },
 ];
 

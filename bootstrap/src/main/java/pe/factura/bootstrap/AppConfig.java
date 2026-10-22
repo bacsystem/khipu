@@ -579,6 +579,13 @@ public class AppConfig {
         return new ConsultarConsumoService(consumos, cuentas, tenants, clock);
     }
     @Bean ResumirComprobantesUseCase resumirComprobantes(ResumenDeComprobantesRepository resumenes, Clock clock) { return new ResumirComprobantesService(resumenes, clock); }
+    /** #322: el registro de ventas del SIRE lee los comprobantes completos con el mismo mapeo que el resto, por eso arma su propio JdbcComprobanteRepository (sin estado). */
+    @Bean pe.factura.application.port.out.RegistroDeVentasRepository registroDeVentasRepository(JdbcTemplate jdbc) {
+        return new JdbcRegistroDeVentasRepository(jdbc, new JdbcComprobanteRepository(jdbc));
+    }
+    @Bean pe.factura.application.port.in.RegistroDeVentasSireUseCase registroDeVentasSire(pe.factura.application.port.out.RegistroDeVentasRepository registro, TenantRepository tenants, Clock clock) {
+        return new pe.factura.application.service.RegistroDeVentasSireService(registro, tenants, clock);
+    }
     @Bean ConsultarConsumoDeCuentasUseCase consultarConsumoDeCuentas(ConsumoPorCuentaRepository consumos, Clock clock) { return new ConsultarConsumoDeCuentasService(consumos, clock); }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */
     @Bean CambiarPlanDeCuentaService cambiarPlanDeCuenta(PlanRepository planes, SuscripcionRepository suscripciones, ConsultarConsumoUseCase consumo,
