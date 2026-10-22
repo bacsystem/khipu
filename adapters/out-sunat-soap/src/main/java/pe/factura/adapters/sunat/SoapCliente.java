@@ -61,6 +61,13 @@ final class SoapCliente {
         if (faultcode != null) {
             String codigo = SoapEnvelope.codigoDeFault(faultcode);
             String msg = SoapEnvelope.textoDe(body, "faultstring");
+            // #40: el servicio de retenciones y percepciones pone el código en faultstring («soap-env:Client» / «2619») y el texto en detail/message
+            // (e-beta, 2026-10-20). Sin esto un rechazo definitivo pasaba por transitorio y el outbox lo reintentaba.
+            if ("0000".equals(codigo) && msg != null && msg.strip().matches("\\d{4}")) {
+                codigo = msg.strip();
+                String detalle = SoapEnvelope.textoDe(body, "message");
+                msg = detalle == null || detalle.isBlank() ? codigo : sinEntidades(detalle);
+            }
             if (esFaultDefinitivo(codigo)) throw new SunatRechazoException(codigo, msg == null ? "" : msg);
             if (FAULTS_DE_CREDENCIALES.contains(codigo)) throw new SunatCredencialesException(codigo, msg == null ? "Credenciales SOL rechazadas" : msg);
             throw new SunatTransientException(codigo, msg == null ? "SOAPFault " + faultcode : msg);
@@ -70,6 +77,11 @@ final class SoapCliente {
         if (resp.statusCode() >= 500) throw new SunatTransientException("0000", "SUNAT respondió HTTP " + resp.statusCode());
         if (resp.statusCode() >= 400) throw new SunatTransientException("0000", "SUNAT respondió HTTP " + resp.statusCode() + " (revisar credenciales/URL)");
         return body;
+    }
+
+    /** El detalle de SUNAT viene con las tildes como entidades numéricas («retenci&#243;n»). */
+    static String sinEntidades(String s) {
+        return java.util.regex.Pattern.compile("&#(\\d{2,5});").matcher(s).replaceAll(m -> java.util.regex.Matcher.quoteReplacement(Character.toString(Integer.parseInt(m.group(1)))));
     }
 
     private HttpResponse<String> enviar(HttpRequest req) {

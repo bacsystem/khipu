@@ -14,6 +14,7 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.plataforma.AccionAdmin;
 import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.plataforma.RegistroAuditoria;
+import pe.factura.domain.tenant.DesignacionDeAgente;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
@@ -60,6 +61,27 @@ public class AccionesDeEmpresaService implements AccionesDeEmpresaUseCase {
             auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.REVOCAR_API_KEY_EMPRESA, cuentaDe(empresaId), empresaId, "prefijo=" + key.prefijo(), ahora));
         });
         return new ApiKeyRevocada(apiKeyId, ahora);
+    }
+
+    @Override public CambioDeDesignacion designarAgente(ActorAdmin actor, UUID empresaId, DesignacionDeAgente hacia) {
+        if (empresaId == null) throw new DomainException("NO_ENCONTRADO", "La empresa no existe");
+        DesignacionDeAgente actual = acciones.designacionDe(empresaId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "La empresa no existe"));
+        if (hacia == null) throw new DomainException("DESIGNACION_INVALIDA", "La designación es obligatoria: retencion y percepcion, cada una true o false");
+        if (actual.equals(hacia)) throw designacionSinCambios(hacia);
+        Instant ahora = clock.instant();
+        // Condicional (solo si seguía siendo la que se vio) y en la misma transacción que la bitácora, como el cambio de entorno.
+        uow.ejecutar(() -> {
+            if (!acciones.designarAgente(empresaId, actual, hacia)) throw designacionSinCambios(hacia);
+            auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.DESIGNAR_AGENTE_EMPRESA, cuentaDe(empresaId), empresaId,
+                    "desde=" + texto(actual) + " hacia=" + texto(hacia), ahora));
+        });
+        return new CambioDeDesignacion(empresaId, actual, hacia);
+    }
+
+    private static String texto(DesignacionDeAgente d) { return "retencion:" + d.retencion() + ",percepcion:" + d.percepcion(); }
+
+    private static DomainException designacionSinCambios(DesignacionDeAgente d) {
+        return new DomainException("DESIGNACION_SIN_CAMBIOS", "La empresa ya tenía esa designación (" + texto(d) + ")");
     }
 
     @Override public ResultadoDeConexion probarConexion(ActorAdmin actor, UUID empresaId) {

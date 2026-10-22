@@ -128,8 +128,10 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial, String establecimiento) {
-        obtener(tenantId);
+        Tenant tenant = obtener(tenantId);
         if (!tipo.serieValida(codigo)) throw new DomainException("SERIE_INVALIDA", "Serie " + codigo + " no válida para " + tipo);
+        // #40: una serie R### o P### solo para la empresa que SUNAT designó agente de retención o de percepción.
+        tenant.exigirAgenteDe(tipo);
         Serie s = new Serie(tenantId, tipo, codigo, correlativoInicial, true, establecimiento);
         uow.ejecutar(() -> {
             // Bloquea la fila del anexo para que no se pueda dar de baja entre este chequeo y el INSERT (desactivarEstablecimiento hace el mismo bloqueo).

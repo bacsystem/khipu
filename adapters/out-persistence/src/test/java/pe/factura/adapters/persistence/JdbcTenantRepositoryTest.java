@@ -46,6 +46,17 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
         assertThat(sin.padronTasaEspecialIgv()).isTrue();
     }
 
+    /** #40: la designación de agente se lee con la empresa, pero guardar la empresa no la escribe: la cambia solo el administrador, y unos datos fiscales viejos no la borran. */
+    @Test void laDesignacionDeAgenteSeLeePeroGuardarLaEmpresaNoLaToca() {
+        Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
+        repo.guardar(t.conAgente(new DesignacionDeAgente(true, true)));
+        assertThat(repo.buscar(t.id()).orElseThrow().agente()).as("un alta nace sin designación").isEqualTo(DesignacionDeAgente.NINGUNA);
+        jdbc.update("UPDATE tenant SET agente_retencion = true WHERE id = ?", t.id());
+        assertThat(repo.buscar(t.id()).orElseThrow().agente()).isEqualTo(new DesignacionDeAgente(true, false));
+        repo.guardar(t.conDatosFiscales(null, null, "Andina"));
+        assertThat(repo.buscar(t.id()).orElseThrow().agente()).as("el tenant leído antes de la designación no la borra").isEqualTo(new DesignacionDeAgente(true, false));
+    }
+
     @Test void guardaLaPersonalizacionDelPdfYPorDefectoEsLaClasica() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
         repo.guardar(t);

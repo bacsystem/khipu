@@ -87,6 +87,7 @@ public class FlyingSaucerPdfGenerator implements PdfGenerator {
                 case BOLETA -> "boleta.ftl";
                 case LIQUIDACION_COMPRA -> "liquidacion.ftl";
                 case NOTA_CREDITO, NOTA_DEBITO -> "nota.ftl";
+                case RETENCION, PERCEPCION -> "agente.ftl";
             }).process(modelo, out);
             // El parser XML de Flying Saucer exige la declaración <?xml?> en el primer byte.
             return out.toString().strip();

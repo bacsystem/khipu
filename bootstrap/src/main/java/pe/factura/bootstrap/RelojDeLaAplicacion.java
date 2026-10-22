@@ -1,6 +1,7 @@
 package pe.factura.bootstrap;
 
 import pe.factura.application.port.in.ControlarPlazoEnvioUseCase;
+import pe.factura.application.port.in.EmitirAgenteCommand;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
@@ -124,9 +125,14 @@ public final class RelojDeLaAplicacion {
                 exigirNoProduccion(tenantId);
                 return emision.emitirLiquidacionCompra(tenantId, cmd, idempotencia);
             }
+            @Override public Emision emitirDeAgente(UUID tenantId, EmitirAgenteCommand cmd, Idempotencia idempotencia) {
+                exigirNoProduccion(tenantId);
+                return emision.emitirDeAgente(tenantId, cmd, idempotencia);
+            }
             /** Calcular no emite nada ni toca a SUNAT: se deja pasar aunque la empresa esté en producción. */
             @Override public Comprobante calcularFactura(UUID tenantId, EmitirFacturaCommand cmd) { return emision.calcularFactura(tenantId, cmd); }
             @Override public Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd) { return emision.calcularLiquidacionCompra(tenantId, cmd); }
+            @Override public Comprobante calcularDeAgente(UUID tenantId, EmitirAgenteCommand cmd) { return emision.calcularDeAgente(tenantId, cmd); }
             private void exigirNoProduccion(UUID tenantId) { RelojDeLaAplicacion.exigirNoProduccion(tenants, tenantId, "emitir"); }
         };
     }
@@ -138,6 +144,7 @@ public final class RelojDeLaAplicacion {
             @Override public byte[] sendBill(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) { exigirNoProduccion(tenant); return sunat.sendBill(tenant, nombreArchivo, xmlFirmado); }
             @Override public String sendSummary(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) { exigirNoProduccion(tenant); return sunat.sendSummary(tenant, nombreArchivo, xmlFirmado); }
             @Override public EstadoTicket getStatus(Tenant tenant, String ticket) { exigirNoProduccion(tenant); return sunat.getStatus(tenant, ticket); }
+            @Override public EstadoTicket getStatus(Tenant tenant, String nombreArchivo, String ticket) { exigirNoProduccion(tenant); return sunat.getStatus(tenant, nombreArchivo, ticket); }
             private void exigirNoProduccion(Tenant tenant) { if (tenant.entorno() == Entorno.PRODUCCION) throw rechazo("enviar a SUNAT"); }
         };
     }

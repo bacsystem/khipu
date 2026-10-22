@@ -1,6 +1,7 @@
 package pe.factura.application.port.in;
 
 import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.tenant.DesignacionDeAgente;
 import pe.factura.domain.tenant.Entorno;
 
 import java.time.Instant;
@@ -26,6 +27,15 @@ public interface AccionesDeEmpresaUseCase {
      * cambia nada. {@code NO_ENCONTRADO} si la empresa no existe; {@code SOL_NO_CARGADAS} si no tiene credenciales SOL.
      */
     ResultadoDeConexion probarConexion(ActorAdmin actor, UUID empresaId);
+
+    /**
+     * Registra la designación de la empresa como agente de retención y/o de percepción (#40), que el administrador verificó en los padrones de SUNAT: con ella la empresa puede crear
+     * series R###/P### y emitir comprobantes 20/40. {@code NO_ENCONTRADO} si la empresa no existe; {@code DESIGNACION_INVALIDA} si {@code hacia} es nula;
+     * {@code DESIGNACION_SIN_CAMBIOS} si ya era esa. No toca ningún comprobante ni serie existente.
+     */
+    CambioDeDesignacion designarAgente(ActorAdmin actor, UUID empresaId, DesignacionDeAgente hacia);
+
+    record CambioDeDesignacion(UUID empresaId, DesignacionDeAgente desde, DesignacionDeAgente hacia) {}
 
     record CambioDeEntorno(UUID empresaId, Entorno desde, Entorno hacia) {}
 

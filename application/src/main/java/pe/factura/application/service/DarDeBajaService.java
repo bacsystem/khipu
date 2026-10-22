@@ -169,7 +169,8 @@ public class DarDeBajaService implements DarDeBajaUseCase, InformarEnResumenUseC
                 String ticket = gateway.sendSummary(tenant, b.nombreArchivo(tenant.ruc()), storage.leer(b.xmlKey()));
                 b.marcarEnviada(ticket);
             }
-            SunatBillingGateway.EstadoTicket estado = gateway.getStatus(tenant, b.ticket());
+            // #40: el ticket de un resumen de reversiones (RR) lo contesta el servicio de otros CPE, que es quien lo emitió.
+            SunatBillingGateway.EstadoTicket estado = gateway.getStatus(tenant, b.nombreArchivo(tenant.ruc()), b.ticket());
             if (estado.procesado()) {
                 Cdr cdr = cdrParser.parsear(estado.cdrZip());
                 String cdrKey = b.xmlKey().substring(0, b.xmlKey().lastIndexOf('/') + 1) + "R-" + b.nombreArchivo(tenant.ruc()) + ".zip";

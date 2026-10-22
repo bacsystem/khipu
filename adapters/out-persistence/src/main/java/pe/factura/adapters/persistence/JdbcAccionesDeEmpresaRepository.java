@@ -3,6 +3,7 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.factura.application.port.out.AccionesDeEmpresaRepository;
+import pe.factura.domain.tenant.DesignacionDeAgente;
 import pe.factura.domain.tenant.Entorno;
 
 import java.sql.Timestamp;
@@ -24,6 +25,16 @@ public class JdbcAccionesDeEmpresaRepository implements AccionesDeEmpresaReposit
 
     @Override public boolean cambiarEntorno(UUID tenantId, Entorno desde, Entorno hacia) {
         return jdbc.update("UPDATE tenant SET entorno = ?, updated_at = now() WHERE id = ? AND entorno = ?", hacia.name(), tenantId, desde.name()) == 1;
+    }
+
+    @Override public Optional<DesignacionDeAgente> designacionDe(UUID tenantId) {
+        return jdbc.query("SELECT agente_retencion, agente_percepcion FROM tenant WHERE id = ?",
+                (rs, i) -> new DesignacionDeAgente(rs.getBoolean("agente_retencion"), rs.getBoolean("agente_percepcion")), tenantId).stream().findFirst();
+    }
+
+    @Override public boolean designarAgente(UUID tenantId, DesignacionDeAgente desde, DesignacionDeAgente hacia) {
+        return jdbc.update("UPDATE tenant SET agente_retencion = ?, agente_percepcion = ?, updated_at = now() WHERE id = ? AND agente_retencion = ? AND agente_percepcion = ?",
+                hacia.retencion(), hacia.percepcion(), tenantId, desde.retencion(), desde.percepcion()) == 1;
     }
 
     @Override public long enviosPendientes(UUID tenantId) {

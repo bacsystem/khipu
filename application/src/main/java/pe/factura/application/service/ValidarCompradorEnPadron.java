@@ -36,10 +36,12 @@ public class ValidarCompradorEnPadron implements ValidarCompradorUseCase {
         this.maximoDeAtraso = maximoDeAtraso;
     }
 
-    @Override public void exigirQueExista(Receptor receptor) {
+    @Override public void exigirQueExista(Receptor receptor) { exigirQueExista(receptor, "1083", "del comprador"); }
+
+    @Override public void exigirQueExista(Receptor receptor, String regla, String quien) {
         if (!conRuc(receptor) || !padronConfiable(true)) return;
         if (padron.buscar(receptor.numDoc()).isEmpty())
-            throw new DomainException("RECEPTOR_INVALIDO", "1083 - El RUC " + receptor.numDoc() + " del comprador no figura en el padrón de SUNAT y SUNAT rechazaría el comprobante. "
+            throw new DomainException("RECEPTOR_INVALIDO", regla + " - El RUC " + receptor.numDoc() + " " + quien + " no figura en el padrón de SUNAT y SUNAT rechazaría el comprobante. "
                     + "Si es un RUC recién inscrito, el padrón se actualiza cada día: reintente más tarde");
     }
 

@@ -31,6 +31,8 @@ public enum AccionAdmin {
     REVOCAR_API_KEY_EMPRESA,
     /** Prueba la conexión de una empresa con SUNAT usando sus credenciales SOL (#187). El detalle lleva el resultado, nunca las credenciales. */
     PROBAR_CONEXION_EMPRESA,
+    /** Registra que SUNAT designó (o dejó de designar) a una empresa agente de retención o de percepción, con lo que puede emitir comprobantes 20 o 40 (#40). El detalle dice de qué a qué. */
+    DESIGNAR_AGENTE_EMPRESA,
     /** Un administrador abrió una sesión de soporte como un usuario de un cliente: solo lectura, 15 minutos (#184). El detalle dice a qué usuario y por cuánto tiempo; nunca lleva el token. */
     IMPERSONAR_USUARIO,
     /** Alta de un plan (#190). El detalle dice su nombre, precio y límites. */

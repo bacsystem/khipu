@@ -474,7 +474,9 @@ class JwtFilterTest {
             {"POST", "/v1/facturas/1/baja"}, {"POST", "/v1/facturas/1/cdr/recuperar"}, {"POST", "/v1/notas"}, {"POST", "/v1/clientes"},
             {"PUT", "/v1/clientes/1"}, {"DELETE", "/v1/clientes/1"}, {"PUT", "/v1/clientes/documento/6/20100047226"}, {"POST", "/v1/productos"}, {"DELETE", "/v1/productos/1"},
             // #327
-            {"POST", "/v1/liquidaciones-compra"}, {"POST", "/v1/liquidaciones-compra/calcular"}};
+            {"POST", "/v1/liquidaciones-compra"}, {"POST", "/v1/liquidaciones-compra/calcular"},
+            // #40
+            {"POST", "/v1/retenciones"}, {"POST", "/v1/retenciones/calcular"}, {"POST", "/v1/percepciones"}, {"POST", "/v1/percepciones/calcular"}};
     static final String[][] CONFIGURACION = {{"POST", "/v1/empresas"}, {"PUT", "/v1/empresa/datos-fiscales"}, {"POST", "/v1/empresa/certificado"},
             {"PUT", "/v1/empresa/credenciales-sol"}, {"POST", "/v1/empresa/api-keys"}, {"GET", "/v1/empresa/api-keys"}, {"DELETE", "/v1/empresa/api-keys/1"},
             {"POST", "/v1/series"}, {"POST", "/v1/empresa/establecimientos"}, {"PUT", "/v1/empresa/establecimientos/0001"}, {"DELETE", "/v1/empresa/establecimientos/0001"},

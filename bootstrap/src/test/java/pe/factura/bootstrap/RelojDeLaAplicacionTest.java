@@ -2,6 +2,7 @@ package pe.factura.bootstrap;
 
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ControlarPlazoEnvioUseCase;
+import pe.factura.application.port.in.EmitirAgenteCommand;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
@@ -166,6 +167,8 @@ class RelojDeLaAplicacionTest {
                 .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
         assertThatThrownBy(() -> protegida.emitirLiquidacionCompra(TenantsFalsos.ID, (EmitirLiquidacionCommand) null))
                 .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
+        assertThatThrownBy(() -> protegida.emitirDeAgente(TenantsFalsos.ID, (EmitirAgenteCommand) null))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("RELOJ_DESPLAZADO"));
         assertThat(real.llamadas).as("no llegó a numerar ni firmar nada").isEmpty();
     }
 
@@ -176,7 +179,8 @@ class RelojDeLaAplicacionTest {
 
         protegida.calcularFactura(TenantsFalsos.ID, (EmitirFacturaCommand) null);
         protegida.calcularLiquidacionCompra(TenantsFalsos.ID, (EmitirLiquidacionCommand) null);
-        assertThat(real.llamadas).containsExactly("calcularFactura", "calcularLiquidacionCompra");
+        protegida.calcularDeAgente(TenantsFalsos.ID, (EmitirAgenteCommand) null);
+        assertThat(real.llamadas).containsExactly("calcularFactura", "calcularLiquidacionCompra", "calcularDeAgente");
     }
 
     @Test void conDesplazamientoEmiteNormalParaUnaEmpresaDeBeta() {
@@ -186,7 +190,8 @@ class RelojDeLaAplicacionTest {
         protegida.emitirFactura(TenantsFalsos.ID, (EmitirFacturaCommand) null, null);
         protegida.emitirNota(TenantsFalsos.ID, (EmitirNotaCommand) null);
         protegida.emitirLiquidacionCompra(TenantsFalsos.ID, (EmitirLiquidacionCommand) null);
-        assertThat(real.llamadas).containsExactly("emitirFactura", "emitirNota", "emitirLiquidacionCompra");
+        protegida.emitirDeAgente(TenantsFalsos.ID, (EmitirAgenteCommand) null);
+        assertThat(real.llamadas).containsExactly("emitirFactura", "emitirNota", "emitirLiquidacionCompra", "emitirDeAgente");
     }
 
     /** #355: la protección del reloj no se traga la clave de idempotencia de la nota, ni la deja pasar en producción. */
@@ -366,6 +371,8 @@ class RelojDeLaAplicacionTest {
         @Override public Emision emitirNota(UUID tenantId, EmitirNotaCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirNota"); ultimaClaveDeNota = idempotencia; return new Emision(null, false); }
         @Override public Emision emitirLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirLiquidacionCompra"); return new Emision(null, false); }
         @Override public pe.factura.domain.documento.Comprobante calcularLiquidacionCompra(UUID tenantId, EmitirLiquidacionCommand cmd) { llamadas.add("calcularLiquidacionCompra"); return null; }
+        @Override public Emision emitirDeAgente(UUID tenantId, EmitirAgenteCommand cmd, Idempotencia idempotencia) { llamadas.add("emitirDeAgente"); return new Emision(null, false); }
+        @Override public pe.factura.domain.documento.Comprobante calcularDeAgente(UUID tenantId, EmitirAgenteCommand cmd) { llamadas.add("calcularDeAgente"); return null; }
     }
 
     static class SunatFalsa implements SunatBillingGateway {

@@ -1,5 +1,6 @@
 package pe.factura.application.port.out;
 
+import pe.factura.domain.tenant.DesignacionDeAgente;
 import pe.factura.domain.tenant.Entorno;
 
 import java.time.Instant;
@@ -24,6 +25,12 @@ public interface AccionesDeEmpresaRepository {
 
     /** Revoca la key solo si estaba activa y es de esa empresa; {@code false} si no cambió nada. */
     boolean revocarApiKey(UUID tenantId, UUID apiKeyId, Instant cuando);
+
+    /** La designación de agente de retención y de percepción de la empresa (#40); vacío si no existe. */
+    Optional<DesignacionDeAgente> designacionDe(UUID tenantId);
+
+    /** Cambia la designación solo si seguía siendo {@code desde}; {@code false} si ya no lo era. Solo toca esas dos columnas. */
+    boolean designarAgente(UUID tenantId, DesignacionDeAgente desde, DesignacionDeAgente hacia);
 
     /** Solo el prefijo (la parte visible) y el estado: el hash de la clave ni se lee. */
     record ApiKeyDeEmpresa(String prefijo, boolean activa) {}

@@ -51,6 +51,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         Percepcion pc = c.percepcion();
         Nota n = c.nota();
         LiquidacionCompra lc = c.liquidacion();
+        ComprobanteDeAgente ag = c.agente();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
@@ -59,8 +60,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra,
               fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas,
               receptor_pais, incoterm, pais_uso, tipo_cambio, vendedor_ubigeo, vendedor_condicion, lugar_direccion, lugar_ubigeo, lugar_condicion, retencion_renta_tasa,
-              receptor_email)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              receptor_email, agente_regimen, agente_tasa)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -75,7 +76,16 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso(), c.tipoCambio(),
                 lc == null ? null : lc.ubigeoVendedor(), lc == null ? null : lc.condicionVendedor(), lc == null ? null : lc.lugarOperacion().direccion(),
                 lc == null ? null : lc.lugarOperacion().ubigeo(), lc == null ? null : lc.lugarOperacion().condicion(), lc == null ? null : lc.tasaRetencionRenta(),
-                c.correoCliente());
+                c.correoCliente(), ag == null ? null : ag.regimen(), ag == null ? null : ag.tasa());
+        if (ag != null) {
+            int nPago = 1;
+            for (ComprobanteDeAgente.Documento p : ag.documentos()) {
+                jdbc.update("INSERT INTO comprobante_documento_agente (comprobante_id, orden, tipo, numero, fecha_emision, importe_total, moneda, numero_pago, fecha_pago, importe_pago, "
+                        + "tipo_cambio, fecha_tipo_cambio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        c.id(), nPago++, p.tipo(), p.numero(), Date.valueOf(p.fechaEmision()), p.importeTotal(), p.moneda(), p.numeroPago(), Date.valueOf(p.fechaPago()), p.importePago(),
+                        p.tipoCambio(), p.tipoCambio() == null || p.fechaTipoCambio() == null ? null : Date.valueOf(p.fechaTipoCambio()));
+            }
+        }
         int nDoc = 1;
         for (GuiaRelacionada g : c.referencias().guias()) {
             jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
@@ -208,11 +218,11 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     }
     /**
      * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
-     * modifica una boleta), cuya constancia no se pide por serie y número, y la liquidación de compra (04, #327), que el servicio tampoco cubre.
+     * modifica una boleta), cuya constancia no se pide por serie y número, y la liquidación de compra (04, #327), la retención y la percepción (20 y 40, #40), que el servicio tampoco cubre.
      */
     @Override public List<Comprobante> pendientesDeCdr() {
         return consultar(" WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')"
-                + " AND d.tipo NOT IN ('03', '04') AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
+                + " AND d.tipo NOT IN ('03', '04', '20', '40') AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
     }
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
         return consultar(" WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ?", " ORDER BY d.fecha_emision, d.created_at", Date.valueOf(desde), Date.valueOf(hasta));
@@ -300,7 +310,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra, c.fecha_vencimiento, c.redondeo,
                c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas,
                c.receptor_pais, c.incoterm, c.pais_uso, c.tipo_cambio,
-               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa, c.receptor_email
+               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa, c.receptor_email, c.agente_regimen, c.agente_tasa
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
@@ -311,15 +321,16 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
      */
     private List<Comprobante> consultar(String filtro, String orden, Object... args) {
         boolean acotada = orden.contains("LIMIT");
-        List<IdFila> ids = jdbc.query("SELECT d.id, c.forma_pago " + DESDE + filtro + (acotada ? orden : ""),
-                (rs, i) -> new IdFila(rs.getObject("id", UUID.class), "CREDITO".equals(rs.getString("forma_pago"))), args);
+        List<IdFila> ids = jdbc.query("SELECT d.id, c.forma_pago, c.agente_regimen IS NOT NULL AS de_agente " + DESDE + filtro + (acotada ? orden : ""),
+                (rs, i) -> new IdFila(rs.getObject("id", UUID.class), "CREDITO".equals(rs.getString("forma_pago")), rs.getBoolean("de_agente")), args);
         Hijos hijos = new Hijos();
         hijos.cargar(ids.stream().map(IdFila::id).toList());
         hijos.cargarCuotas(ids.stream().filter(IdFila::alCredito).map(IdFila::id).toList());
+        hijos.cargarDocumentosDeAgente(ids.stream().filter(IdFila::deAgente).map(IdFila::id).toList());
         return jdbc.query(SELECT + filtro + orden, (rs, i) -> mapear(rs, hijos), args);
     }
 
-    private record IdFila(UUID id, boolean alCredito) {}
+    private record IdFila(UUID id, boolean alCredito, boolean deAgente) {}
 
     /**
      * Cargos, ítems, anticipos y documentos relacionados de un conjunto de comprobantes, y por separado las cuotas de los que son al crédito, leídos con {@code = ANY(?)} (un solo
@@ -335,12 +346,19 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         private final Map<UUID, List<GuiaRelacionada>> guias = new HashMap<>();
         private final Map<UUID, List<DocumentoRelacionado>> otros = new HashMap<>();
         private final Map<UUID, List<FormaPago.Cuota>> cuotas = new HashMap<>();
+        private final Map<UUID, List<ComprobanteDeAgente.Documento>> documentosDeAgente = new HashMap<>();
+        private final Set<UUID> conDocumentosDeAgente = new HashSet<>();
 
         Map<Integer, List<Cargo>> cargos(UUID id) { asegurar(id); return cargos.getOrDefault(id, Collections.emptyMap()); }
         List<Item> items(UUID id) { asegurar(id); return items.getOrDefault(id, List.of()); }
         List<Anticipo> anticipos(UUID id) { asegurar(id); return anticipos.getOrDefault(id, List.of()); }
         List<GuiaRelacionada> guias(UUID id) { asegurar(id); return guias.getOrDefault(id, List.of()); }
         List<DocumentoRelacionado> otros(UUID id) { asegurar(id); return otros.getOrDefault(id, List.of()); }
+        /** Solo se pide para una retención o una percepción (#40), como las cuotas para lo que es al crédito: una página sin ellas no cuesta la consulta. */
+        List<ComprobanteDeAgente.Documento> documentosDeAgente(UUID id) {
+            if (!conDocumentosDeAgente.contains(id)) cargarDocumentosDeAgente(List.of(id));
+            return documentosDeAgente.getOrDefault(id, List.of());
+        }
         /** Solo se pide para un comprobante al crédito: uno al contado no cuesta la consulta. */
         List<FormaPago.Cuota> cuotas(UUID id) { if (!conCuotas.contains(id)) cargarCuotas(List.of(id)); return cuotas.getOrDefault(id, List.of()); }
 
@@ -396,6 +414,21 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             cargados.addAll(lote);
         }
 
+        void cargarDocumentosDeAgente(Collection<UUID> ids) {
+            List<UUID> pendientes = ids.stream().filter(i -> !conDocumentosDeAgente.contains(i)).distinct().toList();
+            for (int desde = 0; desde < pendientes.size(); desde += LOTE_DE_HIJOS) {
+                List<UUID> lote = pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS));
+                consultarHijos("SELECT comprobante_id, tipo, numero, fecha_emision, importe_total, moneda, numero_pago, fecha_pago, importe_pago, tipo_cambio, fecha_tipo_cambio "
+                        + "FROM comprobante_documento_agente WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                        r -> documentosDeAgente.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+                                .add(new ComprobanteDeAgente.Documento(r.getString("tipo"), r.getString("numero"), r.getDate("fecha_emision").toLocalDate(), r.getBigDecimal("importe_total"),
+                                        r.getString("moneda"), r.getLong("numero_pago"), r.getDate("fecha_pago").toLocalDate(), r.getBigDecimal("importe_pago"),
+                                        r.getBigDecimal("tipo_cambio") == null ? null : sinCeros(r.getBigDecimal("tipo_cambio")),
+                                        r.getDate("fecha_tipo_cambio") == null ? null : r.getDate("fecha_tipo_cambio").toLocalDate())));
+                conDocumentosDeAgente.addAll(lote);
+            }
+        }
+
         private void consultarHijos(String sql, List<UUID> lote, RowCallbackHandler fila) {
             jdbc.query(sql, ps -> ps.setArray(1, ps.getConnection().createArrayOf("uuid", lote.toArray())), fila);
         }
@@ -418,7 +451,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         List<DocumentoRelacionado> otros = hijos.otros(id);
         Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
-        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion"), rs.getString("receptor_pais")), items)
+        TipoDocumento tipo = TipoDocumento.porCodigo(rs.getString("tipo"));
+        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), tipo, rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion"), rs.getString("receptor_pais")), items)
                 .horaEmision(rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime())
                 .fechaVencimiento(rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate())
                 .moneda(rs.getString("moneda"))
@@ -434,6 +468,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .redondeo(rs.getBigDecimal("redondeo"))
                 .nota(nota(rs))
                 .liquidacion(liquidacion(rs))
+                .agente(agente(rs, tipo, () -> hijos.documentosDeAgente(id)))
                 .tasaIgv(rs.getBigDecimal("tasa_igv"))
                 .tipoCambio(rs.getBigDecimal("tipo_cambio"))
                 .leyendas(rs.getString("leyendas") == null ? List.of() : List.of(rs.getString("leyendas").split(",")))
@@ -458,6 +493,12 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return rs.getBigDecimal("retencion_renta_tasa") == null ? null
                 : new LiquidacionCompra(rs.getString("vendedor_ubigeo"), rs.getString("vendedor_condicion"),
                         new LiquidacionCompra.Ubicacion(rs.getString("lugar_direccion"), rs.getString("lugar_ubigeo"), rs.getString("lugar_condicion")), sinCeros(rs.getBigDecimal("retencion_renta_tasa")));
+    }
+
+    /** #40: el régimen marca la retención o la percepción (comprobante_agente_completo asegura que viene con su tasa); los documentos pagados o cobrados, de su tabla. */
+    private static ComprobanteDeAgente agente(ResultSet rs, TipoDocumento tipo, java.util.function.Supplier<List<ComprobanteDeAgente.Documento>> documentos) throws SQLException {
+        return rs.getString("agente_regimen") == null ? null
+                : new ComprobanteDeAgente(tipo, rs.getString("agente_regimen").strip(), sinCeros(rs.getBigDecimal("agente_tasa")), documentos.get());
     }
 
     private static String tipo(Descuento d) { return d == null ? null : d.tipo().name(); }

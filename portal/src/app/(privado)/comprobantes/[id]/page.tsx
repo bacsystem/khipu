@@ -9,13 +9,14 @@ import { CorreoButton } from "@/components/comprobantes/correo-button";
 import { EnvioAlClienteEstado } from "@/components/comprobantes/envio-al-cliente-estado";
 import { AvisoBoletaSinInformar } from "@/components/comprobantes/aviso-boleta-sin-informar";
 import { AvisosDeEmision } from "@/components/comprobantes/avisos-de-emision";
+import { DocumentosDeAgente, ImportesDeAgente } from "@/components/comprobantes/agente-detalle";
 import { DuplicarButton } from "@/components/comprobantes/duplicar-button";
 import { RecuperarCdrButton } from "@/components/comprobantes/recuperar-cdr-button";
 import { datosDeValidez, puedeRecuperarCdr } from "@/lib/comprobantes/consultas-sunat";
 import { ReenviarButton } from "@/components/comprobantes/reenviar-button";
 import { ValidezButton } from "@/components/comprobantes/validez-button";
 import { VistaPrevia } from "@/components/comprobantes/vista-previa";
-import { admiteBaja, admiteCorreo, admiteNotas, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
+import { admiteBaja, admiteCorreo, admiteNotas, esDeAgente, esDeBoleta, type Detraccion, type Exportacion, ETIQUETAS_AFECTACION, ETIQUETAS_DOC_RELACIONADO, ETIQUETAS_GUIA, ETIQUETAS_TIPO, ETIQUETAS_TIPO_DOC, type Comprobante, type FormaPago, obtenerFactura, seInformaFueraDePlazo, tieneConstanciaCdr } from "@/lib/api/facturas";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { ApiError } from "@/lib/api/types";
 import { avisoDePlazo } from "@/lib/comprobantes/plazo";
@@ -283,7 +284,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               Emitir nota
             </Link>
           ) : null}
-          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} boleta={esDeBoleta(c)} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
+          {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} boleta={esDeBoleta(c)} reversion={esDeAgente(c)} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           {c.enlaces?.pdf ? (
             <a
@@ -536,6 +537,10 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         </section>
       ) : null}
 
+      {/* #40: una retención o una percepción no tiene líneas de venta: muestra los documentos que paga o cobra. */}
+      {c.agente ? (
+        <DocumentosDeAgente agente={c.agente} retencion={c.tipo === "20"} />
+      ) : (
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
           <div className={TITULO_SECCION}>
@@ -657,6 +662,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </table>
         </div>
       </section>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <section className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-2xs lg:col-span-7">
@@ -688,6 +694,10 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <span className={TITULO_SECCION}>Liquidación de importes</span>
             <span className="font-mono text-[11px] text-muted-foreground/70">{MONEDAS[c.moneda] ?? c.moneda}</span>
           </div>
+          {c.agente ? (
+            <ImportesDeAgente agente={c.agente} retencion={c.tipo === "20"} />
+          ) : (
+          <>
           <div className="space-y-2 text-xs">
             {c.totales.exportacion ? (
               <Importe etiqueta="Total exportación (sin IGV)" moneda={c.moneda} valor={c.totales.exportacion} />
@@ -751,6 +761,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             ) : null}
           </div>
           <FormaPagoDetalle formaPago={c.forma_pago} moneda={c.moneda} />
+          </>
+          )}
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} /> : null}
           {c.exportacion ? <ExportacionDetalle exportacion={c.exportacion} /> : null}
           {c.anticipos?.length ? (

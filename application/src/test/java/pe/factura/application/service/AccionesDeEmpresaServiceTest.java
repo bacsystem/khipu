@@ -9,6 +9,7 @@ import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatRechazoException;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.application.port.out.TenantRepository;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.plataforma.AccionAdmin;
 import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.plataforma.RegistroAuditoria;
@@ -45,6 +46,15 @@ class AccionesDeEmpresaServiceTest {
         final Map<UUID, Map<UUID, ApiKeyDeEmpresa>> keys = new HashMap<>();
         final Map<UUID, Long> pendientes = new HashMap<>();
         final List<UUID> revocadas = new ArrayList<>();
+        final Map<UUID, pe.factura.domain.tenant.DesignacionDeAgente> designaciones = new HashMap<>();
+        public Optional<pe.factura.domain.tenant.DesignacionDeAgente> designacionDe(UUID t) {
+            return entornos.containsKey(t) ? Optional.of(designaciones.getOrDefault(t, pe.factura.domain.tenant.DesignacionDeAgente.NINGUNA)) : Optional.empty();
+        }
+        public boolean designarAgente(UUID t, pe.factura.domain.tenant.DesignacionDeAgente desde, pe.factura.domain.tenant.DesignacionDeAgente hacia) {
+            if (!designacionDe(t).map(desde::equals).orElse(false)) return false;
+            designaciones.put(t, hacia);
+            return true;
+        }
         public Optional<Entorno> entornoDe(UUID t) { return Optional.ofNullable(entornos.get(t)); }
         public boolean cambiarEntorno(UUID t, Entorno desde, Entorno hacia) {
             if (entornos.get(t) != desde) return false;
@@ -99,6 +109,32 @@ class AccionesDeEmpresaServiceTest {
         acciones.keys.put(empresaId, new HashMap<>(Map.of(keyId, new AccionesDeEmpresaRepository.ApiKeyDeEmpresa("fk_ab12", true))));
         auditoria.uow = uow;
         service = new AccionesDeEmpresaService(tenants, acciones, sunat, auditoria, uow, Fakes.CLOCK);
+    }
+
+    // --- designar agente (#40) ------------------------------------------------------------------------------------------------------
+
+    @Test void designarAgenteDeRetencionLaHabilitaYQuedaEnLaBitacora() {
+        var hacia = new pe.factura.domain.tenant.DesignacionDeAgente(true, false);
+        var c = service.designarAgente(ACTOR, empresaId, hacia);
+
+        assertThat(c.desde()).isEqualTo(pe.factura.domain.tenant.DesignacionDeAgente.NINGUNA);
+        assertThat(c.hacia()).isEqualTo(hacia);
+        assertThat(acciones.designaciones.get(empresaId)).isEqualTo(hacia);
+        RegistroAuditoria r = auditoria.registros.get(0);
+        assertThat(r.accion()).isEqualTo(AccionAdmin.DESIGNAR_AGENTE_EMPRESA);
+        assertThat(r.cuentaId()).isEqualTo(cuentaId);
+        assertThat(r.detalle()).isEqualTo("desde=retencion:false,percepcion:false hacia=retencion:true,percepcion:false");
+        assertThat(auditoria.dentroAlRegistrar).containsExactly(true);
+    }
+
+    @Test void designarLoMismoONadaSeRechazaSinBitacora() {
+        assertThatThrownBy(() -> service.designarAgente(ACTOR, empresaId, pe.factura.domain.tenant.DesignacionDeAgente.NINGUNA))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("DESIGNACION_SIN_CAMBIOS"));
+        assertThatThrownBy(() -> service.designarAgente(ACTOR, empresaId, null))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("DESIGNACION_INVALIDA"));
+        assertThatThrownBy(() -> service.designarAgente(ACTOR, UUID.randomUUID(), new pe.factura.domain.tenant.DesignacionDeAgente(true, true)))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.codigo()).isEqualTo("NO_ENCONTRADO"));
+        assertThat(auditoria.registros).isEmpty();
     }
 
     // --- cambiar el entorno ---------------------------------------------------------------------------------------------------------

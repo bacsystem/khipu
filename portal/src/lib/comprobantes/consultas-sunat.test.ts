@@ -42,5 +42,8 @@ describe("consultas a SUNAT desde la ficha (#315)", () => {
     for (const estado of ["RECIBIDO", "FIRMADO", "INVALIDO", "DESCARTADO"] as const) expect(datosDeValidez(base({ estado_documento: estado })), estado).toBeNull();
     expect(datosDeValidez(base({ nombre_archivo: null }))).toBeNull();
     expect(datosDeValidez(base({ estado_documento: "ACEPTADO" }))).not.toBeNull();
+    // #40: una retención o una percepción no se consulta en la validez de comprobantes de pago.
+    expect(datosDeValidez(base({ tipo: "20" }))).toBeNull();
+    expect(datosDeValidez(base({ tipo: "40" }))).toBeNull();
   });
 });

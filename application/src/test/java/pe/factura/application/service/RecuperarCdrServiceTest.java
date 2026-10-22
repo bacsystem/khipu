@@ -112,6 +112,16 @@ class RecuperarCdrServiceTest {
     }
 
     /** #327: getStatusCdr tampoco cubre la liquidación de compra (manual: 01, 07 y 08); su constancia llega reenviándola. */
+    /** #40: getStatusCdr tampoco cubre la retención ni la percepción (manual: 01, 07 y 08). */
+    @Test void laRetencionNoSeConsultaPorGetStatusCdr() {
+        Comprobante r = Fakes.retencionFirmada(tenantId, storage, 1);
+        r.marcarEnviado();
+        comprobantes.guardar(r);
+        assertThatThrownBy(() -> service.recuperar(tenantId, r.id())).isInstanceOf(DomainException.class).hasMessageContaining("retención ni de percepción")
+                .extracting("codigo").isEqualTo("CDR_NO_CONSULTABLE");
+        assertThat(consultas.llamadas).isZero();
+    }
+
     @Test void laLiquidacionDeCompraNoSeConsultaPorGetStatusCdr() {
         Comprobante l = Fakes.liquidacionFirmada(tenantId, storage, 1);
         l.marcarEnviado();

@@ -36,7 +36,8 @@ public class GlobalExceptionHandler {
             // Suspender o reactivar una cuenta que ya está en ese estado (#182): el pedido es válido pero el estado ya no lo permite.
             case "CUENTA_YA_SUSPENDIDA", "CUENTA_NO_SUSPENDIDA", "CUENTA_YA_DE_BAJA", "CUENTA_NO_DE_BAJA" -> HttpStatus.CONFLICT;
             // Acciones sobre una empresa (#187): el pedido es válido pero el estado de la empresa no lo permite (ya estaba así, tiene envíos pendientes o le faltan las credenciales SOL).
-            case "ENTORNO_SIN_CAMBIOS", "EMPRESA_CON_ENVIOS_PENDIENTES", "API_KEY_YA_REVOCADA", "SOL_NO_CARGADAS" -> HttpStatus.CONFLICT;
+            // #40: registrar la designación de agente que la empresa ya tenía.
+            case "ENTORNO_SIN_CAMBIOS", "EMPRESA_CON_ENVIOS_PENDIENTES", "API_KEY_YA_REVOCADA", "SOL_NO_CARGADAS", "DESIGNACION_SIN_CAMBIOS" -> HttpStatus.CONFLICT;
             // Gestión de planes (#190): el pedido es válido pero el estado del plan no lo permite (nombre repetido, ya estaba así, es el de las cuentas nuevas o lo usan cuentas).
             case "NOMBRE_DUPLICADO", "PLAN_POR_DEFECTO", "PLAN_EN_USO", "PLAN_YA_ACTIVO", "PLAN_YA_INACTIVO" -> HttpStatus.CONFLICT;
             // Cambio de plan de una cuenta (#191): el plan está fuera de la oferta, o otro administrador cambió el plan de la cuenta en el medio.

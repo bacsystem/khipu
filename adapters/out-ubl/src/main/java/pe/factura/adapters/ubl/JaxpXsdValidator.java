@@ -41,6 +41,9 @@ public class JaxpXsdValidator implements XsdValidator {
         esquemas.put(TipoDocumento.LIQUIDACION_COMPRA, cargar("xsd/2.1/maindoc/UBL-SelfBilledInvoice-2.1.xsd"));
         esquemas.put(TipoDocumento.NOTA_CREDITO, cargar("xsd/2.1/maindoc/UBL-CreditNote-2.1.xsd"));
         esquemas.put(TipoDocumento.NOTA_DEBITO, cargar("xsd/2.1/maindoc/UBL-DebitNote-2.1.xsd"));
+        // #40: UBL 2.0 con los componentes sac: del paquete de SUNAT, los mismos de la baja y el resumen diario.
+        esquemas.put(TipoDocumento.RETENCION, cargar("xsd/2.0/maindoc/UBLPE-Retention-1.0.xsd"));
+        esquemas.put(TipoDocumento.PERCEPCION, cargar("xsd/2.0/maindoc/UBLPE-Perception-1.0.xsd"));
     }
 
     private Schema cargar(String recurso) { return COMPILADOS.computeIfAbsent(recurso, this::compilar); }

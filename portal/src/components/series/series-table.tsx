@@ -21,7 +21,7 @@ const ITEMS_ESTADO: Record<string, string> = {
   inactiva: "Inactivas",
 };
 
-const TIPOS_FILTRO = ["01", "03", "07", "08"] as const;
+const TIPOS_FILTRO = ["01", "03", "04", "07", "08", "20", "40"] as const;
 const ITEMS_TIPO: Record<string, string> = {
   [TODOS]: "Tipo: Todos",
   ...Object.fromEntries(TIPOS_FILTRO.map((t) => [t, `${t} · ${ETIQUETAS_TIPO[t] ?? t}`])),

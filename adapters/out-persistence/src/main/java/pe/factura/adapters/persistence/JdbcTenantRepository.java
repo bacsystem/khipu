@@ -18,10 +18,15 @@ import java.util.UUID;
 public class JdbcTenantRepository implements TenantRepository {
     private static final String COLS = "id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta, "
             + "dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial, "
-            + "pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv, api_sunat_client_id_enc, api_sunat_client_secret_enc";
+            + "pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv, api_sunat_client_id_enc, api_sunat_client_secret_enc, "
+            + "agente_retencion, agente_percepcion";
     private final JdbcTemplate jdbc;
     private final SecretCipher cipher;
 
+    /**
+     * La designación de agente (#40) no se escribe aquí: la cambia solo el administrador, con {@code JdbcAccionesDeEmpresaRepository.designarAgente}, de forma condicional. Si guardar
+     * la reescribiera, unos datos fiscales guardados con el tenant leído antes de una designación la borrarían.
+     */
     @Override public void guardar(Tenant t) {
         byte[] su = t.sol() == null ? null : cipher.cifrar(t.sol().usuario().getBytes(StandardCharsets.UTF_8));
         byte[] sc = t.sol() == null ? null : cipher.cifrar(t.sol().clave().getBytes(StandardCharsets.UTF_8));
@@ -81,7 +86,8 @@ public class JdbcTenantRepository implements TenantRepository {
         CredencialesApiSunat api = rs.getBytes("api_sunat_client_id_enc") == null ? null
                 : new CredencialesApiSunat(txt(rs.getBytes("api_sunat_client_id_enc")), txt(rs.getBytes("api_sunat_client_secret_enc")));
         return new Tenant(rs.getObject("id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"),
-                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"), pdf, rs.getBoolean("padron_tasa_especial_igv"), api);
+                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"), pdf, rs.getBoolean("padron_tasa_especial_igv"), api,
+                new DesignacionDeAgente(rs.getBoolean("agente_retencion"), rs.getBoolean("agente_percepcion")));
     }
     private String txt(byte[] enc) { return new String(cipher.descifrar(enc), StandardCharsets.UTF_8); }
 }

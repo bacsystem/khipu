@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.factura.adapters.rest.dto.ApiKeyRevocadaResponse;
 import pe.factura.adapters.rest.dto.CambiarEntornoRequest;
 import pe.factura.adapters.rest.dto.CambioDeEntornoResponse;
+import pe.factura.adapters.rest.dto.DesignacionDeAgenteDto;
 import pe.factura.adapters.rest.dto.ResultadoDeConexionResponse;
 import pe.factura.application.port.in.AccionesDeEmpresaUseCase;
 
@@ -40,6 +42,18 @@ public class AdminEmpresaAccionesController {
                                                                @RequestBody(required = false) CambiarEntornoRequest body, HttpServletRequest req) {
         var actor = AdministradorActual.actor(req);
         return ApiResponse.ok(CambioDeEntornoResponse.de(acciones.cambiarEntorno(actor, id, body == null ? null : body.entorno())));
+    }
+
+    @PostMapping("/empresas/{id}/agente")
+    @Operation(summary = "Registrar la designación de una empresa como agente de retención o de percepción", description = """
+            #40. Registra que SUNAT designó (o dejó de designar) a la empresa agente de retención y/o de percepción del IGV. Hágalo **después de verificar la resolución de
+            designación** en los padrones de agentes de SUNAT: khipu no la consulta. Con `retencion` la empresa puede crear series `R###` y emitir comprobantes de retención (20); con
+            `percepcion`, series `P###` y comprobantes de percepción (40). Quitarla no toca los comprobantes ni las series ya creados: solo impide emitir más. `409
+            DESIGNACION_SIN_CAMBIOS` si ya tenía esa designación; `404 NO_ENCONTRADO` si la empresa no existe. Queda en la bitácora (de cuál a cuál), también en la de su cuenta.""")
+    public ApiResponse<DesignacionDeAgenteDto.Cambio> designarAgente(@Parameter(description = "Id de la empresa") @PathVariable UUID id,
+                                                                     @Valid @RequestBody DesignacionDeAgenteDto body, HttpServletRequest req) {
+        var actor = AdministradorActual.actor(req);
+        return ApiResponse.ok(DesignacionDeAgenteDto.Cambio.de(acciones.designarAgente(actor, id, body.aDominio())));
     }
 
     @PostMapping("/empresas/{id}/api-keys/{apiKeyId}/revocar")

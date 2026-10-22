@@ -126,6 +126,18 @@ class AdministrarTenantServiceTest {
         assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "B001", 0)).extracting("codigo").isEqualTo("SERIE_INVALIDA");
     }
 
+    /** #40: una serie R### o P### solo para la empresa que SUNAT designó agente de ese tipo. */
+    @Test void lasSeriesDeRetencionYPercepcionPidenLaDesignacion() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.RETENCION, "R001", 0)).hasMessageStartingWith("2617").extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.PERCEPCION, "P001", 0)).hasMessageStartingWith("4285").extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        tenants.guardar(tenants.buscar(id).orElseThrow().conAgente(new pe.factura.domain.tenant.DesignacionDeAgente(true, false)));
+        service.crearSerie(id, TipoDocumento.RETENCION, "R001", 0);
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.PERCEPCION, "P001", 0)).extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.RETENCION, "F002", 0)).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+        assertThat(service.listarSeries(id)).extracting(Serie::codigo).containsExactly("R001");
+    }
+
     @Test void establecimientosAnexosYSeriesPorEstablecimiento() {
         UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         Domicilio dom = Domicilio.de("150122", "Av. Larco 345");

@@ -7,8 +7,40 @@ export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "AN
 export const ETIQUETAS_TIPO: Record<string, string> = {
   "01": "Factura",
   "03": "Boleta",
+  "04": "Liquidación de compra",
   "07": "Nota de crédito",
   "08": "Nota de débito",
+  "20": "Retención",
+  "40": "Percepción",
+};
+
+/** #40: comprobante de retención (20) o de percepción (40), que solo emite una empresa designada agente por SUNAT. */
+export function esDeAgente(c: { tipo: string }): boolean {
+  return c.tipo === "20" || c.tipo === "40";
+}
+
+/**
+ * #40: lo propio de una retención o una percepción (`agente` de la respuesta): régimen y tasa, cada documento pagado o cobrado con lo retenido o percibido y el neto (en
+ * soles), y los totales. `totales.total` del comprobante es lo retenido o percibido.
+ */
+export type ComprobanteDeAgente = {
+  regimen: string;
+  descripcion_regimen: string;
+  tasa: number;
+  importe_total: number;
+  redondeo: number;
+  importe_neto: number;
+  documentos: Array<{
+    tipo: string;
+    numero: string;
+    fecha_emision: string;
+    importe_total: number;
+    moneda: string;
+    pago: { numero: number; fecha: string; importe: number };
+    tipo_cambio?: { factor: number; fecha: string } | null;
+    importe_agente: number;
+    neto: number;
+  }>;
 };
 
 export const ESTADOS_DOCUMENTO = [
@@ -179,6 +211,8 @@ export const PLAZO_BAJA_DIAS = 7;
 export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
   if (bajaEnCurso(c)) return false;
+  // #40: una retención o una percepción se revierte en un resumen de reversiones (RR); SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión (khipu no conoce esa fecha).
+  if (esDeAgente(c)) return true;
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
 }
 
@@ -364,6 +398,8 @@ export type Comprobante = {
   forma_pago: FormaPago;
   detraccion?: Detraccion | null;
   retencion_igv?: RetencionIgv | null;
+  /** Solo en una retención (20) o una percepción (40), #40. */
+  agente?: ComprobanteDeAgente | null;
   percepcion?: Percepcion | null;
   anticipos?: Anticipo[] | null;
   /** Orden de compra, guías de remisión (catálogo 01: 09/31) y otros documentos (catálogo 12); ausente si no hay ninguno. */
@@ -423,12 +459,12 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
 }
 
 /**
- * Filtros del listado (#6, #326): estado SUNAT, rango de fecha de emisión (inclusive), serie exacta, tipo (01 factura, 03 boleta, 07 y 08 notas), número y cliente (documento o
+ * Filtros del listado (#6, #326): estado SUNAT, rango de fecha de emisión (inclusive), serie exacta, tipo (01 factura, 03 boleta, 07 y 08 notas, 20 retención y 40 percepción), número y cliente (documento o
  * parte del nombre); todos opcionales y viajan en la URL.
  */
 export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: number };
 
-export const TIPOS_FILTRABLES = ["01", "03", "07", "08"] as const;
+export const TIPOS_FILTRABLES = ["01", "03", "04", "07", "08", "20", "40"] as const;
 const MAX_CLIENTE = 100;
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;

@@ -28,6 +28,8 @@ final class PermisoDeRuta {
             Pattern.compile("/v1/notas"),
             // #327: la liquidación de compra es un comprobante que emite la empresa (y su cálculo previo, como el de la factura).
             Pattern.compile("/v1/liquidaciones-compra(/calcular)?"),
+            // #40: los comprobantes de retención y de percepción (y su cálculo); la reversión es la baja de /v1/facturas/{id}/baja.
+            Pattern.compile("/v1/(retenciones|percepciones)(/calcular)?"),
             Pattern.compile("/v1/clientes(/.*)?"),
             Pattern.compile("/v1/productos(/.*)?"));
 

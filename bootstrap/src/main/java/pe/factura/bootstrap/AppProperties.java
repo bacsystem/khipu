@@ -20,7 +20,9 @@ public record AppProperties(String mode, String masterKey, String apiKeyPepper, 
     /** Verificación diaria de integridad del storage: ventana de {@code dias} hacia atrás. */
     public record Integridad(int dias) {}
     /** {@code consultaBetaUrl}/{@code validezBetaUrl} vacías: SUNAT no publica esos servicios en e-beta; se dejan configurables por si aparecen. */
-    public record Sunat(int timeoutSeconds, String betaUrl, String prodUrl, String consultaUrl, String consultaBetaUrl, String validezUrl, String validezBetaUrl) {}
+    /** {@code otrosBetaUrl}/{@code otrosProdUrl} (#40): el {@code billService} de retenciones y percepciones (ol-ti-itemision-otroscpe-gem), que recibe los 20, 40 y sus RR. */
+    public record Sunat(int timeoutSeconds, String betaUrl, String prodUrl, String consultaUrl, String consultaBetaUrl, String validezUrl, String validezBetaUrl,
+                        String otrosBetaUrl, String otrosProdUrl) {}
     /**
      * Monitor global del backoffice. {@code resumenSinRespuestaHoras} (#362 B14): horas que un resumen diario o una baja con ticket puede estar sin respuesta de SUNAT antes
      * de que el monitor alerte; rango 1–168 validado en {@link AppConfig#umbralDeResumenesSinRespuesta}. No cambia el comportamiento del worker, que reconsulta sin tope.

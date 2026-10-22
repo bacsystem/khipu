@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "khipu API",
-    "description": "API de facturación electrónica SUNAT (Perú) para integradores: emite, firma, envía y consulta comprobantes\nelectrónicos UBL 2.1 sin implementar el estándar ni el protocolo SOAP de SUNAT.\n\n## Autenticación\nCada petición de integración lleva la cabecera `X-Api-Key: fk_…` de la empresa emisora (se crea en el portal,\nsección *API keys*; el secreto se muestra una sola vez). Una llave pertenece a una única empresa (RUC), por lo\nque no hace falta indicar el RUC en las llamadas. Las rutas de *Autenticación (portal)* y *Cuenta y empresas*\nson exclusivas del portal web (sesión JWT). Los *Catálogos SUNAT* son públicos.\n\n## Entornos\nCada empresa está en `BETA` (homologación de SUNAT: los comprobantes **no tienen validez tributaria**, ideal para\nintegrar) o en `PRODUCCION`. La URL de la API es la misma; el entorno lo decide la configuración de la empresa.\n\n## Sobre de respuesta\nTodas las respuestas JSON tienen la forma `{\"estado\": \"exito\" | \"error\", \"datos\": …, \"codigo\": …, \"mensaje\": …, \"errores\": …}`.\nEn éxito, `datos` trae el recurso; en error, `codigo` es un identificador estable (p. ej. `VALIDACION`, `NO_ENCONTRADO`,\n`DUPLICADO`, `FORMA_PAGO_INVALIDA`), `mensaje` es legible y, cuando la regla viene de SUNAT, empieza por su código\n(`3319 - La suma de las cuotas…`). `errores` detalla los campos inválidos en `VALIDACION`. Los nombres de campo van en\n`snake_case`.\n\n## Estados del comprobante\n`RECIBIDO` (validado y numerado) → `FIRMADO` (XML firmado; se envía en la misma llamada salvo `enviar_automatico: false`) →\n`ENVIADO` → `ACEPTADO` (CDR con código 0) · `ACEPTADO_CON_OBS` (aceptado, observaciones 4xxx: revíselas) ·\n`RECHAZADO` (SUNAT lo rechazó: corrija y emita un comprobante nuevo, con otro número; el rechazado conserva el suyo).\n`ERROR_ENVIO`: SUNAT no estuvo disponible; khipu reintenta con espera creciente hasta 20 veces (~6 h entre intentos al final)\ny puede forzarse con `POST /v1/facturas/{id}/enviar`. `INVALIDO`: el XML no pasó la validación local. `ANULADO`: baja aceptada.\n\n## Códigos HTTP\n`201` creado · `200` ok · `204` sin contenido · `400` parámetro o JSON mal formado · `401` sin credenciales válidas ·\n`403` operación reservada al portal · `404` no existe (o es de otra empresa) · `409` conflicto (duplicado, estado no enviable) ·\n`422` datos inválidos o regla de negocio · `500` error interno (incluye `trace_id`).\n\n## Plazos SUNAT\nUna factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola\nhasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo\n(SUNAT no la rechaza; puede observarla con la 4443). Una liquidación de compra, hasta el **día siguiente** (2108).\nEmita el mismo día y vigile los `ERROR_ENVIO`.\n\n## Códigos y catálogos\nLos valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:\nconsúltelos con `GET /v1/catalogos` (públicos) o en la sección *Catálogos* del developer portal.\n",
+    "description": "API de facturación electrónica SUNAT (Perú) para integradores: emite, firma, envía y consulta comprobantes\nelectrónicos UBL 2.1 sin implementar el estándar ni el protocolo SOAP de SUNAT.\n\n## Autenticación\nCada petición de integración lleva la cabecera `X-Api-Key: fk_…` de la empresa emisora (se crea en el portal,\nsección *API keys*; el secreto se muestra una sola vez). Una llave pertenece a una única empresa (RUC), por lo\nque no hace falta indicar el RUC en las llamadas. Las rutas de *Autenticación (portal)* y *Cuenta y empresas*\nson exclusivas del portal web (sesión JWT). Los *Catálogos SUNAT* son públicos.\n\n## Entornos\nCada empresa está en `BETA` (homologación de SUNAT: los comprobantes **no tienen validez tributaria**, ideal para\nintegrar) o en `PRODUCCION`. La URL de la API es la misma; el entorno lo decide la configuración de la empresa.\n\n## Sobre de respuesta\nTodas las respuestas JSON tienen la forma `{\"estado\": \"exito\" | \"error\", \"datos\": …, \"codigo\": …, \"mensaje\": …, \"errores\": …}`.\nEn éxito, `datos` trae el recurso; en error, `codigo` es un identificador estable (p. ej. `VALIDACION`, `NO_ENCONTRADO`,\n`DUPLICADO`, `FORMA_PAGO_INVALIDA`), `mensaje` es legible y, cuando la regla viene de SUNAT, empieza por su código\n(`3319 - La suma de las cuotas…`). `errores` detalla los campos inválidos en `VALIDACION`. Los nombres de campo van en\n`snake_case`.\n\n## Estados del comprobante\n`RECIBIDO` (validado y numerado) → `FIRMADO` (XML firmado; se envía en la misma llamada salvo `enviar_automatico: false`) →\n`ENVIADO` → `ACEPTADO` (CDR con código 0) · `ACEPTADO_CON_OBS` (aceptado, observaciones 4xxx: revíselas) ·\n`RECHAZADO` (SUNAT lo rechazó: corrija y emita un comprobante nuevo, con otro número; el rechazado conserva el suyo).\n`ERROR_ENVIO`: SUNAT no estuvo disponible; khipu reintenta con espera creciente hasta 20 veces (~6 h entre intentos al final)\ny puede forzarse con `POST /v1/facturas/{id}/enviar`. `INVALIDO`: el XML no pasó la validación local. `ANULADO`: baja aceptada.\n\n## Códigos HTTP\n`201` creado · `200` ok · `204` sin contenido · `400` parámetro o JSON mal formado · `401` sin credenciales válidas ·\n`403` operación reservada al portal · `404` no existe (o es de otra empresa) · `409` conflicto (duplicado, estado no enviable) ·\n`422` datos inválidos o regla de negocio · `500` error interno (incluye `trace_id`).\n\n## Plazos SUNAT\nUna factura debe llegar a SUNAT dentro de los **3 días calendario** siguientes a su emisión (2108). Una boleta va sola\nhasta el **5.º día**; el 6.º y el 7.º khipu la informa en un resumen diario, y pasado el 7.º también, fuera de plazo\n(SUNAT no la rechaza; puede observarla con la 4443). Una liquidación de compra, hasta el **día siguiente** (2108); un comprobante\nde retención o de percepción, hasta **7 días** desde el día siguiente (2600).\nEmita el mismo día y vigile los `ERROR_ENVIO`.\n\n## Códigos y catálogos\nLos valores de `tipo_afectacion_igv`, `unidad`, `tipo_operacion`, `tipo_doc`, etc. son códigos oficiales de SUNAT:\nconsúltelos con `GET /v1/catalogos` (públicos) o en la sección *Catálogos* del developer portal.\n",
     "contact": {
       "name": "khipu",
       "url": "http://localhost:3000"
@@ -57,6 +57,10 @@
     {
       "name": "Notas de crédito y débito",
       "description": "Notas de crédito (07) y de débito (08) sobre facturas y boletas de la empresa. Una nota se emite como una factura: khipu la\nnumera en su serie, genera el `CreditNote`/`DebitNote` UBL 2.1, lo firma, lo valida y lo envía a SUNAT en la misma\nllamada. Consulta, XML, CDR y reenvío usan los mismos endpoints que las facturas (`GET /v1/facturas/{id}` etc.), y la\nfactura o boleta modificada lista sus notas en `notas`."
+    },
+    {
+      "name": "Retenciones y percepciones",
+      "description": "Comprobantes de retención (tipo 20) y de percepción (tipo 40) del IGV: solo para la empresa que **SUNAT designó agente** de retención o de percepción, y que khipu habilitó\ndespués de verificar la resolución de designación (sin ella: `422 AGENTE_NO_DESIGNADO`, también al crear la serie `R###` o `P###`). Se emiten en una sola llamada: khipu los\nnumera en su serie, genera el `Retention` o `Perception` UBL 2.0, lo firma, lo valida contra el XSD de SUNAT y lo envía al servicio de retenciones y percepciones de SUNAT.\nConsulta, XML, CDR, PDF y reenvío usan los mismos endpoints que las facturas (`GET /v1/facturas/{id}`, `/xml`, `/cdr`, `/pdf`, `POST /v1/facturas/{id}/enviar`); el listado los\nfiltra con `tipo=20` o `tipo=40` y no suman a lo facturado. **Reversión**: `POST /v1/facturas/{id}/baja` los revierte en un resumen de reversiones (`RR-…`) de SUNAT: SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión.\n\n**Importes**: lo retenido o percibido y el neto de cada documento son siempre en **soles**: un documento en otra moneda lleva su `tipo_cambio` y el pago se convierte con él.\n`totales.total` es el importe total retenido o percibido; el bloque `agente` de la respuesta trae además cada documento y el importe total pagado o cobrado.\n\n**Lo que valida SUNAT con datos que khipu no tiene**: que la empresa sea agente (2617 en la retención; en la percepción solo lo observa, 4285), que el RUC del proveedor exista\n(2621), que el comprobante cobrado en una percepción exista en SUNAT (2609), sea al crédito (3329) y no tenga ya percepción (3312), y la fecha de su emisión (2610). e-beta no\naplica ninguna de estas reglas. Un rechazo de SUNAT **no consume el número** en estos documentos (manual del programador): khipu sí lo da por usado y se corrige emitiendo\notro con el siguiente.\n\n**Aún no**: la nota de crédito y el propio 20/40 como documento relacionado (los que la hoja deja sin pago ni totales), la emisión excepcional de la percepción\n(`sac:ExceptionalIndicator`), los comprobantes de contingencia y el redondeo del total (`PayableRoundingAmount`: e-beta responde 0306 a todo XML que lo lleva)."
     },
     {
       "name": "Webhooks",
@@ -1277,6 +1281,122 @@
         ]
       }
     },
+    "/v1/retenciones": {
+      "post": {
+        "tags": [
+          "Retenciones y percepciones"
+        ],
+        "summary": "Emitir un comprobante de retención",
+        "description": "El agente de retención paga al `proveedor` (siempre con RUC) los `documentos` que este le emitió y le retiene el IGV a la tasa del `regimen` (catálogo 23: `01` 3 %, el vigente;\n`02` 6 %, solo para comprobantes emitidos hasta el 28/02/2014). Por documento: retenido = pago × tipo de cambio × tasa, y neto pagado = pago × tipo de cambio − retenido. Todos\nlos pagos son del mes del comprobante (2625). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.",
+        "operationId": "retener",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Clave única por retención (un UUID), para repetir el pedido sin emitir dos veces",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetencionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pedido repetido con la misma `Idempotency-Key`: la retención ya emitida, en su estado actual",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Retención creada; `estado_documento` indica si SUNAT ya la aceptó",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Correlativo repetido en la serie (DUPLICADO)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos, empresa no designada o regla de negocio incumplida; `codigo` y `mensaje` explican cuál",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/retenciones/calcular": {
+      "post": {
+        "tags": [
+          "Retenciones y percepciones"
+        ],
+        "summary": "Calcular un comprobante de retención sin emitirlo",
+        "description": "Recibe el mismo cuerpo que `POST /v1/retenciones` y responde lo retenido y el neto de cada documento y los totales **sin numerar, firmar, guardar ni enviar nada**, con las\nmismas reglas de dominio (y la misma exigencia de la designación): lo que la emisión rechazaría responde aquí el mismo `422`. El `id` de la respuesta no existe y no trae enlaces.",
+        "operationId": "calcularRetencion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetencionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
     "/v1/productos": {
       "get": {
         "tags": [
@@ -1360,6 +1480,122 @@
             }
           }
         }
+      }
+    },
+    "/v1/percepciones": {
+      "post": {
+        "tags": [
+          "Retenciones y percepciones"
+        ],
+        "summary": "Emitir un comprobante de percepción",
+        "description": "El agente de percepción cobra al `cliente` los `documentos` que le emitió y le percibe el IGV a la tasa del `regimen` (catálogo 22: `01` venta interna 2 %, `02` combustible 1 %,\n`03` tasa especial 0.5 %). Por documento: percibido = cobro × tipo de cambio × tasa, y neto cobrado = cobro × tipo de cambio + percibido. Todos los cobros son del mes del\ncomprobante (2612). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600). Si la percepción ya se informó en la factura (tipo de operación 2001), no se emite\nademás este comprobante: SUNAT lo rechazaría (3312).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.",
+        "operationId": "percibir",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Clave única por percepción (un UUID), para repetir el pedido sin emitir dos veces",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PercepcionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pedido repetido con la misma `Idempotency-Key`: la percepción ya emitida, en su estado actual",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Percepción creada; `estado_documento` indica si SUNAT ya la aceptó",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Correlativo repetido en la serie (DUPLICADO)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datos inválidos, empresa no designada o regla de negocio incumplida; `codigo` y `mensaje` explican cuál",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/percepciones/calcular": {
+      "post": {
+        "tags": [
+          "Retenciones y percepciones"
+        ],
+        "summary": "Calcular un comprobante de percepción sin emitirlo",
+        "description": "Recibe el mismo cuerpo que `POST /v1/percepciones` y responde lo percibido y el neto de cada documento y los totales **sin numerar, firmar, guardar ni enviar nada**, con las\nmismas reglas de dominio (y la misma exigencia de la designación). El `id` de la respuesta no existe y no trae enlaces.",
+        "operationId": "calcularPercepcion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PercepcionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseComprobanteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
       }
     },
     "/v1/notas": {
@@ -1563,7 +1799,7 @@
           "Facturas"
         ],
         "summary": "Listar facturas",
-        "description": "Facturas de la empresa, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera\n`X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,\n`RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;\n`desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta\n(F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito),\npor `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.",
+        "description": "Facturas de la empresa, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera\n`X-Total-Count` y refleja los filtros. Filtre por `estado` para trabajar una cola (p. ej. `ERROR_ENVIO` para reintentar,\n`RECHAZADO` para corregir y reemitir) y por fecha de emisión con `desde`/`hasta` (inclusive, rango abierto si falta uno;\n`desde > hasta` responde `400 RANGO_INVALIDO`, una fecha mal formada `400 PARAMETRO_INVALIDO`) y por `serie` exacta\n(F001, FC01…; con formato inválido `400 PARAMETRO_INVALIDO`, inexistente → lista vacía), por `tipo` (`01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito, `20` retención, `40` percepción),\npor `numero` (sin la serie) y por `cliente`: el documento (empieza por lo escrito) o parte de la razón social, sin distinguir mayúsculas. Los filtros se combinan.",
         "operationId": "listar_2",
         "parameters": [
           {
@@ -1624,7 +1860,7 @@
           {
             "name": "tipo",
             "in": "query",
-            "description": "Tipo de comprobante: `01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito",
+            "description": "Tipo de comprobante: `01` factura, `03` boleta, `04` liquidación de compra, `07` nota de crédito, `08` nota de débito, `20` retención, `40` percepción",
             "required": false,
             "schema": {
               "type": "string"
@@ -3099,6 +3335,50 @@
         }
       }
     },
+    "/v1/admin/empresas/{id}/agente": {
+      "post": {
+        "tags": [
+          "Administración de la plataforma"
+        ],
+        "summary": "Registrar la designación de una empresa como agente de retención o de percepción",
+        "description": "#40. Registra que SUNAT designó (o dejó de designar) a la empresa agente de retención y/o de percepción del IGV. Hágalo **después de verificar la resolución de\ndesignación** en los padrones de agentes de SUNAT: khipu no la consulta. Con `retencion` la empresa puede crear series `R###` y emitir comprobantes de retención (20); con\n`percepcion`, series `P###` y comprobantes de percepción (40). Quitarla no toca los comprobantes ni las series ya creados: solo impide emitir más. `409\nDESIGNACION_SIN_CAMBIOS` si ya tenía esa designación; `404 NO_ENCONTRADO` si la empresa no existe. Queda en la bitácora (de cuál a cuál), también en la de su cuenta.",
+        "operationId": "designarAgente",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la empresa",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignacionDeAgente"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseCambioDeDesignacionDeAgente"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/cuentas": {
       "get": {
         "tags": [
@@ -4137,7 +4417,7 @@
           "Facturas"
         ],
         "summary": "Consultar un comprobante",
-        "description": "Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento\nde un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con\n`POST /v1/notas` (traen el bloque `nota`) y las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el\nhistorial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa\ntiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.",
+        "description": "Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento\nde un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con\n`POST /v1/notas` (traen el bloque `nota`), las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`) y las retenciones y percepciones de `POST /v1/retenciones` y `POST /v1/percepciones` (traen el bloque `agente`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el\nhistorial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa\ntiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.",
         "operationId": "obtener_1",
         "parameters": [
           {
@@ -4612,7 +4892,7 @@
           {
             "name": "tipo",
             "in": "query",
-            "description": "Tipo: `01`, `03`, `04`, `07` u `08`",
+            "description": "Tipo: `01`, `03`, `04`, `07`, `08`, `20` o `40`",
             "required": false,
             "schema": {
               "type": "string"
@@ -6488,6 +6768,26 @@
         },
         "description": "#107: si SUNAT rechazó las credenciales SOL (usuario o clave incorrectos…), cuándo y por qué; ausente si no. Mientras esté, los envíos de la empresa esperan a que se corrijan"
       },
+      "DesignacionDeAgente": {
+        "required": [
+          "percepcion",
+          "retencion"
+        ],
+        "type": "object",
+        "properties": {
+          "retencion": {
+            "type": "boolean",
+            "description": "Agente de retención del IGV (comprobantes 20, series R###)",
+            "example": true
+          },
+          "percepcion": {
+            "type": "boolean",
+            "description": "Agente de percepción del IGV (comprobantes 40, series P###)",
+            "example": false
+          }
+        },
+        "description": "#40: si SUNAT designó a la empresa agente de retención o de percepción, con lo que emite comprobantes 20 o 40; la registra el soporte de khipu"
+      },
       "EmpresaResponse": {
         "type": "object",
         "properties": {
@@ -6539,6 +6839,9 @@
             "type": "boolean",
             "description": "Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles): emite con la tasa reducida",
             "example": false
+          },
+          "agente": {
+            "$ref": "#/components/schemas/DesignacionDeAgente"
           },
           "credenciales_sol_rechazadas": {
             "$ref": "#/components/schemas/CredencialesSolRechazadas"
@@ -7610,14 +7913,14 @@
         "type": "object",
         "properties": {
           "tipo": {
-            "pattern": "01|03|04|07|08",
+            "pattern": "01|03|04|07|08|20|40",
             "type": "string",
-            "description": "01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito",
+            "description": "01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 20=retención, 40=percepción (estos dos, solo si la empresa es agente de ese tipo: `422 AGENTE_NO_DESIGNADO`)",
             "example": "01"
           },
           "serie": {
             "type": "string",
-            "description": "Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas",
+            "description": "Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas, `R###` retención, `P###` percepción",
             "example": "F001"
           },
           "correlativo_inicial": {
@@ -7632,6 +7935,1679 @@
             "type": "string",
             "description": "Establecimiento desde el que emite la serie (`GET /v1/empresa/establecimientos`); por defecto `0000`, el domicilio fiscal. Un anexo debe existir y estar activo: `422 ESTABLECIMIENTO_INVALIDO`",
             "example": "0000"
+          }
+        }
+      },
+      "DocumentoDeAgente": {
+        "required": [
+          "fecha_emision",
+          "importe_total",
+          "numero",
+          "pago",
+          "tipo"
+        ],
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "pattern": "\\d{2}",
+            "type": "string",
+            "description": "Tipo de documento, catálogo 01: `01` factura, `08` nota de débito, `12` ticket y, solo en la percepción, `03` boleta. La nota de crédito (`07`) y otro comprobante de retención o percepción, que la hoja admite sin pago, todavía no: `422` (2692)",
+            "example": "01"
+          },
+          "numero": {
+            "maxLength": 41,
+            "minLength": 0,
+            "type": "string",
+            "description": "Serie y número: `F###`/`E001` electrónica, 4 dígitos física (y `B###`/`EB01` en la percepción) seguido del número de 1 a 8 dígitos; un ticket, la serie de la máquina y su número (2694)",
+            "example": "F001-123"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "description": "Fecha de emisión del documento, no posterior a la del comprobante",
+            "format": "date",
+            "example": "2026-10-05"
+          },
+          "importe_total": {
+            "type": "number",
+            "description": "Importe total del documento, en su moneda (2696)",
+            "example": 1180
+          },
+          "moneda": {
+            "pattern": "[A-Z]{3}",
+            "type": "string",
+            "description": "Moneda del documento (catálogo 02); por defecto `PEN`",
+            "example": "PEN"
+          },
+          "pago": {
+            "$ref": "#/components/schemas/PagoDeDocumento"
+          },
+          "tipo_cambio": {
+            "$ref": "#/components/schemas/TipoCambioDeDocumento"
+          }
+        }
+      },
+      "PagoDeDocumento": {
+        "required": [
+          "fecha",
+          "importe"
+        ],
+        "type": "object",
+        "properties": {
+          "numero": {
+            "maximum": 999999999,
+            "type": "integer",
+            "description": "Número del pago o cobro de ese documento (1 el primero, 2 el segundo de un pago en cuotas…); por defecto 1. No se repite para el mismo documento (2626)",
+            "format": "int64",
+            "example": 1
+          },
+          "fecha": {
+            "type": "string",
+            "description": "Fecha del pago o cobro: desde la emisión del documento (o desde el primer día del mes del comprobante si el documento es de un mes anterior) hasta la emisión del comprobante (2625/2612)",
+            "format": "date",
+            "example": "2026-10-20"
+          },
+          "importe": {
+            "type": "number",
+            "description": "Importe pagado o cobrado **sin** la retención o la percepción, en la moneda del documento; no mayor que su importe total",
+            "example": 1180
+          }
+        },
+        "description": "El pago (retención) o el cobro (percepción) de este documento"
+      },
+      "ProveedorDeRetencion": {
+        "required": [
+          "razon_social",
+          "ruc"
+        ],
+        "type": "object",
+        "properties": {
+          "ruc": {
+            "pattern": "\\d{11}",
+            "type": "string",
+            "description": "RUC del proveedor (2724), distinto del de la empresa (2620)",
+            "example": "20131312955"
+          },
+          "razon_social": {
+            "maxLength": 1500,
+            "minLength": 0,
+            "type": "string",
+            "description": "Razón social (2133, 2134)",
+            "example": "PROVEEDOR DEL NORTE S.A.C."
+          },
+          "direccion": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "Dirección, en una línea de hasta 100 caracteres. Opcional",
+            "example": "Av. Grau 123, Piura"
+          }
+        },
+        "description": "El proveedor al que se retiene: siempre con RUC"
+      },
+      "RetencionRequest": {
+        "required": [
+          "documentos",
+          "fecha_emision",
+          "proveedor",
+          "regimen",
+          "serie"
+        ],
+        "type": "object",
+        "properties": {
+          "serie": {
+            "pattern": "R[A-Z0-9]{3}",
+            "type": "string",
+            "description": "Serie registrada con el tipo `20`: `R` + 3 alfanuméricos (regla 1001)",
+            "example": "R001"
+          },
+          "correlativo": {
+            "type": "integer",
+            "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
+            "format": "int64",
+            "example": 15
+          },
+          "fecha_emision": {
+            "type": "string",
+            "description": "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 7 días calendario desde el día siguiente (2600)",
+            "format": "date",
+            "example": "2026-10-20"
+          },
+          "proveedor": {
+            "$ref": "#/components/schemas/ProveedorDeRetencion"
+          },
+          "regimen": {
+            "pattern": "\\d{2}",
+            "type": "string",
+            "description": "Régimen de retención, catálogo 23: `01` tasa 3 % (el vigente) o `02` tasa 6 % (solo para comprobantes emitidos hasta el 28/02/2014, 2985)",
+            "example": "01"
+          },
+          "tasa": {
+            "minimum": 0.01,
+            "exclusiveMinimum": false,
+            "type": "number",
+            "description": "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2619)",
+            "example": 3
+          },
+          "documentos": {
+            "maxItems": 999,
+            "minItems": 1,
+            "type": "array",
+            "description": "Los comprobantes del proveedor que se pagan, cada uno con su pago",
+            "items": {
+              "$ref": "#/components/schemas/DocumentoDeAgente"
+            }
+          },
+          "enviar_automatico": {
+            "type": "boolean",
+            "description": "`true` (por defecto) envía a SUNAT en la misma llamada; `false` lo deja `FIRMADO` para enviarlo con `POST /v1/facturas/{id}/enviar`",
+            "example": true
+          },
+          "observaciones": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string",
+            "description": "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML",
+            "example": "Pago de facturas de septiembre."
+          }
+        }
+      },
+      "TipoCambioDeDocumento": {
+        "required": [
+          "factor"
+        ],
+        "type": "object",
+        "properties": {
+          "factor": {
+            "type": "number",
+            "description": "Soles por unidad de la moneda del documento, hasta 4 enteros y 6 decimales (2716)",
+            "example": 3.756
+          },
+          "fecha": {
+            "type": "string",
+            "description": "Fecha del tipo de cambio; por defecto la del pago (2722)",
+            "format": "date",
+            "example": "2026-10-20"
+          }
+        },
+        "description": "Solo fuera de soles, obligatorio (2721): soles por unidad de `moneda` con que se convierte el pago"
+      },
+      "AnticipoRespuesta": {
+        "type": "object",
+        "properties": {
+          "comprobante": {
+            "type": "string",
+            "description": "Factura de anticipo (serie-número)",
+            "example": "F001-120"
+          },
+          "serie": {
+            "type": "string",
+            "example": "F001"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int64",
+            "example": 120
+          },
+          "monto": {
+            "type": "number",
+            "description": "Valor sin IGV que se descuenta de la base",
+            "example": 1000
+          },
+          "importe_pagado": {
+            "type": "number",
+            "description": "Importe que el cliente pagó con el anticipo (IGV incluido)",
+            "example": 1180
+          },
+          "afectacion": {
+            "type": "string",
+            "description": "`gravado`, `exonerado` o `inafecto`",
+            "example": "gravado"
+          },
+          "codigo_sunat": {
+            "type": "string",
+            "description": "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)",
+            "example": "04"
+          },
+          "fecha_pago": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01"
+          }
+        },
+        "description": "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total"
+      },
+      "ApiResponseComprobanteResponse": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/ComprobanteResponse"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "BajaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
+          },
+          "identificador": {
+            "type": "string",
+            "description": "Identificador ante SUNAT: `RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario, para una boleta). Correlativo por empresa y día",
+            "example": "RA-20260918-1"
+          },
+          "comprobante": {
+            "type": "string",
+            "description": "Comprobante dado de baja",
+            "example": "F001-125"
+          },
+          "tipo_comprobante": {
+            "type": "string",
+            "description": "Tipo del comprobante (01 factura, 03 boleta, 07/08 notas)",
+            "example": "01"
+          },
+          "fecha_generacion": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-18"
+          },
+          "fecha_referencia": {
+            "type": "string",
+            "description": "Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate, reglas 2375/2671)",
+            "format": "date",
+            "example": "2026-09-15"
+          },
+          "motivo": {
+            "type": "string",
+            "example": "Error en el RUC del cliente"
+          },
+          "condicion": {
+            "type": "string",
+            "description": "`BAJA`: anula el comprobante. `ALTA`: informa en el resumen diario una boleta que pasó el envío individual (SUNAT ya no la recibe sola, 1079); al aceptarse, la boleta queda `ACEPTADO`, o `ACEPTADO_CON_OBS` si SUNAT la observó (por ejemplo con la 4443, si se informó fuera de plazo: `fuera_de_plazo`)",
+            "example": "BAJA"
+          },
+          "fuera_de_plazo": {
+            "type": "boolean",
+            "description": "Solo en un `ALTA`: `true` si el resumen se generó pasado el 7.º día desde la emisión de la boleta. SUNAT no la rechaza, pero la norma prevé que la observe con la 4443 «El comprobante fue informado fuera del plazo establecido» (entonces la boleta queda `ACEPTADO_CON_OBS`); en e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones (`ACEPTADO`). SUNAT cuenta los 7 días hasta que recibe el resumen: si su envío falló y se reintentó otro día, puede observarlo con 4443 aunque aquí diga `false`; lo que manda es `cdr.observaciones` del comprobante. Una `BAJA` nunca sale fuera de plazo (2957)",
+            "example": false
+          },
+          "estado": {
+            "type": "string",
+            "description": "`GENERADA` (firmada, sin enviar) → `ENVIADA` (SUNAT devolvió ticket, en proceso) → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` cuando SUNAT no respondió y khipu reintentará",
+            "example": "ACEPTADA"
+          },
+          "ticket": {
+            "type": "string",
+            "description": "Ticket del proceso en SUNAT (sendSummary), o `null`",
+            "example": "1789768174685"
+          },
+          "cdr": {
+            "$ref": "#/components/schemas/CdrDto"
+          },
+          "intentos": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "ultimo_error": {
+            "type": "string",
+            "example": "null"
+          },
+          "linea": {
+            "type": "integer",
+            "description": "Posición (`LineID`) de este comprobante en su resumen diario. Siempre 1 en una comunicación de baja (RA) y en un resumen de una sola línea",
+            "format": "int32",
+            "example": 1
+          },
+          "lineas": {
+            "type": "integer",
+            "description": "Cuántas líneas tiene el resumen diario: las boletas de una misma fecha de emisión que se informan juntas viajan en un solo `RC` (hasta 500), con un mismo `identificador`, `ticket` y `cdr`. Si SUNAT lo rechaza entero (2987), cada boleta vuelve a informarse sola para aislar la defectuosa",
+            "format": "int32",
+            "example": 1
+          }
+        },
+        "description": "Solo al consultar y al enviar: la comunicación de baja o el resumen diario más reciente del comprobante (en curso, aceptado o rechazado), o `null`. En una boleta informada en un resumen de alta, `fuera_de_plazo` dice si salió pasado el 7.º día"
+      },
+      "CargoRespuesta": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "description": "PORCENTAJE | MONTO",
+            "example": "MONTO"
+          },
+          "valor": {
+            "type": "number",
+            "example": 25
+          },
+          "monto": {
+            "type": "number",
+            "description": "Monto del cargo sin IGV",
+            "example": 25
+          },
+          "afecta_base_igv": {
+            "type": "boolean",
+            "description": "`true` si se suma a la base del IGV (47/49)",
+            "example": false
+          },
+          "motivo": {
+            "type": "string",
+            "description": "`recargo_consumo` cuando es el 46; `null` en los demás",
+            "example": "recargo_consumo"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código SUNAT derivado (catálogo 53): 47/48 por línea, 46/49/50 global",
+            "example": "50"
+          }
+        },
+        "description": "Cargos globales aplicados, si los hubo"
+      },
+      "CdrDto": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)",
+            "example": "0"
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción oficial de SUNAT",
+            "example": "La Factura numero F001-125, ha sido aceptada"
+          },
+          "observaciones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resumen": {
+            "type": "string",
+            "description": "Solo en una boleta (o nota de boleta) informada en un resumen diario: el identificador de ese resumen. SUNAT no emite un CDR por boleta en el resumen: el CDR del comprobante es el del resumen, y `descripcion` habla del resumen («El Resumen diario RC-…, ha sido aceptado»). Ausente cuando el CDR es el del propio comprobante (factura, nota de factura o boleta enviada sola)",
+            "example": "RC-20260921-1"
+          }
+        },
+        "description": "Constancia de SUNAT: `0` aceptada, 2000–3999 rechazada"
+      },
+      "ComprobanteDeAgenteRespuesta": {
+        "type": "object",
+        "properties": {
+          "regimen": {
+            "type": "string",
+            "description": "Régimen: catálogo 23 en la retención (01 tasa 3 %, 02 tasa 6 %), catálogo 22 en la percepción (01 venta interna 2 %, 02 combustible 1 %, 03 tasa especial 0.5 %)",
+            "example": "01"
+          },
+          "descripcion_regimen": {
+            "type": "string",
+            "description": "Descripción del régimen en su catálogo",
+            "example": "Tasa 3%"
+          },
+          "tasa": {
+            "type": "number",
+            "description": "Tasa en porcentaje",
+            "example": 3
+          },
+          "importe_total": {
+            "type": "number",
+            "description": "Importe total retenido o percibido, en soles (`cbc:TotalInvoiceAmount`); el mismo `totales.total`",
+            "example": 35.4
+          },
+          "redondeo": {
+            "type": "number",
+            "description": "Redondeo del importe total pagado o cobrado (`PayableRoundingAmount`); hoy siempre 0.00: khipu todavía no lo emite (e-beta no lee el XML que lo lleva)",
+            "example": 0
+          },
+          "importe_neto": {
+            "type": "number",
+            "description": "Importe total pagado al proveedor (retención) o cobrado al cliente (percepción), en soles: la suma de los netos (`sac:SUNATTotalPaid` / `SUNATTotalCashed`)",
+            "example": 1144.6
+          },
+          "documentos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentoDeAgenteRespuesta"
+            }
+          }
+        },
+        "description": "Solo en una retención (20) o una percepción (40): régimen, tasa, cada documento pagado o cobrado con lo retenido o percibido y el neto, y los totales en soles (`totales.total` es lo retenido o percibido); `null` en los demás"
+      },
+      "ComprobanteResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
+          },
+          "tipo": {
+            "type": "string",
+            "description": "Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 20=retención, 40=percepción",
+            "example": "01"
+          },
+          "serie": {
+            "type": "string",
+            "example": "F001"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int64",
+            "example": 125
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-14"
+          },
+          "fecha_vencimiento": {
+            "type": "string",
+            "description": "Fecha de vencimiento informada, o `null`",
+            "format": "date",
+            "example": "2026-10-14"
+          },
+          "fecha_limite_envio": {
+            "type": "string",
+            "description": "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, una factura o nota de factura FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO; una boleta (o nota sobre boleta que va en el resumen) se sigue informando en un resumen diario, fuera de plazo: SUNAT no la rechaza y puede observarla con la 4443",
+            "format": "date",
+            "example": "2026-09-17"
+          },
+          "moneda": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "tipo_operacion": {
+            "type": "string",
+            "description": "Catálogo 51 SUNAT; `null` en una retención (20) o percepción (40), que no tienen tipo de operación",
+            "example": "0101"
+          },
+          "tipo_cambio": {
+            "type": "number",
+            "description": "Tipo de cambio informado (soles por unidad de `moneda`), o `null`: siempre `null` en soles",
+            "example": 3.756
+          },
+          "total_en_soles": {
+            "type": "number",
+            "description": "Importe total en soles al `tipo_cambio`, o `null` si no se informó o el comprobante es en soles",
+            "example": 443.21
+          },
+          "receptor": {
+            "$ref": "#/components/schemas/ReceptorDto"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRespuesta"
+            }
+          },
+          "estado_documento": {
+            "type": "string",
+            "description": "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada), `FUERA_DE_PLAZO` (factura o nota que no llegó dentro del plazo de envío; terminal. Una boleta no: se informa en el resumen diario fuera de plazo y queda `ACEPTADO_CON_OBS` si SUNAT la observa con la 4443, `ACEPTADO` si no), `DESCARTADO` (un administrador dejó de intentar enviarlo; terminal)",
+            "example": "ACEPTADO"
+          },
+          "hash": {
+            "type": "string",
+            "description": "Resumen (digest) de la firma XML-DSig; se imprime en la representación impresa y en el código QR",
+            "example": "a1b2c3d4e5f6..."
+          },
+          "nombre_archivo": {
+            "type": "string",
+            "description": "Nombre oficial del archivo: `RUC-TIPO-SERIE-NUMERO`",
+            "example": "20614798093-01-F001-00000125"
+          },
+          "intentos": {
+            "type": "integer",
+            "description": "Intentos de envío a SUNAT realizados",
+            "format": "int32",
+            "example": 1
+          },
+          "ultimo_error": {
+            "type": "string",
+            "description": "Último error de envío (`código SUNAT - mensaje`), o `null`",
+            "example": "null"
+          },
+          "cdr": {
+            "$ref": "#/components/schemas/CdrDto"
+          },
+          "totales": {
+            "$ref": "#/components/schemas/TotalesDto"
+          },
+          "forma_pago": {
+            "$ref": "#/components/schemas/FormaPagoRespuesta"
+          },
+          "detraccion": {
+            "$ref": "#/components/schemas/DetraccionRespuesta"
+          },
+          "retencion_igv": {
+            "$ref": "#/components/schemas/RetencionRespuesta"
+          },
+          "percepcion": {
+            "$ref": "#/components/schemas/PercepcionRespuesta"
+          },
+          "anticipos": {
+            "type": "array",
+            "description": "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total",
+            "items": {
+              "$ref": "#/components/schemas/AnticipoRespuesta"
+            }
+          },
+          "referencias": {
+            "$ref": "#/components/schemas/ReferenciasDto"
+          },
+          "nota": {
+            "$ref": "#/components/schemas/NotaDto"
+          },
+          "notas": {
+            "type": "array",
+            "description": "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión",
+            "items": {
+              "$ref": "#/components/schemas/NotaResumenDto"
+            }
+          },
+          "baja": {
+            "$ref": "#/components/schemas/BajaResponse"
+          },
+          "eventos": {
+            "type": "array",
+            "description": "Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión",
+            "items": {
+              "$ref": "#/components/schemas/EventoDto"
+            }
+          },
+          "observaciones": {
+            "type": "string",
+            "description": "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`",
+            "example": "Entrega en almacén central."
+          },
+          "leyendas": {
+            "type": "array",
+            "description": "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML",
+            "items": {
+              "$ref": "#/components/schemas/LeyendaDto"
+            }
+          },
+          "exportacion": {
+            "$ref": "#/components/schemas/ExportacionRespuesta"
+          },
+          "liquidacion": {
+            "$ref": "#/components/schemas/LiquidacionCompraRespuesta"
+          },
+          "envio_al_cliente": {
+            "$ref": "#/components/schemas/EnvioAlClienteDto"
+          },
+          "agente": {
+            "$ref": "#/components/schemas/ComprobanteDeAgenteRespuesta"
+          },
+          "enlaces": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "cdr solo está presente cuando SUNAT emitió la constancia",
+              "example": "{\"xml\":\"/v1/facturas/{id}/xml\",\"pdf\":\"/v1/facturas/{id}/pdf\",\"cdr\":\"/v1/facturas/{id}/cdr\"}"
+            },
+            "description": "cdr solo está presente cuando SUNAT emitió la constancia",
+            "example": {
+              "xml": "/v1/facturas/{id}/xml",
+              "pdf": "/v1/facturas/{id}/pdf",
+              "cdr": "/v1/facturas/{id}/cdr"
+            }
+          }
+        }
+      },
+      "CuotaRespuesta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "Cuota001"
+          },
+          "monto": {
+            "type": "number",
+            "example": 590
+          },
+          "vencimiento": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-15"
+          }
+        },
+        "description": "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…"
+      },
+      "DescuentoRespuesta": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "description": "PORCENTAJE | MONTO",
+            "example": "PORCENTAJE"
+          },
+          "valor": {
+            "type": "number",
+            "example": 10
+          },
+          "monto": {
+            "type": "number",
+            "description": "Monto del descuento sin IGV",
+            "example": 100
+          },
+          "afecta_base_igv": {
+            "type": "boolean",
+            "example": true
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Catálogo 53: 00/01 por línea, 02/03 global",
+            "example": "00"
+          }
+        },
+        "description": "Descuento global aplicado, si lo hubo"
+      },
+      "DetraccionRespuesta": {
+        "type": "object",
+        "properties": {
+          "codigo_bien_servicio": {
+            "type": "string",
+            "example": "022"
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción del catálogo 54",
+            "example": "Otros servicios empresariales"
+          },
+          "porcentaje": {
+            "type": "number",
+            "example": 12
+          },
+          "monto": {
+            "type": "number",
+            "description": "Monto a depositar, siempre en PEN",
+            "example": 1416
+          },
+          "cuenta_banco_nacion": {
+            "type": "string",
+            "example": "00-000-123456"
+          },
+          "medio_pago": {
+            "type": "string",
+            "description": "Catálogo 59",
+            "example": "001"
+          }
+        },
+        "description": "Detracción (SPOT), solo en operaciones 1001–1004"
+      },
+      "DocumentoDeAgenteRespuesta": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "description": "Catálogo 01: 01 factura, 03 boleta (solo en la percepción), 08 nota de débito, 12 ticket",
+            "example": "01"
+          },
+          "numero": {
+            "type": "string",
+            "example": "F001-123"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-05"
+          },
+          "importe_total": {
+            "type": "number",
+            "description": "Importe total del documento, en su moneda",
+            "example": 1180
+          },
+          "moneda": {
+            "type": "string",
+            "example": "PEN"
+          },
+          "pago": {
+            "$ref": "#/components/schemas/PagoDeDocumentoRespuesta"
+          },
+          "tipo_cambio": {
+            "$ref": "#/components/schemas/TipoCambioDeDocumentoRespuesta"
+          },
+          "importe_agente": {
+            "type": "number",
+            "description": "Lo retenido o percibido de este pago, en soles",
+            "example": 35.4
+          },
+          "neto": {
+            "type": "number",
+            "description": "Neto pagado (pago − retenido) o cobrado (pago + percibido), en soles",
+            "example": 1144.6
+          }
+        }
+      },
+      "DocumentoDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "09"
+          },
+          "numero": {
+            "type": "string",
+            "example": "T001-123"
+          }
+        },
+        "description": "Otros documentos (catálogo 12: 04–09, 99)"
+      },
+      "EnvioAlClienteDto": {
+        "type": "object",
+        "properties": {
+          "destinatario": {
+            "type": "string",
+            "example": "compras@andina.pe"
+          },
+          "estado": {
+            "type": "string",
+            "description": "`PENDIENTE` (en cola o esperando un reintento), `ENVIADO` (el servidor de correo lo recibió), `FALLIDO` (agotó los reintentos o los adjuntos superan el tope; `ultimo_error` dice por qué) u `OMITIDO` (no correspondía mandarlo al llegar su turno: el servidor no tiene correo configurado o el comprobante ya no estaba aceptado)",
+            "example": "ENVIADO"
+          },
+          "intentos": {
+            "type": "integer",
+            "description": "Intentos de envío realizados (hasta 5)",
+            "format": "int32",
+            "example": 1
+          },
+          "ultimo_error": {
+            "type": "string",
+            "description": "Motivo del último fallo o de la omisión, o `null`",
+            "example": "null"
+          },
+          "siguiente_intento": {
+            "type": "string",
+            "description": "Solo si sigue `PENDIENTE`: cuándo se intenta (UTC)",
+            "format": "date-time",
+            "example": "2026-09-13T15:01:00Z"
+          },
+          "enviado_en": {
+            "type": "string",
+            "description": "Cuándo salió (UTC), o `null`",
+            "format": "date-time",
+            "example": "2026-09-13T15:00:12Z"
+          }
+        },
+        "description": "Solo al consultar: el envío automático del comprobante a su cliente (`PUT /v1/empresa/envio-al-cliente`), o `null` si no se anotó (la empresa no lo tenía activado, el comprobante no traía correo o SUNAT aún no lo aceptó)"
+      },
+      "EventoDto": {
+        "type": "object",
+        "properties": {
+          "fecha": {
+            "type": "string",
+            "description": "Instante del cambio (UTC)",
+            "format": "date-time",
+            "example": "2026-09-13T15:00:05Z"
+          },
+          "estado_anterior": {
+            "type": "string",
+            "description": "Estado previo, o `null` en el primer evento",
+            "example": "FIRMADO"
+          },
+          "estado_resultante": {
+            "type": "string",
+            "example": "ERROR_ENVIO"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Motivo o resultado: error de envío, código y descripción del CDR, baja aceptada…",
+            "example": "SUNAT no disponible (timeout)"
+          }
+        },
+        "description": "Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión"
+      },
+      "ExportacionRespuesta": {
+        "type": "object",
+        "properties": {
+          "incoterm": {
+            "type": "string",
+            "description": "Incoterm 2020 de la venta, o `null`",
+            "example": "FOB"
+          },
+          "pais_uso": {
+            "type": "string",
+            "description": "País de uso del servicio (solo 0201/0208), o `null`",
+            "example": "US"
+          }
+        },
+        "description": "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás"
+      },
+      "FormaPagoRespuesta": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "description": "contado | credito",
+            "example": "credito"
+          },
+          "monto_pendiente": {
+            "type": "number",
+            "description": "Solo al crédito",
+            "example": 1180
+          },
+          "cuotas": {
+            "type": "array",
+            "description": "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…",
+            "items": {
+              "$ref": "#/components/schemas/CuotaRespuesta"
+            }
+          }
+        }
+      },
+      "GtinRespuesta": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "example": "GTIN-13"
+          },
+          "codigo": {
+            "type": "string",
+            "example": "7750182000123"
+          }
+        },
+        "description": "GTIN del producto, o `null`"
+      },
+      "Hidrobiologico": {
+        "type": "object",
+        "properties": {
+          "matricula": {
+            "type": "string"
+          },
+          "nombre_embarcacion": {
+            "type": "string"
+          },
+          "especie": {
+            "type": "string"
+          },
+          "lugar_descarga": {
+            "type": "string"
+          },
+          "fecha_descarga": {
+            "type": "string",
+            "format": "date"
+          },
+          "cantidad": {
+            "type": "number"
+          }
+        },
+        "description": "Datos de recursos hidrobiológicos (solo con tipo de operación 1002), o `null`"
+      },
+      "IscRespuesta": {
+        "type": "object",
+        "properties": {
+          "sistema": {
+            "type": "string",
+            "example": "01"
+          },
+          "tasa": {
+            "type": "number",
+            "description": "Tasa aplicada en %: la enviada en los sistemas 01 y 03, derivada (monto ÷ base) en el 02",
+            "example": 35
+          },
+          "monto": {
+            "type": "number",
+            "example": 350
+          },
+          "base": {
+            "type": "number",
+            "description": "Base del ISC de la línea (valor de venta, o PVP sugerido × cantidad en el sistema 03)",
+            "example": 1000
+          },
+          "base_pvp": {
+            "type": "number",
+            "description": "Solo sistema 03: PVP sugerido unitario",
+            "example": 3.5
+          },
+          "monto_unitario": {
+            "type": "number",
+            "description": "Solo sistema 02: importe fijo por unidad, tal como se envió",
+            "example": 2.25
+          }
+        },
+        "description": "ISC de la línea, si lo tiene"
+      },
+      "ItemRespuesta": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "SRV-001"
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Servicio de consultoría"
+          },
+          "unidad": {
+            "type": "string",
+            "example": "ZZ"
+          },
+          "cantidad": {
+            "type": "number",
+            "example": 1
+          },
+          "precio_unitario": {
+            "type": "number",
+            "example": 2000
+          },
+          "tipo_afectacion_igv": {
+            "type": "string",
+            "description": "Afectación del IGV, catálogo 07: `10` gravado, `17` IVAP, `20` exonerado, `30` inafecto, `40` exportación; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)",
+            "example": "10"
+          },
+          "valor_venta": {
+            "type": "number",
+            "description": "Valor de venta de la línea sin IGV, neto de descuento que afecta la base y con los cargos 47 (en gratuitas, el valor referencial)",
+            "example": 1000
+          },
+          "igv": {
+            "type": "number",
+            "description": "IGV de la línea; en gratuitas gravadas se informa pero no se cobra. En una línea IVAP (afectación 17) este campo trae el IVAP (4 %), no el IGV",
+            "example": 180
+          },
+          "precio_venta": {
+            "type": "number",
+            "description": "Lo que paga el cliente por la línea, con cargos 48 (0.00 en gratuitas)",
+            "example": 1180
+          },
+          "gratuita": {
+            "type": "boolean",
+            "description": "true si la afectación es gratuita (11–16, 21, 31–37)",
+            "example": false
+          },
+          "descuento": {
+            "$ref": "#/components/schemas/DescuentoRespuesta"
+          },
+          "cargos": {
+            "type": "array",
+            "description": "Cargos de la línea aplicados, si los hubo",
+            "items": {
+              "$ref": "#/components/schemas/CargoRespuesta"
+            }
+          },
+          "isc": {
+            "$ref": "#/components/schemas/IscRespuesta"
+          },
+          "icbper": {
+            "type": "number",
+            "description": "ICBPER de la línea (bolsas × monto vigente)",
+            "example": 0
+          },
+          "codigo_sunat": {
+            "type": "string",
+            "description": "Código de producto SUNAT (catálogo 25), o `null`",
+            "example": "15101505"
+          },
+          "gtin": {
+            "$ref": "#/components/schemas/GtinRespuesta"
+          },
+          "hidrobiologico": {
+            "$ref": "#/components/schemas/Hidrobiologico"
+          },
+          "transporte": {
+            "$ref": "#/components/schemas/TransporteCarga"
+          },
+          "otros_tributos": {
+            "$ref": "#/components/schemas/OtrosTributosRespuestaDto"
+          },
+          "placa": {
+            "type": "string",
+            "description": "Placa del vehículo (propiedad 7000), o `null`",
+            "example": "ABC-123"
+          }
+        }
+      },
+      "LeyendaDto": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "2001"
+          },
+          "texto": {
+            "type": "string",
+            "example": "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA"
+          }
+        },
+        "description": "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML"
+      },
+      "LiquidacionCompraRespuesta": {
+        "type": "object",
+        "properties": {
+          "ubigeo_vendedor": {
+            "type": "string",
+            "description": "Ubigeo del domicilio del vendedor (catálogo 13)",
+            "example": "060101"
+          },
+          "condicion_vendedor": {
+            "type": "string",
+            "description": "Condición del domicilio del vendedor (catálogo 60: 01 punto de venta, 02 producción, 03 extracción, 04 explotación, 05 otros)",
+            "example": "02"
+          },
+          "lugar_operacion": {
+            "$ref": "#/components/schemas/LugarDeOperacionRespuesta"
+          },
+          "subtotal": {
+            "type": "number",
+            "description": "Subtotal de la liquidación: valor de venta + IGV (TaxInclusiveAmount)",
+            "example": 1180
+          },
+          "igv_retenido": {
+            "type": "number",
+            "description": "IGV que el comprador retiene y paga en lugar del vendedor",
+            "example": 180
+          },
+          "retencion_renta": {
+            "$ref": "#/components/schemas/RetencionRentaRespuesta"
+          },
+          "neto_pagar": {
+            "type": "number",
+            "description": "Importe neto que se paga al vendedor: subtotal − IGV − renta + redondeo (PayableAmount, regla 4312); el mismo `totales.total`",
+            "example": 985
+          }
+        },
+        "description": "Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás"
+      },
+      "LugarDeOperacionRespuesta": {
+        "type": "object",
+        "properties": {
+          "direccion": {
+            "type": "string",
+            "example": "Fundo Santa Rosa, km 12"
+          },
+          "ubigeo": {
+            "type": "string",
+            "example": "060101"
+          },
+          "condicion": {
+            "type": "string",
+            "description": "Catálogo 60",
+            "example": "02"
+          }
+        }
+      },
+      "NotaDto": {
+        "type": "object",
+        "properties": {
+          "tipo_afectado": {
+            "type": "string",
+            "description": "Tipo del documento modificado (catálogo 01); hoy siempre `01` factura",
+            "example": "01"
+          },
+          "documento_afectado": {
+            "type": "string",
+            "description": "Serie-número de la factura modificada",
+            "example": "F001-123"
+          },
+          "motivo": {
+            "type": "string",
+            "description": "Motivo: catálogo 09 en notas de crédito, 10 en notas de débito",
+            "example": "01"
+          },
+          "motivo_descripcion": {
+            "type": "string",
+            "description": "Descripción oficial del motivo",
+            "example": "Anulación de la operación"
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Sustento indicado al emitir",
+            "example": "El cliente devolvió la mercadería"
+          }
+        },
+        "description": "Solo en notas de crédito/débito: factura que modifica y motivo"
+      },
+      "NotaResumenDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
+          },
+          "tipo": {
+            "type": "string",
+            "description": "`07` nota de crédito, `08` nota de débito",
+            "example": "07"
+          },
+          "comprobante": {
+            "type": "string",
+            "example": "FC01-4"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-18"
+          },
+          "motivo": {
+            "type": "string",
+            "example": "01"
+          },
+          "motivo_descripcion": {
+            "type": "string",
+            "example": "Anulación de la operación"
+          },
+          "estado_documento": {
+            "type": "string",
+            "example": "ACEPTADO"
+          },
+          "total": {
+            "type": "number",
+            "description": "Importe total de la nota",
+            "example": 1180
+          }
+        },
+        "description": "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión"
+      },
+      "OtrosTributosRespuestaDto": {
+        "type": "object",
+        "properties": {
+          "tasa": {
+            "type": "number",
+            "example": 3.5
+          },
+          "monto": {
+            "type": "number",
+            "example": 3.5
+          }
+        },
+        "description": "Otros tributos (9999) de la línea, o `null`"
+      },
+      "PagoDeDocumentoRespuesta": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-20"
+          },
+          "importe": {
+            "type": "number",
+            "description": "Importe pagado o cobrado sin la retención o la percepción, en la moneda del documento",
+            "example": 1180
+          }
+        }
+      },
+      "PercepcionRespuesta": {
+        "type": "object",
+        "properties": {
+          "regimen": {
+            "type": "string",
+            "example": "51"
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Percepción venta interna"
+          },
+          "porcentaje": {
+            "type": "number",
+            "example": 2
+          },
+          "base": {
+            "type": "number",
+            "example": 1180
+          },
+          "monto": {
+            "type": "number",
+            "example": 23.6
+          },
+          "total_con_percepcion": {
+            "type": "number",
+            "description": "Importe total más la percepción: lo que paga el cliente",
+            "example": 1203.6
+          }
+        },
+        "description": "Percepción cobrada (51/52/53); el cliente paga total + monto"
+      },
+      "Punto": {
+        "type": "object",
+        "properties": {
+          "ubigeo": {
+            "type": "string"
+          },
+          "direccion": {
+            "type": "string"
+          }
+        }
+      },
+      "ReceptorDto": {
+        "type": "object",
+        "properties": {
+          "tipo_doc": {
+            "type": "string",
+            "description": "Catálogo 06 SUNAT: 6=RUC, 1=DNI",
+            "example": "6"
+          },
+          "num_doc": {
+            "type": "string",
+            "example": "20554198211"
+          },
+          "razon_social": {
+            "type": "string",
+            "example": "CORPORACION GRAFICA ANDINA S.A.C."
+          },
+          "direccion": {
+            "type": "string",
+            "example": "Av. Argentina 2450, Lima"
+          },
+          "pais": {
+            "type": "string",
+            "description": "País del adquirente (ISO 3166-1, catálogo 04), o `null`",
+            "example": "PE"
+          },
+          "email": {
+            "type": "string",
+            "description": "Correo del adquirente indicado al emitir (una nota hereda el de su comprobante), o `null`. No va al XML",
+            "example": "compras@andina.pe"
+          }
+        }
+      },
+      "ReferenciasDto": {
+        "type": "object",
+        "properties": {
+          "orden_compra": {
+            "type": "string",
+            "example": "OC-2026-0457"
+          },
+          "guias": {
+            "type": "array",
+            "description": "Guías de remisión (catálogo 01: 09 remitente, 31 transportista)",
+            "items": {
+              "$ref": "#/components/schemas/DocumentoDto"
+            }
+          },
+          "documentos_relacionados": {
+            "type": "array",
+            "description": "Otros documentos (catálogo 12: 04–09, 99)",
+            "items": {
+              "$ref": "#/components/schemas/DocumentoDto"
+            }
+          }
+        },
+        "description": "Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno"
+      },
+      "RetencionRentaRespuesta": {
+        "type": "object",
+        "properties": {
+          "tasa": {
+            "type": "number",
+            "description": "Tasa en porcentaje",
+            "example": 1.5
+          },
+          "base": {
+            "type": "number",
+            "description": "Base: el valor de venta de las líneas",
+            "example": 1000
+          },
+          "monto": {
+            "type": "number",
+            "description": "Retención del Impuesto a la Renta (tributo 3000): la suma de la de cada línea",
+            "example": 15
+          }
+        }
+      },
+      "RetencionRespuesta": {
+        "type": "object",
+        "properties": {
+          "porcentaje": {
+            "type": "number",
+            "example": 3
+          },
+          "monto": {
+            "type": "number",
+            "example": 35.4
+          },
+          "neto_cobrar": {
+            "type": "number",
+            "description": "Importe total menos la retención",
+            "example": 1144.6
+          }
+        },
+        "description": "Retención del IGV informada (código 62); el cliente paga total − monto"
+      },
+      "TipoCambioDeDocumentoRespuesta": {
+        "type": "object",
+        "properties": {
+          "factor": {
+            "type": "number",
+            "example": 3.756
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-20"
+          }
+        },
+        "description": "Solo fuera de soles: soles por unidad de `moneda` con que se convirtió el pago, y su fecha; `null` en soles"
+      },
+      "TotalesDto": {
+        "type": "object",
+        "properties": {
+          "gravado": {
+            "type": "number",
+            "example": 1000
+          },
+          "exonerado": {
+            "type": "number",
+            "example": 0
+          },
+          "inafecto": {
+            "type": "number",
+            "example": 0
+          },
+          "igv": {
+            "type": "number",
+            "example": 180
+          },
+          "tasa_igv": {
+            "type": "number",
+            "description": "Tasa del IGV aplicada a las líneas gravadas, en porcentaje: 18.00, o la reducida del Padrón de Tasa Especial (restaurantes y hoteles) si la empresa la tiene activa; una nota usa la de su factura. En un comprobante IVAP (afectación 17) no se aplica: no hay líneas al IGV y la tasa del IVAP (4 %, fija) va en `ivap`",
+            "example": 18
+          },
+          "gratuito": {
+            "type": "number",
+            "description": "Base de las operaciones gratuitas (tributo 9996): no se cobra",
+            "example": 0
+          },
+          "igv_gratuitas": {
+            "type": "number",
+            "description": "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra",
+            "example": 0
+          },
+          "ivap": {
+            "type": "number",
+            "description": "Total IVAP (tributo 1016, 4 % sobre la venta de arroz pilado, afectación 17): sustituye al IGV en el comprobante",
+            "example": 0
+          },
+          "exportacion": {
+            "type": "number",
+            "description": "Total valor de venta de exportación (tributo 9995, afectación 40, sin IGV)",
+            "example": 0
+          },
+          "isc": {
+            "type": "number",
+            "description": "Total ISC (se suma al precio de venta y a la base del IGV)",
+            "example": 0
+          },
+          "icbper": {
+            "type": "number",
+            "description": "Total ICBPER (bolsas de plástico)",
+            "example": 0
+          },
+          "otros_tributos": {
+            "type": "number",
+            "description": "Total de otros tributos (9999): suma al precio de venta y no entra en la base del IGV",
+            "example": 0
+          },
+          "total_valor_venta": {
+            "type": "number",
+            "description": "Total valor de venta onerosa (suma de bases, LineExtensionAmount)",
+            "example": 1000
+          },
+          "total_precio_venta": {
+            "type": "number",
+            "description": "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)",
+            "example": 1180
+          },
+          "total_descuentos": {
+            "type": "number",
+            "description": "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount",
+            "example": 0
+          },
+          "total_cargos": {
+            "type": "number",
+            "description": "Cargos que no afectan la base (línea 48 + globales 46/50), ChargeTotalAmount",
+            "example": 0
+          },
+          "total_anticipos": {
+            "type": "number",
+            "description": "Suma de los importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount)",
+            "example": 0
+          },
+          "redondeo": {
+            "type": "number",
+            "description": "Redondeo aplicado al importe total (PayableRoundingAmount), entre −1.00 y 1.00",
+            "example": 0
+          },
+          "total": {
+            "type": "number",
+            "description": "Importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos + redondeo",
+            "example": 1180
+          },
+          "descuento_global": {
+            "$ref": "#/components/schemas/DescuentoRespuesta"
+          },
+          "cargos": {
+            "type": "array",
+            "description": "Cargos globales aplicados, si los hubo",
+            "items": {
+              "$ref": "#/components/schemas/CargoRespuesta"
+            }
+          }
+        }
+      },
+      "Tramo": {
+        "type": "object",
+        "properties": {
+          "origen_ubigeo": {
+            "type": "string"
+          },
+          "destino_ubigeo": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "valor_carga_efectiva": {
+            "type": "number"
+          },
+          "valor_carga_util_nominal": {
+            "type": "number"
+          },
+          "vehiculos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Vehiculo"
+            }
+          }
+        }
+      },
+      "TransporteCarga": {
+        "type": "object",
+        "properties": {
+          "origen": {
+            "$ref": "#/components/schemas/Punto"
+          },
+          "destino": {
+            "$ref": "#/components/schemas/Punto"
+          },
+          "detalle_viaje": {
+            "type": "string"
+          },
+          "valor_referencial": {
+            "$ref": "#/components/schemas/ValorReferencial"
+          },
+          "tramos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tramo"
+            }
+          }
+        },
+        "description": "Datos del servicio de transporte de carga (solo con tipo de operación 1004), o `null`"
+      },
+      "ValorReferencial": {
+        "type": "object",
+        "properties": {
+          "servicio": {
+            "type": "number"
+          },
+          "carga_efectiva": {
+            "type": "number"
+          },
+          "carga_util_nominal": {
+            "type": "number"
+          }
+        }
+      },
+      "Vehiculo": {
+        "type": "object",
+        "properties": {
+          "configuracion": {
+            "type": "string"
+          },
+          "carga_util_tm": {
+            "type": "number"
+          },
+          "carga_efectiva_tm": {
+            "type": "number"
+          }
+        }
+      },
+      "ClienteDePercepcion": {
+        "required": [
+          "nombre",
+          "num_doc",
+          "tipo_doc"
+        ],
+        "type": "object",
+        "properties": {
+          "tipo_doc": {
+            "type": "string",
+            "description": "Tipo de documento, catálogo 06 (`6` RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte…; 2511)",
+            "example": "6"
+          },
+          "num_doc": {
+            "maxLength": 15,
+            "minLength": 0,
+            "type": "string",
+            "description": "Número de documento, alfanumérico de hasta 15 caracteres (2680), distinto del RUC de la empresa (2604)",
+            "example": "20601234565"
+          },
+          "nombre": {
+            "maxLength": 1500,
+            "minLength": 0,
+            "type": "string",
+            "description": "Razón social o nombre (2133, 2134)",
+            "example": "CLIENTE MAYORISTA S.A.C."
+          },
+          "direccion": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "Dirección, en una línea de hasta 100 caracteres. Opcional",
+            "example": "Jr. Huallaga 450, Lima"
+          }
+        },
+        "description": "El cliente al que se percibe"
+      },
+      "PercepcionRequest": {
+        "required": [
+          "cliente",
+          "documentos",
+          "fecha_emision",
+          "regimen",
+          "serie"
+        ],
+        "type": "object",
+        "properties": {
+          "serie": {
+            "pattern": "P[A-Z0-9]{3}",
+            "type": "string",
+            "description": "Serie registrada con el tipo `40`: `P` + 3 alfanuméricos (regla 1001)",
+            "example": "P001"
+          },
+          "correlativo": {
+            "type": "integer",
+            "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
+            "format": "int64",
+            "example": 15
+          },
+          "fecha_emision": {
+            "type": "string",
+            "description": "Fecha de emisión (`YYYY-MM-DD`), no futura; SUNAT la recibe hasta 7 días calendario desde el día siguiente (2600)",
+            "format": "date",
+            "example": "2026-10-20"
+          },
+          "cliente": {
+            "$ref": "#/components/schemas/ClienteDePercepcion"
+          },
+          "regimen": {
+            "pattern": "\\d{2}",
+            "type": "string",
+            "description": "Régimen de percepción, catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %",
+            "example": "01"
+          },
+          "tasa": {
+            "minimum": 0.01,
+            "exclusiveMinimum": false,
+            "type": "number",
+            "description": "Tasa en porcentaje; si se omite, la del régimen. Otra que no sea la del régimen responde `422` (2603)",
+            "example": 2
+          },
+          "documentos": {
+            "maxItems": 999,
+            "minItems": 1,
+            "type": "array",
+            "description": "Los comprobantes de la empresa que se cobran, cada uno con su cobro",
+            "items": {
+              "$ref": "#/components/schemas/DocumentoDeAgente"
+            }
+          },
+          "enviar_automatico": {
+            "type": "boolean",
+            "description": "`true` (por defecto) envía a SUNAT en la misma llamada; `false` lo deja `FIRMADO` para enviarlo con `POST /v1/facturas/{id}/enviar`",
+            "example": true
+          },
+          "observaciones": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string",
+            "description": "Texto libre para el bloque «Observaciones» del PDF (hasta 1000 caracteres); no va al XML",
+            "example": "Cobro de la factura F001-9."
           }
         }
       },
@@ -8189,1258 +10165,6 @@
           }
         },
         "description": "Vehículos del tramo. Opcional"
-      },
-      "AnticipoRespuesta": {
-        "type": "object",
-        "properties": {
-          "comprobante": {
-            "type": "string",
-            "description": "Factura de anticipo (serie-número)",
-            "example": "F001-120"
-          },
-          "serie": {
-            "type": "string",
-            "example": "F001"
-          },
-          "numero": {
-            "type": "integer",
-            "format": "int64",
-            "example": 120
-          },
-          "monto": {
-            "type": "number",
-            "description": "Valor sin IGV que se descuenta de la base",
-            "example": 1000
-          },
-          "importe_pagado": {
-            "type": "number",
-            "description": "Importe que el cliente pagó con el anticipo (IGV incluido)",
-            "example": 1180
-          },
-          "afectacion": {
-            "type": "string",
-            "description": "`gravado`, `exonerado` o `inafecto`",
-            "example": "gravado"
-          },
-          "codigo_sunat": {
-            "type": "string",
-            "description": "Código SUNAT del descuento global por anticipo (catálogo 53: 04/05/06)",
-            "example": "04"
-          },
-          "fecha_pago": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-09-01"
-          }
-        },
-        "description": "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total"
-      },
-      "ApiResponseComprobanteResponse": {
-        "type": "object",
-        "properties": {
-          "estado": {
-            "type": "string",
-            "description": "\"exito\" o \"error\"",
-            "example": "exito"
-          },
-          "datos": {
-            "$ref": "#/components/schemas/ComprobanteResponse"
-          },
-          "mensaje": {
-            "type": "string",
-            "description": "Mensaje legible, presente solo en error",
-            "example": "null"
-          },
-          "codigo": {
-            "type": "string",
-            "description": "Código de error, presente solo en error",
-            "example": "null"
-          },
-          "errores": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "description": "Errores de validación por campo, presente solo en VALIDACION",
-              "items": {
-                "type": "string",
-                "description": "Errores de validación por campo, presente solo en VALIDACION",
-                "example": "null"
-              },
-              "example": null
-            },
-            "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
-          },
-          "avisos": {
-            "type": "array",
-            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
-            "items": {
-              "$ref": "#/components/schemas/Aviso"
-            }
-          }
-        }
-      },
-      "BajaResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
-          },
-          "identificador": {
-            "type": "string",
-            "description": "Identificador ante SUNAT: `RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario, para una boleta). Correlativo por empresa y día",
-            "example": "RA-20260918-1"
-          },
-          "comprobante": {
-            "type": "string",
-            "description": "Comprobante dado de baja",
-            "example": "F001-125"
-          },
-          "tipo_comprobante": {
-            "type": "string",
-            "description": "Tipo del comprobante (01 factura, 03 boleta, 07/08 notas)",
-            "example": "01"
-          },
-          "fecha_generacion": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-09-18"
-          },
-          "fecha_referencia": {
-            "type": "string",
-            "description": "Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate, reglas 2375/2671)",
-            "format": "date",
-            "example": "2026-09-15"
-          },
-          "motivo": {
-            "type": "string",
-            "example": "Error en el RUC del cliente"
-          },
-          "condicion": {
-            "type": "string",
-            "description": "`BAJA`: anula el comprobante. `ALTA`: informa en el resumen diario una boleta que pasó el envío individual (SUNAT ya no la recibe sola, 1079); al aceptarse, la boleta queda `ACEPTADO`, o `ACEPTADO_CON_OBS` si SUNAT la observó (por ejemplo con la 4443, si se informó fuera de plazo: `fuera_de_plazo`)",
-            "example": "BAJA"
-          },
-          "fuera_de_plazo": {
-            "type": "boolean",
-            "description": "Solo en un `ALTA`: `true` si el resumen se generó pasado el 7.º día desde la emisión de la boleta. SUNAT no la rechaza, pero la norma prevé que la observe con la 4443 «El comprobante fue informado fuera del plazo establecido» (entonces la boleta queda `ACEPTADO_CON_OBS`); en e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones (`ACEPTADO`). SUNAT cuenta los 7 días hasta que recibe el resumen: si su envío falló y se reintentó otro día, puede observarlo con 4443 aunque aquí diga `false`; lo que manda es `cdr.observaciones` del comprobante. Una `BAJA` nunca sale fuera de plazo (2957)",
-            "example": false
-          },
-          "estado": {
-            "type": "string",
-            "description": "`GENERADA` (firmada, sin enviar) → `ENVIADA` (SUNAT devolvió ticket, en proceso) → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` cuando SUNAT no respondió y khipu reintentará",
-            "example": "ACEPTADA"
-          },
-          "ticket": {
-            "type": "string",
-            "description": "Ticket del proceso en SUNAT (sendSummary), o `null`",
-            "example": "1789768174685"
-          },
-          "cdr": {
-            "$ref": "#/components/schemas/CdrDto"
-          },
-          "intentos": {
-            "type": "integer",
-            "format": "int32",
-            "example": 1
-          },
-          "ultimo_error": {
-            "type": "string",
-            "example": "null"
-          },
-          "linea": {
-            "type": "integer",
-            "description": "Posición (`LineID`) de este comprobante en su resumen diario. Siempre 1 en una comunicación de baja (RA) y en un resumen de una sola línea",
-            "format": "int32",
-            "example": 1
-          },
-          "lineas": {
-            "type": "integer",
-            "description": "Cuántas líneas tiene el resumen diario: las boletas de una misma fecha de emisión que se informan juntas viajan en un solo `RC` (hasta 500), con un mismo `identificador`, `ticket` y `cdr`. Si SUNAT lo rechaza entero (2987), cada boleta vuelve a informarse sola para aislar la defectuosa",
-            "format": "int32",
-            "example": 1
-          }
-        },
-        "description": "Solo al consultar y al enviar: la comunicación de baja o el resumen diario más reciente del comprobante (en curso, aceptado o rechazado), o `null`. En una boleta informada en un resumen de alta, `fuera_de_plazo` dice si salió pasado el 7.º día"
-      },
-      "CargoRespuesta": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "description": "PORCENTAJE | MONTO",
-            "example": "MONTO"
-          },
-          "valor": {
-            "type": "number",
-            "example": 25
-          },
-          "monto": {
-            "type": "number",
-            "description": "Monto del cargo sin IGV",
-            "example": 25
-          },
-          "afecta_base_igv": {
-            "type": "boolean",
-            "description": "`true` si se suma a la base del IGV (47/49)",
-            "example": false
-          },
-          "motivo": {
-            "type": "string",
-            "description": "`recargo_consumo` cuando es el 46; `null` en los demás",
-            "example": "recargo_consumo"
-          },
-          "codigo": {
-            "type": "string",
-            "description": "Código SUNAT derivado (catálogo 53): 47/48 por línea, 46/49/50 global",
-            "example": "50"
-          }
-        },
-        "description": "Cargos globales aplicados, si los hubo"
-      },
-      "CdrDto": {
-        "type": "object",
-        "properties": {
-          "codigo": {
-            "type": "string",
-            "description": "Código de respuesta SUNAT: `0` aceptado; 2000–3999 rechazado (corregir y reemitir); 4000+ aceptado con observaciones; 1000–1999 error del emisor (fault, sin CDR)",
-            "example": "0"
-          },
-          "descripcion": {
-            "type": "string",
-            "description": "Descripción oficial de SUNAT",
-            "example": "La Factura numero F001-125, ha sido aceptada"
-          },
-          "observaciones": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "resumen": {
-            "type": "string",
-            "description": "Solo en una boleta (o nota de boleta) informada en un resumen diario: el identificador de ese resumen. SUNAT no emite un CDR por boleta en el resumen: el CDR del comprobante es el del resumen, y `descripcion` habla del resumen («El Resumen diario RC-…, ha sido aceptado»). Ausente cuando el CDR es el del propio comprobante (factura, nota de factura o boleta enviada sola)",
-            "example": "RC-20260921-1"
-          }
-        },
-        "description": "Constancia de SUNAT: `0` aceptada, 2000–3999 rechazada"
-      },
-      "ComprobanteResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
-          },
-          "tipo": {
-            "type": "string",
-            "description": "Catálogo 01 SUNAT: 01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito",
-            "example": "01"
-          },
-          "serie": {
-            "type": "string",
-            "example": "F001"
-          },
-          "numero": {
-            "type": "integer",
-            "format": "int64",
-            "example": 125
-          },
-          "fecha_emision": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-09-14"
-          },
-          "fecha_vencimiento": {
-            "type": "string",
-            "description": "Fecha de vencimiento informada, o `null`",
-            "format": "date",
-            "example": "2026-10-14"
-          },
-          "fecha_limite_envio": {
-            "type": "string",
-            "description": "Último día en que SUNAT acepta recibirlo (RS 193-2020: 3 días calendario desde la emisión; una boleta, 7: va sola hasta el 5.º día y después khipu la informa en el resumen diario). Pasado ese día, una factura o nota de factura FIRMADO o en ERROR_ENVIO pasa a FUERA_DE_PLAZO; una boleta (o nota sobre boleta que va en el resumen) se sigue informando en un resumen diario, fuera de plazo: SUNAT no la rechaza y puede observarla con la 4443",
-            "format": "date",
-            "example": "2026-09-17"
-          },
-          "moneda": {
-            "type": "string",
-            "example": "PEN"
-          },
-          "tipo_operacion": {
-            "type": "string",
-            "description": "Catálogo 51 SUNAT",
-            "example": "0101"
-          },
-          "tipo_cambio": {
-            "type": "number",
-            "description": "Tipo de cambio informado (soles por unidad de `moneda`), o `null`: siempre `null` en soles",
-            "example": 3.756
-          },
-          "total_en_soles": {
-            "type": "number",
-            "description": "Importe total en soles al `tipo_cambio`, o `null` si no se informó o el comprobante es en soles",
-            "example": 443.21
-          },
-          "receptor": {
-            "$ref": "#/components/schemas/ReceptorDto"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ItemRespuesta"
-            }
-          },
-          "estado_documento": {
-            "type": "string",
-            "description": "Estado del comprobante: `RECIBIDO` → `FIRMADO` → `ENVIADO` → `ACEPTADO` / `ACEPTADO_CON_OBS` / `RECHAZADO`; `ERROR_ENVIO` (SUNAT no disponible, se reintenta), `INVALIDO` (XML no válido), `ANULADO` (comunicación de baja aceptada), `FUERA_DE_PLAZO` (factura o nota que no llegó dentro del plazo de envío; terminal. Una boleta no: se informa en el resumen diario fuera de plazo y queda `ACEPTADO_CON_OBS` si SUNAT la observa con la 4443, `ACEPTADO` si no), `DESCARTADO` (un administrador dejó de intentar enviarlo; terminal)",
-            "example": "ACEPTADO"
-          },
-          "hash": {
-            "type": "string",
-            "description": "Resumen (digest) de la firma XML-DSig; se imprime en la representación impresa y en el código QR",
-            "example": "a1b2c3d4e5f6..."
-          },
-          "nombre_archivo": {
-            "type": "string",
-            "description": "Nombre oficial del archivo: `RUC-TIPO-SERIE-NUMERO`",
-            "example": "20614798093-01-F001-00000125"
-          },
-          "intentos": {
-            "type": "integer",
-            "description": "Intentos de envío a SUNAT realizados",
-            "format": "int32",
-            "example": 1
-          },
-          "ultimo_error": {
-            "type": "string",
-            "description": "Último error de envío (`código SUNAT - mensaje`), o `null`",
-            "example": "null"
-          },
-          "cdr": {
-            "$ref": "#/components/schemas/CdrDto"
-          },
-          "totales": {
-            "$ref": "#/components/schemas/TotalesDto"
-          },
-          "forma_pago": {
-            "$ref": "#/components/schemas/FormaPagoRespuesta"
-          },
-          "detraccion": {
-            "$ref": "#/components/schemas/DetraccionRespuesta"
-          },
-          "retencion_igv": {
-            "$ref": "#/components/schemas/RetencionRespuesta"
-          },
-          "percepcion": {
-            "$ref": "#/components/schemas/PercepcionRespuesta"
-          },
-          "anticipos": {
-            "type": "array",
-            "description": "Facturas de anticipo regularizadas en esta factura; sus importes ya pagados se restan del total",
-            "items": {
-              "$ref": "#/components/schemas/AnticipoRespuesta"
-            }
-          },
-          "referencias": {
-            "$ref": "#/components/schemas/ReferenciasDto"
-          },
-          "nota": {
-            "$ref": "#/components/schemas/NotaDto"
-          },
-          "notas": {
-            "type": "array",
-            "description": "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión",
-            "items": {
-              "$ref": "#/components/schemas/NotaResumenDto"
-            }
-          },
-          "baja": {
-            "$ref": "#/components/schemas/BajaResponse"
-          },
-          "eventos": {
-            "type": "array",
-            "description": "Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión",
-            "items": {
-              "$ref": "#/components/schemas/EventoDto"
-            }
-          },
-          "observaciones": {
-            "type": "string",
-            "description": "Observaciones impresas en el PDF (solo las propias del comprobante), o `null`",
-            "example": "Entrega en almacén central."
-          },
-          "leyendas": {
-            "type": "array",
-            "description": "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML",
-            "items": {
-              "$ref": "#/components/schemas/LeyendaDto"
-            }
-          },
-          "exportacion": {
-            "$ref": "#/components/schemas/ExportacionRespuesta"
-          },
-          "liquidacion": {
-            "$ref": "#/components/schemas/LiquidacionCompraRespuesta"
-          },
-          "envio_al_cliente": {
-            "$ref": "#/components/schemas/EnvioAlClienteDto"
-          },
-          "enlaces": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string",
-              "description": "cdr solo está presente cuando SUNAT emitió la constancia",
-              "example": "{\"xml\":\"/v1/facturas/{id}/xml\",\"pdf\":\"/v1/facturas/{id}/pdf\",\"cdr\":\"/v1/facturas/{id}/cdr\"}"
-            },
-            "description": "cdr solo está presente cuando SUNAT emitió la constancia",
-            "example": {
-              "xml": "/v1/facturas/{id}/xml",
-              "pdf": "/v1/facturas/{id}/pdf",
-              "cdr": "/v1/facturas/{id}/cdr"
-            }
-          }
-        }
-      },
-      "CuotaRespuesta": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "Cuota001"
-          },
-          "monto": {
-            "type": "number",
-            "example": 590
-          },
-          "vencimiento": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-10-15"
-          }
-        },
-        "description": "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…"
-      },
-      "DescuentoRespuesta": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "description": "PORCENTAJE | MONTO",
-            "example": "PORCENTAJE"
-          },
-          "valor": {
-            "type": "number",
-            "example": 10
-          },
-          "monto": {
-            "type": "number",
-            "description": "Monto del descuento sin IGV",
-            "example": 100
-          },
-          "afecta_base_igv": {
-            "type": "boolean",
-            "example": true
-          },
-          "codigo": {
-            "type": "string",
-            "description": "Catálogo 53: 00/01 por línea, 02/03 global",
-            "example": "00"
-          }
-        },
-        "description": "Descuento global aplicado, si lo hubo"
-      },
-      "DetraccionRespuesta": {
-        "type": "object",
-        "properties": {
-          "codigo_bien_servicio": {
-            "type": "string",
-            "example": "022"
-          },
-          "descripcion": {
-            "type": "string",
-            "description": "Descripción del catálogo 54",
-            "example": "Otros servicios empresariales"
-          },
-          "porcentaje": {
-            "type": "number",
-            "example": 12
-          },
-          "monto": {
-            "type": "number",
-            "description": "Monto a depositar, siempre en PEN",
-            "example": 1416
-          },
-          "cuenta_banco_nacion": {
-            "type": "string",
-            "example": "00-000-123456"
-          },
-          "medio_pago": {
-            "type": "string",
-            "description": "Catálogo 59",
-            "example": "001"
-          }
-        },
-        "description": "Detracción (SPOT), solo en operaciones 1001–1004"
-      },
-      "DocumentoDto": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "example": "09"
-          },
-          "numero": {
-            "type": "string",
-            "example": "T001-123"
-          }
-        },
-        "description": "Otros documentos (catálogo 12: 04–09, 99)"
-      },
-      "EnvioAlClienteDto": {
-        "type": "object",
-        "properties": {
-          "destinatario": {
-            "type": "string",
-            "example": "compras@andina.pe"
-          },
-          "estado": {
-            "type": "string",
-            "description": "`PENDIENTE` (en cola o esperando un reintento), `ENVIADO` (el servidor de correo lo recibió), `FALLIDO` (agotó los reintentos o los adjuntos superan el tope; `ultimo_error` dice por qué) u `OMITIDO` (no correspondía mandarlo al llegar su turno: el servidor no tiene correo configurado o el comprobante ya no estaba aceptado)",
-            "example": "ENVIADO"
-          },
-          "intentos": {
-            "type": "integer",
-            "description": "Intentos de envío realizados (hasta 5)",
-            "format": "int32",
-            "example": 1
-          },
-          "ultimo_error": {
-            "type": "string",
-            "description": "Motivo del último fallo o de la omisión, o `null`",
-            "example": "null"
-          },
-          "siguiente_intento": {
-            "type": "string",
-            "description": "Solo si sigue `PENDIENTE`: cuándo se intenta (UTC)",
-            "format": "date-time",
-            "example": "2026-09-13T15:01:00Z"
-          },
-          "enviado_en": {
-            "type": "string",
-            "description": "Cuándo salió (UTC), o `null`",
-            "format": "date-time",
-            "example": "2026-09-13T15:00:12Z"
-          }
-        },
-        "description": "Solo al consultar: el envío automático del comprobante a su cliente (`PUT /v1/empresa/envio-al-cliente`), o `null` si no se anotó (la empresa no lo tenía activado, el comprobante no traía correo o SUNAT aún no lo aceptó)"
-      },
-      "EventoDto": {
-        "type": "object",
-        "properties": {
-          "fecha": {
-            "type": "string",
-            "description": "Instante del cambio (UTC)",
-            "format": "date-time",
-            "example": "2026-09-13T15:00:05Z"
-          },
-          "estado_anterior": {
-            "type": "string",
-            "description": "Estado previo, o `null` en el primer evento",
-            "example": "FIRMADO"
-          },
-          "estado_resultante": {
-            "type": "string",
-            "example": "ERROR_ENVIO"
-          },
-          "mensaje": {
-            "type": "string",
-            "description": "Motivo o resultado: error de envío, código y descripción del CDR, baja aceptada…",
-            "example": "SUNAT no disponible (timeout)"
-          }
-        },
-        "description": "Solo al consultar: historial de cambios de estado e intentos de envío, del más antiguo al más reciente (vacío si no hay); `null` en listados y en la emisión"
-      },
-      "ExportacionRespuesta": {
-        "type": "object",
-        "properties": {
-          "incoterm": {
-            "type": "string",
-            "description": "Incoterm 2020 de la venta, o `null`",
-            "example": "FOB"
-          },
-          "pais_uso": {
-            "type": "string",
-            "description": "País de uso del servicio (solo 0201/0208), o `null`",
-            "example": "US"
-          }
-        },
-        "description": "Solo en exportaciones (0200–0208): Incoterm y país de uso del servicio; `null` en las demás"
-      },
-      "FormaPagoRespuesta": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "description": "contado | credito",
-            "example": "credito"
-          },
-          "monto_pendiente": {
-            "type": "number",
-            "description": "Solo al crédito",
-            "example": 1180
-          },
-          "cuotas": {
-            "type": "array",
-            "description": "Solo al crédito; el identificador SUNAT es Cuota001, Cuota002…",
-            "items": {
-              "$ref": "#/components/schemas/CuotaRespuesta"
-            }
-          }
-        }
-      },
-      "GtinRespuesta": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "example": "GTIN-13"
-          },
-          "codigo": {
-            "type": "string",
-            "example": "7750182000123"
-          }
-        },
-        "description": "GTIN del producto, o `null`"
-      },
-      "Hidrobiologico": {
-        "type": "object",
-        "properties": {
-          "matricula": {
-            "type": "string"
-          },
-          "nombre_embarcacion": {
-            "type": "string"
-          },
-          "especie": {
-            "type": "string"
-          },
-          "lugar_descarga": {
-            "type": "string"
-          },
-          "fecha_descarga": {
-            "type": "string",
-            "format": "date"
-          },
-          "cantidad": {
-            "type": "number"
-          }
-        },
-        "description": "Datos de recursos hidrobiológicos (solo con tipo de operación 1002), o `null`"
-      },
-      "IscRespuesta": {
-        "type": "object",
-        "properties": {
-          "sistema": {
-            "type": "string",
-            "example": "01"
-          },
-          "tasa": {
-            "type": "number",
-            "description": "Tasa aplicada en %: la enviada en los sistemas 01 y 03, derivada (monto ÷ base) en el 02",
-            "example": 35
-          },
-          "monto": {
-            "type": "number",
-            "example": 350
-          },
-          "base": {
-            "type": "number",
-            "description": "Base del ISC de la línea (valor de venta, o PVP sugerido × cantidad en el sistema 03)",
-            "example": 1000
-          },
-          "base_pvp": {
-            "type": "number",
-            "description": "Solo sistema 03: PVP sugerido unitario",
-            "example": 3.5
-          },
-          "monto_unitario": {
-            "type": "number",
-            "description": "Solo sistema 02: importe fijo por unidad, tal como se envió",
-            "example": 2.25
-          }
-        },
-        "description": "ISC de la línea, si lo tiene"
-      },
-      "ItemRespuesta": {
-        "type": "object",
-        "properties": {
-          "codigo": {
-            "type": "string",
-            "example": "SRV-001"
-          },
-          "descripcion": {
-            "type": "string",
-            "example": "Servicio de consultoría"
-          },
-          "unidad": {
-            "type": "string",
-            "example": "ZZ"
-          },
-          "cantidad": {
-            "type": "number",
-            "example": 1
-          },
-          "precio_unitario": {
-            "type": "number",
-            "example": 2000
-          },
-          "tipo_afectacion_igv": {
-            "type": "string",
-            "description": "Afectación del IGV, catálogo 07: `10` gravado, `17` IVAP, `20` exonerado, `30` inafecto, `40` exportación; gratuitas `11`–`16` (gravadas), `21` (exonerada), `31`–`37` (inafectas)",
-            "example": "10"
-          },
-          "valor_venta": {
-            "type": "number",
-            "description": "Valor de venta de la línea sin IGV, neto de descuento que afecta la base y con los cargos 47 (en gratuitas, el valor referencial)",
-            "example": 1000
-          },
-          "igv": {
-            "type": "number",
-            "description": "IGV de la línea; en gratuitas gravadas se informa pero no se cobra. En una línea IVAP (afectación 17) este campo trae el IVAP (4 %), no el IGV",
-            "example": 180
-          },
-          "precio_venta": {
-            "type": "number",
-            "description": "Lo que paga el cliente por la línea, con cargos 48 (0.00 en gratuitas)",
-            "example": 1180
-          },
-          "gratuita": {
-            "type": "boolean",
-            "description": "true si la afectación es gratuita (11–16, 21, 31–37)",
-            "example": false
-          },
-          "descuento": {
-            "$ref": "#/components/schemas/DescuentoRespuesta"
-          },
-          "cargos": {
-            "type": "array",
-            "description": "Cargos de la línea aplicados, si los hubo",
-            "items": {
-              "$ref": "#/components/schemas/CargoRespuesta"
-            }
-          },
-          "isc": {
-            "$ref": "#/components/schemas/IscRespuesta"
-          },
-          "icbper": {
-            "type": "number",
-            "description": "ICBPER de la línea (bolsas × monto vigente)",
-            "example": 0
-          },
-          "codigo_sunat": {
-            "type": "string",
-            "description": "Código de producto SUNAT (catálogo 25), o `null`",
-            "example": "15101505"
-          },
-          "gtin": {
-            "$ref": "#/components/schemas/GtinRespuesta"
-          },
-          "hidrobiologico": {
-            "$ref": "#/components/schemas/Hidrobiologico"
-          },
-          "transporte": {
-            "$ref": "#/components/schemas/TransporteCarga"
-          },
-          "otros_tributos": {
-            "$ref": "#/components/schemas/OtrosTributosRespuestaDto"
-          },
-          "placa": {
-            "type": "string",
-            "description": "Placa del vehículo (propiedad 7000), o `null`",
-            "example": "ABC-123"
-          }
-        }
-      },
-      "LeyendaDto": {
-        "type": "object",
-        "properties": {
-          "codigo": {
-            "type": "string",
-            "example": "2001"
-          },
-          "texto": {
-            "type": "string",
-            "example": "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA"
-          }
-        },
-        "description": "Leyendas del catálogo 52 declaradas por el emisor (las automáticas no se listan): código y texto tal como van en el XML"
-      },
-      "LiquidacionCompraRespuesta": {
-        "type": "object",
-        "properties": {
-          "ubigeo_vendedor": {
-            "type": "string",
-            "description": "Ubigeo del domicilio del vendedor (catálogo 13)",
-            "example": "060101"
-          },
-          "condicion_vendedor": {
-            "type": "string",
-            "description": "Condición del domicilio del vendedor (catálogo 60: 01 punto de venta, 02 producción, 03 extracción, 04 explotación, 05 otros)",
-            "example": "02"
-          },
-          "lugar_operacion": {
-            "$ref": "#/components/schemas/LugarDeOperacionRespuesta"
-          },
-          "subtotal": {
-            "type": "number",
-            "description": "Subtotal de la liquidación: valor de venta + IGV (TaxInclusiveAmount)",
-            "example": 1180
-          },
-          "igv_retenido": {
-            "type": "number",
-            "description": "IGV que el comprador retiene y paga en lugar del vendedor",
-            "example": 180
-          },
-          "retencion_renta": {
-            "$ref": "#/components/schemas/RetencionRentaRespuesta"
-          },
-          "neto_pagar": {
-            "type": "number",
-            "description": "Importe neto que se paga al vendedor: subtotal − IGV − renta + redondeo (PayableAmount, regla 4312); el mismo `totales.total`",
-            "example": 985
-          }
-        },
-        "description": "Solo en una liquidación de compra (04): el resto del domicilio del vendedor (que va en `receptor`), el lugar de la operación, lo que el comprador le retiene y el neto que le paga (igual a `totales.total`); `null` en los demás"
-      },
-      "LugarDeOperacionRespuesta": {
-        "type": "object",
-        "properties": {
-          "direccion": {
-            "type": "string",
-            "example": "Fundo Santa Rosa, km 12"
-          },
-          "ubigeo": {
-            "type": "string",
-            "example": "060101"
-          },
-          "condicion": {
-            "type": "string",
-            "description": "Catálogo 60",
-            "example": "02"
-          }
-        }
-      },
-      "NotaDto": {
-        "type": "object",
-        "properties": {
-          "tipo_afectado": {
-            "type": "string",
-            "description": "Tipo del documento modificado (catálogo 01); hoy siempre `01` factura",
-            "example": "01"
-          },
-          "documento_afectado": {
-            "type": "string",
-            "description": "Serie-número de la factura modificada",
-            "example": "F001-123"
-          },
-          "motivo": {
-            "type": "string",
-            "description": "Motivo: catálogo 09 en notas de crédito, 10 en notas de débito",
-            "example": "01"
-          },
-          "motivo_descripcion": {
-            "type": "string",
-            "description": "Descripción oficial del motivo",
-            "example": "Anulación de la operación"
-          },
-          "descripcion": {
-            "type": "string",
-            "description": "Sustento indicado al emitir",
-            "example": "El cliente devolvió la mercadería"
-          }
-        },
-        "description": "Solo en notas de crédito/débito: factura que modifica y motivo"
-      },
-      "NotaResumenDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "example": "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"
-          },
-          "tipo": {
-            "type": "string",
-            "description": "`07` nota de crédito, `08` nota de débito",
-            "example": "07"
-          },
-          "comprobante": {
-            "type": "string",
-            "example": "FC01-4"
-          },
-          "fecha_emision": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-09-18"
-          },
-          "motivo": {
-            "type": "string",
-            "example": "01"
-          },
-          "motivo_descripcion": {
-            "type": "string",
-            "example": "Anulación de la operación"
-          },
-          "estado_documento": {
-            "type": "string",
-            "example": "ACEPTADO"
-          },
-          "total": {
-            "type": "number",
-            "description": "Importe total de la nota",
-            "example": 1180
-          }
-        },
-        "description": "Solo al consultar una factura: notas de crédito/débito emitidas sobre ella (todas, con su estado); `null` en listados y en la emisión"
-      },
-      "OtrosTributosRespuestaDto": {
-        "type": "object",
-        "properties": {
-          "tasa": {
-            "type": "number",
-            "example": 3.5
-          },
-          "monto": {
-            "type": "number",
-            "example": 3.5
-          }
-        },
-        "description": "Otros tributos (9999) de la línea, o `null`"
-      },
-      "PercepcionRespuesta": {
-        "type": "object",
-        "properties": {
-          "regimen": {
-            "type": "string",
-            "example": "51"
-          },
-          "descripcion": {
-            "type": "string",
-            "example": "Percepción venta interna"
-          },
-          "porcentaje": {
-            "type": "number",
-            "example": 2
-          },
-          "base": {
-            "type": "number",
-            "example": 1180
-          },
-          "monto": {
-            "type": "number",
-            "example": 23.6
-          },
-          "total_con_percepcion": {
-            "type": "number",
-            "description": "Importe total más la percepción: lo que paga el cliente",
-            "example": 1203.6
-          }
-        },
-        "description": "Percepción cobrada (51/52/53); el cliente paga total + monto"
-      },
-      "Punto": {
-        "type": "object",
-        "properties": {
-          "ubigeo": {
-            "type": "string"
-          },
-          "direccion": {
-            "type": "string"
-          }
-        }
-      },
-      "ReceptorDto": {
-        "type": "object",
-        "properties": {
-          "tipo_doc": {
-            "type": "string",
-            "description": "Catálogo 06 SUNAT: 6=RUC, 1=DNI",
-            "example": "6"
-          },
-          "num_doc": {
-            "type": "string",
-            "example": "20554198211"
-          },
-          "razon_social": {
-            "type": "string",
-            "example": "CORPORACION GRAFICA ANDINA S.A.C."
-          },
-          "direccion": {
-            "type": "string",
-            "example": "Av. Argentina 2450, Lima"
-          },
-          "pais": {
-            "type": "string",
-            "description": "País del adquirente (ISO 3166-1, catálogo 04), o `null`",
-            "example": "PE"
-          },
-          "email": {
-            "type": "string",
-            "description": "Correo del adquirente indicado al emitir (una nota hereda el de su comprobante), o `null`. No va al XML",
-            "example": "compras@andina.pe"
-          }
-        }
-      },
-      "ReferenciasDto": {
-        "type": "object",
-        "properties": {
-          "orden_compra": {
-            "type": "string",
-            "example": "OC-2026-0457"
-          },
-          "guias": {
-            "type": "array",
-            "description": "Guías de remisión (catálogo 01: 09 remitente, 31 transportista)",
-            "items": {
-              "$ref": "#/components/schemas/DocumentoDto"
-            }
-          },
-          "documentos_relacionados": {
-            "type": "array",
-            "description": "Otros documentos (catálogo 12: 04–09, 99)",
-            "items": {
-              "$ref": "#/components/schemas/DocumentoDto"
-            }
-          }
-        },
-        "description": "Orden de compra, guías de remisión y otros documentos relacionados; `null` si no hay ninguno"
-      },
-      "RetencionRentaRespuesta": {
-        "type": "object",
-        "properties": {
-          "tasa": {
-            "type": "number",
-            "description": "Tasa en porcentaje",
-            "example": 1.5
-          },
-          "base": {
-            "type": "number",
-            "description": "Base: el valor de venta de las líneas",
-            "example": 1000
-          },
-          "monto": {
-            "type": "number",
-            "description": "Retención del Impuesto a la Renta (tributo 3000): la suma de la de cada línea",
-            "example": 15
-          }
-        }
-      },
-      "RetencionRespuesta": {
-        "type": "object",
-        "properties": {
-          "porcentaje": {
-            "type": "number",
-            "example": 3
-          },
-          "monto": {
-            "type": "number",
-            "example": 35.4
-          },
-          "neto_cobrar": {
-            "type": "number",
-            "description": "Importe total menos la retención",
-            "example": 1144.6
-          }
-        },
-        "description": "Retención del IGV informada (código 62); el cliente paga total − monto"
-      },
-      "TotalesDto": {
-        "type": "object",
-        "properties": {
-          "gravado": {
-            "type": "number",
-            "example": 1000
-          },
-          "exonerado": {
-            "type": "number",
-            "example": 0
-          },
-          "inafecto": {
-            "type": "number",
-            "example": 0
-          },
-          "igv": {
-            "type": "number",
-            "example": 180
-          },
-          "tasa_igv": {
-            "type": "number",
-            "description": "Tasa del IGV aplicada a las líneas gravadas, en porcentaje: 18.00, o la reducida del Padrón de Tasa Especial (restaurantes y hoteles) si la empresa la tiene activa; una nota usa la de su factura. En un comprobante IVAP (afectación 17) no se aplica: no hay líneas al IGV y la tasa del IVAP (4 %, fija) va en `ivap`",
-            "example": 18
-          },
-          "gratuito": {
-            "type": "number",
-            "description": "Base de las operaciones gratuitas (tributo 9996): no se cobra",
-            "example": 0
-          },
-          "igv_gratuitas": {
-            "type": "number",
-            "description": "IGV de las operaciones gratuitas gravadas: solo informativo, no se cobra",
-            "example": 0
-          },
-          "ivap": {
-            "type": "number",
-            "description": "Total IVAP (tributo 1016, 4 % sobre la venta de arroz pilado, afectación 17): sustituye al IGV en el comprobante",
-            "example": 0
-          },
-          "exportacion": {
-            "type": "number",
-            "description": "Total valor de venta de exportación (tributo 9995, afectación 40, sin IGV)",
-            "example": 0
-          },
-          "isc": {
-            "type": "number",
-            "description": "Total ISC (se suma al precio de venta y a la base del IGV)",
-            "example": 0
-          },
-          "icbper": {
-            "type": "number",
-            "description": "Total ICBPER (bolsas de plástico)",
-            "example": 0
-          },
-          "otros_tributos": {
-            "type": "number",
-            "description": "Total de otros tributos (9999): suma al precio de venta y no entra en la base del IGV",
-            "example": 0
-          },
-          "total_valor_venta": {
-            "type": "number",
-            "description": "Total valor de venta onerosa (suma de bases, LineExtensionAmount)",
-            "example": 1000
-          },
-          "total_precio_venta": {
-            "type": "number",
-            "description": "Total precio de venta = valor de venta + tributos (TaxInclusiveAmount)",
-            "example": 1180
-          },
-          "total_descuentos": {
-            "type": "number",
-            "description": "Descuentos que no afectan la base (línea 01 + global 03), AllowanceTotalAmount",
-            "example": 0
-          },
-          "total_cargos": {
-            "type": "number",
-            "description": "Cargos que no afectan la base (línea 48 + globales 46/50), ChargeTotalAmount",
-            "example": 0
-          },
-          "total_anticipos": {
-            "type": "number",
-            "description": "Suma de los importes ya pagados con facturas de anticipo, IGV incluido (PrepaidAmount)",
-            "example": 0
-          },
-          "redondeo": {
-            "type": "number",
-            "description": "Redondeo aplicado al importe total (PayableRoundingAmount), entre −1.00 y 1.00",
-            "example": 0
-          },
-          "total": {
-            "type": "number",
-            "description": "Importe a pagar (PayableAmount) = precio de venta + cargos − descuentos que no afectan la base − anticipos + redondeo",
-            "example": 1180
-          },
-          "descuento_global": {
-            "$ref": "#/components/schemas/DescuentoRespuesta"
-          },
-          "cargos": {
-            "type": "array",
-            "description": "Cargos globales aplicados, si los hubo",
-            "items": {
-              "$ref": "#/components/schemas/CargoRespuesta"
-            }
-          }
-        }
-      },
-      "Tramo": {
-        "type": "object",
-        "properties": {
-          "origen_ubigeo": {
-            "type": "string"
-          },
-          "destino_ubigeo": {
-            "type": "string"
-          },
-          "descripcion": {
-            "type": "string"
-          },
-          "valor_carga_efectiva": {
-            "type": "number"
-          },
-          "valor_carga_util_nominal": {
-            "type": "number"
-          },
-          "vehiculos": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Vehiculo"
-            }
-          }
-        }
-      },
-      "TransporteCarga": {
-        "type": "object",
-        "properties": {
-          "origen": {
-            "$ref": "#/components/schemas/Punto"
-          },
-          "destino": {
-            "$ref": "#/components/schemas/Punto"
-          },
-          "detalle_viaje": {
-            "type": "string"
-          },
-          "valor_referencial": {
-            "$ref": "#/components/schemas/ValorReferencial"
-          },
-          "tramos": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Tramo"
-            }
-          }
-        },
-        "description": "Datos del servicio de transporte de carga (solo con tipo de operación 1004), o `null`"
-      },
-      "ValorReferencial": {
-        "type": "object",
-        "properties": {
-          "servicio": {
-            "type": "number"
-          },
-          "carga_efectiva": {
-            "type": "number"
-          },
-          "carga_util_nominal": {
-            "type": "number"
-          }
-        }
-      },
-      "Vehiculo": {
-        "type": "object",
-        "properties": {
-          "configuracion": {
-            "type": "string"
-          },
-          "carga_util_tm": {
-            "type": "number"
-          },
-          "carga_efectiva_tm": {
-            "type": "number"
-          }
-        }
       },
       "DocumentoRelacionadoDto": {
         "required": [
@@ -11343,6 +12067,67 @@
             "items": {
               "$ref": "#/components/schemas/Aviso"
             }
+          }
+        }
+      },
+      "ApiResponseCambioDeDesignacionDeAgente": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/CambioDeDesignacionDeAgente"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "CambioDeDesignacionDeAgente": {
+        "type": "object",
+        "properties": {
+          "empresa_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d"
+          },
+          "desde": {
+            "$ref": "#/components/schemas/DesignacionDeAgente"
+          },
+          "hacia": {
+            "$ref": "#/components/schemas/DesignacionDeAgente"
           }
         }
       },

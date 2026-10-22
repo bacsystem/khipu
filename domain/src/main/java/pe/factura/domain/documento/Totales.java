@@ -187,6 +187,16 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     }
 
     /**
+     * #40: los totales de una retención o una percepción, que no tienen líneas de venta ni tributos: {@code total} es el importe total retenido o percibido (cbc:TotalInvoiceAmount,
+     * en soles) y {@code redondeo}, el del importe total pagado o cobrado (PayableRoundingAmount, que no lo toca: va sobre los netos). Todo lo demás en cero.
+     */
+    public static Totales deAgente(BigDecimal importeTotal, BigDecimal redondeo) {
+        BigDecimal cero = z();
+        return new Totales(cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero,
+                redondeo == null ? cero : redondeo.setScale(2, RoundingMode.HALF_UP), importeTotal.setScale(2, RoundingMode.HALF_UP), List.of(), List.of(), null, List.of(), List.of(), TasaIgv.GENERAL);
+    }
+
+    /**
      * #327: los totales como los expresa una liquidación de compra. Todo es igual salvo el importe a pagar: el comprador retiene al vendedor el IGV y el Impuesto a la Renta,
      * así que lo que le paga (PayableAmount, «importe total neto») es el subtotal (TaxInclusiveAmount) menos el IGV, la retención de renta y los otros tributos de las líneas,
      * más el redondeo (regla 4312 de LiquidacionCompra2_0). El IGV sigue en {@code igv}: el comprador lo declara y lo paga en lugar del vendedor.
