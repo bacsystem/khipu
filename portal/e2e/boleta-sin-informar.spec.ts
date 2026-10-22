@@ -8,11 +8,13 @@ import { hoyLima, sumarDias } from "../src/lib/formato";
 // Las specs comparten el mock en paralelo; la que envía una boleta usa la suya, y las demás solo la leen.
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("/login?next=/comprobantes");
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  // Directo al listado, como antes del panel de inicio (#24): `next` lo pide y el login navega del lado del cliente. La URL se ancla sin la consulta: si no,
+  // la del propio login (`/login?next=/comprobantes`) ya calzaría antes de entrar.
+  await expect(page).toHaveURL(/^[^?]*\/comprobantes$/);
 });
 
 test("a los 4 días una boleta firmada sin enviar todavía no avisa, pero se puede enviar", async ({ page }) => {

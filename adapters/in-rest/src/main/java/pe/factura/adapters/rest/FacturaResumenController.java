@@ -10,13 +10,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.factura.adapters.rest.dto.EmisionPorDiaResponse;
 import pe.factura.adapters.rest.dto.ResumenDeComprobantesResponse;
 import pe.factura.application.port.in.ResumirComprobantesUseCase;
 
 import java.time.LocalDate;
 
 /**
- * El resumen de los comprobantes de la empresa en un período (#15), para las métricas del portal: lo emitido, lo aceptado, lo que pide atención y lo facturado por moneda.
+ * El resumen de los comprobantes de la empresa en un período (#15), para las métricas del portal: lo emitido, lo aceptado, lo que pide atención y lo facturado por moneda;
+ * y la emisión día por día (#24), para el gráfico del dashboard.
  * Se autentica como el resto de {@code /v1/facturas} (API key o JWT del portal con {@code X-Empresa}). Solo lectura.
  */
 @RestController
@@ -37,5 +39,16 @@ public class FacturaResumenController {
             @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-09-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive)", example = "2026-09-30") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return ApiResponse.ok(ResumenDeComprobantesResponse.de(resumir.resumir(TenantActual.id(req), desde, hasta)));
+    }
+
+    @GetMapping("/resumen/por-dia")
+    @Operation(summary = "Emisión por día de un período", description = """
+            La emisión de la empresa día por día en un rango de fecha de emisión (`desde`/`hasta`, inclusive, **los dos obligatorios**, hasta 62 días): por cada día con
+            comprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen`. Los días sin comprobantes no
+            vienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.""")
+    public ApiResponse<EmisionPorDiaResponse> porDia(HttpServletRequest req,
+            @Parameter(description = "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)", example = "2026-10-01") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @Parameter(description = "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive); a lo más 61 días después de `desde`", example = "2026-10-31") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ApiResponse.ok(EmisionPorDiaResponse.de(resumir.porDia(TenantActual.id(req), desde, hasta)));
     }
 }

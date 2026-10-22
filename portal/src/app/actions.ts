@@ -8,5 +8,5 @@ export async function seleccionarEmpresa(formData: FormData) {
   const empresaId = String(formData.get("empresaId") ?? "");
   const store = await cookies();
   store.set(COOKIE_EMPRESA, empresaId, { ...baseCookie, maxAge: REFRESH_MAX_AGE });
-  redirect("/comprobantes");
+  redirect("/inicio");
 }

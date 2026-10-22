@@ -50,7 +50,8 @@ test("la guía acompaña a la empresa nueva hasta que puede emitir y entonces de
   await expect(page).toHaveURL(/\/empresa\?seccion=sol/);
   await page.getByLabel("Usuario SOL secundario").fill("MODDATOS");
   await page.getByLabel("Clave SOL").fill("moddatos");
-  await page.getByRole("button", { name: "Guardar credenciales" }).last().click();
+  // El de las credenciales SOL: la misma pestaña tiene debajo el de las credenciales API SUNAT (#318), con un botón del mismo nombre.
+  await page.locator("form").filter({ has: page.getByLabel("Usuario SOL secundario") }).getByRole("button", { name: "Guardar credenciales" }).click();
   await expect(page.getByText("Credenciales SOL actualizadas.")).toBeVisible();
   await expect(guia.getByTestId("guia-emitir-avance")).toHaveText("2 de 4 listos");
 

@@ -3561,8 +3561,47 @@ export const handlers = [
       ...(hasta ? { hasta } : {}),
       emitidos: del.filter((f) => !["RECIBIDO", "INVALIDO"].includes(f.estado_documento)).length,
       aceptados_con_cdr: cuenta(["ACEPTADO", "ACEPTADO_CON_OBS"]),
+      // #24: `EstadoDocumento.estaEnCamino`.
+      en_camino: cuenta(["FIRMADO", "ENVIADO", "PENDIENTE_AGRUPACION"]),
       atencion_requerida: { total: rechazados + erroresDeEnvio + fueraDePlazo + boletasSinEnviar, rechazados, errores_de_envio: erroresDeEnvio, fuera_de_plazo: fueraDePlazo, boletas_sin_enviar: boletasSinEnviar },
       facturado: [...porMoneda.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([moneda, total]) => ({ moneda, total })),
+    });
+  }),
+
+  /**
+   * Como el backend (#24): la emisión día por día de un rango (los dos extremos obligatorios, hasta 62 días), con las reglas del resumen; solo los días con algo emitido o
+   * facturado. La empresa `e-panel-falla` responde 500, para el e2e de una lectura que falla en el panel. Va antes de `/v1/facturas/:id`.
+   */
+  http.get(`${BASE}/v1/facturas/resumen/por-dia`, ({ request }) => {
+    if (!claims(request)) return fail(401, "NO_AUTORIZADO", "Token inválido");
+    const empresaId = request.headers.get("x-empresa") ?? "";
+    if (empresaId === "e-panel-falla") return fail(500, "INTERNO", "Error interno. trace_id=mock-panel");
+    const url = new URL(request.url);
+    const desde = url.searchParams.get("desde");
+    const hasta = url.searchParams.get("hasta");
+    if (!desde || !hasta) return fail(400, "PARAMETRO_INVALIDO", `Falta el parámetro '${desde ? "hasta" : "desde"}'`);
+    if (!fechaIsoValidaMock(desde) || !fechaIsoValidaMock(hasta)) return fail(400, "PARAMETRO_INVALIDO", "Una fecha no tiene un formato válido");
+    if (desde > hasta) return fail(400, "RANGO_INVALIDO", `desde (${desde}) no puede ser posterior a hasta (${hasta})`);
+    const dias = Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000) + 1;
+    if (dias > 62) return fail(400, "RANGO_INVALIDO", `La emisión por día admite hasta 62 días y se pidieron ${dias}: acote desde y hasta`);
+    const facturables = ["ACEPTADO", "ACEPTADO_CON_OBS", "ENVIADO", "FIRMADO", "ERROR_ENVIO", "PENDIENTE_AGRUPACION"];
+    const porFecha = new Map<string, { emitidos: number; porMoneda: Map<string, number> }>();
+    for (const f of db.facturasPorEmpresa.get(empresaId) ?? []) {
+      if (f.fecha_emision < desde || f.fecha_emision > hasta) continue;
+      const emitido = !["RECIBIDO", "INVALIDO"].includes(f.estado_documento);
+      const factura = facturables.includes(f.estado_documento);
+      if (!emitido && !factura) continue;
+      const dia = porFecha.get(f.fecha_emision) ?? { emitidos: 0, porMoneda: new Map<string, number>() };
+      if (emitido) dia.emitidos++;
+      if (factura) dia.porMoneda.set(f.moneda, Math.round(((dia.porMoneda.get(f.moneda) ?? 0) + (f.tipo === "07" ? -f.totales.total : f.totales.total)) * 100) / 100);
+      porFecha.set(f.fecha_emision, dia);
+    }
+    return ok({
+      desde,
+      hasta,
+      dias: [...porFecha.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([fecha, d]) => ({ fecha, emitidos: d.emitidos, facturado: [...d.porMoneda.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([moneda, total]) => ({ moneda, total })) })),
     });
   }),
 

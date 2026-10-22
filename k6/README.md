@@ -126,6 +126,25 @@ anticipos, documentos relacionados y cuotas), y que la tabla del portal pagara 1
 lo mide contando las sentencias que llegan a la base: una página de **30 comprobantes pasaba de 136 sentencias a 7**, el mismo número que con 3, y cada comprobante vuelve igual que con
 `buscar`. Las lecturas de una sola fila (`buscar`, `bloquear`) no cambian.
 
+## Panel de inicio con 100 000 comprobantes (#24)
+
+El issue pide que el panel cargue en menos de 1 s con datos reales. Medido el 2026-10-20 en un Windows 11 de desarrollo, con otros procesos compartiendo la CPU (al medir, 10–20 %
+de carga; horas antes estaba al 100 % con otras corridas): Postgres 16 en Docker (contenedor desechable), el backend con `bootRun` y el portal compilado (`next build` + `next start`)
+contra ese backend, sin mocks. Una empresa con **100 000 comprobantes** en los últimos 300 días (la siembra del test de volumen de `JdbcResumenDeComprobantesRepositoryTest`, por SQL),
+6 679 de ellos en el mes. Cinco lecturas después de una de calentamiento, con `curl -w %{time_total}`:
+
+| Lectura | Tiempos (s) |
+|---|---|
+| `GET /v1/facturas/resumen` del mes | 0.071 0.050 0.047 0.059 0.048 |
+| `GET /v1/facturas/resumen` sin rango (historial completo) | 0.111 0.112 0.095 0.098 0.093 |
+| `GET /v1/facturas/resumen/por-dia` del mes | 0.045 0.029 0.041 0.039 0.029 |
+| `GET /v1/facturas/resumen/por-dia` de 62 días (el máximo) | 0.063 0.061 0.052 0.056 0.070 |
+| Portal `/inicio` completo (layout + sus lecturas en paralelo, HTML del servidor) | 0.089 0.079 0.080 0.075 0.072 (la primera, en frío: 0.241) |
+| Portal `/comprobantes`, de referencia | 0.116 0.081 0.072 0.092 0.073 |
+
+En un Chromium (Playwright), `/inicio` hasta el evento `load`: 182, 122, 105, 123 y 106 ms (TTFB 73–138 ms). Muy por debajo del segundo. En `next dev` con la máquina al 100 % el
+mismo `/inicio` (con mocks) tardaba ~3 s, igual que cualquier otra página: es el costo del modo desarrollo, no del panel.
+
 ## Pendiente
 
 - Resumen diario con muchas **altas en un mismo envío**: hecho en #301 (hasta 500 líneas por fecha de emisión; medido en la tabla de arriba). Las **bajas** siguen yendo una por resumen a propósito: se piden de a una y una línea con error rechaza todo el resumen (2987).

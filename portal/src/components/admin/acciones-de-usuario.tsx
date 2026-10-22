@@ -146,7 +146,7 @@ function Impersonar({ cuentaId, usuarioId, correo, irA }: { cuentaId: string; us
       enviando={i.enviando}
       cancelar={t.restablecer.cancelar}
       ruta={`/api/admin/cuentas/${cuentaId}/usuarios/${usuarioId}/impersonar`}
-      alExito={() => irA("/comprobantes")}
+      alExito={() => irA("/inicio")}
     />
   );
 }

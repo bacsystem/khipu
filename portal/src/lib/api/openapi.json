@@ -5289,6 +5289,57 @@
         ]
       }
     },
+    "/v1/facturas/resumen/por-dia": {
+      "get": {
+        "tags": [
+          "Facturas"
+        ],
+        "summary": "Emisión por día de un período",
+        "description": "La emisión de la empresa día por día en un rango de fecha de emisión (`desde`/`hasta`, inclusive, **los dos obligatorios**, hasta 62 días): por cada día con\ncomprobantes, cuántos se **emitieron** y cuánto se **facturó por moneda**, con los mismos criterios que `GET /v1/facturas/resumen`. Los días sin comprobantes no\nvienen. Falta una fecha o está mal formada: `400 PARAMETRO_INVALIDO`; `desde > hasta` o más de 62 días: `400 RANGO_INVALIDO`.",
+        "operationId": "porDia",
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "description": "Fecha de emisión mínima, `YYYY-MM-DD` (inclusive)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "description": "Fecha de emisión máxima, `YYYY-MM-DD` (inclusive); a lo más 61 días después de `desde`",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmisionPorDiaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
     "/v1/facturas/exportacion": {
       "get": {
         "tags": [
@@ -15720,6 +15771,12 @@
             "format": "int64",
             "example": 100
           },
+          "en_camino": {
+            "type": "integer",
+            "description": "En camino a SUNAT, sin nada que corregir: firmados que aún no se envían, enviados que esperan su CDR y boletas que esperan su resumen diario. Las boletas sin enviar desde el 5.º día cuentan acá y también en `atencion_requerida.boletas_sin_enviar`",
+            "format": "int64",
+            "example": 8
+          },
           "atencion_requerida": {
             "$ref": "#/components/schemas/AtencionRequerida"
           },
@@ -15728,6 +15785,100 @@
             "description": "Lo facturado por moneda, ordenado por moneda; vacío si no hay nada. Cuentan los aceptados y los que están en camino; no los rechazados, fuera de plazo ni dados de baja",
             "items": {
               "$ref": "#/components/schemas/Facturado"
+            }
+          }
+        }
+      },
+      "ApiResponseEmisionPorDiaResponse": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/EmisionPorDiaResponse"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              },
+              "example": null
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": null
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "DiaDeEmision": {
+        "type": "object",
+        "properties": {
+          "fecha": {
+            "type": "string",
+            "description": "Fecha de emisión",
+            "format": "date",
+            "example": "2026-10-05"
+          },
+          "emitidos": {
+            "type": "integer",
+            "description": "Comprobantes firmados ese día, en cualquier estado, como `emitidos` del resumen",
+            "format": "int64",
+            "example": 12
+          },
+          "facturado": {
+            "type": "array",
+            "description": "Lo facturado ese día por moneda, ordenado por moneda, como `facturado` del resumen; vacío si no hay nada",
+            "items": {
+              "$ref": "#/components/schemas/Facturado"
+            }
+          }
+        },
+        "description": "Solo los días con algo emitido o facturado, ordenados por fecha; un día sin comprobantes no viene. Vacío si no hay nada en el rango"
+      },
+      "EmisionPorDiaResponse": {
+        "type": "object",
+        "properties": {
+          "desde": {
+            "type": "string",
+            "description": "El `desde` pedido",
+            "format": "date",
+            "example": "2026-10-01"
+          },
+          "hasta": {
+            "type": "string",
+            "description": "El `hasta` pedido",
+            "format": "date",
+            "example": "2026-10-31"
+          },
+          "dias": {
+            "type": "array",
+            "description": "Solo los días con algo emitido o facturado, ordenados por fecha; un día sin comprobantes no viene. Vacío si no hay nada en el rango",
+            "items": {
+              "$ref": "#/components/schemas/DiaDeEmision"
             }
           }
         }

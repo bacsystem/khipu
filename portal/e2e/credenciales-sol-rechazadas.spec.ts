@@ -9,7 +9,7 @@ test("con las credenciales SOL rechazadas el panel lo dice, y guardarlas de nuev
   await page.getByLabel("Correo electrónico").fill("sol-rechazada@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
 
   // Emitir sigue permitido (se firma y queda guardado), pero el diálogo avisa que el envío espera.
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();

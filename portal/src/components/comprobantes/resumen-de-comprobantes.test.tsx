@@ -9,6 +9,7 @@ const MES: PeriodoDelResumen = { desde: "2026-10-01", hasta: "2026-10-04", esElM
 const resumen = (extra: Partial<ResumenDeFacturas> = {}): ResumenDeFacturas => ({
   emitidos: 40,
   aceptados_con_cdr: 30,
+  en_camino: 5,
   atencion_requerida: { total: 0, rechazados: 0, errores_de_envio: 0, fuera_de_plazo: 0, boletas_sin_enviar: 0 },
   facturado: [{ moneda: "PEN", total: 12345.6 }],
   ...extra,

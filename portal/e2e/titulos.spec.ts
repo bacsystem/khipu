@@ -7,11 +7,12 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio$/);
 });
 
 /** C5: cada pestaña del panel dice en qué página está; antes todas se llamaban igual y no se distinguían entre varias abiertas. */
 for (const [ruta, titulo] of [
+  ["/inicio", "Inicio"],
   ["/comprobantes", "Comprobantes"],
   ["/series", "Series correlativas"],
   ["/empresa", "Fiscal y certificado"],

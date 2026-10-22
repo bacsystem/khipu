@@ -10,7 +10,7 @@
  */
 import type { components } from "./openapi";
 import type { Contrato, ContratoDePeticion, Verifica } from "./contrato";
-import type { Comprobante, ItemComprobante, Receptor, Baja, Anticipo, Detraccion, FormaPago, RetencionIgv, Percepcion, Exportacion, DescuentoAplicado, CargoAplicado, EventoComprobante, NotaResumen, Hidrobiologico, TransporteCarga, ResumenDeFacturas, EnvioAlCliente } from "./facturas";
+import type { Comprobante, ItemComprobante, Receptor, Baja, Anticipo, Detraccion, FormaPago, RetencionIgv, Percepcion, Exportacion, DescuentoAplicado, CargoAplicado, EventoComprobante, NotaResumen, Hidrobiologico, TransporteCarga, ResumenDeFacturas, EnvioAlCliente, EmisionPorDia } from "./facturas";
 import type { Empresa, EmpresaDetalle, Domicilio, PersonalizacionPdf, CredencialesApiSunat, PreferenciaDeEnvioAlCliente, CuerpoDeEnvioAlCliente } from "./empresas";
 import type { Validez } from "./validez";
 import type { Establecimiento } from "./establecimientos";
@@ -67,6 +67,7 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<TransporteCarga, S["TransporteCarga"]>>,
   Verifica<Contrato<ResumenDeFacturas, S["ResumenDeComprobantesResponse"]>>,
   Verifica<Contrato<EnvioAlCliente, S["EnvioAlClienteDto"]>>,
+  Verifica<Contrato<EmisionPorDia, S["EmisionPorDiaResponse"]>>,
   // empresas
   Verifica<Contrato<PreferenciaDeEnvioAlCliente, S["PreferenciaDeEnvioAlCliente"]>>,
   Verifica<ContratoDePeticion<CuerpoDeEnvioAlCliente, S["PreferenciaDeEnvioAlClienteRequest"]>>,

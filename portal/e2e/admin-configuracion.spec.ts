@@ -237,7 +237,7 @@ test.describe("aviso de mantenimiento", () => {
       await login.getByLabel("Correo electrónico").fill("demo@example.com");
       await login.getByLabel("Contraseña").fill("Passw0rd1");
       await login.getByRole("button", { name: "Iniciar sesión" }).click();
-      await expect(login).toHaveURL(/\/comprobantes/);
+      await expect(login).toHaveURL(/\/inicio/);
       await expect(login.getByTestId("banner-de-mantenimiento-texto")).toHaveText("Mantenimiento programado esta noche");
       await visitante.close();
     } finally {

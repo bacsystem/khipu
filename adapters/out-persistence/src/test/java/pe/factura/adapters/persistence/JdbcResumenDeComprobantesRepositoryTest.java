@@ -3,11 +3,13 @@ package pe.factura.adapters.persistence;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.out.ResumenDeComprobantesRepository.Facturado;
 import pe.factura.application.port.out.ResumenDeComprobantesRepository.Agregados;
+import pe.factura.application.port.out.ResumenDeComprobantesRepository.Celda;
 import pe.factura.domain.documento.EstadoDocumento;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -233,10 +235,30 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
             mejor = Math.min(mejor, (System.nanoTime() - inicio) / 1_000_000);
         }
 
-        System.out.println("RESUMEN_100K_MS=" + mejor);
+        // #24: sobre las mismas 100 000 filas (sembrar otras 100 000 en una prueba aparte tiraba la medición de esta), la emisión por día del mes del gráfico y de dos
+        // meses, lo más que admite.
+        LocalDate setiembre = LocalDate.of(2026, 9, 1);
+        repo.porDia(t, setiembre, LocalDate.of(2026, 9, 30));
+        long mejorMes = Long.MAX_VALUE;
+        long mejorDosMeses = Long.MAX_VALUE;
+        List<Celda> mes = null;
+        for (int i = 0; i < 3; i++) {
+            long inicio = System.nanoTime();
+            mes = repo.porDia(t, setiembre, LocalDate.of(2026, 9, 30));
+            mejorMes = Math.min(mejorMes, (System.nanoTime() - inicio) / 1_000_000);
+            inicio = System.nanoTime();
+            repo.porDia(t, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 30));
+            mejorDosMeses = Math.min(mejorDosMeses, (System.nanoTime() - inicio) / 1_000_000);
+        }
+
+        System.out.println("RESUMEN_100K_MS=" + mejor + " POR_DIA_100K_MES_MS=" + mejorMes + " POR_DIA_100K_DOS_MESES_MS=" + mejorDosMeses);
         assertThat(r.porEstado().values().stream().mapToLong(Long::longValue).sum()).isEqualTo(100_000);
         assertThat(r.facturado()).extracting(Facturado::moneda).containsExactly("PEN", "USD");
         assertThat(mejor).as("ms de la mejor lectura sobre 100 000 comprobantes").isLessThan(300);
+        assertThat(mes.stream().map(Celda::fecha).distinct().count()).as("del 1 al 27 de setiembre: la siembra llega hasta el día 269 del año").isEqualTo(27);
+        assertThat(mes.stream().mapToLong(Celda::cuantos).sum()).as("370 por día: los restos 1 a 100, que llevan uno más, caen en enero–abril").isEqualTo(27 * 370);
+        assertThat(mejorMes).as("ms de la mejor lectura por día de un mes sobre 100 000 comprobantes").isLessThan(300);
+        assertThat(mejorDosMeses).as("ms de la mejor lectura por día de dos meses sobre 100 000 comprobantes").isLessThan(300);
     }
 
     // --- la boleta FIRMADA sin enviar (#356) ------------------------------------------------------------------------------------------------
@@ -294,5 +316,74 @@ class JdbcResumenDeComprobantesRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.resumir(mia, null, null, HOY).boletasSinEnviar()).isEqualTo(1);
         assertThat(repo.resumir(mia, LocalDate.of(2026, 10, 11), null, HOY).boletasSinEnviar()).as("fuera del rango").isZero();
         assertThat(repo.resumir(mia, null, null, HOY.minusDays(1)).boletasSinEnviar()).as("ayer todavía no cumplía los 5 días").isZero();
+    }
+
+    // --- la emisión por día (#24) -----------------------------------------------------------------------------------------------------------
+
+    static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
+    static final LocalDate OCT_31 = LocalDate.of(2026, 10, 31);
+
+    LocalDate oct(int dia) { return LocalDate.of(2026, 10, dia); }
+
+    List<Celda> porDia(UUID t) { return repo.porDia(t, OCT_1, OCT_31); }
+
+    @Test void agrupaPorDiaTipoEstadoYMonedaConLasNotasDeCreditoRestando() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "PEN", "1000");
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "PEN", "1");
+        comprobante(t, "03", EstadoDocumento.ACEPTADO, oct(3), "PEN", "200");
+        comprobante(t, "07", EstadoDocumento.ACEPTADO, oct(3), "PEN", "300");
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, oct(3), "USD", "50.50");
+        comprobante(t, "01", EstadoDocumento.RECHAZADO, oct(3), "PEN", "7");
+        comprobante(t, "01", EstadoDocumento.ENVIADO, oct(9), "PEN", "10");
+
+        assertThat(porDia(t)).containsExactly(
+                new Celda(oct(3), "01", EstadoDocumento.ACEPTADO, "PEN", 2, new BigDecimal("1001.00")),
+                new Celda(oct(3), "01", EstadoDocumento.ACEPTADO, "USD", 1, new BigDecimal("50.50")),
+                new Celda(oct(3), "01", EstadoDocumento.RECHAZADO, "PEN", 1, new BigDecimal("7.00")),
+                new Celda(oct(3), "03", EstadoDocumento.ACEPTADO, "PEN", 1, new BigDecimal("200.00")),
+                new Celda(oct(3), "07", EstadoDocumento.ACEPTADO, "PEN", 1, new BigDecimal("-300.00")),
+                new Celda(oct(9), "01", EstadoDocumento.ENVIADO, "PEN", 1, new BigDecimal("10.00")));
+    }
+
+    @Test void elRangoEsInclusivoYSoloDeLaEmpresa() {
+        UUID mia = tenantDePrueba();
+        UUID otra = tenantDePrueba();
+        comprobante(mia, "01", EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 30), "PEN", "1");
+        comprobante(mia, "01", EstadoDocumento.ACEPTADO, OCT_1, "PEN", "2");
+        comprobante(mia, "01", EstadoDocumento.ACEPTADO, OCT_31, "PEN", "3");
+        comprobante(mia, "01", EstadoDocumento.ACEPTADO, LocalDate.of(2026, 11, 1), "PEN", "4");
+        comprobante(otra, "01", EstadoDocumento.ACEPTADO, oct(15), "PEN", "999");
+
+        assertThat(porDia(mia)).extracting(Celda::fecha).containsExactly(OCT_1, OCT_31);
+        assertThat(porDia(tenantDePrueba())).isEmpty();
+    }
+
+    /** Un documento sin fila de totales (nunca se armó) igual cuenta su estado, con moneda y neto nulos: el dominio decide que no es emitido ni facturado. */
+    @Test void unDocumentoSinTotalesVieneConMonedaYNetoNulos() {
+        UUID t = tenantDePrueba();
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '01', 'F001', ?, ?, 'RECIBIDO', 'x')",
+                UUID.randomUUID(), t, NUMERO.getAndIncrement(), java.sql.Date.valueOf(oct(4)));
+
+        assertThat(porDia(t)).containsExactly(new Celda(oct(4), "01", EstadoDocumento.RECIBIDO, null, 1, null));
+    }
+
+    /**
+     * La fecha de emisión es un DATE (el día de Lima en que se emitió): el día de cada celda no se corre con el huso de la JVM, ni en Lima (UTC−5) ni del otro lado de
+     * la línea de cambio de fecha.
+     */
+    @Test void elDiaNoSeCorreConElHusoHorarioDeLaJvm() {
+        UUID t = tenantDePrueba();
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, OCT_1, "PEN", "1");
+        comprobante(t, "01", EstadoDocumento.ACEPTADO, OCT_31, "PEN", "1");
+        java.util.TimeZone antes = java.util.TimeZone.getDefault();
+        try {
+            for (String huso : new String[]{"America/Lima", "Pacific/Kiritimati", "Pacific/Pago_Pago", "UTC"}) {
+                java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(huso));
+                assertThat(porDia(t)).as(huso).extracting(Celda::fecha).containsExactly(OCT_1, OCT_31);
+            }
+        } finally {
+            java.util.TimeZone.setDefault(antes);
+        }
     }
 }

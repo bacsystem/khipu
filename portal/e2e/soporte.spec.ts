@@ -16,7 +16,7 @@ test("el panel del cliente lo muestra en el pie y en su plan", async ({ page }) 
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
   await expect(page.getByText("¿Necesitas ayuda?")).toBeVisible();
 
   await page.goto("/cuenta/plan");

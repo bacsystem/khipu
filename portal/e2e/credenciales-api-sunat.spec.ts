@@ -5,11 +5,11 @@ import { expect, test } from "@playwright/test";
  * y se pueden quitar. Termina quitándolas: el mock es compartido y la empresa demo queda como estaba.
  */
 test("las credenciales API SUNAT se guardan, no se muestran y se quitan", async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("/login?next=/comprobantes");
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/^[^?]*\/comprobantes$/);
   await page.goto("/empresa?seccion=sol");
 
   const seccion = page.getByTestId("credenciales-api-sunat");

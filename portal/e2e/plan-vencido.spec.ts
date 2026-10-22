@@ -9,7 +9,7 @@ test("con el plan vencido, «Nuevo comprobante» lo dice y la emisión se rechaz
   await page.getByLabel("Correo electrónico").fill("vencido@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
 
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");

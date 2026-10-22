@@ -7,11 +7,11 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 async function entrar(page: Page, email: string, password: string) {
-  await page.goto("/login");
+  await page.goto("/login?next=/comprobantes");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/^[^?]*\/comprobantes$/);
 }
 
 /** El invitado entra por primera vez: aceptar la invitación no acepta los términos (#342), así que el panel se los pide antes de mostrarse. */

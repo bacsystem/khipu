@@ -7,6 +7,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ResumirComprobantesUseCase;
+import pe.factura.application.port.in.ResumirComprobantesUseCase.Dia;
+import pe.factura.application.port.in.ResumirComprobantesUseCase.PorDia;
 import pe.factura.application.port.in.ResumirComprobantesUseCase.Resumen;
 import pe.factura.application.port.in.ResumirComprobantesUseCase.Total;
 import pe.factura.domain.DomainException;
@@ -39,7 +41,7 @@ class FacturaResumenControllerTest {
     @MockBean ResumirComprobantesUseCase resumir;
 
     @Test void elResumenDiceLoEmitidoLoAceptadoLaAtencionDesglosadaYLoFacturadoPorMoneda() throws Exception {
-        when(resumir.resumir(EMPRESA, DESDE, HASTA)).thenReturn(new Resumen(DESDE, HASTA, 120, 100, 3, 2, 1, 4, List.of(new Total("PEN", new BigDecimal("12345.67")), new Total("USD", new BigDecimal("500.00")))));
+        when(resumir.resumir(EMPRESA, DESDE, HASTA)).thenReturn(new Resumen(DESDE, HASTA, 120, 100, 7, 3, 2, 1, 4, List.of(new Total("PEN", new BigDecimal("12345.67")), new Total("USD", new BigDecimal("500.00")))));
 
         mvc.perform(get("/v1/facturas/resumen").param("desde", "2026-09-01").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -47,6 +49,7 @@ class FacturaResumenControllerTest {
                 .andExpect(jsonPath("$.datos.hasta").value("2026-09-30"))
                 .andExpect(jsonPath("$.datos.emitidos").value(120))
                 .andExpect(jsonPath("$.datos.aceptados_con_cdr").value(100))
+                .andExpect(jsonPath("$.datos.en_camino").value(7))
                 .andExpect(jsonPath("$.datos.atencion_requerida.total").value(10))
                 .andExpect(jsonPath("$.datos.atencion_requerida.rechazados").value(3))
                 .andExpect(jsonPath("$.datos.atencion_requerida.errores_de_envio").value(2))
@@ -60,7 +63,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void sinFacturadoLaListaVaVaciaYNoAusente() throws Exception {
-        when(resumir.resumir(EMPRESA, null, null)).thenReturn(new Resumen(null, null, 0, 0, 0, 0, 0, 0, List.of()));
+        when(resumir.resumir(EMPRESA, null, null)).thenReturn(new Resumen(null, null, 0, 0, 0, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -70,7 +73,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void unRangoAbiertoNoMandaFechasNiLasDevuelve() throws Exception {
-        when(resumir.resumir(EMPRESA, null, HASTA)).thenReturn(new Resumen(null, HASTA, 1, 1, 0, 0, 0, 0, List.of()));
+        when(resumir.resumir(EMPRESA, null, HASTA)).thenReturn(new Resumen(null, HASTA, 1, 1, 0, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
                 .andExpect(status().isOk())
@@ -81,7 +84,7 @@ class FacturaResumenControllerTest {
     }
 
     @Test void pasaAlCasoDeUsoLaEmpresaAutenticadaYLasFechasTalCual() throws Exception {
-        when(resumir.resumir(any(), any(), any())).thenReturn(new Resumen(DESDE, HASTA, 0, 0, 0, 0, 0, 0, List.of()));
+        when(resumir.resumir(any(), any(), any())).thenReturn(new Resumen(DESDE, HASTA, 0, 0, 0, 0, 0, 0, 0, List.of()));
 
         mvc.perform(get("/v1/facturas/resumen").param("desde", "2026-09-01").param("hasta", "2026-09-30").requestAttr(TenantActual.ATRIBUTO, EMPRESA)).andExpect(status().isOk());
 
@@ -107,6 +110,68 @@ class FacturaResumenControllerTest {
 
     @Test void sinEmpresaAutenticadaPideUnaEmpresa() throws Exception {
         mvc.perform(get("/v1/facturas/resumen")).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("EMPRESA_REQUERIDA"));
+
+        verifyNoInteractions(resumir);
+    }
+
+    // --- la emisión por día (#24) -----------------------------------------------------------------------------------------------------------
+
+    static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
+    static final LocalDate OCT_31 = LocalDate.of(2026, 10, 31);
+
+    @Test void laEmisionPorDiaDiceCadaDiaConSusEmitidosYLoFacturadoPorMonedaEnSnakeCase() throws Exception {
+        when(resumir.porDia(EMPRESA, OCT_1, OCT_31)).thenReturn(new PorDia(OCT_1, OCT_31, List.of(
+                new Dia(LocalDate.of(2026, 10, 3), 4, List.of(new Total("PEN", new BigDecimal("1180.00")), new Total("USD", new BigDecimal("50.50")))),
+                new Dia(LocalDate.of(2026, 10, 9), 1, List.of()))));
+
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", "2026-10-01").param("hasta", "2026-10-31").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.desde").value("2026-10-01"))
+                .andExpect(jsonPath("$.datos.hasta").value("2026-10-31"))
+                .andExpect(jsonPath("$.datos.dias.length()").value(2))
+                .andExpect(jsonPath("$.datos.dias[0].fecha").value("2026-10-03"))
+                .andExpect(jsonPath("$.datos.dias[0].emitidos").value(4))
+                .andExpect(jsonPath("$.datos.dias[0].facturado[0].moneda").value("PEN"))
+                .andExpect(jsonPath("$.datos.dias[0].facturado[0].total").value(1180.0))
+                .andExpect(jsonPath("$.datos.dias[0].facturado[1].moneda").value("USD"))
+                .andExpect(jsonPath("$.datos.dias[0].facturado[1].total").value(50.5))
+                .andExpect(jsonPath("$.datos.dias[1].fecha").value("2026-10-09"))
+                .andExpect(jsonPath("$.datos.dias[1].facturado.length()").value(0));
+    }
+
+    @Test void sinDiasLaListaVaVaciaYNoAusente() throws Exception {
+        when(resumir.porDia(EMPRESA, OCT_1, OCT_31)).thenReturn(new PorDia(OCT_1, OCT_31, List.of()));
+
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", "2026-10-01").param("hasta", "2026-10-31").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.dias.length()").value(0));
+    }
+
+    @Test void laEmisionPorDiaExigeLasDosFechasYBienEscritasSinLlamarAlCasoDeUso() throws Exception {
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", "2026-10-01").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("hasta", "2026-10-31").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        for (String mala : List.of("01/10/2026", "2026-02-30", "ayer")) {
+            mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", mala).param("hasta", "2026-10-31").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        }
+
+        verifyNoInteractions(resumir);
+    }
+
+    @Test void unRangoDemasiadoLargoOAlRevesEs400ConSuCodigo() throws Exception {
+        when(resumir.porDia(any(), any(), any())).thenThrow(new DomainException("RANGO_INVALIDO", "La emisión por día admite hasta 62 días"));
+
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", "2026-01-01").param("hasta", "2026-12-31").requestAttr(TenantActual.ATRIBUTO, EMPRESA))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("RANGO_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje").value("La emisión por día admite hasta 62 días"));
+    }
+
+    @Test void laEmisionPorDiaSinEmpresaAutenticadaPideUnaEmpresa() throws Exception {
+        mvc.perform(get("/v1/facturas/resumen/por-dia").param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("EMPRESA_REQUERIDA"));
 
         verifyNoInteractions(resumir);
     }
