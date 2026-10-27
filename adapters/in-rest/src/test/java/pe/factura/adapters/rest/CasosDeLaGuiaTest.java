@@ -179,7 +179,7 @@ class CasosDeLaGuiaTest {
 
     /** El template literal `request` del caso {@code id}, tal como lo muestra la guía. */
     private static String request(String id) throws IOException {
-        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: `(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
+        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: (?:tecnico)?`(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
         assertThat(m.find()).as("caso %s en %s", id, CASOS.toAbsolutePath()).isTrue();
         assertThat(m.group(1)).as("el caso %s no interpola nada", id).doesNotContain("${");
         return m.group(1);

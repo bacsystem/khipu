@@ -79,7 +79,7 @@ class CasosDeGuiaRemisionDeLaGuiaTest {
     }
 
     private static String request(String id) throws Exception {
-        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: `(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
+        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: (?:tecnico)?`(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
         assertThat(m.find()).as("caso %s en %s", id, CASOS.toAbsolutePath()).isTrue();
         assertThat(m.group(1)).as("el caso %s no interpola nada", id).doesNotContain("${");
         return m.group(1);
@@ -88,6 +88,6 @@ class CasosDeGuiaRemisionDeLaGuiaTest {
     @Test void losCasosDeGuiaDicenSuEndpoint() throws Exception {
         String archivo = Files.readString(CASOS);
         for (String id : List.of("guia-remision-remitente", "guia-remision-transportista"))
-            assertThat(archivo).containsPattern(Pattern.compile("id: \"" + id + "\",\\s*titulo: \"[^\"]*\",\\s*endpoint: \"/v1/guias-remision\""));
+            assertThat(archivo).containsPattern(Pattern.compile("id: \"" + id + "\",\\s*endpoint: \"/v1/guias-remision\""));
     }
 }
