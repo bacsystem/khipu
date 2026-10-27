@@ -17,15 +17,11 @@ import pe.factura.domain.documento.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.*;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static pe.factura.adapters.rest.CasosDeLaGuia.request;
 
 /**
  * #351-H1/H6: los ejemplos de boleta de la guía para desarrolladores (`portal/.../casos-emision.ts`) son documentación pública. Este test los lee del
@@ -43,7 +40,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = {FacturaController.class, BajaController.class, LiquidacionCompraController.class, AgenteController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class CasosDeLaGuiaTest {
-    private static final Path CASOS = Path.of("../../portal/src/components/developers/guia/casos-emision.ts");
     private static final ZoneId LIMA = ZoneId.of("America/Lima");
     private static final String RUC_EMISOR = "20100066603";
 
@@ -175,14 +171,6 @@ class CasosDeLaGuiaTest {
             assertThat(real.isValueNode()).as("%s es un valor en el ejemplo y no en la API", ruta).isTrue();
             assertThat(real.asText()).as(ruta).isEqualTo(ejemplo.asText());
         }
-    }
-
-    /** El template literal `request` del caso {@code id}, tal como lo muestra la guía. */
-    private static String request(String id) throws IOException {
-        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: (?:tecnico)?`(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
-        assertThat(m.find()).as("caso %s en %s", id, CASOS.toAbsolutePath()).isTrue();
-        assertThat(m.group(1)).as("el caso %s no interpola nada", id).doesNotContain("${");
-        return m.group(1);
     }
 
     /** El JSON de la respuesta de ejemplo: el primer objeto después del comentario «// respuesta». */

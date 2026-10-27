@@ -18,12 +18,10 @@ import pe.factura.domain.documento.PuntoDeTraslado;
 import pe.factura.domain.documento.Traslado;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +32,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static pe.factura.adapters.rest.CasosDeLaGuia.request;
 
 /**
  * #39: los casos de guía de remisión de la guía para desarrolladores ({@code portal/.../casos-emision.ts}) son documentación pública. Cada request pasa por Jackson
@@ -42,7 +41,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = GuiaRemisionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @Import(GlobalExceptionHandler.class)
 class CasosDeGuiaRemisionDeLaGuiaTest {
-    private static final Path CASOS = Path.of("../../portal/src/components/developers/guia/casos-emision.ts");
     private static final ZoneId LIMA = ZoneId.of("America/Lima");
     private static final String RUC_EMISOR = "20100066603";
 
@@ -78,15 +76,8 @@ class CasosDeGuiaRemisionDeLaGuiaTest {
         return g;
     }
 
-    private static String request(String id) throws Exception {
-        Matcher m = Pattern.compile("id: \"" + Pattern.quote(id) + "\",.*?request: (?:tecnico)?`(.*?)`,", Pattern.DOTALL).matcher(Files.readString(CASOS));
-        assertThat(m.find()).as("caso %s en %s", id, CASOS.toAbsolutePath()).isTrue();
-        assertThat(m.group(1)).as("el caso %s no interpola nada", id).doesNotContain("${");
-        return m.group(1);
-    }
-
     @Test void losCasosDeGuiaDicenSuEndpoint() throws Exception {
-        String archivo = Files.readString(CASOS);
+        String archivo = Files.readString(CasosDeLaGuia.ARCHIVO);
         for (String id : List.of("guia-remision-remitente", "guia-remision-transportista"))
             assertThat(archivo).containsPattern(Pattern.compile("id: \"" + id + "\",\\s*endpoint: \"/v1/guias-remision\""));
     }
