@@ -41,6 +41,22 @@ class FlyingSaucerPdfGeneratorTest {
         return c;
     }
 
+    /**
+     * LOG-04 (misma causa que en el XML): la representación impresa escribía la cantidad con {@code #,##0.###} (3 decimales, HALF_EVEN), así que 0.00004 salía «0» y
+     * 1234.1234567891 «1,234.123», distinto de lo que se firmó y de lo que SUNAT aceptó. La cantidad se imprime con todos sus decimales (hasta 10), como en la guía.
+     */
+    @Test void laCantidadSeImprimeConTodosSusDecimales() {
+        Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", RECEPTOR, List.of(
+                new Item("A", "Oro fino", "GRM", new BigDecimal("0.00004"), new BigDecimal("100000.00"), TipoAfectacionIgv.GRAVADO),
+                new Item("B", "Cobre", "KGM", new BigDecimal("1234.1234567891"), new BigDecimal("1.00"), TipoAfectacionIgv.GRAVADO),
+                new Item("C", "Libro", "NIU", new BigDecimal("2"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).referencias(Referencias.ninguna()).crear(CLOCK);
+        c.asignarNumero(126, "20100066603");
+        c.firmar("hash==", "k");
+        String html = generador.xhtml(c, TENANT, "qr", null);
+        assertThat(html).contains("<td class=\"n\">0.00004</td>", "<td class=\"n\">1,234.1234567891</td>", "<td class=\"n\">2</td>")
+                .doesNotContain("<td class=\"n\">0</td>").doesNotContain("1,234.123<");
+    }
+
     static Comprobante notaCredito() {
         Comprobante c = Comprobante.nota(UUID.randomUUID(), TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 125, "07", "Devolución de una laptop"), RECEPTOR, List.of(new Item("A", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO))).crear(CLOCK);
         c.asignarNumero(7, "20100066603");
