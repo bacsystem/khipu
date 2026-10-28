@@ -155,7 +155,8 @@
     <tbody>
       <#list tot.items() as l>
       <tr>
-        <td class="n">${l.item().cantidad()?string("#,##0.###")}</td>
+        <#-- LOG-04: la cantidad con todos sus decimales (hasta 10), como se firmó; con "#,##0.###" 0.00004 se imprimía «0». Igual que guia.ftl. -->
+        <td class="n">${l.item().cantidad()?string("#,##0.##########")}</td>
         <td class="c">${l.item().unidad()}</td>
         <td>${l.item().codigo()!""}</td>
         <td>
