@@ -169,12 +169,16 @@ final class Fakes {
     }
     static class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
-        /** Corre una sola vez en el próximo buscar: «otro proceso» escribe entre la lectura del servicio y su guardado (LOG-05). */
+        /**
+         * Corre una sola vez, justo después de la próxima lectura y antes de devolverla: «otro proceso» escribe entre la lectura del servicio y su guardado (LOG-05). El
+         * servicio recibe lo que leyó antes de ese escrito, como una transacción de verdad.
+         */
         Runnable alBuscar;
         public void guardar(Tenant t) { datos.put(t.id(), t); }
         public Optional<Tenant> buscar(UUID id) {
+            Optional<Tenant> leido = Optional.ofNullable(datos.get(id));
             if (alBuscar != null) { Runnable r = alBuscar; alBuscar = null; r.run(); }
-            return Optional.ofNullable(datos.get(id));
+            return leido;
         }
         public Optional<Tenant> buscarPorRuc(String ruc) { return datos.values().stream().filter(t -> t.ruc().equals(ruc)).findFirst(); }
         final Map<UUID, UUID> cuentas = new HashMap<>();
