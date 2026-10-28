@@ -1,0 +1,56 @@
+# Dependabot (CAL-02 / DEPS-03, auditoría 2026-10-22): con ~190 jars y ~900 paquetes npm, un CVE nuevo se descubría tarde. Una PR semanal por ecosistema, con las
+# actualizaciones menores y de parche agrupadas para no abrir decenas de PRs; las mayores (Spring Boot 5, Next 16…) llegan sueltas, que son las que se revisan a mano.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Lima
+    open-pull-requests-limit: 5
+    groups:
+      gradle-menores:
+        update-types: [minor, patch]
+    labels: [dependencies, backend]
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: npm
+    directory: /portal
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Lima
+    open-pull-requests-limit: 5
+    groups:
+      npm-menores:
+        update-types: [minor, patch]
+    labels: [dependencies, portal]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Lima
+    labels: [dependencies, ops]
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: docker
+    directory: /portal
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Lima
+    labels: [dependencies, portal]
+    commit-message:
+      prefix: build
