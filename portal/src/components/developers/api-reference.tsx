@@ -71,6 +71,13 @@ export function ApiReference({ spec, baseServerURL, apiKey }: { spec: Record<str
     mcp: { disabled: true },
     agent: { disabled: true },
     hideClientButton: true,
+    // DEPS-01: nada sale hacia scalar.com. Con `proxyUrl` indefinido Scalar manda cada «Test Request» por
+    // https://proxy.scalar.com (con la API key real del tenant y el cuerpo del ejemplo: datos personales de terceros);
+    // cualquier valor definido anula ese default y "" es «sin proxy», posible porque el backend admite CORS desde
+    // PORTAL_URL con X-Api-Key. `withDefaultFonts` cargaría Inter desde fonts.scalar.com y `telemetry` viene activada.
+    proxyUrl: "",
+    withDefaultFonts: false,
+    telemetry: false,
     authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
   };
 
