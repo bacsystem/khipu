@@ -55,9 +55,22 @@ final class Fakes {
         public boolean levantar(UUID t, Instant ahora) { levantados++; return filas.remove(t) != null; }
     }
 
-    static final class Comprobantes implements ComprobanteRepository {
+    static class Comprobantes implements ComprobanteRepository {
         final Map<UUID, Comprobante> datos = new HashMap<>();
+        /** Reservas de envío vivas (LOG-01), como la columna enviando_desde: desde cuándo está reservado cada comprobante. */
+        final Map<UUID, Instant> reservas = new HashMap<>();
+        /**
+         * Como el repositorio real (LOG-01): la actualización es condicional al estado desde el que salió la transición en memoria (o al actual si no hay transición), o al
+         * mismo estado destino (dos réplicas con el mismo resultado, #325-H2); una copia leída antes de que otro guardara otro resultado no lo pisa. Libera la reserva del envío.
+         */
         public void guardar(Comprobante c) {
+            Comprobante enBase = datos.get(c.id());
+            if (enBase != null && enBase != c) {
+                EstadoDocumento origen = c.eventosPendientes().isEmpty() ? c.estado() : c.eventosPendientes().get(0).estadoAnterior();
+                if (origen != null && enBase.estado() != origen && enBase.estado() != c.estado())
+                    throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción: está " + enBase.estado() + " y se esperaba " + origen);
+            }
+            reservas.remove(c.id());
             datos.put(c.id(), c);
             for (EventoDocumento e : c.eventosPendientes()) eventos.computeIfAbsent(c.id(), k -> new ArrayList<>()).add(new EventoDocumento(e.estadoAnterior(), e.estadoNuevo(), e.detalle(), Instant.now()));
             c.eventosGuardados();
@@ -66,6 +79,14 @@ final class Fakes {
         /** Cuántas veces se pidió una fila con bloqueo: quien serializa a los administradores (#196) tiene que pedirla así. */
         int bloqueos;
         public Optional<Comprobante> bloquear(UUID t, UUID id) { bloqueos++; return buscar(t, id); }
+        public synchronized boolean reservarEnvio(UUID t, UUID id, Instant ahora, Instant reservaVencidaAntesDe) {
+            Comprobante c = datos.get(id);
+            if (c == null || !c.tenantId().equals(t) || !c.estado().esEnviable()) return false;
+            Instant desde = reservas.get(id);
+            if (desde != null && !desde.isBefore(reservaVencidaAntesDe)) return false;
+            reservas.put(id, ahora);
+            return true;
+        }
         public BigDecimal montoRegularizado(UUID t, String serie, long numero) {
             return datos.values().stream().filter(c -> c.tenantId().equals(t) && c.estado() != EstadoDocumento.RECHAZADO && c.estado() != EstadoDocumento.INVALIDO)
                     .flatMap(c -> c.anticipos().stream()).filter(a -> a.serie().equals(serie) && a.numero() == numero)
@@ -182,7 +203,13 @@ final class Fakes {
         RuntimeException fallaResumen; RuntimeException fallaStatus; String ticket = "T-1"; String statusCode = "0"; int consultas;
         /** Cuántos sendSummary llegaron a SUNAT (con o sin falla): un resumen de varias líneas es uno solo (#301). */
         int resumenes;
-        public byte[] sendBill(Tenant t, String nombre, byte[] xml) { enviados++; ultimoNombre = nombre; if (falla != null) throw falla; return respuesta; }
+        /** Corre una sola vez, al entrar al próximo sendBill y antes de responder: sirve para que «otro proceso» intente enviar mientras SUNAT todavía no contestó a este. */
+        Runnable alEnviar;
+        public byte[] sendBill(Tenant t, String nombre, byte[] xml) {
+            enviados++; ultimoNombre = nombre;
+            if (alEnviar != null) { Runnable r = alEnviar; alEnviar = null; r.run(); }
+            if (falla != null) throw falla; return respuesta;
+        }
         public String sendSummary(Tenant t, String nombre, byte[] xml) { ultimoNombre = nombre; resumenes++; if (fallaResumen != null) throw fallaResumen; return ticket; }
         /** Corre una sola vez al empezar la próxima consulta del ticket: sirve para que "otro proceso" avance mientras este espera la respuesta de SUNAT. */
         Runnable alConsultar;

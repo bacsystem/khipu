@@ -2,19 +2,29 @@ package pe.factura.application.service;
 
 import pe.factura.application.port.in.EnviarDocumentoUseCase;
 import pe.factura.application.port.in.InformarEnResumenUseCase;
+import pe.factura.application.port.in.RecuperarCdrUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Cdr;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.documento.FaultsSunat;
+import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
 public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     public static final String ACCION_ENVIAR = "ENVIAR";
+    /**
+     * LOG-01: una reserva de envío ({@link ComprobanteRepository#reservarEnvio}) sin resultado guardado por más de esto es de un proceso que murió entre el sendBill y
+     * el guardado; otro envío puede retomarla. Holgado frente al peor caso de una llamada (timeout HTTP de 15 s por tres intentos ante 401, más el storage).
+     */
+    public static final Duration ENVIO_SIN_RESPUESTA = Duration.ofMinutes(5);
 
     private final ComprobanteRepository comprobantes;
     private final TenantRepository tenants;
@@ -27,6 +37,8 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     private final RechazoDeSolRepository rechazosDeSol;
     /** Para la boleta que pasó el envío individual; sin él (tests que no envían boletas viejas) se cierra como fuera de plazo. */
     private final InformarEnResumenUseCase resumen;
+    /** LOG-01: con un fault «ya registrado» pide a SUNAT la constancia (getStatusCdr) en vez de rechazar; sin él (tests) el comprobante queda en ERROR_ENVIO con el motivo. */
+    private final RecuperarCdrUseCase recuperador;
 
     public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
                                   CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock) {
@@ -41,6 +53,13 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
                                   CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock, RechazoDeSolRepository rechazosDeSol,
                                   InformarEnResumenUseCase resumen) {
+        this(comprobantes, tenants, storage, gateway, cdrParser, outbox, uow, clock, rechazosDeSol, resumen, null);
+    }
+
+    public EnviarDocumentoService(ComprobanteRepository comprobantes, TenantRepository tenants, DocumentStorage storage, SunatBillingGateway gateway,
+                                  CdrParser cdrParser, OutboxRepository outbox, UnitOfWork uow, Clock clock, RechazoDeSolRepository rechazosDeSol,
+                                  InformarEnResumenUseCase resumen, RecuperarCdrUseCase recuperador) {
+        this.recuperador = recuperador;
         this.resumen = resumen;
         this.comprobantes = comprobantes;
         this.tenants = tenants;
@@ -74,6 +93,14 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         }
         Tenant tenant = tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado"));
         tenant.exigirCredencialesSol();
+        // LOG-01: el envío se reserva antes de llamar a SUNAT, en una transacción corta y condicional (sigue FIRMADO/ERROR_ENVIO y nadie lo tiene reservado). Dos
+        // envíos del mismo comprobante dentro de los 15 s del sendBill (un POST y el outbox, o el reintento del administrador) mandaban el mismo número dos veces y el
+        // segundo recibía 1033 → RECHAZADO sobre el ACEPTADO del primero. El guardado del resultado libera la reserva; una sin respuesta caduca (ENVIO_SIN_RESPUESTA).
+        Instant ahora = clock.instant();
+        boolean reservado = uow.ejecutar(() -> comprobantes.reservarEnvio(tenantId, comprobanteId, ahora, ahora.minus(ENVIO_SIN_RESPUESTA)));
+        if (!reservado)
+            throw new DomainException("ENVIO_EN_CURSO", c.nombreArchivo() + ": otro proceso lo está enviando a SUNAT o acaba de resolverlo; el mismo comprobante no se manda dos veces. "
+                    + "Consulte su estado en unos segundos");
 
         String credencialesRechazadas = null;
         try {
@@ -93,7 +120,19 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
         } catch (SunatTransientException e) {
             c.marcarErrorEnvio(e.codigo() + " - " + e.getMessage());
         } catch (SunatRechazoException e) {
-            c.rechazarPorFault(e.codigo(), e.descripcion());
+            if (FaultsSunat.yaEnSunat(e.codigo())) {
+                // LOG-01: «registrado previamente» no es un rechazo: un envío anterior llegó (timeout, caída antes de guardar) y SUNAT lo tiene. Se le pide la constancia;
+                // si no se puede (boleta, liquidación, agente, e-beta, SUNAT caído), queda en ERROR_ENVIO con el motivo y nunca RECHAZADO sobre algo que SUNAT aceptó.
+                Comprobante recuperado = recuperarDeSunat(tenant, c);
+                if (recuperado != null) {
+                    uow.ejecutar(() -> outbox.completarPorAgregado(c.id(), ACCION_ENVIAR));
+                    return recuperado;
+                }
+                c.marcarErrorEnvio(e.codigo() + " - " + e.descripcion() + ". SUNAT ya tiene registrado este comprobante: un envío anterior llegó aunque khipu no recibió la respuesta. "
+                        + (c.consultableEnGetStatusCdr() ? "Su constancia se recupera por getStatusCdr (en producción)" : "No se consulta por getStatusCdr: verifique su CDR en SOL y, si está aceptado, no lo reemita"));
+            } else {
+                c.rechazarPorFault(e.codigo(), e.descripcion());
+            }
         } catch (IllegalStateException e) {   // storage, ZIP o CDR ilegible: infraestructura, reintentable
             c.marcarErrorEnvio("INFRA - " + e.getMessage());
         } catch (RuntimeException e) {
@@ -117,5 +156,20 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
                 outbox.programar(tenantId, ACCION_ENVIAR, c.id(), Backoff.siguiente(c.intentos(), clock.instant()));
         });
         return c;
+    }
+
+    /**
+     * La constancia de un comprobante que SUNAT dice tener ya: solo la factura y sus notas (serie F) en producción responden getStatusCdr. Devuelve el comprobante
+     * resuelto (ACEPTADO, ACEPTADO_CON_OBS o RECHAZADO según el CDR, ya persistido por {@link RecuperarCdrUseCase}) o {@code null} si no se pudo: el llamador lo deja
+     * en ERROR_ENVIO con el motivo y el barrido de CDR lo vuelve a intentar.
+     */
+    private Comprobante recuperarDeSunat(Tenant tenant, Comprobante c) {
+        if (recuperador == null || !c.consultableEnGetStatusCdr() || tenant.entorno() != Entorno.PRODUCCION) return null;
+        try {
+            Comprobante r = recuperador.recuperar(tenant.id(), c.id());
+            return r.cdrKey() != null && !r.estado().esEnviable() && r.estado() != EstadoDocumento.ENVIADO ? r : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 }

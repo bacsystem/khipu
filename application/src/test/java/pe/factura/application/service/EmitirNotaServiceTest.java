@@ -708,8 +708,9 @@ class EmitirNotaServiceTest {
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
+    /** Lo que otra transacción ya dejó en la base: la fila ANULADA tal cual, sin pasar por el guardado (que, como el real, exige el estado de origen; LOG-01). */
     private void anular(Comprobante f) {
-        comprobantes.guardar(Comprobante.persistido(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), EstadoDocumento.ANULADO, f.receptor(), f.items()).horaEmision(f.horaEmision()).fechaVencimiento(f.fechaVencimiento()).moneda(f.moneda()).tipoOperacion(f.tipoOperacion()).formaPago(f.formaPago()).descuentoGlobal(f.descuentoGlobal()).cargos(f.cargos()).detraccion(f.detraccion()).retencion(f.retencion()).percepcion(f.percepcion()).anticipos(f.anticipos()).referencias(f.referencias()).nota(f.nota()).firma(f.hash(), f.nombreArchivo(), f.xmlKey()).cdr(f.cdr(), f.cdrKey()).envio(f.intentos(), f.ultimoError()).rehidratar());
+        comprobantes.datos.put(f.id(), Comprobante.persistido(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), EstadoDocumento.ANULADO, f.receptor(), f.items()).horaEmision(f.horaEmision()).fechaVencimiento(f.fechaVencimiento()).moneda(f.moneda()).tipoOperacion(f.tipoOperacion()).formaPago(f.formaPago()).descuentoGlobal(f.descuentoGlobal()).cargos(f.cargos()).detraccion(f.detraccion()).retencion(f.retencion()).percepcion(f.percepcion()).anticipos(f.anticipos()).referencias(f.referencias()).nota(f.nota()).firma(f.hash(), f.nombreArchivo(), f.xmlKey()).cdr(f.cdr(), f.cdrKey()).envio(f.intentos(), f.ultimoError()).rehidratar());
     }
 
     @Test void sinSerieDeNotaConfigurada() {

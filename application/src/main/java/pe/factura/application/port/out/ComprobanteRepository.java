@@ -13,7 +13,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ComprobanteRepository {
+    /**
+     * Inserta el comprobante o actualiza su fila. La actualización es condicional al estado desde el que salió la transición en memoria (el primer evento pendiente; el
+     * estado actual si no hay transición): si la fila ya está en otro estado, lanza {@code ESTADO_CONFLICTO} y no pisa lo que otra transacción persistió (LOG-01). También
+     * libera la reserva del envío ({@link #reservarEnvio}): el intento terminó, cualquiera sea su resultado.
+     */
     void guardar(Comprobante c); // insert o update por id
+    /**
+     * LOG-01: reserva el envío a SUNAT con una actualización condicional, solo si el comprobante sigue FIRMADO o en ERROR_ENVIO y nadie más lo tiene reservado (o su reserva es
+     * anterior a {@code reservaVencidaAntesDe}: el proceso murió entre el sendBill y el guardado). {@code false} si otro lo está enviando o ya cambió de estado: el mismo número
+     * no se manda dos veces. La libera {@link #guardar}.
+     */
+    boolean reservarEnvio(UUID tenantId, UUID id, java.time.Instant ahora, java.time.Instant reservaVencidaAntesDe);
     Optional<Comprobante> buscar(UUID tenantId, UUID id);
     /** Como buscar, pero deja la fila bloqueada hasta el fin de la transacción (p. ej. para dar de baja sin carreras). */
     Optional<Comprobante> bloquear(UUID tenantId, UUID id);

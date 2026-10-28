@@ -1750,6 +1750,7 @@
     "RECEPTOR_INVALIDO": "El receptor debe tener un RUC válido.",
     "NUMERO_YA_ASIGNADO": "El comprobante ya tiene un número asignado.",
     "ESTADO_NO_ENVIABLE": "El comprobante no está en un estado que se pueda enviar a SUNAT.",
+    "ENVIO_EN_CURSO": "Otro proceso está enviando este comprobante a SUNAT. Consulta su estado en unos segundos.",
     "ESTADO_CONFLICTO": "El comprobante cambió de estado justo ahora. Vuelve a intentarlo.",
     "TRANSICION_INVALIDA": "No se puede realizar ese cambio de estado sobre el comprobante.",
     "SIN_CDR": "El comprobante todavía no tiene CDR de SUNAT.",
@@ -4602,6 +4603,10 @@
         "ESTADO_NO_ENVIABLE": [
           "Se intentó enviar un comprobante ACEPTADO, RECHAZADO o ANULADO.",
           "Solo FIRMADO y ERROR_ENVIO se envían."
+        ],
+        "ENVIO_EN_CURSO": [
+          "Otro envío del mismo comprobante (otra llamada o el reintento automático) está esperando la respuesta de SUNAT.",
+          "No se manda dos veces: consulte el comprobante en unos segundos."
         ],
         "ESTADO_CONFLICTO": [
           "Dos operaciones cambiaron el estado a la vez.",

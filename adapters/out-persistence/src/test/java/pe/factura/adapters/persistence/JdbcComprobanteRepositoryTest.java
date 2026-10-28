@@ -812,6 +812,75 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
     }
 
+    /** LOG-01: la reserva del envío es exclusiva, caduca, la libera el guardado del resultado y solo toma lo que sigue por enviar. */
+    @Test void laReservaDelEnvioEsExclusivaCaducaYSeLiberaAlGuardar() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 30);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        Instant ahora = clock.instant();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora, ahora.minusSeconds(300))).isTrue();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora.plusSeconds(1), ahora.minusSeconds(299))).as("otro la tiene").isFalse();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora.plusSeconds(301), ahora.plusSeconds(1))).as("caducó: el proceso murió y otro la retoma").isTrue();
+
+        c.marcarErrorEnvio("0109 - timeout");
+        repo.guardar(c);
+        assertThat(jdbc.queryForObject("SELECT enviando_desde FROM documento WHERE id = ?", java.sql.Timestamp.class, c.id())).as("el guardado libera").isNull();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora, ahora.minusSeconds(300))).isTrue();
+
+        Comprobante aceptado = factura(t, 31);
+        aceptado.firmar("h", "k");
+        repo.guardar(aceptado);
+        aceptado.marcarEnviado();
+        aceptado.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(aceptado);
+        assertThat(repo.reservarEnvio(t, aceptado.id(), ahora, ahora.minusSeconds(300))).as("lo que ya no se envía no se reserva").isFalse();
+        assertThat(repo.reservarEnvio(UUID.randomUUID(), c.id(), ahora, ahora.minusSeconds(300))).as("otro tenant").isFalse();
+    }
+
+    /**
+     * LOG-01: un resultado tardío de envío (el 1033 del segundo envío sobre el ACEPTADO del primero, el FUERA_DE_PLAZO del barrido sobre lo recién recuperado) no pisa el
+     * estado que otra transacción ya persistió: la actualización exige el estado desde el que salió la transición. Sin transición (restaurar el CDR) la misma fila se actualiza.
+     */
+    @Test void unResultadoTardioNoPisaUnEstadoTerminalYSinTransicionLaFilaSeActualiza() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 32);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        Comprobante leidaPorElSegundoEnvio = copia(c, t, EstadoDocumento.FIRMADO);
+        Comprobante leidaPorElBarrido = copia(c, t, EstadoDocumento.FIRMADO);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(c);
+
+        leidaPorElSegundoEnvio.rechazarPorFault("1033", "registrado previamente");   // FIRMADO → ENVIADO → RECHAZADO, desde FIRMADO
+        assertThatThrownBy(() -> repo.guardar(leidaPorElSegundoEnvio)).isInstanceOf(pe.factura.domain.DomainException.class)
+                .hasMessageContaining("ACEPTADO").extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        leidaPorElBarrido.marcarFueraDePlazo(LocalDate.of(2026, 10, 13));
+        assertThatThrownBy(() -> repo.guardar(leidaPorElBarrido)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(repo.eventosDe(t, c.id())).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ENVIADO, EstadoDocumento.ACEPTADO);
+
+        Comprobante aceptado = repo.buscar(t, c.id()).orElseThrow();
+        aceptado.restaurarCdr(new Cdr("0", "aceptada", List.of("4252 - obs")), "k/cdr-2.zip");
+        repo.guardar(aceptado);
+        assertThat(repo.buscar(t, c.id()).orElseThrow().cdrKey()).isEqualTo("k/cdr-2.zip");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
+    }
+
+    /** LOG-01: lo que otro proceso tiene reservado para enviar no entra al barrido de plazo (su resultado llega en segundos); una reserva caducada ya no lo protege. */
+    @Test void loReservadoParaEnviarNoEntraAlControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 33);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).contains(c.id());
+        assertThat(repo.reservarEnvio(t, c.id(), Instant.now(), Instant.now().minusSeconds(300))).isTrue();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).doesNotContain(c.id());
+        jdbc.update("UPDATE documento SET enviando_desde = now() - interval '6 minutes' WHERE id = ?", c.id());
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).contains(c.id());
+    }
+
     /** Una copia rehidratada con el estado y el fallo que se le diga, como la leería otra transacción. */
     private Comprobante copia(Comprobante c, UUID t, EstadoDocumento estado) {
         return Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", c.numero(), LocalDate.of(2026, 9, 13), estado, c.receptor(), c.items()).horaEmision(c.horaEmision())

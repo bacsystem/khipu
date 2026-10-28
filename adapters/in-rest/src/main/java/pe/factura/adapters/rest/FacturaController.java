@@ -254,6 +254,10 @@ public class FacturaController {
     @Operation(summary = "Enviar (o reintentar) a SUNAT", description = """
             Envía un comprobante `FIRMADO` (emitido con `enviar_automatico: false`) o reintenta uno en `ERROR_ENVIO` sin
             esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.
+            El envío se reserva antes de llamar a SUNAT: mientras ese envío no tenga respuesta, un segundo envío del mismo comprobante (otra llamada, el reintento
+            automático) responde `409 ENVIO_EN_CURSO` en vez de mandar el mismo número dos veces; consulte el comprobante unos segundos después. Si SUNAT contesta que
+            ya lo tiene registrado (fault 1033 y afines), no queda `RECHAZADO`: khipu recupera su constancia por `getStatusCdr` (factura y notas de factura, en producción)
+            y, si no puede, lo deja en `ERROR_ENVIO` con el motivo.
             Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
             (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`: SUNAT no la rechaza, pero puede observarla con la
             4443 (entonces `ACEPTADO_CON_OBS`; en e-beta la aceptó sin observaciones, `ACEPTADO`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)

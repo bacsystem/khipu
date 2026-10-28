@@ -21,25 +21,32 @@ import java.util.*;
 public class JdbcComprobanteRepository implements ComprobanteRepository {
     private final JdbcTemplate jdbc;
 
-    /** Estados desde los que un envío en curso puede escribir ERROR_ENVIO o ENVIADO sin pisar un estado terminal. */
-    private static final String ESTADOS_DE_ENVIO = "('FIRMADO','ERROR_ENVIO','ENVIADO')";
+    /**
+     * LOG-01: lo que otro proceso tiene reservado para enviar ({@link #reservarEnvio}) no lo toman el barrido de plazo ni la agrupación en un resumen diario: su resultado
+     * llega en segundos y pisarlo dejaría FUERA_DE_PLAZO o «en resumen» lo que SUNAT acaba de aceptar. La caducidad es la misma que {@code EnviarDocumentoService.ENVIO_SIN_RESPUESTA}.
+     */
+    private static final String SIN_ENVIO_EN_CURSO = " AND (d.enviando_desde IS NULL OR d.enviando_desde < now() - interval '5 minutes')";
 
     @Override public void guardar(Comprobante c) {
-        // Un envío tardío (p. ej. el worker y una llamada manual en paralelo) no debe sobreescribir un
-        // ACEPTADO/RECHAZADO ya persistido: al guardar ERROR_ENVIO o ENVIADO la actualización es condicional.
-        // Descartar (#196) también es condicional y más estricto: solo se descarta lo que sigue en error de envío en la base, no lo que un envío en paralelo ya resolvió.
-        String guardia = c.estado() == EstadoDocumento.DESCARTADO ? " AND estado = 'ERROR_ENVIO'"
-                : c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.ENVIADO ? " AND estado IN " + ESTADOS_DE_ENVIO : "";
-        boolean condicional = !guardia.isEmpty();
-        int filas = jdbc.update("""
-            UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
-              cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, updated_at = now() WHERE id = ? AND tenant_id = ?
-            """ + guardia,
-                c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
-                c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
-                c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId());
-        if (filas > 0) { registrarEventos(c); return; }
-        if (condicional) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción");
+        // LOG-01: toda actualización es condicional al estado desde el que salió la transición en memoria (el primer evento pendiente), o al estado actual si no hay
+        // transición (restaurar un CDR). Antes solo ERROR_ENVIO, ENVIADO y DESCARTADO llevaban guardia: un resultado tardío (el 1033 del segundo envío sobre el ACEPTADO
+        // del primero, el FUERA_DE_PLAZO del barrido sobre lo recién recuperado) pisaba lo que otra transacción ya había persistido. También pasa si la fila ya está en el
+        // estado destino: dos réplicas que resolvieron el mismo CDR escriben el mismo resultado (#325-H2) y la segunda no falla. Cero filas con la fila presente es
+        // ESTADO_CONFLICTO; con la fila ausente es un comprobante nuevo y se inserta. El guardado también libera la reserva del envío: el intento terminó.
+        List<EventoDocumento> pendientes = c.eventosPendientes();
+        EstadoDocumento origen = pendientes.isEmpty() ? c.estado() : pendientes.get(0).estadoAnterior();
+        if (origen != null) {
+            int filas = jdbc.update("""
+                UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
+                  cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, enviando_desde = NULL, updated_at = now() WHERE id = ? AND tenant_id = ? AND estado IN (?, ?)
+                """,
+                    c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
+                    c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
+                    c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId(), origen.name(), c.estado().name());
+            if (filas > 0) { registrarEventos(c); return; }
+            String enBase = jdbc.queryForList("SELECT estado FROM documento WHERE id = ? AND tenant_id = ?", String.class, c.id(), c.tenantId()).stream().findFirst().orElse(null);
+            if (enBase != null) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción: está " + enBase + " y se esperaba " + origen);
+        }
         jdbc.update("""
             INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, hora_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -178,10 +185,17 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> bloquear(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ? FOR UPDATE OF d", this::mapear, id, tenantId).stream().findFirst();
     }
+    /** LOG-01, ver el puerto. La caducidad va en la condición: una reserva huérfana (proceso caído entre el sendBill y el guardado) no bloquea el comprobante para siempre. */
+    @Override public boolean reservarEnvio(UUID tenantId, UUID id, java.time.Instant ahora, java.time.Instant reservaVencidaAntesDe) {
+        return jdbc.update("""
+            UPDATE documento SET enviando_desde = ?, updated_at = now()
+            WHERE id = ? AND tenant_id = ? AND estado IN ('FIRMADO', 'ERROR_ENVIO') AND (enviando_desde IS NULL OR enviando_desde < ?)
+            """, java.sql.Timestamp.from(ahora), id, tenantId, java.sql.Timestamp.from(reservaVencidaAntesDe)) == 1;
+    }
     @Override public List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, java.time.LocalDate fechaEmision, UUID excluido, int limite) {
         if (limite < 1) return List.of();
         // Primero las filas libres, bloqueadas y sin esperar a las que otro ya tiene (SKIP LOCKED); luego se cargan completas (con sus hijos, de a lote) por id.
-        List<UUID> ids = jdbc.queryForList("SELECT d.id " + DESDE + " WHERE d.tenant_id = ? AND d.id <> ? AND " + BoletasPorInformar.paraAgruparEnResumen("c")
+        List<UUID> ids = jdbc.queryForList("SELECT d.id " + DESDE + " WHERE d.tenant_id = ? AND d.id <> ? AND " + BoletasPorInformar.paraAgruparEnResumen("c") + SIN_ENVIO_EN_CURSO
                 + " ORDER BY d.serie, d.numero LIMIT ? FOR UPDATE OF d SKIP LOCKED", UUID.class, tenantId, excluido, java.sql.Date.valueOf(fechaEmision), limite);
         if (ids.isEmpty()) return List.of();
         String marcas = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
@@ -223,7 +237,7 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
         return consultar(" WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ?"
                 + " AND d.tipo <> '03' AND (c.nota_tipo_afectado IS DISTINCT FROM '03' OR (d.tipo = '07' AND c.nota_motivo = '10') OR (d.tipo = '08' AND c.nota_motivo = '03'))"
-                , " ORDER BY d.fecha_emision", Date.valueOf(fechaEmisionMaxima));
+                + SIN_ENVIO_EN_CURSO, " ORDER BY d.fecha_emision", Date.valueOf(fechaEmisionMaxima));
     }
     /**
      * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
