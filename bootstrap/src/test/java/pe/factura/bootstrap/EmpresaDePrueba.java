@@ -1,6 +1,7 @@
 package pe.factura.bootstrap;
 
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -11,6 +12,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Una empresa lista para emitir por HTTP: alta con la clave de plataforma, credenciales SOL, serie F001 y certificado de prueba. */
+@AutoConfigureTestRestTemplate
 final class EmpresaDePrueba {
     private EmpresaDePrueba() {}
 

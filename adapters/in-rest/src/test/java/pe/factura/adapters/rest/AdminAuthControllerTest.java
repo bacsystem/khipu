@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AutenticarAdministradorUseCase;
@@ -23,11 +23,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = AdminAuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminAuthController.class)
 @Import({GlobalExceptionHandler.class, IpDelCliente.class})
 class AdminAuthControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean AutenticarAdministradorUseCase auth;
+    @MockitoBean AutenticarAdministradorUseCase auth;
 
     UUID administradorId = UUID.randomUUID();
     Administrador administrador = new Administrador(administradorId, "ana@khipu.pe", "hash", true);

@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarGuiaRemisionUseCase;
@@ -37,13 +37,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** {@code /v1/guias-remision} (#39): el pedido llega al caso de uso tal cual y la respuesta trae el traslado, el ticket y el CDR. */
-@WebMvcTest(controllers = GuiaRemisionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = GuiaRemisionController.class)
 @Import(GlobalExceptionHandler.class)
 class GuiaRemisionControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean EmitirGuiaRemisionUseCase emitir;
-    @MockBean EnviarGuiaRemisionUseCase enviar;
-    @MockBean ConsultarGuiaRemisionUseCase consultar;
+    @MockitoBean EmitirGuiaRemisionUseCase emitir;
+    @MockitoBean EnviarGuiaRemisionUseCase enviar;
+    @MockitoBean ConsultarGuiaRemisionUseCase consultar;
     UUID tenant = UUID.randomUUID();
 
     static final String REMITENTE = """

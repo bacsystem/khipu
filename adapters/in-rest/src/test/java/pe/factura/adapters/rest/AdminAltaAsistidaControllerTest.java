@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AltaAsistidaUseCase;
@@ -29,8 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdminAltaAsistidaController.class, properties = "app.portal-url=https://portal.khipu.test",
-        excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminAltaAsistidaController.class, properties = "app.portal-url=https://portal.khipu.test")
 @Import(GlobalExceptionHandler.class)
 class AdminAltaAsistidaControllerTest {
     static final String CUERPO = """
@@ -42,7 +41,7 @@ class AdminAltaAsistidaControllerTest {
     static final String PORTAL = "https://portal.khipu.test";
 
     @Autowired MockMvc mvc;
-    @MockBean AltaAsistidaUseCase alta;
+    @MockitoBean AltaAsistidaUseCase alta;
 
     static AltaCreada creada(boolean invitacionEnviada) {
         Tenant t = new Tenant(UUID.fromString("5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f"), "20100066603", "COMERCIAL ANDINA SAC", Entorno.BETA, null, null);

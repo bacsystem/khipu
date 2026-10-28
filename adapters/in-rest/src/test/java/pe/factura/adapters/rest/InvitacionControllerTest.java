@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AceptarInvitacionUseCase;
@@ -18,11 +18,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** #21: lo que hace el invitado con el enlace, sin sesión. */
-@WebMvcTest(controllers = InvitacionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = InvitacionController.class)
 @Import(GlobalExceptionHandler.class)
 class InvitacionControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean AceptarInvitacionUseCase invitaciones;
+    @MockitoBean AceptarInvitacionUseCase invitaciones;
 
     @Test void muestraAQueLoInvitaron() throws Exception {
         when(invitaciones.consultar("tok")).thenReturn(new AceptarInvitacionUseCase.Detalle("caro@torres.pe", "Ferretería Torres", Rol.LECTURA, Instant.parse("2026-10-27T12:00:00Z")));

@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.*;
@@ -23,19 +23,19 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {FacturaController.class, EnvioAlClienteController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {FacturaController.class, EnvioAlClienteController.class})
 @Import(GlobalExceptionHandler.class)
 class FacturaControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @MockBean EmitirComprobanteUseCase emitir;
-    @MockBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
-    @MockBean EnviarDocumentoUseCase enviar;
-    @MockBean ConsultarComprobanteUseCase consultar;
-    @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
-    @MockBean CompartirComprobanteUseCase compartir;
-    @MockBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
-    @MockBean EnviarAlClienteUseCase envioAlCliente;
+    @MockitoBean EmitirComprobanteUseCase emitir;
+    @MockitoBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
+    @MockitoBean EnviarDocumentoUseCase enviar;
+    @MockitoBean ConsultarComprobanteUseCase consultar;
+    @MockitoBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
+    @MockitoBean CompartirComprobanteUseCase compartir;
+    @MockitoBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
+    @MockitoBean EnviarAlClienteUseCase envioAlCliente;
 
     UUID tenant = UUID.randomUUID();
 

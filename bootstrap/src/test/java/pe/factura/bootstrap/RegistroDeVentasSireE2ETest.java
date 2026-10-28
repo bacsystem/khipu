@@ -4,12 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -38,8 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class RegistroDeVentasSireE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
@@ -227,7 +229,7 @@ class RegistroDeVentasSireE2ETest {
         comprobante(c, "01", "F001", 9, LocalDate.of(2026, 9, 10), "ACEPTADO", "USD", null, "10", "118.00", null, null);
 
         ResponseEntity<Map> rechazo = http.exchange("/v1/sire/rvie?periodo=" + SEPTIEMBRE, HttpMethod.GET, new HttpEntity<>(null, conApiKey(c.apiKey())), Map.class);
-        assertThat(rechazo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rechazo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(rechazo.getBody().get("codigo")).isEqualTo("RVIE_SIN_TIPO_CAMBIO");
         assertThat((String) rechazo.getBody().get("mensaje")).contains("F001-9");
 
@@ -285,7 +287,7 @@ class RegistroDeVentasSireE2ETest {
 
         ResponseEntity<Map> r = conciliar(c, SEPTIEMBRE, deOtra, "application/zip");
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(r.getBody().get("codigo")).isEqualTo("RVIE_ARCHIVO_INVALIDO");
         assertThat((String) r.getBody().get("mensaje")).contains(otra.ruc());
     }

@@ -5,14 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.out.SunatBillingGateway;
@@ -34,8 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class AccionesDeEmpresaE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     /** SUNAT de mentira: lo que responde al {@code getStatus} (o la excepción que lanza) y con qué empresa lo llamaron. */
     static final AtomicReference<RuntimeException> FALLA = new AtomicReference<>();
@@ -179,7 +181,7 @@ class AccionesDeEmpresaE2ETest {
         assertThat(mismo.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(codigo(mismo)).isEqualTo("ENTORNO_SIN_CAMBIOS");
         assertThat(cambiarEntorno(a.empresaId(), "PRUEBAS").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(llamar(HttpMethod.POST, "/v1/admin/empresas/" + a.empresaId() + "/entorno", conClaveDePlataforma(), null).getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(llamar(HttpMethod.POST, "/v1/admin/empresas/" + a.empresaId() + "/entorno", conClaveDePlataforma(), null).getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
 
         assertThat(bitacora("CAMBIAR_ENTORNO_EMPRESA")).isEmpty();
     }

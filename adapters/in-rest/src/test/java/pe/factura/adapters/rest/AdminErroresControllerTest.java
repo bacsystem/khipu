@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * La cola global de errores desde el backoffice (#196). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su **forma real** (snake_case, lo
  * opcional ausente en lugar de nulo, el total en la cabecera) y cómo responden las acciones cuando el dominio no las permite.
  */
-@WebMvcTest(controllers = AdminErroresController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminErroresController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminErroresControllerTest {
     static final UUID COMPROBANTE = UUID.randomUUID();
@@ -49,8 +49,8 @@ class AdminErroresControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
 
     @Autowired MockMvc mvc;
-    @MockBean ConsultarColaDeErroresUseCase cola;
-    @MockBean ResolverErroresUseCase resolver;
+    @MockitoBean ConsultarColaDeErroresUseCase cola;
+    @MockitoBean ResolverErroresUseCase resolver;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

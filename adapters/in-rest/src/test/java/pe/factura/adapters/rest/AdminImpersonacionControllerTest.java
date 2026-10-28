@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ImpersonarUsuarioUseCase;
@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Impersonar a un usuario desde el backoffice (#184). */
-@WebMvcTest(controllers = AdminImpersonacionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminImpersonacionController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminImpersonacionControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
@@ -35,7 +35,7 @@ class AdminImpersonacionControllerTest {
     static final Usuario ANA = new Usuario(USUARIO, CUENTA, "ana@negocio.pe", "hash", Rol.ADMIN, true, Instant.parse("2026-09-01T10:00:00Z"));
 
     @Autowired MockMvc mvc;
-    @MockBean ImpersonarUsuarioUseCase impersonar;
+    @MockitoBean ImpersonarUsuarioUseCase impersonar;
 
     @Test void devuelveElTokenDeLaSesionDeSoporteSuExpiracionYAQuienSeMira() throws Exception {
         UUID admin = UUID.randomUUID();

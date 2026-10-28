@@ -1,6 +1,7 @@
 package pe.factura.bootstrap;
 
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.http.*;
 import pe.factura.adapters.crypto.TotpRfc6238;
 
@@ -14,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * haría la app del teléfono. Para los e2e que necesitan una sesión de administrador y no prueban el login en sí.
  */
 @SuppressWarnings("unchecked")
+@AutoConfigureTestRestTemplate
 final class SesionAdminDePrueba {
     static final TotpRfc6238 TOTP = new TotpRfc6238();
 

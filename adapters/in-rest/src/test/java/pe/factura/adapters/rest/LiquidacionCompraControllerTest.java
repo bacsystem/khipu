@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
@@ -32,11 +32,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** {@code POST /v1/liquidaciones-compra} (#327): el pedido llega al caso de uso tal cual y la respuesta trae el vendedor, la retención y el neto. */
-@WebMvcTest(controllers = LiquidacionCompraController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = LiquidacionCompraController.class)
 @Import(GlobalExceptionHandler.class)
 class LiquidacionCompraControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean EmitirComprobanteUseCase emitir;
+    @MockitoBean EmitirComprobanteUseCase emitir;
     UUID tenant = UUID.randomUUID();
 
     static final String CUERPO = """

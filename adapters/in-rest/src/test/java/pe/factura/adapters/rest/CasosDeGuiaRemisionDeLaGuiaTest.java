@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.adapters.rest.dto.GuiaRemisionRequest;
@@ -38,7 +38,7 @@ import static pe.factura.adapters.rest.CasosDeLaGuia.request;
  * #39: los casos de guía de remisión de la guía para desarrolladores ({@code portal/.../casos-emision.ts}) son documentación pública. Cada request pasa por Jackson
  * sin campos desconocidos, por Bean Validation y por las reglas reales del dominio ({@link GuiaRemision#crear}): un ejemplo que khipu rechazaría lo tira.
  */
-@WebMvcTest(controllers = GuiaRemisionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = GuiaRemisionController.class)
 @Import(GlobalExceptionHandler.class)
 class CasosDeGuiaRemisionDeLaGuiaTest {
     private static final ZoneId LIMA = ZoneId.of("America/Lima");
@@ -46,9 +46,9 @@ class CasosDeGuiaRemisionDeLaGuiaTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @MockBean EmitirGuiaRemisionUseCase emitir;
-    @MockBean EnviarGuiaRemisionUseCase enviar;
-    @MockBean ConsultarGuiaRemisionUseCase consultar;
+    @MockitoBean EmitirGuiaRemisionUseCase emitir;
+    @MockitoBean EnviarGuiaRemisionUseCase enviar;
+    @MockitoBean ConsultarGuiaRemisionUseCase consultar;
     UUID tenant = UUID.randomUUID();
 
     @Test void losRequestsDeGuiaDeRemisionDeLaGuiaPasanLaValidacionReal() throws Exception {

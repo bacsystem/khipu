@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.GestionarProductosUseCase;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** La API de productos guardados (#320): su forma real (snake_case, lo opcional ausente, el precio como número), el total en la cabecera y el status de cada error. */
-@WebMvcTest(controllers = ProductosController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = ProductosController.class)
 @Import(GlobalExceptionHandler.class)
 class ProductosControllerTest {
     static final UUID TENANT = UUID.randomUUID(), ID = UUID.randomUUID();
@@ -38,7 +38,7 @@ class ProductosControllerTest {
     static final String GUARDAR = "{\"codigo\":\"SKU-1\",\"descripcion\":\"Servicio de consultoría\",\"unidad\":\"ZZ\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":118.00}";
 
     @Autowired MockMvc mvc;
-    @MockBean GestionarProductosUseCase productos;
+    @MockitoBean GestionarProductosUseCase productos;
 
     static ProductoGuardado producto() {
         return new ProductoGuardado(ID, TENANT, "SKU-1", "Servicio de consultoría", "ZZ", "10", new BigDecimal("118.00"), null, AHORA, AHORA);

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,13 +23,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** {@code app.registro-abierto} se fija explícito: el default real (issue #174) es cerrado, ver {@link AuthControllerRegistroCerradoTest}. */
-@WebMvcTest(controllers = AuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AuthController.class)
 @Import({GlobalExceptionHandler.class, IpDelCliente.class})
 @TestPropertySource(properties = "app.registro-abierto=true")
 class AuthControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean AutenticarUsuarioUseCase auth;
-    @MockBean AceptarTerminosUseCase terminos;
+    @MockitoBean AutenticarUsuarioUseCase auth;
+    @MockitoBean AceptarTerminosUseCase terminos;
 
     UUID usuarioId = UUID.randomUUID();
     UUID cuentaId = UUID.randomUUID();

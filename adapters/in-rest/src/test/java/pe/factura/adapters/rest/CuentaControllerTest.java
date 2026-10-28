@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.PlanDeCuenta;
@@ -25,13 +25,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** C1/C7: lo que el cliente ve de su cuenta en el portal. */
-@WebMvcTest(controllers = CuentaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = CuentaController.class)
 @Import(GlobalExceptionHandler.class)
 class CuentaControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
 
     @Autowired MockMvc mvc;
-    @MockBean ConsultarMiCuentaUseCase miCuenta;
+    @MockitoBean ConsultarMiCuentaUseCase miCuenta;
 
     static MiCuenta con(Limite documentos, Instant venceEn, EstadoSuscripcion estado) {
         Plan plan = new Plan(UUID.randomUUID(), "Emprende", new BigDecimal("29.00"), new Limites(documentos, 1, Limite.de(1), Limite.de(2), 5), EstadoPlan.ACTIVO, false);

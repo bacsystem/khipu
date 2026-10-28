@@ -5,7 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -17,7 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.out.Adjunto;
@@ -41,8 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class ConfiguracionDeLaPlataformaE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     static final List<String[]> ENVIADOS = new CopyOnWriteArrayList<>();
 
@@ -121,7 +123,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
     @Test void unRemitenteInvalidoEs422NoSeGuardaYNoDejaRegistro() {
         for (String malo : new String[]{"{\"email\":\"no es un correo\"}", "{}", "{\"email\":\"a@khipu.pe\",\"nombre\":\"khipu\\nBcc: x@y.pe\"}", "{\"email\":\"a@khipu.pe, b@khipu.pe\"}"}) {
             ResponseEntity<Map> r = admin(HttpMethod.PUT, "/correo", malo);
-            assertThat(r.getStatusCode()).as(malo).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getStatusCode()).as(malo).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
             assertThat(codigo(r)).isEqualTo("REMITENTE_INVALIDO");
         }
 
@@ -181,7 +183,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
 
         ResponseEntity<Map> r = admin(HttpMethod.PUT, "/plantillas/RECUPERACION_CLAVE", "{\"asunto\":\"Hola\",\"cuerpo\":\"Pide otro enlace en el portal\"}");
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(codigo(r)).isEqualTo("PLANTILLA_INVALIDA");
         assertThat((String) r.getBody().get("mensaje")).contains("{enlace}");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM plantilla_correo", Long.class)).isZero();
@@ -199,7 +201,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
                 "{}"};
         for (String mala : malas) {
             ResponseEntity<Map> r = admin(HttpMethod.PUT, "/plantillas/RECUPERACION_CLAVE", mala);
-            assertThat(r.getStatusCode()).as(mala.substring(0, Math.min(60, mala.length()))).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getStatusCode()).as(mala.substring(0, Math.min(60, mala.length()))).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
             assertThat(codigo(r)).isEqualTo("PLANTILLA_INVALIDA");
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM plantilla_correo", Long.class)).isZero();
@@ -222,7 +224,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
 
         assertThat(v.get("asunto")).isEqualTo("PANADERIA SOL SAC vence en 10 días");
         assertThat((String) v.get("cuerpo")).startsWith("Vence el 25/10/2026. Entra a http");
-        assertThat(admin(HttpMethod.POST, "/plantillas/AVISO_CERTIFICADO_POR_VENCER/vista-previa", "{\"asunto\":\"Hola {nada}\",\"cuerpo\":\"x\"}").getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(admin(HttpMethod.POST, "/plantillas/AVISO_CERTIFICADO_POR_VENCER/vista-previa", "{\"asunto\":\"Hola {nada}\",\"cuerpo\":\"x\"}").getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM plantilla_correo", Long.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM auditoria_admin", Long.class)).isZero();
     }
@@ -296,7 +298,7 @@ class ConfiguracionDeLaPlataformaE2ETest {
                 "{\"texto\":\"x\"}", "{}"};
         for (String malo : malos) {
             ResponseEntity<Map> r = admin(HttpMethod.PUT, "/banner", malo);
-            assertThat(r.getStatusCode()).as(malo).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getStatusCode()).as(malo).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
             assertThat(codigo(r)).isEqualTo("BANNER_INVALIDO");
         }
         assertThat(admin(HttpMethod.PUT, "/banner", "{\"texto\":\"x\",\"desde\":\"mañana\",\"hasta\":\"2026-10-16T01:00:00Z\"}").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

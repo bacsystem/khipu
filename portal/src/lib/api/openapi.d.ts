@@ -26,7 +26,7 @@ export interface paths {
          * Eliminar un producto
          * @description Solo lo quita de la lista guardada: los comprobantes ya emitidos conservan sus datos.
          */
-        delete: operations["eliminar_1"];
+        delete: operations["eliminar"];
         options?: never;
         head?: never;
         patch?: never;
@@ -40,7 +40,7 @@ export interface paths {
             cookie?: never;
         };
         /** Ver el diseño del PDF */
-        get: operations["ver_1"];
+        get: operations["ver"];
         /**
          * Guardar el diseño del PDF
          * @description Reemplaza plantilla, color, pie y observaciones por defecto (envíe vacío o `null` para borrar un texto). El logo no cambia: use `PUT/DELETE /v1/empresa/logo`. `422 PERSONALIZACION_INVALIDA` si algún valor no cumple el formato.
@@ -114,7 +114,7 @@ export interface paths {
          * Ver la preferencia de envío al cliente
          * @description Si la empresa envía automáticamente el comprobante aceptado a su cliente, y si el servidor tiene correo configurado para hacerlo.
          */
-        get: operations["ver_2"];
+        get: operations["ver_1"];
         /**
          * Activar o desactivar el envío al cliente
          * @description Vale para los comprobantes que SUNAT acepte desde ahora; lo ya aceptado no se envía. Activarlo sin correo configurado en el servidor responde
@@ -235,7 +235,7 @@ export interface paths {
          * Ver un cliente
          * @description `404 NO_ENCONTRADO` si no es de la empresa.
          */
-        get: operations["obtener_3"];
+        get: operations["obtener_1"];
         /**
          * Cambiar un cliente
          * @description Reemplaza sus datos (también puede cambiar el documento). `409 DUPLICADO` si el nuevo documento ya es de otro cliente.
@@ -246,7 +246,7 @@ export interface paths {
          * Eliminar un cliente
          * @description Solo lo quita de la lista guardada: los comprobantes ya emitidos conservan sus datos.
          */
-        delete: operations["eliminar_2"];
+        delete: operations["eliminar_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -295,7 +295,7 @@ export interface paths {
          * @description Solo un plan que nadie usó nunca. Con alguna cuenta que lo tiene —o que lo tuvo— responde `409 PLAN_EN_USO`: hay que **desactivarlo**. El plan con el
          *     que nacen las cuentas nuevas no se borra (`409 PLAN_POR_DEFECTO`). `404 NO_ENCONTRADO`. Queda en la bitácora.
          */
-        delete: operations["eliminar_3"];
+        delete: operations["eliminar_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1783,7 +1783,7 @@ export interface paths {
          *     portal, no el uso por API key. **Las cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
          *     `SOLO` devuelve únicamente esas; el total las trata igual. El plan de la cuenta se agregará más adelante.
          */
-        get: operations["listar_9"];
+        get: operations["listar_7"];
         put?: never;
         /**
          * Dar de alta a un cliente: cuenta, empresa y primera serie
@@ -1885,7 +1885,7 @@ export interface paths {
          * @description Cuál es el plan de la cuenta hoy, en qué estado de pago está (`VIGENTE`, `EN_GRACIA` si venció pero sigue en sus días de gracia, `VENCIDA`), hasta cuándo
          *     se la sirve (gracia incluida) y, si hay, la bajada de plan que espera el inicio del ciclo siguiente. `404 NO_ENCONTRADO` si la cuenta no existe.
          */
-        get: operations["ver_4"];
+        get: operations["ver_2"];
         put?: never;
         /**
          * Cambiar el plan de una cuenta
@@ -2218,7 +2218,7 @@ export interface paths {
          * Eliminar un webhook
          * @description Borra el endpoint y su log de entregas. `404 NO_ENCONTRADO` si no es de la empresa. Requiere sesión del portal.
          */
-        delete: operations["eliminar"];
+        delete: operations["eliminar_3"];
         options?: never;
         head?: never;
         /**
@@ -2333,7 +2333,7 @@ export interface paths {
          * Consultar una guía de remisión
          * @description Estado, ticket, respuesta de SUNAT (`cdr`), datos del traslado y enlaces de descarga.
          */
-        get: operations["obtener_1"];
+        get: operations["obtener_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2418,7 +2418,7 @@ export interface paths {
          *     historial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa
          *     tiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.
          */
-        get: operations["obtener_2"];
+        get: operations["obtener_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2639,7 +2639,7 @@ export interface paths {
          * Ver la empresa
          * @description RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y API SUNAT, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.
          */
-        get: operations["ver"];
+        get: operations["ver_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2682,7 +2682,7 @@ export interface paths {
          *     hay, y los documentos consumidos este mes (America/Lima) contra el tope del plan. Solo lectura: el plan lo cambia el equipo de khipu. Solo con sesión de
          *     cuenta (portal), no con API key: `401 NO_AUTORIZADO`.
          */
-        get: operations["ver_3"];
+        get: operations["ver_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2948,7 +2948,7 @@ export interface paths {
          *     de SUNAT, los intentos y, si hay un reintento programado, cuándo. `q` busca el cliente por RUC (prefijo), razón social, o nombre o correo de su cuenta, sin distinguir
          *     mayúsculas ni tildes. Solo lectura.
          */
-        get: operations["listar_7"];
+        get: operations["listar_8"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2974,7 +2974,7 @@ export interface paths {
          *     responden `400`. **Las empresas de cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y
          *     `SOLO` devuelve únicamente esas; el total las trata igual. Las empresas sin cuenta nunca están de baja.
          */
-        get: operations["listar_8"];
+        get: operations["listar_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6766,6 +6766,7 @@ export interface components {
         };
         CorreoRequest: {
             /**
+             * Format: email
              * @description Correo del adquirente al que se envía el comprobante
              * @example compras@cliente.pe
              */
@@ -6935,7 +6936,10 @@ export interface components {
             avisos?: components["schemas"]["Aviso"][];
         };
         InvitarAlEquipoRequest: {
-            /** @example contador@estudio.pe */
+            /**
+             * Format: email
+             * @example contador@estudio.pe
+             */
             email: string;
             /**
              * @description `ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.
@@ -11053,7 +11057,7 @@ export interface operations {
             };
         };
     };
-    eliminar_1: {
+    eliminar: {
         parameters: {
             query?: never;
             header?: never;
@@ -11073,7 +11077,7 @@ export interface operations {
             };
         };
     };
-    ver_1: {
+    ver: {
         parameters: {
             query?: never;
             header?: never;
@@ -11230,7 +11234,7 @@ export interface operations {
             };
         };
     };
-    ver_2: {
+    ver_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11386,7 +11390,7 @@ export interface operations {
             };
         };
     };
-    obtener_3: {
+    obtener_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11434,7 +11438,7 @@ export interface operations {
             };
         };
     };
-    eliminar_2: {
+    eliminar_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -11508,7 +11512,7 @@ export interface operations {
             };
         };
     };
-    eliminar_3: {
+    eliminar_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -13489,7 +13493,7 @@ export interface operations {
             };
         };
     };
-    listar_9: {
+    listar_7: {
         parameters: {
             query?: {
                 /**
@@ -13624,7 +13628,7 @@ export interface operations {
             };
         };
     };
-    ver_4: {
+    ver_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -14031,7 +14035,7 @@ export interface operations {
             };
         };
     };
-    eliminar: {
+    eliminar_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -14200,7 +14204,7 @@ export interface operations {
             };
         };
     };
-    obtener_1: {
+    obtener_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -14291,7 +14295,7 @@ export interface operations {
             };
         };
     };
-    obtener_2: {
+    obtener_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -14606,7 +14610,7 @@ export interface operations {
             };
         };
     };
-    ver: {
+    ver_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -14653,7 +14657,7 @@ export interface operations {
             };
         };
     };
-    ver_3: {
+    ver_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -14942,7 +14946,7 @@ export interface operations {
             };
         };
     };
-    listar_7: {
+    listar_8: {
         parameters: {
             query?: {
                 /** @description Solo esta clase de error */
@@ -14976,7 +14980,7 @@ export interface operations {
             };
         };
     };
-    listar_8: {
+    listar_9: {
         parameters: {
             query?: {
                 /** @description Solo las empresas de ese entorno */

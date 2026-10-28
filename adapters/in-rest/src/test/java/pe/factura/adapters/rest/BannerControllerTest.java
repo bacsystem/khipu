@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarBannerUseCase;
@@ -19,11 +19,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** El aviso de mantenimiento que ve todo cliente (#199): solo el texto y la vigencia, sin guardarse en caché, y nulo cuando no hay nada que mostrar. */
-@WebMvcTest(controllers = BannerController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = BannerController.class)
 @Import(GlobalExceptionHandler.class)
 class BannerControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean ConsultarBannerUseCase banner;
+    @MockitoBean ConsultarBannerUseCase banner;
 
     @Test void conUnAvisoVigenteDiceSuTextoYSuVigenciaYNadaMas() throws Exception {
         when(banner.vigente()).thenReturn(Optional.of(new BannerDeMantenimiento("Mantenimiento esta noche", Instant.parse("2026-10-15T20:00:00Z"), Instant.parse("2026-10-16T01:00:00Z"))));

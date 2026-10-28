@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * La API de webhooks (#19). El portal escribe sus tipos a mano a partir de este JSON: se fija su forma real (snake_case, el secreto solo al crear o rotar), el status de cada
  * error del dominio y, sobre todo, que lo que cambia a dónde van los eventos exige la sesión del portal y no una API key.
  */
-@WebMvcTest(controllers = WebhooksController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = WebhooksController.class)
 @Import(GlobalExceptionHandler.class)
 class WebhooksControllerTest {
     static final UUID TENANT = UUID.randomUUID();
@@ -46,7 +46,7 @@ class WebhooksControllerTest {
     static final String CREAR = "{\"url\":\"https://mi-sistema.pe/khipu\",\"descripcion\":\"ERP\",\"eventos\":[\"comprobante.aceptado\"]}";
 
     @Autowired MockMvc mvc;
-    @MockBean GestionarWebhooksUseCase webhooks;
+    @MockitoBean GestionarWebhooksUseCase webhooks;
 
     /** Una petición con la sesión del portal (JWT): trae empresa y cuenta. */
     static RequestPostProcessor sesion() { return r -> { r.setAttribute(TenantActual.ATRIBUTO, TENANT); r.setAttribute(CuentaActual.ATRIBUTO, CUENTA); return r; }; }
