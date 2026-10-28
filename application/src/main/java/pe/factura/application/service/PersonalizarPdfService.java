@@ -35,9 +35,9 @@ public class PersonalizarPdfService implements PersonalizarPdfUseCase {
 
     @Override public PersonalizacionPdf actualizar(UUID tenantId, PersonalizacionPdf diseño) {
         Tenant t = tenant(tenantId);
-        Tenant nuevo = t.conPersonalizacionPdf(t.personalizacionPdf().conDiseñoDe(diseño));
-        tenants.guardar(nuevo);
-        return nuevo.personalizacionPdf();
+        PersonalizacionPdf nueva = t.personalizacionPdf().conDiseñoDe(diseño);
+        tenants.guardarPersonalizacionPdf(tenantId, nueva);   // LOG-05: solo la sección del PDF; el entorno y los secretos no se reescriben
+        return nueva;
     }
 
     @Override public PersonalizacionPdf cargarLogo(UUID tenantId, byte[] logo) {
@@ -53,19 +53,19 @@ public class PersonalizarPdfService implements PersonalizarPdfUseCase {
         }
         String anterior = t.personalizacionPdf().logoKey();
         storage.guardar(key, logo);
-        Tenant nuevo = t.conPersonalizacionPdf(t.personalizacionPdf().conLogo(key));
-        tenants.guardar(nuevo);
+        PersonalizacionPdf nueva = t.personalizacionPdf().conLogo(key);
+        tenants.guardarPersonalizacionPdf(tenantId, nueva);
         if (anterior != null && !anterior.equals(key)) storage.borrar(anterior);
-        return nuevo.personalizacionPdf();
+        return nueva;
     }
 
     @Override public PersonalizacionPdf borrarLogo(UUID tenantId) {
         Tenant t = tenant(tenantId);
         String anterior = t.personalizacionPdf().logoKey();
-        Tenant nuevo = t.conPersonalizacionPdf(t.personalizacionPdf().sinLogo());
-        tenants.guardar(nuevo);
+        PersonalizacionPdf nueva = t.personalizacionPdf().sinLogo();
+        tenants.guardarPersonalizacionPdf(tenantId, nueva);
         if (anterior != null) storage.borrar(anterior);
-        return nuevo.personalizacionPdf();
+        return nueva;
     }
 
     @Override public byte[] logo(UUID tenantId) {

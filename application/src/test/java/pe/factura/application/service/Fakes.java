@@ -169,8 +169,13 @@ final class Fakes {
     }
     static class Tenants implements TenantRepository {
         final Map<UUID, Tenant> datos = new HashMap<>();
+        /** Corre una sola vez en el próximo buscar: «otro proceso» escribe entre la lectura del servicio y su guardado (LOG-05). */
+        Runnable alBuscar;
         public void guardar(Tenant t) { datos.put(t.id(), t); }
-        public Optional<Tenant> buscar(UUID id) { return Optional.ofNullable(datos.get(id)); }
+        public Optional<Tenant> buscar(UUID id) {
+            if (alBuscar != null) { Runnable r = alBuscar; alBuscar = null; r.run(); }
+            return Optional.ofNullable(datos.get(id));
+        }
         public Optional<Tenant> buscarPorRuc(String ruc) { return datos.values().stream().filter(t -> t.ruc().equals(ruc)).findFirst(); }
         final Map<UUID, UUID> cuentas = new HashMap<>();
         public List<Tenant> listarPorCuenta(UUID c) { return datos.values().stream().filter(t -> c.equals(cuentas.get(t.id()))).toList(); }
