@@ -761,6 +761,41 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(r.receptor().razonSocial()).isEqualTo("CLIENTE SAC");
     }
 
+    /**
+     * LOG-03: la cantidad y el precio admiten 12 enteros y 10 decimales (an..12,10, como SUNAT) y el XML se firma con ellos, pero las columnas eran NUMERIC(14,4): Postgres
+     * redondeaba en silencio (0.8474576271 → 0.8475) y el comprobante rehidratado recalculaba otros totales que los firmados (847.46 firmado, 847.50 al releer: la nota
+     * total copiaba ítems que ya no sumaban lo de la factura, 3286), y con 11 o 12 enteros el INSERT desbordaba después de firmar. El round-trip devuelve los ítems y los
+     * totales exactamente como se firmaron.
+     */
+    @Test void guardaYRehidrataLaCantidadYElPrecioConDiezDecimalesYDoceEnterosSinAlterarLosTotales() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(
+                new Item("P1", "Servicio por hora", "ZZ", new BigDecimal("1000"), new BigDecimal("0.8474576271"), TipoAfectacionIgv.GRAVADO),
+                new Item("P2", "Microgramo", "GRM", new BigDecimal("10000000"), new BigDecimal("0.000001"), TipoAfectacionIgv.GRAVADO),
+                new Item("P3", "Lote", "NIU", new BigDecimal("123456789012"), new BigDecimal("0.01"), TipoAfectacionIgv.EXONERADO),
+                new Item("P4", "Oro", "GRM", new BigDecimal("0.0000400000"), new BigDecimal("100000"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        c.asignarNumero(40, "20100066603");
+        c.firmar("h", "k");
+        repo.guardar(c);
+
+        Comprobante r = repo.buscar(t, c.id()).orElseThrow();
+
+        assertThat(r.items()).extracting(Item::cantidad).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("1000"), new BigDecimal("10000000"), new BigDecimal("123456789012"), new BigDecimal("0.00004"));
+        assertThat(r.items()).extracting(Item::precioUnitario).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("0.8474576271"), new BigDecimal("0.000001"), new BigDecimal("0.01"), new BigDecimal("100000"));
+        // Los totales rehidratados son los firmados, al céntimo (la escala del BigDecimal puede diferir; el valor no)
+        assertThat(r.totales().total()).isEqualByComparingTo(c.totales().total());
+        assertThat(r.totales().gravado()).isEqualByComparingTo(c.totales().gravado());
+        assertThat(r.totales().igv()).isEqualByComparingTo(c.totales().igv());
+        assertThat(r.totales().items()).extracting(ItemCalculado::valorVenta).usingElementComparator(BigDecimal::compareTo)
+                .containsExactlyElementsOf(c.totales().items().stream().map(ItemCalculado::valorVenta).toList());
+        // 1000 × 0.8474576271 (precio con IGV) = 847.46 de precio de venta y 718.18 de valor de venta; con la columna en 4 decimales (0.8475) salían 847.50 y 718.22
+        assertThat(r.totales().items().get(0).precioVenta()).as("847.46 y no 847.50").isEqualByComparingTo("847.46");
+        assertThat(r.totales().items().get(0).valorVenta()).isEqualByComparingTo("718.18");
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).isEqualByComparingTo(c.totales().total());
+    }
+
     @Test void existeYUnicidad() {
         UUID t = tenantDePrueba();
         Comprobante c = factura(t, 5); c.firmar("h", "k"); repo.guardar(c);

@@ -418,8 +418,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
             consultarHijos(ITEMS_SQL, lote, r -> {
                 UUID cid = r.getObject("comprobante_id", UUID.class);
                 Map<Integer, List<Cargo>> cargosDe = cargos.getOrDefault(cid, Collections.emptyMap());
-                items.computeIfAbsent(cid, k -> new ArrayList<>()).add(new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
-                        r.getBigDecimal("precio_unitario"), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
+                // LOG-03: NUMERIC(22,10) devuelve la escala de la columna (2.0000000000); se normaliza como los demás valores, y así la API y el PDF muestran lo que se emitió.
+                items.computeIfAbsent(cid, k -> new ArrayList<>()).add(new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), sinCeros(r.getBigDecimal("cantidad")),
+                        sinCeros(r.getBigDecimal("precio_unitario")), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
                         descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class)),
                         r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario")),
