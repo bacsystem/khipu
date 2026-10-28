@@ -277,11 +277,13 @@
 </#macro>
 <#-- Líneas: InvoiceLine/InvoicedQuantity, CreditNoteLine/CreditedQuantity o DebitNoteLine/DebitedQuantity. renta=true en la liquidación de compra (#327): cada línea lleva
      además el TaxSubtotal 3000 de la retención de renta. -->
+<#-- LOG-04: la cantidad sale con todos sus decimales (el dominio admite 10, an..12,10) y sin redondear: con "0.####" (HALF_EVEN) 0.00004 salía «0» (2024) y
+     0.12345 «0.1234» con un LineExtensionAmount calculado con 0.12345 (3271). Igual que DeliveredQuantity en despatch-advice.ftl. -->
 <#macro lineas elemento cantidad renta=false>
   <#list tot.items() as it>
   <cac:${elemento}>
     <cbc:ID>${(it?index + 1)?c}</cbc:ID>
-    <cbc:${cantidad} unitCode="${it.item().unidad()}" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">${it.item().cantidad()?string["0.####"]}</cbc:${cantidad}>
+    <cbc:${cantidad} unitCode="${it.item().unidad()}" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">${it.item().cantidad()?string["0.##########"]}</cbc:${cantidad}>
     <cbc:LineExtensionAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:LineExtensionAmount>
     <cac:PricingReference>
       <cac:AlternativeConditionPrice>
