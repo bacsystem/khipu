@@ -101,4 +101,12 @@ docker run -p 3000:3000 -e API_BASE_URL=http://host.docker.internal:8001 -e API_
 `API_BASE_URL` es la URL con la que el contenedor habla con la API; `API_PUBLIC_URL` la que se muestra al usuario
 (ejemplos de integración de API keys y "Try it" de `/developers`), que debe ser alcanzable desde su navegador.
 
+La referencia interactiva de `/developers` (Scalar) llama a la API **directamente desde el navegador**, sin pasar
+por el proxy de Scalar: `api-reference.tsx` fija `proxyUrl: ""`, `withDefaultFonts: false` y `telemetry: false`,
+porque con `proxyUrl` indefinido Scalar manda cada "Test Request" por `https://proxy.scalar.com` con la API key
+real y el cuerpo del ejemplo (DEPS-01 de la auditoría 2026-10-22). Para que esas llamadas funcionen el backend
+debe aceptar CORS desde el origen público del portal: `PORTAL_URL` en el backend tiene que ser exactamente la URL
+por la que entra el navegador (esquema, host y puerto). `api-reference.test.tsx` falla si alguna de las tres
+opciones vuelve a su default.
+
 O desde la raíz del repo: `docker compose up portal`.
