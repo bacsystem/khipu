@@ -111,12 +111,27 @@ public class OutboxWorker {
                 log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
                 outbox.completar(fila.id());
             } else {
-                log.warn("Outbox {} con error de dominio {}, se reprograma: {}", fila.id(), e.codigo(), e.getMessage());
-                outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), e.codigo() + " - " + e.getMessage());
+                log.warn("Outbox {} con error de dominio {}: {}", fila.id(), e.codigo(), e.getMessage());
+                reprogramarOAgotarTrasExcepcion(fila, e.codigo() + " - " + e.getMessage());
             }
         } catch (Exception e) {
-            log.warn("Outbox {} falló, se reprograma", fila.id(), e);
-            outbox.reprogramar(fila.id(), Backoff.siguiente(fila.intentos() + 1, clock.instant()), e.toString());
+            log.warn("Outbox {} falló", fila.id(), e);
+            reprogramarOAgotarTrasExcepcion(fila, e.toString());
+        }
+    }
+
+    /**
+     * LOG-02: una excepción (de dominio no descartable o inesperada) también cuenta contra el tope de intentos; antes se reprogramaba sin mirarlo y una falla que no
+     * se convierte en ERROR_ENVIO reenviaba el mismo XML para siempre. La baja es la excepción: nunca se abandona (ver {@code ACCION_BAJA} arriba), porque sin su
+     * fila el comprobante queda «en curso» para siempre.
+     */
+    private void reprogramarOAgotarTrasExcepcion(OutboxItem fila, String motivo) {
+        int intentos = fila.intentos() + 1;
+        if (intentos >= maxIntentos && !DarDeBajaService.ACCION_BAJA.equals(fila.accion())) {
+            log.error("Outbox {} ({} {}) agotó {} intentos con excepción: {}", fila.id(), fila.accion(), fila.agregadoId(), maxIntentos, motivo);
+            outbox.completar(fila.id());
+        } else {
+            outbox.reprogramar(fila.id(), Backoff.siguiente(intentos, clock.instant()), motivo);
         }
     }
 

@@ -96,6 +96,11 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
             c.rechazarPorFault(e.codigo(), e.descripcion());
         } catch (IllegalStateException e) {   // storage, ZIP o CDR ilegible: infraestructura, reintentable
             c.marcarErrorEnvio("INFRA - " + e.getMessage());
+        } catch (RuntimeException e) {
+            // LOG-02: cualquier otra falla después del sendBill (red hacia S3 que el SDK no envuelve en S3Exception, un CDR que el dominio no sabe leer,
+            // un Base64 roto). Sin este catch la excepción salía antes de la transacción de abajo y el comprobante quedaba FIRMADO sin fila de outbox:
+            // SUNAT ya lo tenía aceptado, nadie lo reintentaba y el barrido de plazo lo cerraba FUERA_DE_PLAZO. Mismo criterio que DarDeBajaService.avanzar.
+            c.marcarErrorEnvio("INFRA - " + e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
         }
         // El estado y la programación del reintento se confirman en la misma transacción: no puede quedar
         // un ERROR_ENVIO sin fila en el outbox ni una fila en el outbox sin el estado persistido.

@@ -126,6 +126,38 @@ class OutboxWorkerTest {
         verify(outbox).reprogramar(eq(fila), eq(clock.instant().plus(Duration.ofMinutes(2))), contains("storage caído"));
     }
 
+    /**
+     * LOG-02: la rama de excepción reprogramaba sin pasar por el tope de intentos, así que una falla que no se convierte en ERROR_ENVIO (una excepción al
+     * confirmar la transacción, un error de dominio de configuración que nadie corrige) reenviaba el mismo XML para siempre. El tope aplica también aquí.
+     */
+    @Test void excepcionInesperadaAlUltimoIntentoSeAgota() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 2)));
+        when(enviar.enviar(tenant, doc)).thenThrow(new IllegalStateException("storage caído"));
+        w.procesar();
+        verify(outbox).completar(fila);
+        verify(outbox, never()).reprogramar(any(), any(), any());
+    }
+
+    @Test void domainExceptionDeConfiguracionAlUltimoIntentoSeAgota() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 2)));
+        when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "sin credenciales"));
+        w.procesar();
+        verify(outbox).completar(fila);
+        verify(outbox, never()).reprogramar(any(), any(), any());
+    }
+
+    /** Una baja nunca se abandona (ver el comentario del worker): la excepción inesperada se reprograma aunque haya agotado los intentos. */
+    @Test void unaBajaConExcepcionInesperadaNoSeAgota() {
+        OutboxWorker w = new OutboxWorker(outbox, uow, enviar, bajas, clock, 3);
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, pe.factura.application.service.DarDeBajaService.ACCION_BAJA, 2)));
+        when(bajas.continuar(tenant, doc)).thenThrow(new IllegalStateException("storage caído"));
+        w.procesar();
+        verify(outbox).reprogramar(eq(fila), any(), contains("storage caído"));
+        verify(outbox, never()).completar(any());
+    }
+
     @Test void sinFilasNoHaceNada() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of());
         assertThat(worker.procesar()).isZero();

@@ -57,6 +57,20 @@ class S3DocumentStorageTest {
         assertThatThrownBy(() -> storage.leer("t1/2026/09/no-existe.xml")).isInstanceOf(IllegalStateException.class).hasMessageContaining("No existe");
     }
 
+    /**
+     * LOG-02: una caída de red o un timeout del SDK es {@code SdkClientException}, hermana de {@code S3Exception} y no hija. Solo capturando la segunda, el
+     * servicio de envío la recibía cruda después de que SUNAT ya había aceptado, y el comprobante quedaba FIRMADO sin reintento. El contrato del storage es
+     * una sola excepción (IllegalStateException) para todo lo que no sea «no existe».
+     */
+    @Test void unServicioInalcanzableEsIllegalStateEnTodasLasOperaciones() {
+        S3DocumentStorage inalcanzable = S3DocumentStorage.crear("http://127.0.0.1:9", "us-east-1", "k", "s", BUCKET, true);
+        String key = "t1/2026/09/20100066603-01-F001-1.xml";
+        assertThatThrownBy(() -> inalcanzable.guardar(key, "<x/>".getBytes())).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo guardar");
+        assertThatThrownBy(() -> inalcanzable.leer(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo leer");
+        assertThatThrownBy(() -> inalcanzable.existe(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo consultar");
+        assertThatThrownBy(() -> inalcanzable.borrar(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo borrar");
+    }
+
     @Test void rechazaClavesInvalidas() {
         assertThatThrownBy(() -> storage.guardar("../fuera.xml", new byte[0])).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> storage.existe("/absoluta")).isInstanceOf(IllegalArgumentException.class);
