@@ -20,11 +20,8 @@ import java.util.UUID;
 
 public class EnviarDocumentoService implements EnviarDocumentoUseCase {
     public static final String ACCION_ENVIAR = "ENVIAR";
-    /**
-     * LOG-01: una reserva de envío ({@link ComprobanteRepository#reservarEnvio}) sin resultado guardado por más de esto es de un proceso que murió entre el sendBill y
-     * el guardado; otro envío puede retomarla. Holgado frente al peor caso de una llamada (timeout HTTP de 15 s por tres intentos ante 401, más el storage).
-     */
-    public static final Duration ENVIO_SIN_RESPUESTA = Duration.ofMinutes(5);
+    /** LOG-01: la caducidad de una reserva de envío huérfana; la define el puerto porque el repositorio también la usa. */
+    public static final Duration ENVIO_SIN_RESPUESTA = ComprobanteRepository.ENVIO_SIN_RESPUESTA;
 
     private final ComprobanteRepository comprobantes;
     private final TenantRepository tenants;
@@ -128,8 +125,22 @@ public class EnviarDocumentoService implements EnviarDocumentoUseCase {
                     uow.ejecutar(() -> outbox.completarPorAgregado(c.id(), ACCION_ENVIAR));
                     return recuperado;
                 }
-                c.marcarErrorEnvio(e.codigo() + " - " + e.descripcion() + ". SUNAT ya tiene registrado este comprobante: un envío anterior llegó aunque khipu no recibió la respuesta. "
-                        + (c.consultableEnGetStatusCdr() ? "Su constancia se recupera por getStatusCdr (en producción)" : "No se consulta por getStatusCdr: verifique su CDR en SOL y, si está aceptado, no lo reemita"));
+                boolean recuperable = c.consultableEnGetStatusCdr() && tenant.entorno() == Entorno.PRODUCCION;
+                String motivo = e.codigo() + " - " + e.descripcion() + ". SUNAT ya tiene registrado este comprobante: un envío anterior llegó aunque khipu no recibió la respuesta. ";
+                if (recuperable) {
+                    // SUNAT no contestó la consulta (o todavía no tiene el CDR): el reintento del outbox vuelve a pedir la constancia, no reenvía a ciegas.
+                    c.marcarErrorEnvio(motivo + "Su constancia se recupera por getStatusCdr en el próximo reintento");
+                } else {
+                    // Nadie puede recuperar la constancia (boleta, liquidación, agente: SUNAT no las consulta; e-beta: no publica el servicio). Reintentar mandaría el mismo
+                    // XML y recibiría el mismo 1033 hasta agotar el tope: el comprobante queda en error de envío, con el motivo, sale del outbox y se avisa a quien envió.
+                    c.marcarErrorEnvio(motivo + (c.consultableEnGetStatusCdr() ? "En e-beta no hay getStatusCdr: no se reintenta solo; revise la constancia en el SOL de pruebas"
+                            : "No se consulta por getStatusCdr: no se reintenta solo; verifique su CDR en SOL y, si está aceptado, no lo reemita"));
+                    uow.ejecutar(() -> {
+                        comprobantes.guardar(c);
+                        outbox.completarPorAgregado(c.id(), ACCION_ENVIAR);
+                    });
+                    throw new DomainException("SUNAT_YA_LO_TIENE", c.nombreArchivo() + ": " + c.ultimoError());
+                }
             } else {
                 c.rechazarPorFault(e.codigo(), e.descripcion());
             }

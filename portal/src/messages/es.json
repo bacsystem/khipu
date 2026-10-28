@@ -1751,6 +1751,7 @@
     "NUMERO_YA_ASIGNADO": "El comprobante ya tiene un número asignado.",
     "ESTADO_NO_ENVIABLE": "El comprobante no está en un estado que se pueda enviar a SUNAT.",
     "ENVIO_EN_CURSO": "Otro proceso está enviando este comprobante a SUNAT. Consulta su estado en unos segundos.",
+    "SUNAT_YA_LO_TIENE": "SUNAT ya tiene registrado este comprobante. Verifica su constancia en SOL antes de volver a emitirlo.",
     "ESTADO_CONFLICTO": "El comprobante cambió de estado justo ahora. Vuelve a intentarlo.",
     "TRANSICION_INVALIDA": "No se puede realizar ese cambio de estado sobre el comprobante.",
     "SIN_CDR": "El comprobante todavía no tiene CDR de SUNAT.",
@@ -4607,6 +4608,10 @@
         "ENVIO_EN_CURSO": [
           "Otro envío del mismo comprobante (otra llamada o el reintento automático) está esperando la respuesta de SUNAT.",
           "No se manda dos veces: consulte el comprobante en unos segundos."
+        ],
+        "SUNAT_YA_LO_TIENE": [
+          "SUNAT respondió que ya tiene el comprobante (un envío anterior llegó sin respuesta) y no hay cómo recuperar su constancia automáticamente.",
+          "Queda en ERROR_ENVIO sin reintento automático: verifique el CDR en SOL y, si está aceptado, no lo reemita."
         ],
         "ESTADO_CONFLICTO": [
           "Dos operaciones cambiaron el estado a la vez.",

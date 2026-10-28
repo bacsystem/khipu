@@ -271,21 +271,23 @@ class ColaDeErroresE2ETest {
 
     /**
      * LOG-01: el 1033 «registrado previamente» no es un error de formato sino la señal de que SUNAT ya tiene el comprobante (un envío anterior llegó sin respuesta). En
-     * e-beta no hay getStatusCdr para recuperar la constancia, así que queda en error de envío con el motivo, reintentable, y nunca RECHAZADO sobre lo que SUNAT aceptó.
+     * e-beta no hay getStatusCdr para recuperar la constancia: queda en error de envío con el motivo, sale del outbox (reintentar mandaría el mismo XML) y el administrador
+     * recibe 409 SUNAT_YA_LO_TIENE con la bitácora anotada. Nunca RECHAZADO sobre lo que SUNAT aceptó.
      */
-    @Test void unFaultYaRegistradoDeSunatNoRechazaSinoQueQuedaEnErrorDeEnvioConElMotivo() {
+    @Test void unFaultYaRegistradoDeSunatNoRechazaSinoQueQuedaEnErrorDeEnvioSinReintentoYAvisa() {
         Cliente a = cliente("ana@negocio.pe");
         Comprobante c = enError(a, 1);
         FALLA.set(new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos"));
 
-        Map<String, Object> d = datos(reintentar(c.id()));
+        ResponseEntity<Map> r = reintentar(c.id());
 
-        assertThat(d).containsEntry("estado", "ERROR_ENVIO");
-        Map<String, Object> fault = (Map<String, Object>) d.get("fault");
-        assertThat(fault).containsEntry("codigo", "1033");
-        assertThat((String) fault.get("mensaje")).contains("SUNAT ya tiene registrado este comprobante");
-        assertThat(enOutbox(c.id())).as("sigue programado para reintentarse solo").isEqualTo(1);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(codigo(r)).isEqualTo("SUNAT_YA_LO_TIENE");
+        assertThat(estado(c.id())).isEqualTo("ERROR_ENVIO");
+        assertThat(jdbc.queryForObject("SELECT ultimo_error FROM documento WHERE id = ?", String.class, c.id())).startsWith("1033 - ").contains("SUNAT ya tiene registrado este comprobante");
+        assertThat(enOutbox(c.id())).as("no se reintenta solo").isZero();
         assertThat(filas(cola("")).get(0)).containsEntry("clase", "ERROR_DE_ENVIO");
+        assertThat(bitacora("REINTENTAR_ENVIO_COMPROBANTE")).isEqualTo(1);
     }
 
     @Test void reintentarRespetaLasReglasDeEstadoYNoEnviaLoQueNoSePuedeEnviar() {

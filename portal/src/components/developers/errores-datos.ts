@@ -90,6 +90,7 @@ const CODIGOS_DE_ERROR: Array<[codigo: string, http: string, clave: keyof Textos
   ["SIN_FIRMA", "422", "SIN_FIRMA"],
   ["ESTADO_NO_ENVIABLE", "409", "ESTADO_NO_ENVIABLE"],
   ["ENVIO_EN_CURSO", "409", "ENVIO_EN_CURSO"],
+  ["SUNAT_YA_LO_TIENE", "409", "SUNAT_YA_LO_TIENE"],
   ["ESTADO_CONFLICTO", "409", "ESTADO_CONFLICTO"],
   ["SIN_CDR", "404", "SIN_CDR"],
   ["CDR_CORRUPTO", "500", "CDR_CORRUPTO"],

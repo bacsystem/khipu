@@ -248,19 +248,45 @@ class EnviarDocumentoServiceTest {
         assertThat(comprobantes.reservas).isEmpty();
     }
 
-    /** LOG-01: sin forma de preguntar (e-beta, o un servicio sin recuperador) el 1033 deja ERROR_ENVIO con el motivo y su reintento: nunca RECHAZADO sobre lo que SUNAT ya tiene. */
-    @Test void unFaultYaRegistradoSinConsultaQuedaEnErrorDeEnvioYNoRechaza() {
+    /**
+     * LOG-01: cuando nadie puede recuperar la constancia (e-beta no publica getStatusCdr; la boleta, la liquidación y el agente no se consultan) el 1033 deja ERROR_ENVIO
+     * con el motivo, retira el comprobante del outbox (reintentar mandaría el mismo XML hasta agotar el tope) y lo dice a quien envió con SUNAT_YA_LO_TIENE. Nunca RECHAZADO.
+     */
+    @Test void unFaultYaRegistradoSinFormaDeRecuperarQuedaEnErrorDeEnvioSinReintentoYAvisa() {
         gateway.falla = new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos");
-        Comprobante r = service.enviar(tenantId, c.id());
-        assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
-        assertThat(r.ultimoError()).startsWith("1033 - ").contains("SUNAT ya tiene registrado").contains("getStatusCdr");
-        assertThat(outbox.filas).hasSize(1);
+        outbox.programar(tenantId, EnviarDocumentoService.ACCION_ENVIAR, c.id(), Fakes.CLOCK.instant());
+
+        assertThatThrownBy(() -> service.enviar(tenantId, c.id())).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SUNAT_YA_LO_TIENE");
+
+        Comprobante guardado = comprobantes.datos.get(c.id());
+        assertThat(guardado.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(guardado.ultimoError()).startsWith("1033 - ").contains("SUNAT ya tiene registrado").contains("e-beta").contains("no se reintenta solo");
+        assertThat(outbox.filas).as("sale del outbox").isEmpty();
+        assertThat(comprobantes.reservas).isEmpty();
 
         Comprobante b = Fakes.boletaFirmada(tenantId, storage, 1);
         comprobantes.guardar(b);
-        Comprobante rb = service.enviar(tenantId, b.id());
-        assertThat(rb.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
-        assertThat(rb.ultimoError()).contains("SOL");
+        assertThatThrownBy(() -> service.enviar(tenantId, b.id())).extracting("codigo").isEqualTo("SUNAT_YA_LO_TIENE");
+        assertThat(comprobantes.datos.get(b.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(comprobantes.datos.get(b.id()).ultimoError()).contains("SOL");
+        assertThat(outbox.filas).isEmpty();
+    }
+
+    /** LOG-01: en producción, con una factura, si la consulta a SUNAT falla en ese momento el comprobante sí se reintenta: el próximo intento vuelve a pedir la constancia. */
+    @Test void unFaultYaRegistradoRecuperableQueNoSePudoConsultarSeReintenta() {
+        Tenant t = Fakes.tenantListo(tenantId);
+        tenants.guardar(new Tenant(t.id(), t.ruc(), t.razonSocial(), Entorno.PRODUCCION, t.sol(), t.certificado(), t.domicilio(), t.cuentaDetracciones(), t.nombreComercial(), t.personalizacionPdf(), t.padronTasaEspecialIgv()));
+        Fakes.Consultas consultas = new Fakes.Consultas();
+        consultas.falla = new SunatTransientException("0000", "SUNAT respondió HTTP 503");
+        RecuperarCdrService recuperador = new RecuperarCdrService(comprobantes, tenants, storage, consultas, cdrs, Fakes.UOW);
+        EnviarDocumentoService conRecuperador = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK, RechazoDeSolRepository.NINGUNO, null, recuperador);
+        gateway.falla = new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos");
+
+        Comprobante r = conRecuperador.enviar(tenantId, c.id());
+
+        assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(r.ultimoError()).contains("próximo reintento");
+        assertThat(outbox.filas).hasSize(1);
     }
 
     /** LOG-02: un CDR que llega sin ResponseCode reventaba en el dominio (CDR_INVALIDO) después de marcarEnviado, con el mismo resultado: FIRMADO sin reintento. */

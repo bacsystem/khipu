@@ -107,7 +107,9 @@ public class OutboxWorker {
                 default -> { log.warn("Acción desconocida {} en outbox {}", fila.accion(), fila.id()); outbox.completar(fila.id()); }
             }
         } catch (DomainException e) {
-            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo()) || "FUERA_DE_PLAZO".equals(e.codigo()) || "TICKET_NO_PENDIENTE".equals(e.codigo())) {
+            // SUNAT_YA_LO_TIENE (LOG-01): el envío ya dejó el comprobante en ERROR_ENVIO con el motivo y nadie puede recuperar su constancia; reintentar mandaría el mismo XML.
+            if ("ESTADO_NO_ENVIABLE".equals(e.codigo()) || "NO_ENCONTRADO".equals(e.codigo()) || "FUERA_DE_PLAZO".equals(e.codigo()) || "TICKET_NO_PENDIENTE".equals(e.codigo())
+                    || "SUNAT_YA_LO_TIENE".equals(e.codigo())) {
                 log.info("Outbox {} descartada: {} {}", fila.id(), e.codigo(), e.getMessage());
                 outbox.completar(fila.id());
             } else {

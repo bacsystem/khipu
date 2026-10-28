@@ -1751,6 +1751,7 @@
     "NUMERO_YA_ASIGNADO": "The receipt already has a number assigned.",
     "ESTADO_NO_ENVIABLE": "The receipt is not in a state that can be sent to SUNAT.",
     "ENVIO_EN_CURSO": "Another process is sending this document to SUNAT. Check its status in a few seconds.",
+    "SUNAT_YA_LO_TIENE": "SUNAT already has this document registered. Check its receipt in SOL before issuing it again.",
     "ESTADO_CONFLICTO": "The receipt just changed state. Try again.",
     "TRANSICION_INVALIDA": "That state change cannot be applied to the receipt.",
     "SIN_CDR": "The receipt does not have a SUNAT CDR yet.",
@@ -4607,6 +4608,10 @@
         "ENVIO_EN_CURSO": [
           "Another submission of the same document (another call or the automatic retry) is waiting for SUNAT's answer.",
           "It is not sent twice: query the document again in a few seconds."
+        ],
+        "SUNAT_YA_LO_TIENE": [
+          "SUNAT answered that it already has the document (an earlier submission arrived without a response) and its receipt cannot be recovered automatically.",
+          "It stays in ERROR_ENVIO with no automatic retry: check the CDR in SOL and, if it is accepted, do not issue it again."
         ],
         "ESTADO_CONFLICTO": [
           "Two operations changed the status at the same time.",

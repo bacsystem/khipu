@@ -59,7 +59,8 @@ public class AdminErroresController {
     @Operation(summary = "Reintentar el envío de un comprobante", description = """
             Reintenta ahora el envío a SUNAT de un comprobante en error de envío, con las mismas reglas que el envío manual de la empresa. Que SUNAT vuelva a fallar **no** es un error:
             responde `200` con el estado en que quedó (`ERROR_ENVIO` y el fault, o el resultado de SUNAT). `409 ESTADO_NO_ENVIABLE` si ya no está por enviar, `409 FUERA_DE_PLAZO`
-            si se pasó el plazo (y queda en ese estado), `409 ENVIO_EN_CURSO` si otro proceso lo está enviando en este momento, `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, también cuando no se pudo reintentar.""")
+            si se pasó el plazo (y queda en ese estado), `409 ENVIO_EN_CURSO` si otro proceso lo está enviando en este momento, `409 SUNAT_YA_LO_TIENE` si SUNAT respondió que ya lo tiene y no hay cómo recuperar su constancia
+            (queda en `ERROR_ENVIO` sin reintento automático), `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, también cuando no se pudo reintentar.""")
     public ApiResponse<ReintentoResponse> reintentar(@Parameter(description = "Id del comprobante") @PathVariable UUID id, HttpServletRequest req) {
         return ApiResponse.ok(ReintentoResponse.de(resolver.reintentar(AdministradorActual.actor(req), id)));
     }

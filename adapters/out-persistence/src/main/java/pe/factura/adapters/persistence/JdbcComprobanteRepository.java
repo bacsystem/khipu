@@ -23,9 +23,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
 
     /**
      * LOG-01: lo que otro proceso tiene reservado para enviar ({@link #reservarEnvio}) no lo toman el barrido de plazo ni la agrupación en un resumen diario: su resultado
-     * llega en segundos y pisarlo dejaría FUERA_DE_PLAZO o «en resumen» lo que SUNAT acaba de aceptar. La caducidad es la misma que {@code EnviarDocumentoService.ENVIO_SIN_RESPUESTA}.
+     * llega en segundos y pisarlo dejaría FUERA_DE_PLAZO o «en resumen» lo que SUNAT acaba de aceptar. La caducidad es {@link ComprobanteRepository#ENVIO_SIN_RESPUESTA}.
      */
-    private static final String SIN_ENVIO_EN_CURSO = " AND (d.enviando_desde IS NULL OR d.enviando_desde < now() - interval '5 minutes')";
+    private static final String SIN_ENVIO_EN_CURSO = " AND (d.enviando_desde IS NULL OR d.enviando_desde < now() - interval '" + ENVIO_SIN_RESPUESTA.toMinutes() + " minutes')";
 
     @Override public void guardar(Comprobante c) {
         // LOG-01: toda actualización es condicional al estado desde el que salió la transición en memoria (el primer evento pendiente), o al estado actual si no hay
