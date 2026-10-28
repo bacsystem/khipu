@@ -111,6 +111,15 @@ class OutboxWorkerTest {
         verify(outbox, never()).reprogramar(any(), any(), any());
     }
 
+    /** LOG-01: SUNAT ya lo tiene y nadie puede recuperar la constancia: el envío dejó ERROR_ENVIO con el motivo; la fila se completa, no se reenvía el mismo XML. */
+    @Test void sunatYaLoTieneCompletaSinReprogramar() {
+        when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 3)));
+        when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("SUNAT_YA_LO_TIENE", "B001-1: 1033 - registrado previamente"));
+        worker.procesar();
+        verify(outbox).completar(fila);
+        verify(outbox, never()).reprogramar(any(), any(), any());
+    }
+
     @Test void domainExceptionDeConfiguracionReprograma() {
         when(outbox.tomarVencidas(anyInt(), any())).thenReturn(List.of(new OutboxItem(fila, tenant, doc, "ENVIAR", 0)));
         when(enviar.enviar(tenant, doc)).thenThrow(new DomainException("CREDENCIALES_SOL_NO_CARGADAS", "sin credenciales"));

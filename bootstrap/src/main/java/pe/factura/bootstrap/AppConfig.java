@@ -468,8 +468,10 @@ public class AppConfig {
     }
 
     @Bean EnviarDocumentoUseCase enviarDocumento(ComprobanteRepository c, TenantRepository t, DocumentStorage s, SunatBillingGateway g, CdrParser p,
-                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen, AppProperties props) {
-        return RelojDeLaAplicacion.proteger(new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos, resumen), t, props.desplazamientoDelReloj());
+                                                OutboxRepository o, UnitOfWork u, Clock clock, RechazoDeSolRepository rechazos, InformarEnResumenUseCase resumen,
+                                                RecuperarCdrUseCase recuperador, AppProperties props) {
+        // LOG-01: el recuperador resuelve por getStatusCdr un fault «ya registrado» (1033) en vez de dejar RECHAZADO lo que SUNAT aceptó.
+        return RelojDeLaAplicacion.proteger(new EnviarDocumentoService(c, t, s, g, p, o, u, clock, rechazos, resumen, recuperador), t, props.desplazamientoDelReloj());
     }
     @Bean RechazoDeSolRepository rechazoDeSolRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeSolRepository(jdbc); }
     @Bean EmitirComprobanteUseCase emitirComprobante(ComprobanteRepository c, SerieRepository se, TenantRepository t, DocumentStorage s,

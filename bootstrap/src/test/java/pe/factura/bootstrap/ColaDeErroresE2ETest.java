@@ -258,14 +258,35 @@ class ColaDeErroresE2ETest {
     @Test void unFaultDeFormatoDeSunatRechazaYElComprobanteSaleDeLosReintentablesYEntraComoErrorDeFormato() {
         Cliente a = cliente("ana@negocio.pe");
         Comprobante c = enError(a, 1);
-        FALLA.set(new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos"));
+        FALLA.set(new SunatRechazoException("1034", "Número de RUC del nombre del archivo no coincide con el consignado en el contenido del XML"));
 
         Map<String, Object> d = datos(reintentar(c.id()));
 
         assertThat(d).containsEntry("estado", "RECHAZADO");
-        assertThat((Map<String, Object>) d.get("fault")).containsEntry("codigo", "1033");
+        assertThat((Map<String, Object>) d.get("fault")).containsEntry("codigo", "1034");
         Map<String, Object> fila = filas(cola("")).get(0);
         assertThat(fila).containsEntry("clase", "ERROR_DE_FORMATO").containsEntry("accionable", false);
+        assertThat(bitacora("REINTENTAR_ENVIO_COMPROBANTE")).isEqualTo(1);
+    }
+
+    /**
+     * LOG-01: el 1033 «registrado previamente» no es un error de formato sino la señal de que SUNAT ya tiene el comprobante (un envío anterior llegó sin respuesta). En
+     * e-beta no hay getStatusCdr para recuperar la constancia: queda en error de envío con el motivo, sale del outbox (reintentar mandaría el mismo XML) y el administrador
+     * recibe 409 SUNAT_YA_LO_TIENE con la bitácora anotada. Nunca RECHAZADO sobre lo que SUNAT aceptó.
+     */
+    @Test void unFaultYaRegistradoDeSunatNoRechazaSinoQueQuedaEnErrorDeEnvioSinReintentoYAvisa() {
+        Cliente a = cliente("ana@negocio.pe");
+        Comprobante c = enError(a, 1);
+        FALLA.set(new SunatRechazoException("1033", "El comprobante fue registrado previamente con otros datos"));
+
+        ResponseEntity<Map> r = reintentar(c.id());
+
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(codigo(r)).isEqualTo("SUNAT_YA_LO_TIENE");
+        assertThat(estado(c.id())).isEqualTo("ERROR_ENVIO");
+        assertThat(jdbc.queryForObject("SELECT ultimo_error FROM documento WHERE id = ?", String.class, c.id())).startsWith("1033 - ").contains("SUNAT ya tiene registrado este comprobante");
+        assertThat(enOutbox(c.id())).as("no se reintenta solo").isZero();
+        assertThat(filas(cola("")).get(0)).containsEntry("clase", "ERROR_DE_ENVIO");
         assertThat(bitacora("REINTENTAR_ENVIO_COMPROBANTE")).isEqualTo(1);
     }
 

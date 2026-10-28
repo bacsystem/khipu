@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import pe.factura.application.port.in.ControlarPlazoEnvioUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.application.port.out.UnitOfWork;
+import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.PlazoEnvio;
 
@@ -36,7 +37,14 @@ public class ControlarPlazoEnvioService implements ControlarPlazoEnvioUseCase {
         for (Comprobante c : comprobantes.pendientesQueVencenEmitidosHasta(corte)) {
             if (!c.fueraDePlazo(hoy)) continue;
             c.marcarFueraDePlazo(hoy);
-            uow.ejecutar(() -> comprobantes.guardar(c));
+            try {
+                uow.ejecutar(() -> comprobantes.guardar(c));
+            } catch (DomainException e) {
+                // LOG-01: entre la lectura y el guardado otro proceso lo resolvió (un envío que lo reservó y SUNAT aceptó, un CDR recuperado): el guardado condicional no lo
+                // pisa, y un comprobante así no corta el barrido de los demás.
+                if (!"ESTADO_CONFLICTO".equals(e.codigo())) throw e;
+                continue;
+            }
             vencidos.add(c);
         }
         return vencidos;

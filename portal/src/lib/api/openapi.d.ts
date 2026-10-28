@@ -967,6 +967,12 @@ export interface paths {
          * Enviar (o reintentar) a SUNAT
          * @description Envía un comprobante `FIRMADO` (emitido con `enviar_automatico: false`) o reintenta uno en `ERROR_ENVIO` sin
          *     esperar al reintento automático. Un comprobante `ACEPTADO`, `RECHAZADO` o `ANULADO` responde `409 ESTADO_NO_ENVIABLE`.
+         *     El envío se reserva antes de llamar a SUNAT: mientras ese envío no tenga respuesta, un segundo envío del mismo comprobante (otra llamada, el reintento
+         *     automático) responde `409 ENVIO_EN_CURSO` en vez de mandar el mismo número dos veces; consulte el comprobante unos segundos después. Si SUNAT contesta que
+         *     ya lo tiene registrado (fault 1033 y afines), no queda `RECHAZADO`: khipu recupera su constancia por `getStatusCdr` (factura y notas de factura, en producción)
+         *     y, si SUNAT no contesta la consulta, lo deja en `ERROR_ENVIO` para volver a pedirla en el próximo reintento. Cuando nadie puede recuperarla (boleta, liquidación,
+         *     retención/percepción; cualquier comprobante en e-beta) queda en `ERROR_ENVIO` con el motivo, sale de los reintentos automáticos y la respuesta es
+         *     `409 SUNAT_YA_LO_TIENE`: verifique la constancia en SOL y no lo reemita.
          *     Una boleta (o nota sobre boleta) que pasó el envío individual se informa en un resumen diario: la respuesta lo trae en `baja`
          *     (`condicion: ALTA`). Pasado el 7.º día va igual, con `baja.fuera_de_plazo: true`: SUNAT no la rechaza, pero puede observarla con la
          *     4443 (entonces `ACEPTADO_CON_OBS`; en e-beta la aceptó sin observaciones, `ACEPTADO`). Una factura, una nota de factura o una nota de crédito 10 / de débito 03 de boleta (que no van en el resumen)
@@ -2055,7 +2061,8 @@ export interface paths {
          * Reintentar el envío de un comprobante
          * @description Reintenta ahora el envío a SUNAT de un comprobante en error de envío, con las mismas reglas que el envío manual de la empresa. Que SUNAT vuelva a fallar **no** es un error:
          *     responde `200` con el estado en que quedó (`ERROR_ENVIO` y el fault, o el resultado de SUNAT). `409 ESTADO_NO_ENVIABLE` si ya no está por enviar, `409 FUERA_DE_PLAZO`
-         *     si se pasó el plazo (y queda en ese estado), `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, también cuando no se pudo reintentar.
+         *     si se pasó el plazo (y queda en ese estado), `409 ENVIO_EN_CURSO` si otro proceso lo está enviando en este momento, `409 SUNAT_YA_LO_TIENE` si SUNAT respondió que ya lo tiene y no hay cómo recuperar su constancia
+         *     (queda en `ERROR_ENVIO` sin reintento automático), `404 NO_ENCONTRADO` si no existe. Queda en la bitácora, también cuando no se pudo reintentar.
          */
         post: operations["reintentar"];
         delete?: never;

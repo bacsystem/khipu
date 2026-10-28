@@ -235,9 +235,9 @@ public class GuiaRemision {
      * Códigos de «CódigosRetorno» que dicen que ese número ya está en SUNAT: 1032 (ya informado, anulado o rechazado), 1033 (registrado con otros datos), 2223
      * (el archivo ya fue presentado) y 4000 (el documento ya fue presentado). Reenviarlo da el mismo error para siempre.
      */
-    static final Set<String> YA_EN_SUNAT = Set.of("1032", "1033", "2223", "4000");
+    static final Set<String> YA_EN_SUNAT = FaultsSunat.YA_EN_SUNAT;
 
-    public static boolean yaEnSunat(String codigo) { return codigo != null && YA_EN_SUNAT.contains(codigo.strip()); }
+    public static boolean yaEnSunat(String codigo) { return FaultsSunat.yaEnSunat(codigo); }
 
     /** El envío falló. {@code reintentoAutomatico}: si khipu lo reintenta solo (SUNAT no respondió) o hace falta corregir algo y reenviar a mano. */
     public void marcarErrorEnvio(String motivo, boolean reintentoAutomatico) {
