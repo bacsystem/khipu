@@ -89,6 +89,23 @@ class AdministrarTenantServiceTest {
     }
 
     /** #107: corregir las credenciales levanta la marca de rechazadas, y con eso el outbox retoma los envíos de la empresa. */
+    /**
+     * LOG-05: el servicio lee la empresa, valida y guarda. Si entre la lectura y el guardado otro proceso cargó las credenciales SOL, guardar el certificado no las
+     * revierte: cada edición escribe solo su sección. Antes se guardaba el tenant entero tal como se había leído, con las SOL viejas.
+     */
+    @Test void cargarElCertificadoNoPisaLasCredencialesSolQueOtroGuardoEntreLaLecturaYElGuardado(@TempDir Path dir) throws Exception {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        service.cargarCredencialesSol(id, "VIEJO", "vieja");
+        byte[] vigente = p12(dir, "vigente", "2026/09/01 00:00:00", 365);
+        tenants.alBuscar = () -> tenants.guardarCredencialesSol(id, new pe.factura.domain.tenant.CredencialesSol("NUEVO", "nueva"));
+
+        service.cargarCertificado(id, vigente, CLAVE_P12);
+
+        pe.factura.domain.tenant.Tenant t = tenants.buscar(id).orElseThrow();
+        assertThat(t.certificado()).isNotNull();
+        assertThat(t.sol().usuario()).as("las SOL que otro guardó mientras tanto").isEqualTo("NUEVO");
+    }
+
     @Test void guardarCredencialesNuevasLevantaElRechazo() {
         UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         rechazosDeSol.marcar(id, "0102 - Usuario o contrasena incorrectos", Fakes.CLOCK.instant());

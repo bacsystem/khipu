@@ -175,6 +175,12 @@ public final class RelojDeLaAplicacion {
                 return empresa;
             }
             @Override public void guardar(Tenant t) { tenants.guardar(t); }
+            // LOG-05: las escrituras por sección se delegan tal cual (el default del puerto pasaría por el buscar de arriba, que rechaza a la empresa en producción).
+            @Override public void guardarDatosFiscales(UUID id, pe.factura.domain.tenant.Domicilio d, String cuenta, String nombre, boolean padron) { tenants.guardarDatosFiscales(id, d, cuenta, nombre, padron); }
+            @Override public void guardarCertificado(UUID id, pe.factura.domain.tenant.CertificadoDigital c) { tenants.guardarCertificado(id, c); }
+            @Override public void guardarCredencialesSol(UUID id, pe.factura.domain.tenant.CredencialesSol s) { tenants.guardarCredencialesSol(id, s); }
+            @Override public void guardarCredencialesApiSunat(UUID id, pe.factura.domain.tenant.CredencialesApiSunat a) { tenants.guardarCredencialesApiSunat(id, a); }
+            @Override public void guardarPersonalizacionPdf(UUID id, pe.factura.domain.tenant.PersonalizacionPdf p) { tenants.guardarPersonalizacionPdf(id, p); }
             @Override public Optional<Tenant> buscarPorRuc(String ruc) { return tenants.buscarPorRuc(ruc); }
             @Override public List<Tenant> listarPorCuenta(UUID cuentaId) { return tenants.listarPorCuenta(cuentaId); }
             @Override public void asignarCuenta(UUID tenantId, UUID cuentaId) { tenants.asignarCuenta(tenantId, cuentaId); }

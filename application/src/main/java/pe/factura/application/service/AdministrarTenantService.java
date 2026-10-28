@@ -51,10 +51,11 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
     public Tenant obtener(UUID tenantId) { return tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado")); }
 
+    /** LOG-05: cada edición escribe solo su sección; el objeto leído fuera de la transacción no se vuelve a guardar entero (pisaba el entorno y los secretos de otros). */
     public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) {
-        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv);
-        uow.ejecutar(() -> tenants.guardar(t));
-        return t;
+        obtener(tenantId);
+        uow.ejecutar(() -> tenants.guardarDatosFiscales(tenantId, domicilio, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv));
+        return obtener(tenantId);
     }
 
     /**
@@ -85,7 +86,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             throw new DomainException("CERTIFICADO_NO_VIGENTE",
                     "2327 - El certificado recién entra en vigencia el " + desde.atZone(ZoneId.of("America/Lima")).toLocalDate()
                             + "; SUNAT rechaza todo lo que se firme antes de esa fecha");
-        uow.ejecutar(() -> tenants.guardar(t.conCertificado(new CertificadoDigital(pkcs12, clave, vigencia))));
+        uow.ejecutar(() -> tenants.guardarCertificado(tenantId, new CertificadoDigital(pkcs12, clave, vigencia)));
     }
 
     /** Un PKCS#12 puede traer entradas de solo certificado (CA) antes de la clave; se elige la primera con clave privada. */
@@ -101,10 +102,10 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
     /** La validación y la normalización del usuario viven en {@link CredencialesSol}: así valen para cualquier camino. */
     public void cargarCredencialesSol(UUID tenantId, String usuario, String clave) {
-        Tenant t = obtener(tenantId);
+        obtener(tenantId);
         CredencialesSol sol = new CredencialesSol(usuario, clave);
         uow.ejecutar(() -> {
-            tenants.guardar(t.conCredencialesSol(sol));
+            tenants.guardarCredencialesSol(tenantId, sol);
             // #107: si SUNAT había rechazado las anteriores, los envíos pendientes se reanudan ya, sin esperar su próximo reintento.
             rechazosDeSol.levantar(tenantId, clock.instant());
         });
@@ -112,15 +113,15 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
 
     /** La validación y la normalización del client_id viven en {@link CredencialesApiSunat}, como las de SOL. */
     public void cargarCredencialesApiSunat(UUID tenantId, String clientId, String clientSecret) {
-        Tenant t = obtener(tenantId);
+        obtener(tenantId);
         CredencialesApiSunat api = new CredencialesApiSunat(clientId, clientSecret);
-        uow.ejecutar(() -> tenants.guardar(t.conCredencialesApiSunat(api)));
+        uow.ejecutar(() -> tenants.guardarCredencialesApiSunat(tenantId, api));
     }
 
     public void borrarCredencialesApiSunat(UUID tenantId) {
         Tenant t = obtener(tenantId);
         if (t.apiSunat() == null) return;
-        uow.ejecutar(() -> tenants.guardar(t.conCredencialesApiSunat(null)));
+        uow.ejecutar(() -> tenants.guardarCredencialesApiSunat(tenantId, null));
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {

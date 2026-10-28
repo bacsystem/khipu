@@ -80,11 +80,11 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
         Tenant r = repo.buscar(t.id()).orElseThrow();
         assertThat(r.apiSunat()).isEqualTo(t.apiSunat());
 
-        // Cambiar otro dato no las pierde (el upsert escribe todas las columnas).
+        // Cambiar otro dato no las pierde (LOG-05: guardar ya no toca los secretos; cada sección escribe lo suyo).
         repo.guardar(r.conDatosFiscales(null, "00-000-123456", null, false));
         assertThat(repo.buscar(t.id()).orElseThrow().apiSunat()).isEqualTo(t.apiSunat());
 
-        repo.guardar(r.conCredencialesApiSunat(null));
+        repo.guardarCredencialesApiSunat(t.id(), null);
         Tenant sin = repo.buscar(t.id()).orElseThrow();
         assertThat(sin.apiSunat()).isNull();
         assertThat(sin.sol().clave()).isEqualTo("moddatos");
@@ -102,9 +102,56 @@ class JdbcTenantRepositoryTest extends PersistenciaTestBase {
     @Test void actualizaYPermiteNulos() {
         Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, null, null);
         repo.guardar(t);
-        repo.guardar(t.conCredencialesSol(new CredencialesSol("U", "C")));
+        repo.guardarCredencialesSol(t.id(), new CredencialesSol("U", "C"));
         Tenant r = repo.buscar(t.id()).orElseThrow();
         assertThat(r.sol().usuario()).isEqualTo("U");
         assertThat(r.certificado()).isNull();
+    }
+
+    /**
+     * LOG-05: sobre una fila existente, guardar no toca el entorno ni los secretos. Antes reescribía la fila entera con el objeto que el llamador había leído: unos datos
+     * fiscales guardados con un tenant leído antes de un cambio de entorno devolvían la empresa a BETA sin bitácora, y un certificado guardado con uno leído antes de
+     * que otro cargara las credenciales SOL las revertía.
+     */
+    @Test void guardarUnaFilaExistenteNoTocaElEntornoNiLosSecretos() {
+        Tenant leidoAntes = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, new CredencialesSol("VIEJO", "vieja"),
+                new CertificadoDigital(new byte[]{1}, "c1", LocalDate.of(2030, 1, 1)));
+        repo.guardar(leidoAntes);
+        // Otro proceso: el administrador pasa la empresa a producción (UPDATE condicional de una columna) y un usuario carga credenciales SOL y API SUNAT nuevas
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE id = ? AND entorno = 'BETA'", leidoAntes.id());
+        repo.guardarCredencialesSol(leidoAntes.id(), new CredencialesSol("NUEVO", "nueva"));
+        repo.guardarCredencialesApiSunat(leidoAntes.id(), new CredencialesApiSunat("d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw=="));
+        repo.guardarCertificado(leidoAntes.id(), new CertificadoDigital(new byte[]{2}, "c2", LocalDate.of(2031, 1, 1)));
+
+        // El primero confirma con lo que había leído
+        repo.guardar(leidoAntes.conDatosFiscales(null, "00-000-123456", "Andina", true));
+
+        Tenant r = repo.buscar(leidoAntes.id()).orElseThrow();
+        assertThat(r.entorno()).as("sigue en producción").isEqualTo(Entorno.PRODUCCION);
+        assertThat(r.sol().usuario()).as("las SOL nuevas").isEqualTo("NUEVO");
+        assertThat(r.apiSunat().clientId()).isEqualTo("d20b421e-4ace-46d8-ac8c-4fbb44cfde17");
+        assertThat(r.certificado().pkcs12()).containsExactly(2);
+        assertThat(r.cuentaDetracciones()).as("lo suyo sí se guardó").isEqualTo("00-000-123456");
+        assertThat(r.nombreComercial()).isEqualTo("Andina");
+    }
+
+    /** LOG-05: cada escritura por sección toca solo sus columnas y exige que la empresa exista. */
+    @Test void lasEscriturasPorSeccionSoloTocanSuSeccion() {
+        Tenant t = new Tenant(UUID.randomUUID(), "20100066603", "A", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"), null)
+                .conDatosFiscales(new Domicilio("150122", "Av. Larco 345", null, null, null, null, "0001"), "00-000-111111", "Tienda");
+        repo.guardar(t);
+        PersonalizacionPdf p = new PersonalizacionPdf(PlantillaPdf.CORPORATIVO, "#1f5f4a", t.id() + "/logo.png", "Gracias", null);
+        repo.guardarPersonalizacionPdf(t.id(), p);
+        repo.guardarDatosFiscales(t.id(), null, "00-000-222222", "Tienda 2", true);
+        Tenant r = repo.buscar(t.id()).orElseThrow();
+        assertThat(r.personalizacionPdf()).isEqualTo(p);
+        assertThat(r.domicilio()).isNull();
+        assertThat(r.cuentaDetracciones()).isEqualTo("00-000-222222");
+        assertThat(r.padronTasaEspecialIgv()).isTrue();
+        assertThat(r.sol().usuario()).as("los datos fiscales no tocan las SOL").isEqualTo("MODDATOS");
+        repo.guardarCertificado(t.id(), new CertificadoDigital(new byte[]{9}, "c", LocalDate.of(2030, 1, 1)));
+        assertThat(repo.buscar(t.id()).orElseThrow().personalizacionPdf()).as("el certificado no toca el PDF").isEqualTo(p);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> repo.guardarCredencialesSol(UUID.randomUUID(), new CredencialesSol("U", "C")))
+                .extracting("codigo").isEqualTo("NO_ENCONTRADO");
     }
 }

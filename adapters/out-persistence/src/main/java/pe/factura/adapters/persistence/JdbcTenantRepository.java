@@ -25,7 +25,9 @@ public class JdbcTenantRepository implements TenantRepository {
 
     /**
      * La designación de agente (#40) no se escribe aquí: la cambia solo el administrador, con {@code JdbcAccionesDeEmpresaRepository.designarAgente}, de forma condicional. Si guardar
-     * la reescribiera, unos datos fiscales guardados con el tenant leído antes de una designación la borrarían.
+     * la reescribiera, unos datos fiscales guardados con el tenant leído antes de una designación la borrarían. LOG-05: por la misma razón, sobre una fila existente tampoco
+     * se reescriben el entorno ({@code cambiarEntorno}) ni los secretos (certificado, SOL, API SUNAT: cada uno con su método). Los secretos sí van en el INSERT: el alta
+     * asistida crea la empresa con ellos.
      */
     @Override public void guardar(Tenant t) {
         byte[] su = t.sol() == null ? null : cipher.cifrar(t.sol().usuario().getBytes(StandardCharsets.UTF_8));
@@ -42,20 +44,46 @@ public class JdbcTenantRepository implements TenantRepository {
               dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial,
               pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv, api_sunat_client_id_enc, api_sunat_client_secret_enc)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET razon_social = EXCLUDED.razon_social, entorno = EXCLUDED.entorno,
-              sol_usuario_enc = EXCLUDED.sol_usuario_enc, sol_clave_enc = EXCLUDED.sol_clave_enc,
-              cert_pkcs12_enc = EXCLUDED.cert_pkcs12_enc, cert_clave_enc = EXCLUDED.cert_clave_enc,
-              cert_vigencia_hasta = EXCLUDED.cert_vigencia_hasta,
+            ON CONFLICT (id) DO UPDATE SET razon_social = EXCLUDED.razon_social,
               dom_ubigeo = EXCLUDED.dom_ubigeo, dom_direccion = EXCLUDED.dom_direccion, dom_urbanizacion = EXCLUDED.dom_urbanizacion,
               dom_distrito = EXCLUDED.dom_distrito, dom_provincia = EXCLUDED.dom_provincia, dom_departamento = EXCLUDED.dom_departamento,
               dom_establecimiento = EXCLUDED.dom_establecimiento, cuenta_detracciones = EXCLUDED.cuenta_detracciones, nombre_comercial = EXCLUDED.nombre_comercial,
               pdf_plantilla = EXCLUDED.pdf_plantilla, pdf_color = EXCLUDED.pdf_color, pdf_logo_key = EXCLUDED.pdf_logo_key, pdf_pie = EXCLUDED.pdf_pie,
-              pdf_observaciones = EXCLUDED.pdf_observaciones, padron_tasa_especial_igv = EXCLUDED.padron_tasa_especial_igv,
-              api_sunat_client_id_enc = EXCLUDED.api_sunat_client_id_enc, api_sunat_client_secret_enc = EXCLUDED.api_sunat_client_secret_enc, updated_at = now()
+              pdf_observaciones = EXCLUDED.pdf_observaciones, padron_tasa_especial_igv = EXCLUDED.padron_tasa_especial_igv, updated_at = now()
             """, t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), su, sc, cp, cc, cv,
                 d == null ? null : d.ubigeo(), d == null ? null : d.direccion(), d == null ? null : d.urbanizacion(), d == null ? null : d.distrito(),
                 d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), t.cuentaDetracciones(), t.nombreComercial(),
                 p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto(), t.padronTasaEspecialIgv(), ai, as);
+    }
+
+    // LOG-05: escrituras por sección. Cada UPDATE toca solo sus columnas; lo que otro guardó en otra sección (o el entorno, o la designación) no se pisa.
+    @Override public void guardarDatosFiscales(UUID tenantId, Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) {
+        exigirUnaFila(jdbc.update("""
+            UPDATE tenant SET dom_ubigeo = ?, dom_direccion = ?, dom_urbanizacion = ?, dom_distrito = ?, dom_provincia = ?, dom_departamento = ?, dom_establecimiento = ?,
+              cuenta_detracciones = ?, nombre_comercial = ?, padron_tasa_especial_igv = ?, updated_at = now() WHERE id = ?
+            """, d == null ? null : d.ubigeo(), d == null ? null : d.direccion(), d == null ? null : d.urbanizacion(), d == null ? null : d.distrito(),
+                d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), cuentaDetracciones, nombreComercial,
+                padronTasaEspecialIgv, tenantId));
+    }
+    @Override public void guardarCertificado(UUID tenantId, CertificadoDigital c) {
+        Date cv = c == null || c.vigenciaHasta() == null ? null : Date.valueOf(c.vigenciaHasta());
+        exigirUnaFila(jdbc.update("UPDATE tenant SET cert_pkcs12_enc = ?, cert_clave_enc = ?, cert_vigencia_hasta = ?, updated_at = now() WHERE id = ?",
+                c == null ? null : cipher.cifrar(c.pkcs12()), c == null ? null : cipher.cifrar(c.clave().getBytes(StandardCharsets.UTF_8)), cv, tenantId));
+    }
+    @Override public void guardarCredencialesSol(UUID tenantId, CredencialesSol s) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET sol_usuario_enc = ?, sol_clave_enc = ?, updated_at = now() WHERE id = ?",
+                s == null ? null : cipher.cifrar(s.usuario().getBytes(StandardCharsets.UTF_8)), s == null ? null : cipher.cifrar(s.clave().getBytes(StandardCharsets.UTF_8)), tenantId));
+    }
+    @Override public void guardarCredencialesApiSunat(UUID tenantId, CredencialesApiSunat a) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET api_sunat_client_id_enc = ?, api_sunat_client_secret_enc = ?, updated_at = now() WHERE id = ?",
+                a == null ? null : cipher.cifrar(a.clientId().getBytes(StandardCharsets.UTF_8)), a == null ? null : cipher.cifrar(a.clientSecret().getBytes(StandardCharsets.UTF_8)), tenantId));
+    }
+    @Override public void guardarPersonalizacionPdf(UUID tenantId, PersonalizacionPdf p) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET pdf_plantilla = ?, pdf_color = ?, pdf_logo_key = ?, pdf_pie = ?, pdf_observaciones = ?, updated_at = now() WHERE id = ?",
+                p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto(), tenantId));
+    }
+    private static void exigirUnaFila(int filas) {
+        if (filas != 1) throw new pe.factura.domain.DomainException("NO_ENCONTRADO", "Tenant no encontrado");
     }
     @Override public Optional<Tenant> buscar(UUID id) {
         return jdbc.query("SELECT " + COLS + " FROM tenant WHERE id = ?", this::mapear, id).stream().findFirst();
