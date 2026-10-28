@@ -166,4 +166,40 @@ class EnviarDocumentoServiceTest {
         assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
         assertThat(outbox.filas).hasSize(1);
     }
+
+    /**
+     * LOG-02: SUNAT ya aceptó (punto de no retorno) y al guardar el CDR el storage lanza algo que no es IllegalStateException (una caída de red del SDK de S3, por
+     * ejemplo). Sin un catch final la excepción salía antes de la transacción de abajo: 500 al cliente, documento FIRMADO en la base sin fila de outbox, nadie lo
+     * reintenta y el plazo lo cierra FUERA_DE_PLAZO estando aceptado. Debe quedar ERROR_ENVIO con su reintento programado, como cualquier otra falla de infraestructura.
+     */
+    @Test void unaExcepcionInesperadaAlGuardarElCdrDejaErrorEnvioConReintento() {
+        Fakes.Storage storageQueCae = new Fakes.Storage() {
+            @Override public void guardar(String k, byte[] contenido) {
+                if (k.contains("/R-")) throw new RuntimeException("Unable to execute HTTP request: Read timed out");
+                super.guardar(k, contenido);
+            }
+        };
+        storageQueCae.datos.putAll(storage.datos);
+        EnviarDocumentoService conStorageQueCae = new EnviarDocumentoService(comprobantes, tenants, storageQueCae, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+
+        Comprobante r = conStorageQueCae.enviar(tenantId, c.id());
+
+        assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(r.intentos()).isEqualTo(1);
+        assertThat(r.ultimoError()).startsWith("INFRA - RuntimeException: Unable to execute HTTP request");
+        assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
+    }
+
+    /** LOG-02: un CDR que llega sin ResponseCode reventaba en el dominio (CDR_INVALIDO) después de marcarEnviado, con el mismo resultado: FIRMADO sin reintento. */
+    @Test void unCdrSinCodigoDejaErrorEnvioConReintento() {
+        cdrs.cdr = new Cdr("", "", List.of());
+
+        Comprobante r = service.enviar(tenantId, c.id());
+
+        assertThat(r.estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(r.ultimoError()).startsWith("INFRA - DomainException");
+        assertThat(comprobantes.datos.get(c.id()).estado()).isEqualTo(EstadoDocumento.ERROR_ENVIO);
+        assertThat(outbox.filas).hasSize(1);
+    }
 }

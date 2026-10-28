@@ -5,6 +5,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -56,7 +57,7 @@ public class S3DocumentStorage implements DocumentStorage {
         String sha256 = Base64.getEncoder().encodeToString(sha256(contenido));
         try {
             s3.putObject(r -> r.bucket(bucket).key(key).checksumSHA256(sha256), RequestBody.fromBytes(contenido));
-        } catch (S3Exception e) { throw new IllegalStateException("No se pudo guardar " + key + " en s3://" + bucket, e); }
+        } catch (SdkException e) { throw new IllegalStateException("No se pudo guardar " + key + " en s3://" + bucket, e); }
     }
 
     private static byte[] sha256(byte[] contenido) {
@@ -70,7 +71,7 @@ public class S3DocumentStorage implements DocumentStorage {
             ResponseBytes<GetObjectResponse> r = s3.getObjectAsBytes(b -> b.bucket(bucket).key(key));
             return r.asByteArray();
         } catch (NoSuchKeyException e) { throw new IllegalStateException("No existe " + key, e);
-        } catch (S3Exception e) { throw new IllegalStateException("No se pudo leer " + key + " de s3://" + bucket, e); }
+        } catch (SdkException e) { throw new IllegalStateException("No se pudo leer " + key + " de s3://" + bucket, e); }
     }
 
     @Override public boolean existe(String key) {
@@ -82,13 +83,13 @@ public class S3DocumentStorage implements DocumentStorage {
         } catch (S3Exception e) {
             if (e.statusCode() == 404) return false;
             throw new IllegalStateException("No se pudo consultar " + key + " en s3://" + bucket, e);
-        }
+        } catch (SdkException e) { throw new IllegalStateException("No se pudo consultar " + key + " en s3://" + bucket, e); }
     }
 
     @Override public void borrar(String key) {
         validar(key);
         try { s3.deleteObject(b -> b.bucket(bucket).key(key)); }   // idempotente: S3 responde 204 aunque no exista
-        catch (S3Exception e) { throw new IllegalStateException("No se pudo borrar " + key + " de s3://" + bucket, e); }
+        catch (SdkException e) { throw new IllegalStateException("No se pudo borrar " + key + " de s3://" + bucket, e); }
     }
 
     private static void validar(String key) {
