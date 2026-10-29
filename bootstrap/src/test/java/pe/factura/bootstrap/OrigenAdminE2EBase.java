@@ -3,11 +3,12 @@ package pe.factura.bootstrap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -22,12 +23,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * El cliente de prueba llega desde loopback: es «el proxy» cuando una subclase lo declara de confianza.
  */
 @Testcontainers
+@AutoConfigureTestRestTemplate
 abstract class OrigenAdminE2EBase {
     static final String TENANT = "{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}";
     /** Cómo Tomcat muestra loopback según el cliente resuelva IPv4 o IPv6. */
     static final List<String> LOOPBACK = List.of("127.0.0.1", "0:0:0:0:0:0:0:1");
 
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;

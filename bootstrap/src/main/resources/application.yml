@@ -8,7 +8,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  jackson:
+  # DEPS-02: Boot 4 sirve JSON con Jackson 3 por defecto; la API sigue en Jackson 2 (los controladores inyectan su ObjectMapper y swagger-core lo exige) hasta
+  # migrarla, así que el mapper preferido es el 2 y su configuración vive bajo spring.jackson2.
+  http:
+    converters:
+      preferred-json-mapper: jackson2
+  jackson2:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
   servlet:
@@ -26,6 +31,12 @@ spring:
       request-timeout: ${DESCARGAS_TIMEOUT:120s}
 server:
   port: ${PORT:8001}
+  tomcat:
+    # DEPS-02: los dos únicos multipart del sistema suben una sola parte (el .p12 y el logo). Tomcat limita el número de partes y el tamaño de sus cabeceras
+    # desde las CVE-2025-48976/48988 (DoS por decenas de miles de partes en 2 MB); aquí se bajan a lo que la API necesita. Una petición con más partes
+    # responde 422 DEMASIADAS_PARTES (GlobalExceptionHandler), que nombra este tope.
+    max-part-count: 5
+    max-part-header-size: 512B
 management:
   endpoints:
     web:
@@ -50,6 +61,8 @@ management:
 springdoc:
   api-docs:
     path: /openapi.json
+    # DEPS-02: springdoc 3.x emite OpenAPI 3.1 por defecto (sin `type: object` en los esquemas, entre otros cambios); el portal genera sus tipos del 3.0 commiteado, así que se mantiene 3.0.
+    version: openapi_3_0
   swagger-ui:
     path: /swagger-ui
 app:

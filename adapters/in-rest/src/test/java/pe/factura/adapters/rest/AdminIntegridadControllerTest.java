@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.VerificarIntegridadUseCase;
@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * La verificación de integridad del storage desde el backoffice (#198). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su **forma real**
  * (nombres en snake_case, sin campos de más) y cómo rechaza un rango mal pedido, para que la pantalla y el endpoint no se desencuentren.
  */
-@WebMvcTest(controllers = AdminIntegridadController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminIntegridadController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminIntegridadControllerTest {
     static final UUID COMPROBANTE = UUID.randomUUID();
@@ -36,7 +36,7 @@ class AdminIntegridadControllerTest {
     static final LocalDate HASTA = LocalDate.of(2026, 9, 30);
 
     @Autowired MockMvc mvc;
-    @MockBean VerificarIntegridadUseCase integridad;
+    @MockitoBean VerificarIntegridadUseCase integridad;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

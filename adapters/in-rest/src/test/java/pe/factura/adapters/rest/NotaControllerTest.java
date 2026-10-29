@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.EmitirComprobanteUseCase;
@@ -33,12 +33,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = NotaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = NotaController.class)
 @Import(GlobalExceptionHandler.class)
 class NotaControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean EmitirComprobanteUseCase emitir;
-    @MockBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
+    @MockitoBean EmitirComprobanteUseCase emitir;
+    @MockitoBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
     UUID tenant = UUID.randomUUID();
 
     static final String CUERPO = """

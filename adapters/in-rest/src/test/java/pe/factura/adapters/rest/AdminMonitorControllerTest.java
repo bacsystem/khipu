@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.MonitorearEmisionUseCase;
@@ -28,14 +28,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * El monitor global de emisión (#195). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su **forma real** (snake_case, los opcionales
  * ausentes en lugar de nulos, la duración en segundos) para que la pantalla y el endpoint no se desencuentren.
  */
-@WebMvcTest(controllers = AdminMonitorController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminMonitorController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminMonitorControllerTest {
     static final Instant AHORA = Instant.parse("2026-10-15T15:20:00Z");
     static final Instant HORA = Instant.parse("2026-10-15T15:00:00Z");
 
     @Autowired MockMvc mvc;
-    @MockBean MonitorearEmisionUseCase monitor;
+    @MockitoBean MonitorearEmisionUseCase monitor;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

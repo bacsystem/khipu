@@ -4,12 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.in.LimpiarIdempotenciaUseCase;
@@ -31,8 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class IdempotenciaDeEmisionE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
@@ -103,7 +105,7 @@ class IdempotenciaDeEmisionE2ETest {
 
         ResponseEntity<Map> otra = emitir(clave, FACTURA.replace("Laptop", "Monitor"));
 
-        assertThat(otra.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(otra.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(otra.getBody()).containsEntry("codigo", "IDEMPOTENCIA_INVALIDA");
         assertThat(comprobantes()).isEqualTo(1);
     }
@@ -228,7 +230,7 @@ class IdempotenciaDeEmisionE2ETest {
 
         ResponseEntity<Map> otra = emitir("/v1/notas", clave, nota("07", "FC01", "F001", "09", UNA_LECHE));
 
-        assertThat(otra.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(otra.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(otra.getBody()).containsEntry("codigo", "IDEMPOTENCIA_INVALIDA");
         assertThat((String) otra.getBody().get("mensaje")).contains("otra nota");
         assertThat(notas()).isEqualTo(1);
@@ -240,7 +242,7 @@ class IdempotenciaDeEmisionE2ETest {
         emitir("/v1/notas", UUID.randomUUID().toString(), ncTotalDeFactura());
         String clave = UUID.randomUUID().toString();
         ResponseEntity<Map> rechazada = emitir("/v1/notas", clave, nota("07", "FC01", "F001", "07", UNA_LECHE));
-        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat((String) rechazada.getBody().get("mensaje")).startsWith("3286");
 
         ResponseEntity<Map> corregida = emitir("/v1/notas", clave, nota("08", "FD01", "F001", "01", UNA_LECHE));
@@ -272,7 +274,7 @@ class IdempotenciaDeEmisionE2ETest {
 
         assertThat(reintento.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(datos(reintento).get("id")).isEqualTo(datos(primero).get("id"));
-        assertThat(emitir("/v1/notas", UUID.randomUUID().toString(), ncTotalDeFactura()).getStatusCode()).as("con otra clave sí rige el estado del documento").isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(emitir("/v1/notas", UUID.randomUUID().toString(), ncTotalDeFactura()).getStatusCode()).as("con otra clave sí rige el estado del documento").isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
     @Test void unaClaveMalFormadaDeUnaNotaEs422ySinClaveCadaPedidoEsUnaNotaNueva() {

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarConsumoDeCuentasUseCase;
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** El consumo de todas las cuentas contra su plan, con alertas y exportación, desde el backoffice (#193). */
-@WebMvcTest(controllers = AdminConsumoDeCuentasController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminConsumoDeCuentasController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminConsumoDeCuentasControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
@@ -39,7 +39,7 @@ class AdminConsumoDeCuentasControllerTest {
     static final Instant VENCE = Instant.parse("2026-10-20T05:00:00Z");
 
     @Autowired MockMvc mvc;
-    @MockBean ConsultarConsumoDeCuentasUseCase consumo;
+    @MockitoBean ConsultarConsumoDeCuentasUseCase consumo;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

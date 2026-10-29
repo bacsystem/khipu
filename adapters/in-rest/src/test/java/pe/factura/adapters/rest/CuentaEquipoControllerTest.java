@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** #21: el equipo de la cuenta desde el portal. */
-@WebMvcTest(controllers = CuentaEquipoController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = CuentaEquipoController.class)
 @Import(GlobalExceptionHandler.class)
 class CuentaEquipoControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
@@ -33,7 +33,7 @@ class CuentaEquipoControllerTest {
     static final String PORTAL = "http://localhost:3000";
 
     @Autowired MockMvc mvc;
-    @MockBean GestionarEquipoUseCase equipo;
+    @MockitoBean GestionarEquipoUseCase equipo;
 
     final Usuario ana = new Usuario(YO, CUENTA, "ana@torres.pe", "hash", Rol.ADMIN, true, Instant.parse("2026-10-01T00:00:00Z"));
     final Usuario beto = new Usuario(UUID.randomUUID(), CUENTA, "beto@torres.pe", "hash", Rol.EMISOR, false);

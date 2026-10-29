@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.DarDeBajaCuentaUseCase;
@@ -23,14 +23,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Dar de baja y reponer una cuenta desde el backoffice (#201). */
-@WebMvcTest(controllers = AdminBajaCuentaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminBajaCuentaController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminBajaCuentaControllerTest {
     static final UUID ID = UUID.randomUUID();
     static final Instant BAJA = Instant.parse("2026-10-03T09:00:00Z");
 
     @Autowired MockMvc mvc;
-    @MockBean DarDeBajaCuentaUseCase baja;
+    @MockitoBean DarDeBajaCuentaUseCase baja;
 
     @Test void darDeBajaPasaElActorYElMotivoYDiceDesdeCuando() throws Exception {
         UUID admin = UUID.randomUUID();

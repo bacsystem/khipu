@@ -4,7 +4,6 @@ plugins {
 }
 // El BOM de Spring Boot fija Testcontainers en 1.19.8; out-persistence (sin BOM) usa la del catálogo.
 // Se alinean para que un classpath unido (p. ej. "todos los tests" en IntelliJ) no mezcle dos versiones de docker-java.
-extra["testcontainers.version"] = libs.versions.testcontainers.get()
 dependencies {
     implementation(project(":application"))
     implementation(project(":adapters:in-rest"))
@@ -22,13 +21,17 @@ dependencies {
     implementation(project(":adapters:out-webhook"))
     implementation(libs.springdoc.openapi)
     implementation(libs.spring.boot.starter.mail)
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    // DEPS-02: Boot 4 trae Jackson 3; la API sigue en Jackson 2 (ObjectMapper inyectado en los controladores, swagger-core de springdoc) hasta migrarla.
+    implementation(libs.spring.boot.jackson2)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.jdbc)
-    implementation(libs.flyway.core)
+    implementation(libs.spring.boot.starter.flyway)
     runtimeOnly(libs.flyway.postgres)
     runtimeOnly(libs.postgres)
-    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.resttestclient)
+    testImplementation(libs.spring.boot.restclient)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.postgres)
     testImplementation(libs.testcontainers.junit)

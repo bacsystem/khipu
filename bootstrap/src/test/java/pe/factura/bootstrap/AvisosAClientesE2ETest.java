@@ -5,14 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.out.Adjunto;
@@ -45,8 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class AvisosAClientesE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     /** El correo de mentira: anota lo que salió, puede fallar o decir que no entrega (sin SMTP). */
     static final List<String[]> ENVIADOS = new CopyOnWriteArrayList<>();
@@ -327,7 +329,7 @@ class AvisosAClientesE2ETest {
 
         Cliente c = cliente("ana@negocio.pe", 12);
         ResponseEntity<Map> sinTipo = llamar(HttpMethod.POST, "/v1/admin/empresas/" + c.empresaId() + "/avisos", conClaveDePlataforma(), "{}");
-        assertThat(sinTipo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinTipo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(codigo(sinTipo)).isEqualTo("TIPO_INVALIDO");
         assertThat(llamar(HttpMethod.POST, "/v1/admin/empresas/" + c.empresaId() + "/avisos", conClaveDePlataforma(), "{\"tipo\":\"OTRO\"}").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }

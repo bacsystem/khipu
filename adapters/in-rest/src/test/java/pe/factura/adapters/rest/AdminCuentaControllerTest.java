@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.DetalleCuentaAdminUseCase;
@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdminCuentaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminCuentaController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminCuentaControllerTest {
     static final UUID ID = UUID.randomUUID();
@@ -37,9 +37,9 @@ class AdminCuentaControllerTest {
             Instant.parse("2026-09-01T10:00:00Z"), 2, Instant.parse("2026-10-01T09:00:00Z"), null, null);
 
     @Autowired MockMvc mvc;
-    @MockBean ListarCuentasAdminUseCase listar;
-    @MockBean DetalleCuentaAdminUseCase detalle;
-    @MockBean SuspenderCuentaUseCase suspender;
+    @MockitoBean ListarCuentasAdminUseCase listar;
+    @MockitoBean DetalleCuentaAdminUseCase detalle;
+    @MockitoBean SuspenderCuentaUseCase suspender;
 
     @Test void devuelveLasCuentasConElTotalEnLaCabecera() throws Exception {
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANA));

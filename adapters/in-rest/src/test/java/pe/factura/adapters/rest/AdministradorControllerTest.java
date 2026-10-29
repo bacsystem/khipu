@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.CrearAdministradorUseCase;
@@ -21,14 +21,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdministradorController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdministradorController.class)
 @Import(GlobalExceptionHandler.class)
 class AdministradorControllerTest {
     static final String CUERPO = "{\"email\":\"ana@khipu.pe\",\"password\":\"Segura123\"}";
     static final ActorAdmin CLAVE = ActorAdmin.clavePlataforma("127.0.0.1");   // IP por defecto de MockMvc
 
     @Autowired MockMvc mvc;
-    @MockBean CrearAdministradorUseCase crear;
+    @MockitoBean CrearAdministradorUseCase crear;
 
     @Test void creaDevuelve201() throws Exception {
         Administrador a = new Administrador(UUID.randomUUID(), "ana@khipu.pe", "hash", true);

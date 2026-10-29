@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarPadronRucUseCase;
 import pe.factura.application.port.in.ConsultarValidezUseCase;
@@ -20,12 +20,12 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = ConsultaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = ConsultaController.class)
 @org.springframework.context.annotation.Import(GlobalExceptionHandler.class)
 class ConsultaControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean ConsultarValidezUseCase validez;
-    @MockBean ConsultarPadronRucUseCase padron;
+    @MockitoBean ConsultarValidezUseCase validez;
+    @MockitoBean ConsultarPadronRucUseCase padron;
     UUID tenant = UUID.randomUUID();
 
     @Test void consultaUnRucDelPadron() throws Exception {

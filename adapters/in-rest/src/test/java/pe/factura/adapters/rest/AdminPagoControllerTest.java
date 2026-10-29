@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,15 +37,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Los pagos de una cuenta desde el backoffice (#194): registrarlos a mano y ver su historial. */
-@WebMvcTest(controllers = AdminPagoController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminPagoController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminPagoControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
     static final Instant REGISTRADO = Instant.parse("2026-10-15T15:00:00Z");
 
     @Autowired MockMvc mvc;
-    @MockBean RegistrarPagoUseCase registrar;
-    @MockBean ConsultarPagosUseCase consultar;
+    @MockitoBean RegistrarPagoUseCase registrar;
+    @MockitoBean ConsultarPagosUseCase consultar;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

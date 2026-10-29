@@ -1,6 +1,7 @@
 package pe.factura.adapters.rest;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -74,7 +75,7 @@ public class GlobalExceptionHandler {
             case "CORREO_NO_CONFIGURADO" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
             case "CDR_CORRUPTO" -> HttpStatus.INTERNAL_SERVER_ERROR;
-            default -> HttpStatus.UNPROCESSABLE_ENTITY;
+            default -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
         return ResponseEntity.status(st).body(ApiResponse.error(e.codigo(), e.getMessage()));
     }
@@ -100,9 +101,18 @@ public class GlobalExceptionHandler {
      * El único multipart del sistema es el .p12 del certificado. Sin este handler un archivo más grande que el tope
      * cae en el catch-all y devuelve 500 INTERNO, que el portal traduce a «error interno, intenta en unos minutos»:
      * el usuario no tiene forma de saber que el problema es el tamaño del archivo que eligió.
+     * Spring envuelve en la misma excepción el tope de partes de Tomcat (server.tomcat.max-part-count, DEPS-02): una petición de
+     * 3 KB con 22 partes no «supera 1 MB», así que ese caso responde su propio código con el máximo real, para que el integrador
+     * arregle el multipart y no el archivo.
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> archivoDemasiadoGrande(MaxUploadSizeExceededException e) {
+        for (Throwable causa = e.getCause(); causa != null; causa = causa.getCause()) {
+            if (causa instanceof FileCountLimitExceededException partes) {
+                return ResponseEntity.unprocessableEntity().body(ApiResponse.error("DEMASIADAS_PARTES",
+                        "La petición multipart tiene más partes de las permitidas (máximo " + partes.getLimit() + "). El certificado se envía con dos partes, archivo y clave; el logo con una."));
+            }
+        }
         return ResponseEntity.unprocessableEntity()
                 .body(ApiResponse.error("ARCHIVO_DEMASIADO_GRANDE", "El archivo supera el tamaño máximo permitido (1 MB). Un certificado .p12 pesa unos pocos KB: conviene verificar que sea el archivo correcto."));
     }

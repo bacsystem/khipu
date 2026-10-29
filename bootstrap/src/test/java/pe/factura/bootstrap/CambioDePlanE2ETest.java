@@ -4,12 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.in.AplicarCambiosDePlanUseCase;
@@ -39,8 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class CambioDePlanE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
@@ -343,7 +345,7 @@ class CambioDePlanE2ETest {
 
         ResponseEntity<Map> r = cambiar(c.cuentaId(), "Emprende", null, 0);
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(codigo(r)).isEqualTo("VENCIMIENTO_REQUERIDO");
         assertThat(cambiar(c.cuentaId(), "Gratis", null, 0).getStatusCode()).isEqualTo(HttpStatus.OK);
     }
@@ -379,7 +381,7 @@ class CambioDePlanE2ETest {
 
         assertThat(cambiar(UUID.randomUUID(), "Emprende", VENCE, 0).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(llamar(HttpMethod.POST, "/v1/admin/cuentas/" + c.cuentaId() + "/plan", conClaveDePlataforma(), cuerpo(UUID.randomUUID(), VENCE, 0)).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(llamar(HttpMethod.POST, "/v1/admin/cuentas/" + c.cuentaId() + "/plan", conClaveDePlataforma(), "{}").getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(llamar(HttpMethod.POST, "/v1/admin/cuentas/" + c.cuentaId() + "/plan", conClaveDePlataforma(), "{}").getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(llamar(HttpMethod.GET, "/v1/admin/cuentas/no-es-un-uuid/plan", conClaveDePlataforma(), null).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(registros()).isZero();
     }

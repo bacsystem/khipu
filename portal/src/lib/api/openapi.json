@@ -179,7 +179,7 @@
         ],
         "summary": "Eliminar un producto",
         "description": "Solo lo quita de la lista guardada: los comprobantes ya emitidos conservan sus datos.",
-        "operationId": "eliminar_1",
+        "operationId": "eliminar",
         "parameters": [
           {
             "name": "id",
@@ -204,7 +204,7 @@
           "Personalización del PDF"
         ],
         "summary": "Ver el diseño del PDF",
-        "operationId": "ver_1",
+        "operationId": "ver",
         "responses": {
           "200": {
             "description": "OK",
@@ -436,7 +436,7 @@
         ],
         "summary": "Ver la preferencia de envío al cliente",
         "description": "Si la empresa envía automáticamente el comprobante aceptado a su cliente, y si el servidor tiene correo configurado para hacerlo.",
-        "operationId": "ver_2",
+        "operationId": "ver_1",
         "responses": {
           "200": {
             "description": "OK",
@@ -656,7 +656,7 @@
         ],
         "summary": "Ver un cliente",
         "description": "`404 NO_ENCONTRADO` si no es de la empresa.",
-        "operationId": "obtener_3",
+        "operationId": "obtener_1",
         "parameters": [
           {
             "name": "id",
@@ -728,7 +728,7 @@
         ],
         "summary": "Eliminar un cliente",
         "description": "Solo lo quita de la lista guardada: los comprobantes ya emitidos conservan sus datos.",
-        "operationId": "eliminar_2",
+        "operationId": "eliminar_1",
         "parameters": [
           {
             "name": "id",
@@ -846,7 +846,7 @@
         ],
         "summary": "Borrar un plan",
         "description": "Solo un plan que nadie usó nunca. Con alguna cuenta que lo tiene —o que lo tuvo— responde `409 PLAN_EN_USO`: hay que **desactivarlo**. El plan con el\nque nacen las cuentas nuevas no se borra (`409 PLAN_POR_DEFECTO`). `404 NO_ENCONTRADO`. Queda en la bitácora.",
-        "operationId": "eliminar_3",
+        "operationId": "eliminar_2",
         "parameters": [
           {
             "name": "id",
@@ -3757,7 +3757,7 @@
         ],
         "summary": "Listar las cuentas de clientes",
         "description": "Todas las cuentas, de la más reciente a la más antigua, paginadas. El total de resultados va en la cabecera\n`X-Total-Count` y refleja la búsqueda. `q` busca sin distinguir mayúsculas en el correo y el nombre de la cuenta,\ny en la razón social de sus empresas (por fragmento) y su RUC (por prefijo). En el nombre y la razón social tampoco\ndistingue tildes, diéresis ni acentos, en los dos sentidos: `libreria` encuentra «Librería» y `librería` encuentra\n«Libreria». La `ñ` **sí** se distingue de la `n`: es otra letra, y `pena` no encuentra «Peña». `ultimo_acceso` mide la actividad en el\nportal, no el uso por API key. **Las cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y\n`SOLO` devuelve únicamente esas; el total las trata igual. El plan de la cuenta se agregará más adelante.",
-        "operationId": "listar_9",
+        "operationId": "listar_7",
         "parameters": [
           {
             "name": "q",
@@ -3980,7 +3980,7 @@
         ],
         "summary": "El plan de una cuenta",
         "description": "Cuál es el plan de la cuenta hoy, en qué estado de pago está (`VIGENTE`, `EN_GRACIA` si venció pero sigue en sus días de gracia, `VENCIDA`), hasta cuándo\nse la sirve (gracia incluida) y, si hay, la bajada de plan que espera el inicio del ciclo siguiente. `404 NO_ENCONTRADO` si la cuenta no existe.",
-        "operationId": "ver_4",
+        "operationId": "ver_2",
         "parameters": [
           {
             "name": "id",
@@ -4609,7 +4609,7 @@
         ],
         "summary": "Eliminar un webhook",
         "description": "Borra el endpoint y su log de entregas. `404 NO_ENCONTRADO` si no es de la empresa. Requiere sesión del portal.",
-        "operationId": "eliminar",
+        "operationId": "eliminar_3",
         "parameters": [
           {
             "name": "id",
@@ -4889,7 +4889,7 @@
         ],
         "summary": "Consultar una guía de remisión",
         "description": "Estado, ticket, respuesta de SUNAT (`cdr`), datos del traslado y enlaces de descarga.",
-        "operationId": "obtener_1",
+        "operationId": "obtener_2",
         "parameters": [
           {
             "name": "id",
@@ -5053,7 +5053,7 @@
         ],
         "summary": "Consultar un comprobante",
         "description": "Estado actual, respuesta de SUNAT (`cdr`), totales, forma de pago y enlaces de descarga. Úselo para hacer seguimiento\nde un comprobante que quedó en `ERROR_ENVIO` o `ENVIADO`. Sirve también para las notas de crédito/débito emitidas con\n`POST /v1/notas` (traen el bloque `nota`), las liquidaciones de compra de `POST /v1/liquidaciones-compra` (traen el bloque `liquidacion`) y las retenciones y percepciones de `POST /v1/retenciones` y `POST /v1/percepciones` (traen el bloque `agente`); una factura incluye en `notas` las notas emitidas sobre ella y en `eventos` el\nhistorial de intentos y cambios de estado (fecha, estado resultante y motivo), del más antiguo al más reciente. Si la empresa\ntiene activado el envío automático al cliente, `envio_al_cliente` dice si el correo con el PDF, el XML y el CDR salió, sigue pendiente o falló.",
-        "operationId": "obtener_2",
+        "operationId": "obtener_3",
         "parameters": [
           {
             "name": "id",
@@ -5643,7 +5643,7 @@
         ],
         "summary": "Ver la empresa",
         "description": "RUC, razón social, entorno SUNAT (`BETA` u homologación / `PRODUCCION`), si tiene credenciales SOL y API SUNAT, la vigencia del certificado, el domicilio fiscal y la cuenta de detracciones. Nunca devuelve secretos.",
-        "operationId": "ver",
+        "operationId": "ver_3",
         "responses": {
           "200": {
             "description": "OK",
@@ -5734,7 +5734,7 @@
         ],
         "summary": "Mi cuenta: plan y consumo del mes",
         "description": "El nombre de la cuenta, el plan de hoy con su estado de pago (`VIGENTE`, `EN_GRACIA`, `VENCIDA`), hasta cuándo está pagado y una bajada programada si la\nhay, y los documentos consumidos este mes (America/Lima) contra el tope del plan. Solo lectura: el plan lo cambia el equipo de khipu. Solo con sesión de\ncuenta (portal), no con API key: `401 NO_AUTORIZADO`.",
-        "operationId": "ver_3",
+        "operationId": "ver_4",
         "responses": {
           "200": {
             "description": "OK",
@@ -6131,7 +6131,7 @@
         ],
         "summary": "La cola de errores de todas las empresas",
         "description": "Los comprobantes con problema de **todas** las empresas, de la emisión más antigua a la más reciente (la más urgente primero), paginados; el total va en la cabecera\n`X-Total-Count`. Cuatro clases: `ERROR_DE_ENVIO` (SUNAT no contestó o falló: se reintenta solo, y un administrador puede reintentar a mano o descartar),\n`ERROR_DE_FORMATO` (SUNAT lo rechazó con un fault 1000–1999: terminal, no se reintenta), `FUERA_DE_PLAZO` (terminal: hay que emitir de nuevo) y `BOLETA_SIN_ENVIAR`\n(una boleta que el cliente dejó `FIRMADA` sin enviar y ya está en el 5.º día o más: no falló, pero el resumen diario cierra el 7.º; enviarla es decisión del cliente, así que\nel administrador no la reintenta, la avisa). Cada fila trae el fault\nde SUNAT, los intentos y, si hay un reintento programado, cuándo. `q` busca el cliente por RUC (prefijo), razón social, o nombre o correo de su cuenta, sin distinguir\nmayúsculas ni tildes. Solo lectura.",
-        "operationId": "listar_7",
+        "operationId": "listar_8",
         "parameters": [
           {
             "name": "clase",
@@ -6212,7 +6212,7 @@
         ],
         "summary": "Listar las empresas de la plataforma",
         "description": "Todas las empresas, de la más reciente a la más antigua, paginadas; incluye las dadas de alta por una integración, que no tienen\ncuenta. El total de resultados va en la cabecera `X-Total-Count` y refleja los filtros, que se combinan con «y». Por cada\nempresa: su cuenta, su entorno, el estado del certificado y los días que le quedan (hoy es la fecha de Lima), si tiene\ncredenciales SOL cargadas, sus series activas, los documentos emitidos en el mes y la fecha de la última emisión. Del certificado\ny de las credenciales solo se informa su estado, **nunca su contenido**. `entorno`, `certificado` o `bajas` con un valor que no existe\nresponden `400`. **Las empresas de cuentas dadas de baja (#201) no salen** salvo que se pida con `bajas`: `INCLUIDAS` las mezcla y\n`SOLO` devuelve únicamente esas; el total las trata igual. Las empresas sin cuenta nunca están de baja.",
-        "operationId": "listar_8",
+        "operationId": "listar_9",
         "parameters": [
           {
             "name": "entorno",
@@ -6908,6 +6908,7 @@
             "example": "ZZ"
           },
           "tipo_afectacion_igv": {
+            "minLength": 1,
             "type": "string",
             "description": "Afectación del IGV, catálogo 07: 10–17, 20, 21, 30–37 o 40",
             "example": "10"
@@ -6952,15 +6953,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7077,15 +7078,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7130,12 +7131,14 @@
         "type": "object",
         "properties": {
           "ubigeo": {
+            "minLength": 1,
             "pattern": "\\d{6}",
             "type": "string",
             "description": "Ubigeo INEI del distrito, catálogo 13 (`GET /v1/catalogos/13`); khipu completa distrito, provincia y departamento a partir de él",
             "example": "150122"
           },
           "direccion": {
+            "minLength": 1,
             "type": "string",
             "description": "Dirección completa en una sola línea, de 3 a 200 caracteres (regla 4094)",
             "example": "Av. Javier Prado Este 123 Of. 501"
@@ -7177,6 +7180,7 @@
         "type": "object",
         "properties": {
           "codigo": {
+            "minLength": 1,
             "pattern": "\\d{4}",
             "type": "string",
             "description": "Código del anexo tal como figura en la ficha RUC (4 dígitos; `0000` es el domicilio fiscal, se configura en datos fiscales)",
@@ -7220,15 +7224,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7337,15 +7341,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7420,15 +7424,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7547,11 +7551,13 @@
         "type": "object",
         "properties": {
           "usuario": {
+            "minLength": 1,
             "type": "string",
             "description": "Usuario SOL secundario, no la clave SOL principal",
             "example": "MODDATOS"
           },
           "clave": {
+            "minLength": 1,
             "type": "string",
             "example": "moddatos"
           }
@@ -7565,11 +7571,13 @@
         "type": "object",
         "properties": {
           "client_id": {
+            "minLength": 1,
             "type": "string",
             "description": "«Id» de la aplicación registrada en SOL, opción «Credenciales de API SUNAT» (client_id)",
             "example": "d20b421e-4ace-46d8-ac8c-4fbb44cfde17"
           },
           "client_secret": {
+            "minLength": 1,
             "type": "string",
             "description": "«Clave» de esa aplicación (client_secret). Se guarda cifrada y nunca vuelve por la API",
             "example": "HhWwZVo8ZaWm4BZ7n/xEzw=="
@@ -7583,6 +7591,7 @@
         "type": "object",
         "properties": {
           "rol": {
+            "minLength": 1,
             "pattern": "ADMIN|EMISOR|LECTURA",
             "type": "string",
             "description": "`ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.",
@@ -7621,15 +7630,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7686,6 +7695,7 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo de documento del catálogo 06: 1 DNI, 4 carné de extranjería, 6 RUC, 7 pasaporte…",
             "example": "6"
@@ -7749,15 +7759,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -7926,15 +7936,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8046,15 +8056,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8190,15 +8200,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8301,15 +8311,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8370,6 +8380,7 @@
             "example": "ERP producción"
           },
           "eventos": {
+            "minItems": 1,
             "type": "array",
             "description": "Eventos a los que se suscribe, o `[\"*\"]` para todos (`GET /v1/webhooks/eventos`)",
             "example": [
@@ -8410,15 +8421,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8508,15 +8519,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8562,15 +8573,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8617,15 +8628,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -8767,18 +8778,21 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "01|03|04|07|08|09|20|31|40",
             "type": "string",
             "description": "01=factura, 03=boleta, 04=liquidación de compra, 07=nota de crédito, 08=nota de débito, 09=guía de remisión remitente (serie T###), 20=retención, 31=guía de remisión transportista (serie V###), 40=percepción (20 y 40, solo si la empresa es agente de ese tipo: `422 AGENTE_NO_DESIGNADO`)",
             "example": "01"
           },
           "serie": {
+            "minLength": 1,
             "type": "string",
             "description": "Serie del tipo: `F###` factura, `B###` boleta, `L###` liquidación de compra, `F###` o `B###` las notas, `T###` guía remitente, `V###` guía transportista, `R###` retención, `P###` percepción",
             "example": "F001"
           },
           "correlativo_inicial": {
             "maximum": 99999999,
+            "minimum": 0,
             "type": "integer",
             "description": "Último número ya emitido; el siguiente comprobante lleva este valor + 1. Máximo 99999999 (regla 1001)",
             "format": "int64",
@@ -8803,6 +8817,7 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Tipo de documento, catálogo 01: `01` factura, `08` nota de débito, `12` ticket y, solo en la percepción, `03` boleta. La nota de crédito (`07`) y otro comprobante de retención o percepción, que la hoja admite sin pago, todavía no: `422` (2692)",
@@ -8822,6 +8837,8 @@
             "example": "2026-10-05"
           },
           "importe_total": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Importe total del documento, en su moneda (2696)",
             "example": 1180
@@ -8849,6 +8866,8 @@
         "properties": {
           "numero": {
             "maximum": 999999999,
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número del pago o cobro de ese documento (1 el primero, 2 el segundo de un pago en cuotas…); por defecto 1. No se repite para el mismo documento (2626)",
             "format": "int64",
@@ -8861,6 +8880,8 @@
             "example": "2026-10-20"
           },
           "importe": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Importe pagado o cobrado **sin** la retención o la percepción, en la moneda del documento; no mayor que su importe total",
             "example": 1180
@@ -8876,6 +8897,7 @@
         "type": "object",
         "properties": {
           "ruc": {
+            "minLength": 1,
             "pattern": "\\d{11}",
             "type": "string",
             "description": "RUC del proveedor (2724), distinto del de la empresa (2620)",
@@ -8909,12 +8931,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "R[A-Z0-9]{3}",
             "type": "string",
             "description": "Serie registrada con el tipo `20`: `R` + 3 alfanuméricos (regla 1001)",
             "example": "R001"
           },
           "correlativo": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
             "format": "int64",
@@ -8930,6 +8955,7 @@
             "$ref": "#/components/schemas/ProveedorDeRetencion"
           },
           "regimen": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Régimen de retención, catálogo 23: `01` tasa 3 % (el vigente) o `02` tasa 6 % (solo para comprobantes emitidos hasta el 28/02/2014, 2985)",
@@ -8972,6 +8998,8 @@
         "type": "object",
         "properties": {
           "factor": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Soles por unidad de la moneda del documento, hasta 4 enteros y 6 decimales (2716)",
             "example": 3.756
@@ -9056,15 +9084,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -10370,6 +10398,7 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo de documento, catálogo 06 (`6` RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte…; 2511)",
             "example": "6"
@@ -10409,12 +10438,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "P[A-Z0-9]{3}",
             "type": "string",
             "description": "Serie registrada con el tipo `40`: `P` + 3 alfanuméricos (regla 1001)",
             "example": "P001"
           },
           "correlativo": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
             "format": "int64",
@@ -10430,6 +10462,7 @@
             "$ref": "#/components/schemas/ClienteDePercepcion"
           },
           "regimen": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Régimen de percepción, catálogo 22: `01` venta interna 2 %, `02` adquisición de combustible 1 %, `03` agente de percepción con tasa especial 0.5 %",
@@ -10537,12 +10570,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "[FB][A-Z0-9]{3}",
             "type": "string",
             "description": "Serie de la factura (`F…`) o boleta (`B…`) que se modifica",
             "example": "F001"
           },
           "numero": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "format": "int64",
             "example": 123
@@ -10557,6 +10593,7 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "contado|credito",
             "type": "string",
             "description": "`contado`: pago único al emitir. `credito`: pago diferido; exige `monto_pendiente` y al menos una cuota (RS 193-2020)",
@@ -10585,12 +10622,14 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "GTIN-(8|12|13|14)",
             "type": "string",
             "description": "Estructura GS1: `GTIN-8`, `GTIN-12`, `GTIN-13` o `GTIN-14` (regla 4335)",
             "example": "GTIN-13"
           },
           "codigo": {
+            "minLength": 1,
             "type": "string",
             "description": "Dígitos del código; la longitud debe coincidir con el tipo (regla 4334)",
             "example": "7750182000123"
@@ -10644,6 +10683,8 @@
             "example": "2026-09-15"
           },
           "cantidad": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Cantidad de la especie vendida en toneladas métricas (TNE), hasta 2 decimales (concepto 3006)",
             "example": 12.5
@@ -10658,6 +10699,7 @@
         "type": "object",
         "properties": {
           "sistema": {
+            "minLength": 1,
             "pattern": "0[123]",
             "type": "string",
             "description": "`01` al valor (tasa sobre el valor de venta), `02` monto fijo por unidad, `03` al valor según precio de venta al público (tasa sobre `base_pvp`, el PVP sugerido unitario; cervezas, cigarrillos, gaseosas) — catálogo 08",
@@ -10697,16 +10739,20 @@
             "example": "SKU-001"
           },
           "descripcion": {
+            "minLength": 1,
             "type": "string",
             "description": "Descripción detallada del bien o servicio",
             "example": "Servicio de consultoría"
           },
           "unidad": {
+            "minLength": 1,
             "type": "string",
             "description": "Unidad de medida UN/ECE rec 20 (catálogo 03, `GET /v1/catalogos/03`, las más usadas primero): `NIU` unidad (bienes), `ZZ` unidad (servicios), `KGM` kilogramo, `HUR` hora… Un código que no está en el catálogo responde `422 ITEM_INVALIDO` (2936) sin consumir numeración",
             "example": "NIU"
           },
           "cantidad": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Cantidad, hasta 10 decimales. En un ítem con `icbper` es el número de bolsas: entero de 1 a 99999 (`422 ITEM_INVALIDO`, regla `2892`)",
             "example": 2
@@ -10719,6 +10765,7 @@
             "example": 1000
           },
           "tipo_afectacion_igv": {
+            "minLength": 1,
             "pattern": "1[0-7]|2[01]|3[0-7]|40",
             "type": "string",
             "description": "Afectación del IGV, catálogo 07 (`GET /v1/catalogos/07`). Onerosas: `10` gravado (IGV 18 %, o la tasa reducida del padrón de restaurantes y hoteles si la empresa la activó; precio con IGV),\n`20` exonerado (Apéndice I de la Ley del IGV), `30` inafecto (fuera del ámbito). Gratuitas (bonificaciones, muestras,\nretiros): `11`–`16` gravadas, `21` exonerada, `31`–`37` inafectas — el `precio_unitario` es el **valor referencial sin\nIGV**, la línea no suma al importe a pagar y su IGV solo se informa (tributo 9996). `17` IVAP (arroz pilado, Ley 28211): 4 % en\nlugar del IGV (tributo 1016), precio con IVAP incluido; el comprobante entero debe ser IVAP (no se mezcla con 10/20/30 ni\ngratuitas) y la línea no admite ISC ni ICBPER. `40` exportación (tributo 9995, sin IGV: el `precio_unitario` es el valor\nde venta): todos los ítems de una factura `0200`–`0208` la llevan y ninguno fuera de ella (2642, 3107); sin ISC ni ICBPER (3223).",
@@ -10781,18 +10828,22 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "07|08",
             "type": "string",
             "description": "`07` nota de crédito, `08` nota de débito (catálogo 01)",
             "example": "07"
           },
           "serie": {
+            "minLength": 1,
             "pattern": "[FB][A-Z0-9]{3}",
             "type": "string",
             "description": "Serie de la nota, registrada en `POST /v1/series` con el tipo 07/08. Empieza con la letra del documento que modifica (reglas 1001, 2399, 2400): `F` sobre una factura (`FC01`), `B` sobre una boleta (`BC01`)",
             "example": "FC01"
           },
           "correlativo": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número correlativo. Omítalo para que khipu asigne el siguiente (recomendado)",
             "format": "int64",
@@ -10808,6 +10859,7 @@
             "$ref": "#/components/schemas/DocumentoAfectadoDto"
           },
           "motivo": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Motivo: catálogo 09 para notas de crédito (`01` anulación, `06` devolución total, `07` devolución por ítem, `13` corrección de cuotas…), catálogo 10 para débito (`01` intereses por mora, `02` aumento en el valor, `03` penalidades…). `GET /v1/catalogos/09` y `/10`. Sobre una boleta no se admiten la NC `13` (regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma boleta (RCP art. 10 num. 1.4)",
@@ -10864,6 +10916,8 @@
           "tasa": {
             "maximum": 999.99999,
             "exclusiveMaximum": false,
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Tasa en porcentaje sobre el valor de venta de la línea (hasta 3 enteros y 5 decimales, regla 3102)",
             "example": 3.5
@@ -10879,6 +10933,7 @@
         "type": "object",
         "properties": {
           "ubigeo": {
+            "minLength": 1,
             "pattern": "[0-9]{6}",
             "type": "string",
             "description": "Ubigeo INEI de 6 dígitos (catálogo 13)",
@@ -10917,11 +10972,15 @@
             "example": "Chimbote – Lima por Panamericana Norte"
           },
           "valor_carga_efectiva": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Valor preliminar referencial sobre la carga efectiva del tramo, en soles. Opcional",
             "example": 2400
           },
           "valor_carga_util_nominal": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Valor preliminar referencial por carga útil nominal del tramo (con más de un vehículo), en soles. Opcional",
             "example": 2600
@@ -10980,16 +11039,22 @@
         "type": "object",
         "properties": {
           "servicio": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Valor referencial del servicio de transporte (tipo 01), en soles",
             "example": 2500
           },
           "carga_efectiva": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Valor referencial sobre la carga efectiva (tipo 02), en soles",
             "example": 2400
           },
           "carga_util_nominal": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Valor referencial sobre la carga útil nominal (tipo 03), en soles",
             "example": 2600
@@ -11008,11 +11073,15 @@
             "example": "T3S3"
           },
           "carga_util_tm": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Carga útil en toneladas métricas. Opcional",
             "example": 30
           },
           "carga_efectiva_tm": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Carga efectiva en toneladas métricas. Opcional",
             "example": 20
@@ -11028,6 +11097,7 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "0[4-9]|99",
             "type": "string",
             "description": "Catálogo 12: `04` ticket de salida ENAPU, `05` código SCOP, `06` factura electrónica remitente y `07` guía de remisión remitente (solo en factura: en una boleta SUNAT los observa con la 4009 y khipu los rechaza antes de numerar), `08` declaración de salida del depósito franco, `09` declaración simplificada de importación, `99` otros",
@@ -11050,12 +11120,14 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "09|31",
             "type": "string",
             "description": "`09` guía de remisión remitente, `31` guía de remisión transportista (catálogo 01)",
             "example": "09"
           },
           "numero": {
+            "minLength": 1,
             "type": "string",
             "description": "Serie-número de la guía: electrónica `T001-123`/`V001-45`, física `0001-123` o `EG01-45` (regla 4006)",
             "example": "T001-123"
@@ -11079,16 +11151,20 @@
             "example": "CAF-01"
           },
           "descripcion": {
+            "minLength": 1,
             "type": "string",
             "description": "Descripción del bien comprado (2026, 2027)",
             "example": "Café pergamino seco"
           },
           "unidad": {
+            "minLength": 1,
             "type": "string",
             "description": "Unidad de medida UN/ECE rec 20 (catálogo 03): `KGM` kilogramo, `NIU` unidad, `TNE` tonelada… (2936)",
             "example": "KGM"
           },
           "cantidad": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Cantidad, hasta 10 decimales",
             "example": 100
@@ -11101,12 +11177,14 @@
             "example": 11.8
           },
           "tipo_afectacion_igv": {
+            "minLength": 1,
             "pattern": "10|20|30",
             "type": "string",
             "description": "Afectación del IGV (catálogo 07): `10` gravado, `20` exonerado (p. ej. productos agrícolas del Apéndice I), `30` inafecto. Las gratuitas todavía no se emiten en una liquidación de compra",
             "example": "20"
           },
           "codigo_sunat": {
+            "minLength": 1,
             "pattern": "[0-9]{8}",
             "type": "string",
             "description": "Código de producto SUNAT (catálogo 25, UNSPSC de 8 dígitos): **obligatorio** en la liquidación de compra (3506) y debe estar en el catálogo de SUNAT (3496)",
@@ -11126,12 +11204,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "L[A-Z0-9]{3}",
             "type": "string",
             "description": "Serie registrada en `POST /v1/series` con el tipo `04`: `L` + 3 alfanuméricos (regla 1001)",
             "example": "L001"
           },
           "correlativo": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
             "format": "int64",
@@ -11150,6 +11231,7 @@
             "example": "0501"
           },
           "moneda": {
+            "minLength": 1,
             "pattern": "[A-Z]{3}",
             "type": "string",
             "description": "Moneda ISO 4217 (catálogo 02), las mismas que la factura. Otro código responde `422 MONEDA_INVALIDA` (3088)",
@@ -11222,17 +11304,20 @@
         "type": "object",
         "properties": {
           "direccion": {
+            "minLength": 1,
             "type": "string",
             "description": "Dirección del lugar y lo que permita ubicarlo, de 3 a 250 caracteres (2454, 2778)",
             "example": "Fundo Santa Rosa, km 12 carretera a Bambamarca"
           },
           "ubigeo": {
+            "minLength": 1,
             "pattern": "\\d{6}",
             "type": "string",
             "description": "Ubigeo INEI del lugar (catálogo 13; 2455, 2917)",
             "example": "060101"
           },
           "condicion": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Condición del lugar, catálogo 60: `01` punto de venta, `02` producción, `03` extracción, `04` explotación, `05` otros (2458, 2459)",
@@ -11245,6 +11330,8 @@
         "type": "object",
         "properties": {
           "tasa": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "number",
             "description": "Tasa en porcentaje sobre el valor de venta de cada línea; hoy solo la vigente, 1.5 (otra responde `422 LIQUIDACION_INVALIDA`, 4237)",
             "example": 1.5
@@ -11264,33 +11351,39 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "pattern": "[147]",
             "type": "string",
             "description": "Catálogo 06: `1` DNI, `4` carné de extranjería o `7` pasaporte (2800). Quien tiene RUC (`6`) emite su propia factura o boleta",
             "example": "1"
           },
           "num_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "DNI de 8 dígitos (2450); carné o pasaporte, hasta 15 caracteres sin espacios (2802)",
             "example": "45678912"
           },
           "nombre": {
+            "minLength": 1,
             "type": "string",
             "description": "Apellidos y nombres, hasta 1500 caracteres sin saltos de línea (2021, 2022)",
             "example": "JUAN QUISPE MAMANI"
           },
           "direccion": {
+            "minLength": 1,
             "type": "string",
             "description": "Dirección del domicilio del vendedor y lo que permita ubicarlo, de 3 a 250 caracteres (2452, 2593)",
             "example": "Caserío Santa Rosa s/n"
           },
           "ubigeo": {
+            "minLength": 1,
             "pattern": "\\d{6}",
             "type": "string",
             "description": "Ubigeo INEI del domicilio (catálogo 13, `GET /v1/catalogos/13`; 2453, 4339)",
             "example": "060101"
           },
           "condicion": {
+            "minLength": 1,
             "pattern": "\\d{2}",
             "type": "string",
             "description": "Condición del domicilio, catálogo 60: `01` punto de venta, `02` producción, `03` extracción, `04` explotación, `05` otros (2456, 2457)",
@@ -11310,11 +11403,13 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo de documento, catálogo 06 (1 DNI, 4 carné de extranjería, 7 pasaporte…)",
             "example": "1"
           },
           "num_doc": {
+            "minLength": 1,
             "type": "string",
             "example": "45678912"
           },
@@ -11331,6 +11426,7 @@
             "example": "QUISPE MAMANI"
           },
           "licencia": {
+            "minLength": 1,
             "type": "string",
             "description": "Licencia de conducir, de 9 a 10 letras o dígitos",
             "example": "Q45678912"
@@ -11345,6 +11441,7 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo, catálogo 61 (01 factura, 03 boleta, 09 guía remitente, 50 DAM…)",
             "example": "01"
@@ -11447,6 +11544,7 @@
             "example": "Laptop 15 pulgadas"
           },
           "unidad": {
+            "minLength": 1,
             "type": "string",
             "description": "Unidad, catálogo 03",
             "example": "NIU"
@@ -11471,6 +11569,7 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo de documento, catálogo 06",
             "example": "6"
@@ -11528,6 +11627,7 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "[TV][A-Z0-9]{3}",
             "type": "string",
             "description": "Serie registrada en `POST /v1/series` (tipo `09` o `31`). Su letra decide la guía: `T` + 3 alfanuméricos la remitente (09), `V` + 3 alfanuméricos la transportista (31)",
@@ -11617,6 +11717,7 @@
         "type": "object",
         "properties": {
           "ruc": {
+            "minLength": 1,
             "type": "string",
             "example": "20480072872"
           },
@@ -11643,6 +11744,7 @@
         "type": "object",
         "properties": {
           "placa": {
+            "minLength": 1,
             "type": "string",
             "description": "Placa, de 6 a 8 letras o dígitos (los guiones se quitan)",
             "example": "ABC123"
@@ -11675,15 +11777,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12021,12 +12123,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "[FB][A-Z0-9]{3}",
             "type": "string",
             "description": "Serie del comprobante de anticipo: `F###` si fue una factura (tipo 02) o `B###` si fue una boleta (tipo 03); la serie decide el tipo",
             "example": "F001"
           },
           "numero": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número de la factura o boleta de anticipo, emitida por esta empresa y ACEPTADA por SUNAT",
             "format": "int64",
@@ -12061,16 +12166,19 @@
         "type": "object",
         "properties": {
           "tipo_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "Tipo de documento de identidad, catálogo 06. En una factura de venta interna debe ser `6` (RUC); en una exportación (0200–0208), el del cliente del exterior: `0` documento tributario no domiciliado sin RUC, `1` DNI, `4` carné de extranjería, `7` pasaporte, `A`–`G` (regla 2800; `6` no se admite en 0200/0201/0204). En una boleta, cualquiera del catálogo 06, o `-` si el comprador no se identifica: solo en soles y hasta S/ 700.00 de total; en una boleta de exportación (0200–0208) o a no domiciliados (0401), `6` no se admite (regla 2800)",
             "example": "6"
           },
           "num_doc": {
+            "minLength": 1,
             "type": "string",
             "description": "RUC de 11 dígitos del adquirente; en exportación y en boleta, el número del documento (DNI de 8 dígitos, los demás hasta 15 caracteres sin espacios: 2801/2802, 4207/4208). Con `tipo_doc` `-`, también `-`",
             "example": "20123456786"
           },
           "razon_social": {
+            "minLength": 1,
             "type": "string",
             "description": "Razón social tal como figura en la ficha RUC del adquirente; en una boleta, el nombre del comprador. De 3 a 1500 caracteres sin contar los espacios de los extremos y sin saltos de línea (regla 2022). Con `tipo_doc` `-`, `CLIENTES VARIOS`",
             "example": "Comercial Andina SAC"
@@ -12101,6 +12209,7 @@
         "type": "object",
         "properties": {
           "codigo_bien_servicio": {
+            "minLength": 1,
             "type": "string",
             "description": "Bien o servicio sujeto a detracción, catálogo 54 (`GET /v1/catalogos/54`). Con tipo de operación 1002/1003/1004 debe ser 004/028/027",
             "example": "022"
@@ -12157,12 +12266,15 @@
         "type": "object",
         "properties": {
           "serie": {
+            "minLength": 1,
             "pattern": "[FB][A-Z0-9]{3}",
             "type": "string",
             "description": "Serie registrada previamente en `POST /v1/series`. Su letra decide qué se emite: `F` + 3 alfanuméricos una factura (01), `B` + 3 alfanuméricos una boleta de venta (03). La boleta se envía igual que la factura, una por una",
             "example": "F001"
           },
           "correlativo": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
             "type": "integer",
             "description": "Número correlativo. Omítalo para que khipu asigne el siguiente de la serie (recomendado); si lo envía y ya existe responde `409 DUPLICADO`",
             "format": "int64",
@@ -12187,6 +12299,7 @@
             "example": "0101"
           },
           "moneda": {
+            "minLength": 1,
             "pattern": "[A-Z]{3}",
             "type": "string",
             "description": "Moneda ISO 4217 de todo el comprobante (catálogo 02): `PEN`, `USD`, `EUR`, `GBP`, `CAD`, `AUD`, `CHF`, `JPY`, `CNY`, `MXN`, `BRL`, `CLP`, `COP`, `ARS`, `BOB`, `UYU` o `PYG`. Otro código responde `422 MONEDA_INVALIDA` (3088) sin consumir número",
@@ -12302,6 +12415,7 @@
         "type": "object",
         "properties": {
           "regimen": {
+            "minLength": 1,
             "pattern": "5[123]",
             "type": "string",
             "description": "Régimen (catálogo 53): `51` venta interna 2 %, `52` combustible 1 %, `53` tasa especial 0,5 %",
@@ -12352,6 +12466,7 @@
             "minLength": 0,
             "type": "string",
             "description": "Correo del adquirente al que se envía el comprobante",
+            "format": "email",
             "example": "compras@cliente.pe"
           },
           "mensaje": {
@@ -12389,15 +12504,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12449,15 +12564,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12477,6 +12592,7 @@
         "type": "object",
         "properties": {
           "ruc": {
+            "minLength": 1,
             "pattern": "\\d{11}",
             "type": "string",
             "example": "20123456786"
@@ -12524,15 +12640,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12614,15 +12730,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12644,9 +12760,11 @@
             "maxLength": 254,
             "minLength": 0,
             "type": "string",
+            "format": "email",
             "example": "contador@estudio.pe"
           },
           "rol": {
+            "minLength": 1,
             "pattern": "ADMIN|EMISOR|LECTURA",
             "type": "string",
             "description": "`ADMIN` todo; `EMISOR` emite, consulta y anula comprobantes y mantiene clientes y productos, pero no cambia la configuración ni el equipo; `LECTURA` solo consulta.",
@@ -12685,15 +12803,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12817,15 +12935,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12844,10 +12962,12 @@
         "type": "object",
         "properties": {
           "token": {
+            "minLength": 1,
             "type": "string",
             "example": "3f7a2c9e-1b4d-4e8a-9c2f-6d5e4a3b2c1d"
           },
           "password": {
+            "minLength": 1,
             "type": "string",
             "example": "Cambiar123"
           }
@@ -12876,11 +12996,13 @@
             "example": "facturacion@comercialandina.pe"
           },
           "password": {
+            "minLength": 1,
             "type": "string",
             "description": "Mínimo 8 caracteres, con una letra y un número",
             "example": "Cambiar123"
           },
           "telefono": {
+            "minLength": 1,
             "type": "string",
             "description": "Celular de contacto en Perú (9 dígitos, empieza con 9); admite +51/51, espacios y guiones",
             "example": "987654321"
@@ -12918,15 +13040,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -12999,6 +13121,7 @@
         "type": "object",
         "properties": {
           "refresh": {
+            "minLength": 1,
             "type": "string",
             "example": "eyJhbGciOiJIUzI1NiJ9..."
           }
@@ -13011,6 +13134,7 @@
         "type": "object",
         "properties": {
           "email": {
+            "minLength": 1,
             "type": "string",
             "example": "facturacion@comercialandina.pe"
           }
@@ -13024,10 +13148,12 @@
         "type": "object",
         "properties": {
           "email": {
+            "minLength": 1,
             "type": "string",
             "example": "facturacion@comercialandina.pe"
           },
           "password": {
+            "minLength": 1,
             "type": "string",
             "example": "Cambiar123"
           }
@@ -13073,15 +13199,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13151,11 +13277,13 @@
         "type": "object",
         "properties": {
           "ruc": {
+            "minLength": 1,
             "pattern": "\\d{11}",
             "type": "string",
             "example": "20123456786"
           },
           "razon_social": {
+            "minLength": 1,
             "type": "string",
             "example": "Comercial Andina SAC"
           },
@@ -13195,15 +13323,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13259,15 +13387,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13349,15 +13477,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13440,15 +13568,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13526,15 +13654,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13618,15 +13746,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13663,15 +13791,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13722,6 +13850,7 @@
             "example": "ana@andina.pe"
           },
           "telefono": {
+            "minLength": 1,
             "type": "string",
             "description": "Celular de contacto en Perú (9 dígitos, empieza con 9); admite +51/51, espacios y guiones",
             "example": "987654321"
@@ -13742,11 +13871,13 @@
         "type": "object",
         "properties": {
           "ruc": {
+            "minLength": 1,
             "pattern": "\\d{11}",
             "type": "string",
             "example": "20123456786"
           },
           "razon_social": {
+            "minLength": 1,
             "type": "string",
             "example": "Comercial Andina SAC"
           },
@@ -13769,12 +13900,14 @@
         "type": "object",
         "properties": {
           "tipo": {
+            "minLength": 1,
             "pattern": "01|03|07|08",
             "type": "string",
             "description": "01=factura, 03=boleta, 07=nota de crédito, 08=nota de débito",
             "example": "01"
           },
           "serie": {
+            "minLength": 1,
             "type": "string",
             "example": "F001"
           }
@@ -13837,15 +13970,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13906,15 +14039,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -13981,15 +14114,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14066,15 +14199,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14256,15 +14389,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14369,15 +14502,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14429,15 +14562,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14492,15 +14625,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14537,15 +14670,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14630,15 +14763,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14742,15 +14875,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14816,15 +14949,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14893,15 +15026,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -14920,10 +15053,12 @@
         "type": "object",
         "properties": {
           "email": {
+            "minLength": 1,
             "type": "string",
             "example": "ana@khipu.pe"
           },
           "password": {
+            "minLength": 1,
             "type": "string",
             "example": "Cambiar123"
           }
@@ -14973,15 +15108,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15000,10 +15135,12 @@
         "type": "object",
         "properties": {
           "email": {
+            "minLength": 1,
             "type": "string",
             "example": "ana@khipu.pe"
           },
           "password": {
+            "minLength": 1,
             "type": "string",
             "example": "Cambiar123"
           }
@@ -15035,15 +15172,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15109,15 +15246,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15157,15 +15294,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15205,15 +15342,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15304,15 +15441,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15355,15 +15492,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15431,15 +15568,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15479,15 +15616,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15543,15 +15680,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15591,15 +15728,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15639,15 +15776,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15684,15 +15821,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15825,15 +15962,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15922,15 +16059,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -15970,15 +16107,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16047,15 +16184,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16092,15 +16229,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16177,15 +16314,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16225,15 +16362,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16294,15 +16431,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16339,15 +16476,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16431,15 +16568,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16527,15 +16664,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16575,15 +16712,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16698,15 +16835,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16743,15 +16880,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16805,15 +16942,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16853,15 +16990,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16898,15 +17035,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -16953,15 +17090,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -17218,15 +17355,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -17362,15 +17499,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -17519,15 +17656,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -17941,15 +18078,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18018,15 +18155,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18125,15 +18262,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18400,15 +18537,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18524,15 +18661,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18569,15 +18706,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18642,15 +18779,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18777,15 +18914,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -18822,15 +18959,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -19030,15 +19167,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",
@@ -19156,15 +19293,15 @@
             "additionalProperties": {
               "type": "array",
               "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
               "items": {
                 "type": "string",
                 "description": "Errores de validación por campo, presente solo en VALIDACION",
                 "example": "null"
-              },
-              "example": null
+              }
             },
             "description": "Errores de validación por campo, presente solo en VALIDACION",
-            "example": null
+            "example": "null"
           },
           "avisos": {
             "type": "array",

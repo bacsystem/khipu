@@ -3,7 +3,7 @@ package pe.factura.bootstrap;
 import org.apache.catalina.Valve;
 import org.apache.catalina.valves.RemoteIpValve;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 
 import java.util.List;
 

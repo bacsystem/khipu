@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.EmitirAgenteCommand;
@@ -32,11 +32,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** {@code POST /v1/retenciones} y {@code POST /v1/percepciones} (#40): el pedido llega al caso de uso con su tipo y la respuesta trae el bloque {@code agente}. */
-@WebMvcTest(controllers = AgenteController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AgenteController.class)
 @Import(GlobalExceptionHandler.class)
 class AgenteControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean EmitirComprobanteUseCase emitir;
+    @MockitoBean EmitirComprobanteUseCase emitir;
     UUID tenant = UUID.randomUUID();
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"));
 
