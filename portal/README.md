@@ -75,6 +75,18 @@ en castellano con `en` hasta que el paquete los reciba por props o los traduzca.
 
 Agregar un texto: la clave en `es.json` y en `en.json` (si falta en `en`, `paridad.test.ts` falla) y leerla como arriba.
 
+## Integración continua y vulnerabilidades (CAL-02)
+
+`.github/workflows/pruebas.yml` corre en cada PR y en cada push a `develop`/`main` dos jobs pensados como *required status checks*: **Pruebas / backend**
+(`./gradlew test --continue`, con Testcontainers) y **Pruebas / portal** (`npm ci`, `typecheck`, `lint`, Vitest, `npm run audit` y los e2e de Playwright con
+un solo worker). Dependabot (`.github/dependabot.yml`) abre una PR semanal por ecosistema (Gradle, npm, GitHub Actions, el Dockerfile del portal), con las
+actualizaciones menores agrupadas.
+
+`npm run audit` (`scripts/auditar-dependencias.mjs`) falla con cualquier aviso high/critical de las dependencias de producción, salvo los que
+`audit-excepciones.json` acepta con motivo y fecha de vencimiento; una excepción vencida vuelve a fallar. Hoy las cuatro excepciones son los avisos del
+`postcss` 8.4.31 que Next 15.5 lleva anidado: solo aplican al procesar CSS ajeno en build y no tienen fix dentro de Next 15. Para aceptar un aviso nuevo,
+añádelo con su URL de GitHub Advisory, el porqué y una fecha; para quitar una excepción basta con borrarla.
+
 ## Acceso desde otro equipo de la red local
 
 Los servers de dev escuchan en todas las interfaces, así que basta con entrar por la IP de esta máquina
