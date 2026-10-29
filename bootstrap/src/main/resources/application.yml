@@ -33,7 +33,8 @@ server:
   port: ${PORT:8001}
   tomcat:
     # DEPS-02: los dos únicos multipart del sistema suben una sola parte (el .p12 y el logo). Tomcat limita el número de partes y el tamaño de sus cabeceras
-    # desde las CVE-2025-48976/48988 (DoS por decenas de miles de partes en 2 MB); aquí se bajan a lo que la API necesita.
+    # desde las CVE-2025-48976/48988 (DoS por decenas de miles de partes en 2 MB); aquí se bajan a lo que la API necesita. Una petición con más partes
+    # responde 422 DEMASIADAS_PARTES (GlobalExceptionHandler), que nombra este tope.
     max-part-count: 5
     max-part-header-size: 512B
 management:

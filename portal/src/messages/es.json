@@ -1762,6 +1762,7 @@
     "NO_ENCONTRADO": "No se encontró lo que buscas.",
     "CREDENCIALES_SOL_INVALIDAS": "El usuario SOL es obligatorio y no admite espacios. La clave tampoco puede estar vacía.",
     "ARCHIVO_DEMASIADO_GRANDE": "El archivo supera el tamaño máximo. Un certificado .p12 pesa unos pocos KB: revisa que sea el archivo correcto.",
+    "DEMASIADAS_PARTES": "La petición tiene más partes de las permitidas. El certificado se envía con dos campos (archivo y clave) y el logo con uno.",
     "DOMICILIO_INVALIDO": "El domicilio fiscal no es válido. Revisa el distrito y la dirección.",
     "CUENTA_DETRACCIONES_INVALIDA": "La cuenta de detracciones del Banco de la Nación no es válida.",
     "NOMBRE_COMERCIAL_INVALIDO": "El nombre comercial no es válido: hasta 1500 caracteres, sin saltos de línea.",
@@ -4293,8 +4294,8 @@
           ],
           [
             "Certificado digital",
-            "Un archivo .p12 o .pfx de hasta 1 MB.",
-            "422 ARCHIVO_DEMASIADO_GRANDE."
+            "Un archivo .p12 o .pfx de hasta 1 MB, en un multipart de hasta 5 partes.",
+            "422 ARCHIVO_DEMASIADO_GRANDE o 422 DEMASIADAS_PARTES."
           ],
           [
             "Inicio de sesión del portal",

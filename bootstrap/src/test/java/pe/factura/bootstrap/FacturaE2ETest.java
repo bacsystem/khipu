@@ -708,7 +708,8 @@ class FacturaE2ETest {
 
     /**
      * DEPS-02: los dos multipart del sistema suben una sola parte; Tomcat limita el número de partes y sus cabeceras (CVE-2025-48976/48988, DoS con decenas de miles de
-     * partes en 2 MB) y application.yml lo baja a 5. Una petición con más partes se rechaza con un 4xx, no con un 500 ni agotando memoria, y una normal sigue pasando.
+     * partes en 2 MB) y application.yml lo baja a 5. Una petición con más partes se rechaza con un 422 que nombra ese tope (no con un 500 ni agotando memoria, y
+     * tampoco como ARCHIVO_DEMASIADO_GRANDE: son 3 KB), y una normal sigue pasando.
      */
     @Test void unMultipartConMasPartesDeLasPermitidasSeRechazaSinLlegarAlControlador() throws Exception {
         String apiKey = provisionarTenant();
@@ -722,9 +723,9 @@ class FacturaE2ETest {
 
         ResponseEntity<String> r = http.postForEntity("/v1/empresa/certificado", new HttpEntity<>(form, mh), String.class);
 
-        // Spring envuelve el tope de partes de Tomcat en MaxUploadSizeExceededException, que el handler ya responde como 422 ARCHIVO_DEMASIADO_GRANDE
+        // Spring envuelve el tope de partes de Tomcat en MaxUploadSizeExceededException; el handler lo distingue del tamaño por la causa y responde el máximo real
         assertThat(r.getStatusCode()).as("%s", r.getBody()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
-        assertThat(r.getBody()).contains("ARCHIVO_DEMASIADO_GRANDE");
+        assertThat(r.getBody()).contains("DEMASIADAS_PARTES").contains("máximo 5").doesNotContain("ARCHIVO_DEMASIADO_GRANDE");
     }
 
     @Test void sinApiKeyEs401() {
