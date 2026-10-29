@@ -690,14 +690,17 @@ export function resetDb() {
   };
   db.empresasPorCuenta.set(usuario.cuenta_id, [empresa]);
   db.seriesPorEmpresa.set(empresa.id, [
-    { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+    // Como el backend, el correlativo de la serie va por delante de todo lo emitido: la fixture más alta de F001 es la 81 (f-enviada-sin-cdr) y la de B001 la 82
+    // (b-enviada). Con `ultimo_numero: 2`, lo que emitían clientes.spec y avisos-de-emision.spec se llamaba F001-3, F001-4 y F001-5, igual que tres fixtures, y
+    // `POST /v1/notas` o «Duplicar F001-00000004» resolvían la factura equivocada: 7 rojos en comprobantes.spec con `--workers=1` (el orden del CI, CAL-02).
+    { tipo: "01", serie: "F001", ultimo_numero: 81, activa: true, establecimiento: "0000" },
     // Serie de uso exclusivo del e2e del correlativo: los specs corren en paralelo contra este mismo mock, y sobre
     // F001 el número avanza por debajo de los pies; sobre F002 solo emite ese test, así que puede afirmar `===`.
     { tipo: "01", serie: "F002", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "07", serie: "FC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "08", serie: "FD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     // #20: la boleta se emite desde el mismo diálogo, con su propia serie.
-    { tipo: "03", serie: "B001", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    { tipo: "03", serie: "B001", ultimo_numero: 82, activa: true, establecimiento: "0000" },
     // #294: las notas sobre boletas van en series B.
     { tipo: "07", serie: "BC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "08", serie: "BD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
