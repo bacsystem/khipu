@@ -874,7 +874,12 @@ NO_ENCONTRADO`); si no responde, `503 SUNAT_NO_DISPONIBLE`. Un ticket que sigue 
   ninguno de estos se trata como un fallo pasajero y no como terminado);
 - que el tipo de archivo del ticket viene como `codTipoAchivoReporte` (con esa errata, como la escribe el manual) o `codTipoArchivoReporte`, y que si es nulo la
   descarga lo manda como el texto `null` (el manual lo pide así);
-- que la propuesta de texto (`codTipoArchivo=0`) llega como un ZIP con un `.txt` de las mismas columnas que lee `PropuestaRvie`.
+- que la propuesta de texto (`codTipoArchivo=0`) llega como un ZIP con un `.txt` de las mismas columnas que lee `PropuestaRvie`;
+- que todos los `archivoReporte` de un ticket terminado son partes de la propuesta (si SUNAT lista además otro tipo, como un reporte de la corrida, la lectura de ese
+  archivo falla y el mensaje dice cuál es: habría que filtrar por `codTipoArchivoReporte`);
+- que `numTicket` filtra la consulta del ticket (khipu busca el suyo entre los `registros` de la primera página de 20; si SUNAT lo ignorara y el ticket quedara en otra
+  página, respondería `404 NO_ENCONTRADO`);
+- que la descarga acepta `Accept: application/json` aunque el cuerpo sea un ZIP (así lo muestran las cabeceras del manual en 5.17).
 
 ### Corrida controlada (pendiente)
 

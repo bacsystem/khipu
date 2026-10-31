@@ -107,15 +107,23 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
     @Override public Conciliacion conciliar(UUID tenantId, String periodo, InputStream propuesta) throws IOException {
         PeriodoSire p = periodo(periodo);
         Tenant t = tenant(tenantId);
-        long pendientes = registro.contar(tenantId, p.desde(), p.hasta(), 0).pendientesDeSunat();
-        ConciliacionRvie conciliacion = new ConciliacionRvie();
-        recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
+        long pendientes = pendientesDeSunat(tenantId, p);
+        ConciliacionRvie conciliacion = conLoEmitido(tenantId, p, t);
         PropuestaRvie lector = new PropuestaRvie(t.ruc(), p);
         long filas = leerPropuesta(propuesta, lector, conciliacion, 0, "");
         // H11: sin ninguna fila de datos (cuerpo vacío, solo títulos) el reporte diría que SUNAT no tiene nada: es un archivo equivocado, no una conciliación.
         if (filas == 0 && lector.consolidadas() == 0)
             throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta no trae ninguna fila de comprobantes: envíe el archivo descargado del SIRE para el periodo " + p);
         return new Conciliacion(p, pendientes, lector.consolidadas(), conciliacion.resultado());
+    }
+
+    private long pendientesDeSunat(UUID tenantId, PeriodoSire p) { return registro.contar(tenantId, p.desde(), p.hasta(), 0).pendientesDeSunat(); }
+
+    /** Una conciliación con el lado de khipu ya cargado: cada comprobante del periodo que SUNAT tiene, en el orden del registro. */
+    private ConciliacionRvie conLoEmitido(UUID tenantId, PeriodoSire p, Tenant t) {
+        ConciliacionRvie conciliacion = new ConciliacionRvie();
+        recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
+        return conciliacion;
     }
 
     /**
@@ -170,9 +178,8 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
             throw new DomainException("RVIE_ARCHIVO_INVALIDO", "SUNAT terminó el ticket " + ticket + " sin entregar ningún archivo de la propuesta");
         if (e.archivos().size() > MAXIMO_ARCHIVOS)
             throw new DomainException("RVIE_EXCEDE_EL_TOPE", "SUNAT entregó " + e.archivos().size() + " archivos para el ticket " + ticket + " y khipu concilia hasta " + MAXIMO_ARCHIVOS + ": pídale la conciliación a soporte");
-        long pendientes = registro.contar(tenantId, p.desde(), p.hasta(), 0).pendientesDeSunat();
-        ConciliacionRvie conciliacion = new ConciliacionRvie();
-        recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
+        long pendientes = pendientesDeSunat(tenantId, p);
+        ConciliacionRvie conciliacion = conLoEmitido(tenantId, p, t);
         PropuestaRvie lector = new PropuestaRvie(t.ruc(), p);
         long filas = 0;
         // El tope de bytes es de todo el ticket: un periodo partido en archivos no puede, en suma, llevar la conciliación más allá de lo que admite el archivo subido.

@@ -2,6 +2,7 @@ package pe.factura.adapters.sunatrest;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.out.SunatCredencialesException;
@@ -154,6 +155,14 @@ class RestSireGatewayTest {
         assertThat(e.archivos()).extracting(ArchivoDelTicket::tipo).containsExactly("02");
     }
 
+    @Test void procesadoSinErroresTambienSeDaPorTerminadoYTraeSusArchivos(WireMockRuntimeInfo wm) {
+        tokenOk();
+        stubFor(get(urlPathEqualTo(RUTA_TICKETS)).willReturn(okJson(registro("04", "Procesado sin errores", "[{\"nomArchivoReporte\":\"a.zip\"}]"))));
+        EstadoDelTicket e = gateway(wm).consultar(empresa, PERIODO, TICKET);
+        assertThat(e.fase()).isEqualTo(Fase.TERMINADO);
+        assertThat(e.archivos()).hasSize(1);
+    }
+
     @Test void unTicketProcesadoConErroresNoTieneArchivos(WireMockRuntimeInfo wm) {
         tokenOk();
         stubFor(get(urlPathEqualTo(RUTA_TICKETS)).willReturn(okJson(registro("03", "Procesado con Errores", "[{\"nomArchivoReporte\":\"a.zip\"}]"))));
@@ -210,6 +219,26 @@ class RestSireGatewayTest {
         stubFor(get(urlPathEqualTo(RUTA_ARCHIVO)).willReturn(aResponse().withStatus(422).withBody("{\"cod\":\"422\",\"msg\":\"Unprocessable Entity\",\"errors\":[{\"cod\":\"2244\",\"msg\":\"El archivo solicitado no existe\"}]}")));
         assertThatThrownBy(() -> gateway(wm).descargar(empresa, new ArchivoDelTicket(TICKET, "a.zip", "01", "13", "202610"), 1024)).isInstanceOf(SunatRechazoException.class)
                 .hasFieldOrPropertyWithValue("codigo", "2244");
+    }
+
+    @Test void unTokenVencidoAntesDeTiempoEnLaDescargaSeRenuevaYSeReintentaUnaVez(WireMockRuntimeInfo wm) {
+        tokenOk();
+        stubFor(get(urlPathEqualTo(RUTA_ARCHIVO)).inScenario("401").whenScenarioStateIs(Scenario.STARTED).willReturn(aResponse().withStatus(401)).willSetStateTo("renovado"));
+        stubFor(get(urlPathEqualTo(RUTA_ARCHIVO)).inScenario("401").whenScenarioStateIs("renovado").willReturn(aResponse().withStatus(200).withBody("zip")));
+
+        assertThat(gateway(wm).descargar(empresa, new ArchivoDelTicket(TICKET, "a.zip", "01", "13", "202610"), 1024)).isEqualTo("zip".getBytes(StandardCharsets.UTF_8));
+
+        verify(2, postRequestedFor(urlEqualTo(RUTA_TOKEN)));
+        verify(2, getRequestedFor(urlPathEqualTo(RUTA_ARCHIVO)));
+    }
+
+    @Test void unaCaidaOUnPermisoNegadoEnLaDescargaSeDistinguen(WireMockRuntimeInfo wm) {
+        tokenOk();
+        ArchivoDelTicket a = new ArchivoDelTicket(TICKET, "a.zip", "01", "13", "202610");
+        stubFor(get(urlPathEqualTo(RUTA_ARCHIVO)).willReturn(aResponse().withStatus(503).withBody("{\"cod\":\"503\",\"msg\":\"Service Unavailable\"}")));
+        assertThatThrownBy(() -> gateway(wm).descargar(empresa, a, 1024)).isExactlyInstanceOf(SunatTransientException.class).hasMessageContaining("503");
+        stubFor(get(urlPathEqualTo(RUTA_ARCHIVO)).willReturn(aResponse().withStatus(403).withBody("{\"cod\":\"403\",\"msg\":\"Forbidden\"}")));
+        assertThatThrownBy(() -> gateway(wm).descargar(empresa, a, 1024)).isInstanceOf(SunatCredencialesException.class).hasMessageContaining("403");
     }
 
     @Test void unArchivoMasGrandeQueElTopeSeCortaSinLeerloEntero(WireMockRuntimeInfo wm) {
