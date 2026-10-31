@@ -4205,12 +4205,12 @@
     },
     "entornos": {
       "titulo": "Environments and limits",
-      "resumen": "How BETA and production differ, what caps the API has and how long to wait before trying again. Everything on this page is what khipu does today; what is not published yet is at the end.",
+      "resumen": "How BETA and production differ, what caps the API has and how long to wait before trying again. Everything on this page is what khipu does today; the outbound IPs, the SLA and the connectors are at the end.",
       "indice": {
         "entornos": "BETA and production",
         "limites": "Limits and quotas",
         "reintentos": "Retries and validity periods",
-        "pendiente": "What is not published yet"
+        "pendiente": "Infrastructure: IPs, SLA and connectors"
       },
       "intro": "Each company has its environment, set when it is registered. The API URL and the API key are the same in both: what changes is where khipu sends the document and what validity it has. The move from BETA to production is done by the platform, on request to support, once SUNAT has approved the certification: there is no control to do it in the portal or the API, and it is rejected (409) while the company has pending submissions.",
       "notaBeta": "Integrate and test everything in `BETA`: what SUNAT accepts there it accepts in production under the same content rules. The cases khipu verified against e-beta are in the [issuing guide](/developers/guia).",
@@ -4226,10 +4226,10 @@
         ]
       },
       "emisionSimultanea": "Issuing has no requests-per-second cap: what bounds it is the plan’s monthly cap. Simultaneous issues on **the same series** are handled one after another, because SUNAT requires consecutive numbering with no gaps; spreading the load across several series parallelizes them.",
-      "pendienteIntro": "This has not been defined yet, which is why it does not appear above with a number; once it exists it will be published here:",
+      "pendienteIntro": "What khipu offers today in infrastructure, during the beta, so that you do not assume more than there is:",
       "pendientes": [
-        "khipu’s **outbound IPs** to your server (for those who filter webhooks by IP). Meanwhile, verify each delivery with the `X-Khipu-Signature` signature, which does not depend on the IP: see [Webhooks](/developers/guia#webhooks).",
-        "Availability and response time **SLA**. What is measured is the cost of preparing a document without SUNAT (around 30 ms at the 95th percentile with 50 documents per second in the load test, measured in development: it is not a commitment); the total time depends on SUNAT.",
+        "**Outbound IPs.** khipu does not guarantee a list of outbound IPs to your server: traffic leaves from the hosting provider’s infrastructure and can change. Do not filter webhooks by IP; verify each delivery with the `X-Khipu-Signature` signature, which does not depend on the IP: see [Webhooks](/developers/guia#webhooks).",
+        "**SLA.** During the beta there is no commitment on availability or response time. What is measured is the cost of preparing a document without SUNAT (around 30 ms at the 95th percentile with 50 documents per second in the load test, measured in development: it is not a commitment); the total time depends on SUNAT.",
         "Official **SDKs and connectors**: they do not exist yet. The API is REST with JSON and the snippets in the [quick start guide](/developers/guia#inicio-rapido) are the starting point."
       ],
       "filas": {
