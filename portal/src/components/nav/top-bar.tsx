@@ -13,6 +13,7 @@ import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { InvitarDialog } from "@/components/equipo/invitar-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
+import { NuevaGuiaEnlace } from "@/components/guias/nueva-guia-enlace";
 import { ClienteDialog } from "@/components/clientes/cliente-dialog";
 import { ProductoDialog } from "@/components/productos/producto-dialog";
 import { EstablecimientoDialog } from "@/components/establecimientos/establecimiento-dialog";
@@ -118,6 +119,9 @@ export function TopBar({
           <ProductoDialog className={ACCION_PRINCIPAL} />
         ) : pathname.startsWith("/comprobantes") || pathname.startsWith("/inicio") ? (
           <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
+        ) : pathname.startsWith("/guias") && pathname !== "/guias/nueva" ? (
+          /* #39: «Nueva guía» es la acción de la sección, como «Nuevo comprobante» en la suya; en el propio formulario no hace falta. */
+          <NuevaGuiaEnlace />
         ) : pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN" ? (
           <InvitarDialog className={ACCION_PRINCIPAL} />
         ) : /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */ null}

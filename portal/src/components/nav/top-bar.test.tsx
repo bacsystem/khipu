@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => ruta.actual }));
 vi.mock("./mobile-nav", () => ({ MobileNav: () => null }));
 vi.mock("@/components/comprobantes/nuevo-comprobante-dialog", () => ({ NuevoComprobanteDialog: () => <button>Nuevo comprobante</button> }));
 vi.mock("@/components/establecimientos/establecimiento-dialog", () => ({ EstablecimientoDialog: () => <button>Nuevo establecimiento</button> }));
+vi.mock("@/components/guias/nueva-guia-enlace", () => ({ NuevaGuiaEnlace: () => <button>Nueva guía</button> }));
 vi.mock("@/components/series/nueva-serie-dialog", () => ({ NuevaSerieDialog: () => <button>Nueva serie</button> }));
 vi.mock("@/components/series/referencia-series", () => ({ ReferenciaSeriesDialog: () => null }));
 vi.mock("@/components/api-keys/nueva-api-key-dialog", () => ({ NuevaApiKeyDialog: () => <button>Crear API key</button> }));
@@ -47,6 +48,15 @@ describe("TopBar: acción principal según la página", () => {
 
   it("en Establecimientos ofrece «Nuevo establecimiento», y solo esa", () => {
     expect(renderizar("/establecimientos")).toEqual(["Nuevo establecimiento"]);
+  });
+
+  /** #39: «Nueva guía» va en la barra superior como las demás acciones de sección (no suelta en el contenido), y no en el propio formulario. */
+  it.each(["/guias", "/guias/g-123"])("en %s ofrece «Nueva guía»", (pathname) => {
+    expect(renderizar(pathname)).toEqual(["Nueva guía"]);
+  });
+
+  it("en el formulario de «Nueva guía» no se repite", () => {
+    expect(renderizar("/guias/nueva")).toEqual([]);
   });
 
   it.each(["/cuenta/plan", "/cuenta/accesos-de-soporte", "/developers"])("en %s no hay acción principal", (pathname) => {
