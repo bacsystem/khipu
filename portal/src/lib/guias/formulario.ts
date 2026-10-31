@@ -96,6 +96,15 @@ export function aNumero(texto: string): number {
   return limpio === "" ? NaN : Number(limpio);
 }
 
+/**
+ * Los documentos que ya estaban escritos, con el tipo cambiado al primero aplicable cuando el que tenían no se ofrece en la guía nueva (por ejemplo «constancia de depósito
+ * IVAP», solo remitente, al pasar a una serie V). Con `aplicables` vacío (el catálogo no se pudo leer) no se toca nada.
+ */
+export function conTiposAplicables(documentos: DocumentoForm[], aplicables: string[]): DocumentoForm[] {
+  if (aplicables.length === 0) return documentos;
+  return documentos.map((d) => (aplicables.includes(d.tipo) ? d : { ...d, tipo: aplicables[0] }));
+}
+
 /** ¿Los vehículos y conductores del formulario van en el pedido? La transportista siempre; la remitente en transporte privado sin el indicador M1/L, o en público con el de vehículos del transportista. */
 export function llevaVehiculos(f: GuiaForm): boolean {
   if (esDeTransportista(f.serie)) return true;
@@ -107,8 +116,9 @@ const completa = (p: ParteForm) => p.tipo_doc.trim() !== "" && p.num_doc.trim() 
 const conductorCompleto = (c: ConductorForm) => [c.tipo_doc, c.num_doc, c.nombres, c.apellidos, c.licencia].every((v) => v.trim() !== "");
 const conductorEnBlanco = (c: ConductorForm) => [c.num_doc, c.nombres, c.apellidos, c.licencia].every((v) => v.trim() === "");
 
-function puntoCompleto(p: PuntoForm): boolean {
-  return p.modo === "establecimiento" ? p.establecimiento.trim() !== "" : /^\d{6}$/.test(p.ubigeo) && p.direccion.trim().length >= 3;
+/** La transportista no admite un establecimiento (la pantalla solo le ofrece direcciones): aunque el estado conserve ese modo de una guía remitente, se valida como dirección. */
+function puntoCompleto(p: PuntoForm, transportista: boolean): boolean {
+  return p.modo === "establecimiento" && !transportista ? p.establecimiento.trim() !== "" : /^\d{6}$/.test(p.ubigeo) && p.direccion.trim().length >= 3;
 }
 
 export type ClaveDeError = keyof Mensajes["guias"]["form"]["errores"];
@@ -127,8 +137,8 @@ export function validarGuia(f: GuiaForm): ClaveDeError | null {
   }
   if (f.fecha_inicio.trim() === "") return "sinFechaInicio";
   if (!(aNumero(f.peso_bruto) > 0)) return "pesoInvalido";
-  if (!puntoCompleto(f.partida)) return "sinPuntoPartida";
-  if (!puntoCompleto(f.llegada)) return "sinPuntoLlegada";
+  if (!puntoCompleto(f.partida, transportista)) return "sinPuntoPartida";
+  if (!puntoCompleto(f.llegada, transportista)) return "sinPuntoLlegada";
   if (llevaVehiculos(f)) {
     if (f.vehiculos[0]?.trim() === "" || f.vehiculos.length === 0) return "sinVehiculo";
     if (f.conductores.length === 0 || !conductorCompleto(f.conductores[0])) return "sinConductor";

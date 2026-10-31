@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aNumero, conductorVacio, cuerpoDeGuia, esDeTransportista, guiaVacia, itemVacio, llevaVehiculos, validarGuia, type GuiaForm } from "./formulario";
+import { aNumero, conductorVacio, conTiposAplicables, cuerpoDeGuia, esDeTransportista, guiaVacia, itemVacio, llevaVehiculos, validarGuia, type GuiaForm } from "./formulario";
 
 const HOY = "2026-10-20";
 
@@ -88,6 +88,15 @@ describe("validarGuia", () => {
     expect(validarGuia(remitentePrivada({ partida: { modo: "establecimiento", establecimiento: "0002", ubigeo: "", direccion: "" } }))).toBeNull();
   });
 
+  it("la transportista nunca usa un establecimiento: aunque el estado conserve ese modo, sus puntos se validan como direcciones (F1)", () => {
+    // Pasa si se escribió una guía remitente con partida en «establecimiento» y luego se cambió a una serie V: la pantalla muestra la dirección, el estado no.
+    const traslado = { modo: "establecimiento" as const, establecimiento: "0000", ubigeo: "", direccion: "" };
+    expect(validarGuia(transportista({ partida: traslado }))).toBe("sinPuntoPartida");
+    expect(validarGuia(transportista({ llegada: traslado }))).toBe("sinPuntoLlegada");
+    // La remitente sí lo admite.
+    expect(validarGuia(remitentePrivada({ partida: traslado }))).toBeNull();
+  });
+
   it("el transporte privado pide el vehículo y el conductor principales, salvo con el indicador M1 o L", () => {
     expect(validarGuia(remitentePrivada({ vehiculos: [""] }))).toBe("sinVehiculo");
     expect(validarGuia(remitentePrivada({ conductores: [conductorVacio()] }))).toBe("sinConductor");
@@ -105,6 +114,23 @@ describe("validarGuia", () => {
     expect(validarGuia(remitentePrivada({ items: [{ ...itemVacio(), descripcion: "Laptop", cantidad: "1" }, itemVacio()] }))).toBeNull();
     // Un código escrito sin descripción es una línea a medias, no una línea en blanco.
     expect(validarGuia(remitentePrivada({ items: [{ ...itemVacio(), codigo: "LAP-15" }] }))).toBe("sinBienes");
+  });
+});
+
+describe("conTiposAplicables (F2)", () => {
+  const docs = [
+    { tipo: "49", numero: "X-1", ruc_emisor: "" },
+    { tipo: "01", numero: "F001-1", ruc_emisor: "" },
+  ];
+
+  it("un documento cuyo tipo ya no se ofrece pasa al primero que sí; el resto se queda igual", () => {
+    // Sin esto el desplegable muestra la primera opción pero el estado conserva el tipo viejo y es el que viaja a la API.
+    expect(conTiposAplicables(docs, ["01", "69"]).map((d) => d.tipo)).toEqual(["01", "01"]);
+    expect(conTiposAplicables(docs, ["01", "49"])).toEqual(docs);
+  });
+
+  it("sin catálogo (lista vacía) no toca lo que se escribió a mano", () => {
+    expect(conTiposAplicables(docs, [])).toEqual(docs);
   });
 });
 

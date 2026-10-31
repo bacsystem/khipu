@@ -16,6 +16,7 @@ import type { Serie } from "@/lib/api/series";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import {
   conductorVacio,
+  conTiposAplicables,
   cuerpoDeGuia,
   documentoVacio,
   esDeTransportista,
@@ -158,6 +159,14 @@ function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEsta
   );
 }
 
+/** Los documentos del catálogo 61 que admite cada guía: la columna «GRE aplicable» dice «remitente, transportista», «solo remitente» o «solo transportista». */
+function documentosDe(documentos: OpcionDeCatalogo[], transportista: boolean): OpcionDeCatalogo[] {
+  return documentos.filter((d) => {
+    const aplica = d.extra?.["GRE aplicable"] ?? "";
+    return !aplica.includes("solo") || aplica.includes(transportista ? "transportista" : "remitente");
+  });
+}
+
 function reemplazar<T>(lista: T[], i: number, valor: T): T[] {
   return lista.map((x, n) => (n === i ? valor : x));
 }
@@ -193,10 +202,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
   const transportista = esDeTransportista(f.serie);
   const conVehiculos = llevaVehiculos(f);
   const tiposDocumento = catalogos.tiposDocumento;
-  const documentosAplicables = catalogos.documentos.filter((d) => {
-    const aplica = d.extra?.["GRE aplicable"] ?? "";
-    return !aplica.includes("solo") || aplica.includes(transportista ? "transportista" : "remitente");
-  });
+  const documentosAplicables = documentosDe(catalogos.documentos, transportista);
   const indicadoresOfrecidos = transportista ? INDICADORES_DE_TRANSPORTISTA : INDICADORES.filter((i) => (i === "vehiculo_m1_o_l" ? f.modalidad === "02" : i === "vehiculos_conductores_transportista" ? f.modalidad === "01" : true));
 
   function cambiar(parcial: Partial<GuiaForm>) {
@@ -258,7 +264,9 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             <Seleccion
               id="guia-serie"
               valor={f.serie}
-              alCambiar={(serie) => cambiar({ serie })}
+              alCambiar={(serie) =>
+                cambiar({ serie, documentos: conTiposAplicables(f.documentos, documentosDe(catalogos.documentos, esDeTransportista(serie)).map((d) => d.codigo)) })
+              }
               opciones={series.map((s) => ({ valor: s.serie, texto: interpolar(t.serieTipo, { serie: s.serie, tipo: messages.guias.tipos[s.tipo === "31" ? "31" : "09"] }) }))}
             />
           </Campo>
