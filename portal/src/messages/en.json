@@ -1690,7 +1690,11 @@
   "errores": {
     "generico": "An error occurred. Try again.",
     "RED": "Could not connect to the server. Check your connection and try again.",
-    "RESPUESTA_INVALIDA": "The server response could not be interpreted. Try again in a few minutes.",
+    "RESPUESTA_INVALIDA": "The server's response could not be read. Reload the page to see the actual state before trying again.",
+    "RED_CORTADA": "The connection was cut before the response arrived. Check the status of the request before retrying.",
+    "ESPERA_VENCIDA": "The server took too long to respond. Check the status before retrying: what you sent may have been processed.",
+    "ERROR_DE_COMUNICACION": "Error communicating with the API. Try again in a few minutes.",
+    "ERROR_INESPERADO": "An unexpected error occurred. Try again in a few minutes.",
     "DUPLICADO": "An account with that email already exists.",
     "CREDENCIALES_INVALIDAS": "Incorrect email or password.",
     "TELEFONO_INVALIDO": "The mobile number must have 9 digits and start with 9.",

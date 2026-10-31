@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
+import { seCortoLaConexion } from "@/lib/api/corte-de-red";
 import { type Baja, PLAZO_BAJA_DIAS } from "@/lib/api/facturas";
 import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { diasEntre, hoyLima } from "@/lib/formato";
@@ -80,7 +81,7 @@ export function BajaButton({
     // Un corte de conexión no dice si la comunicación llegó a SUNAT, y la baja es irreversible: no se reintenta a
     // ciegas. El backend impide una segunda baja mientras haya una en curso. La respuesta que no es JSON cae más
     // abajo a propósito: su mensaje ya trae el HTTP y manda a recargar para ver el estado real.
-    if (res.codigo === "RED") {
+    if (seCortoLaConexion(res)) {
       setError(interpolar(t.cortaConexion, { numero }));
       return;
     }

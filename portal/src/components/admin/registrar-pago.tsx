@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { fechaValida } from "@/lib/cambio-de-plan";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
@@ -105,7 +106,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
     const res = await apiRequest<unknown>(`/api/admin/cuentas/${cuentaId}/pagos`, { method: "POST", body: r.cuerpo });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el pago llegó: se dice, y no se reintenta a ciegas (un reintento podría anotarlo dos veces).
       setError(interpolar(messages.admin.recargar.pagoRegistrado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

@@ -55,10 +55,10 @@ segmento donde se usa: `src/i18n/textos-de-cliente.test.ts` recorre los imports 
 Guardas:
 
 - `npm run lint` corre la regla `khipu/no-literal-de-ui` (`eslint-rules/no-literal-de-ui.mjs`) sobre `src/app`, `src/components` y `src/lib`.
-  Lo que todavía no se migró está en la línea base `eslint-suppressions.json` (supresiones masivas de ESLint), que **solo puede bajar**:
-  un literal nuevo falla el lint, y al migrar uno hay que podar la línea base (`npx eslint --prune-suppressions`), si no el lint también falla.
-  Nunca se regenera con `--suppress-all` para tapar un literal nuevo: `src/lib/linea-base-de-literales.test.ts` tiene el tope
-  (hoy 9 literales en 3 archivos) y falla si la línea base lo pasa. Al migrar literales se baja el tope en el mismo cambio; nunca se sube.
+  La línea base `eslint-suppressions.json` (supresiones masivas de ESLint) quedó **vacía** (#25): ya no hay literales de UI sin migrar en el portal.
+  Un literal nuevo falla el lint. Nunca se regenera con `--suppress-all` para taparlo: `src/lib/linea-base-de-literales.test.ts` tiene el tope
+  en 0 y falla si la línea base deja de estar vacía. Los errores de transporte (sin conexión, espera vencida, respuesta ilegible) viajan solo
+  con su código y el texto sale de `errores.<CODIGO>` en messages.
 - La regla tiene pruebas propias (`eslint-rules/no-literal-de-ui.test.mjs`, con `RuleTester`, en `npm run test`).
 - `npm run build` corre `eslint` antes de `next build` (y así también el `Dockerfile`): `next build` lintea con la API de ESLint,
   que no aplica la línea base, por eso tiene `eslint.ignoreDuringBuilds` y el lint va por la CLI en el mismo script.

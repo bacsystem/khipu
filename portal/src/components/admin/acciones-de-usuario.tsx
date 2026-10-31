@@ -8,6 +8,7 @@ import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -59,7 +60,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
     const res = await apiRequest<DestinatarioAdmin>(`/api/admin/cuentas/${cuentaId}/usuarios/${usuarioId}/${RUTA[tipo]}`, { method: "POST" });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el correo salió: se dice, y no se reintenta solo (reintentar manda otro correo).
       setError(interpolar(messages.admin.recargar.revisarBitacora, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

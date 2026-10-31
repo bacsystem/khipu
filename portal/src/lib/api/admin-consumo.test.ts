@@ -167,6 +167,6 @@ describe("exportarConsumoDeCuentas", () => {
   it("un fallo que no es JSON (un proxy caído) también sube como ApiError, con un mensaje genérico", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>Bad gateway</html>", { status: 502 })));
 
-    await expect(exportarConsumoDeCuentas("jwt-admin", base)).rejects.toMatchObject({ status: 502, codigo: null, message: "Error de comunicación con la API" });
+    await expect(exportarConsumoDeCuentas("jwt-admin", base)).rejects.toMatchObject({ status: 502, codigo: "ERROR_DE_COMUNICACION", message: "API communication error" });
   });
 });

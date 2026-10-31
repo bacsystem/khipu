@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
@@ -72,7 +73,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
     const res = await apiRequest<PlanAdmin>(plan ? `/api/admin/planes/${plan.id}` : "/api/admin/planes", { method: plan ? "PUT" : "POST", body: r.cuerpo });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (un alta repetida chocaría con el nombre, pero una edición sí se aplicaría dos veces).
       setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

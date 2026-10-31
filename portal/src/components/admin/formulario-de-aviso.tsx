@@ -8,6 +8,7 @@ import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import {
   cuerpoDeAviso,
   DIAS_MAX_DE_AVISO,
@@ -67,7 +68,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
     const res = await apiRequest<BannerConfigurado>("/api/admin/configuracion/banner", { method: "PUT", body: r.cuerpo });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
       setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

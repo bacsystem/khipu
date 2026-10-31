@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -56,7 +57,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
     });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (el backend responde 409 si ya estaba hecho).
       setError(interpolar(messages.admin.recargar.estadoDeLaCuenta, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

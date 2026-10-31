@@ -808,7 +808,7 @@ test("baja: una respuesta que no es JSON (HTML de un proxy) no cuelga el diálog
   const confirmacion = page.getByTestId("baja-confirmacion");
   await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
-  await expect(confirmacion.getByRole("alert")).toContainText("Respuesta inválida del servidor (HTTP 504)");
+  await expect(confirmacion.getByRole("alert")).toContainText("La respuesta del servidor no se pudo interpretar");
   await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeEnabled();
 });
 

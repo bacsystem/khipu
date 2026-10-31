@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { Direccion, RemitenteConfigurado } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
@@ -55,7 +56,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
     const res = await apiRequest<RemitenteConfigurado>("/api/admin/configuracion/correo", { method: "PUT", body: { nombre, email, responder_a: responderA } });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
       setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;
