@@ -623,18 +623,48 @@ si falta un campo y `422 CREDENCIALES_API_SUNAT_INVALIDAS` si el `client_id` no 
 | `SUNAT_API_TIMEOUT_SECONDS` | `10` | Tope de cada llamada (1 a 120) |
 
 **Pendiente: prueba controlada con credenciales reales.** Las pruebas automáticas usan un SUNAT simulado con las rutas y campos del manual de SUNAT; el envío
-de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirmado contra SUNAT. Para cerrarlo, con una empresa real que tenga sus credenciales:
+de `numero` y `monto` como texto sigue el ejemplo del manual y no está confirmado contra SUNAT con una empresa. Se cierra con un solo comando que pregunta a SUNAT
+de verdad, sin backend, base de datos ni Docker, y solo lee (no escribe nada en SUNAT):
 
-1. En SOL, registrar la aplicación en «Credenciales de API SUNAT» y copiar «Id» y «Clave».
-2. Guardarlas: `curl -X PUT $API/v1/empresa/credenciales-api-sunat -H "X-Api-Key: $KEY" -H "Content-Type: application/json" -d '{"client_id":"<Id>","client_secret":"<Clave>"}'`.
-3. Consultar un comprobante conocido (uno propio ya aceptado):
-   `curl "$API/v1/consultas/validez?ruc=<RUC emisor>&tipo=01&serie=F001&numero=<n>&fecha=<AAAA-MM-DD>&monto=<total>" -H "X-Api-Key: $KEY"`.
-   Lo esperado: `fuente: API_REST`, `estado: ACEPTADO`, `estado_ruc` y `condicion_domicilio` con valor. Repetir con un número que no exista (`NO_EXISTE`) y con
-   una fecha equivocada (debe volver una observación).
-   Mientras dure el fallback provisional, un rechazo de la API no se ve como error: hay que mirar que la respuesta diga `fuente: API_REST` y no traiga `aviso`.
-   Para probar sin fallback, hacerlo con una empresa sin clave SOL.
-4. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número) y su prueba.
-5. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».
+```bash
+VALIDEZ_RUC=<RUC de la empresa dueña de las credenciales> VALIDEZ_CLIENT_ID=<Id de la aplicación> VALIDEZ_CLIENT_SECRET=<Clave> VALIDEZ_SERIE=F001 VALIDEZ_NUMERO=<n> VALIDEZ_FECHA=<AAAA-MM-DD> VALIDEZ_MONTO=<total> ./gradlew :adapters:out-sunat-rest:validezReal
+```
+
+En PowerShell las variables se fijan antes, en la misma sesión, y se borran al terminar:
+
+```powershell
+$env:VALIDEZ_RUC="<RUC>"; $env:VALIDEZ_CLIENT_ID="<Id>"; $env:VALIDEZ_CLIENT_SECRET="<Clave>"
+$env:VALIDEZ_SERIE="F001"; $env:VALIDEZ_NUMERO="<n>"; $env:VALIDEZ_FECHA="<AAAA-MM-DD>"; $env:VALIDEZ_MONTO="<total>"
+./gradlew :adapters:out-sunat-rest:validezReal
+Remove-Item Env:VALIDEZ_*
+```
+
+Las credenciales se generan en SOL: Empresas › Comprobantes de pago › Consulta de Validez de Comprobantes de Pago › Credenciales de API SUNAT (registrar una
+aplicación y copiar su «Id» y su «Clave»). El comprobante tiene que ser **uno propio ya aceptado** (`VALIDEZ_TIPO` es `01` por defecto; `VALIDEZ_RUC_EMISOR`, el RUC
+de la empresa por defecto). Las credenciales van en variables de entorno de ese comando y no se guardan en ningún archivo; la evidencia no las lleva.
+
+La corrida hace seis preguntas y deja el resultado en `adapters/out-sunat-rest/build/validez-real/RESUMEN.md`:
+
+| Paso | Lo esperado | Si no se cumple |
+|---|---|---|
+| Credenciales inventadas | SUNAT las rechaza como credenciales (HTTP 400, `unauthorized_client`). No necesita ninguna variable | La URL del token o el trato de sus errores no son los de SUNAT |
+| El comprobante existente | `estadoCp` 1 (aceptado), con `estadoRuc` y `condDomiRuc` | **El contrato del manual no es el que SUNAT acepta**: mirar el `SunatRechazoException` que muestra y seguir el punto 2 de abajo |
+| Un correlativo que no existe | `estadoCp` 0, o un rechazo de SUNAT que diga que no existe (las dos formas valen) | Solo falla si SUNAT lo da por aceptado |
+| Fecha equivocada, sin monto | Solo informan lo que SUNAT contesta (con o sin observación) | No hace fallar la corrida |
+| `numero` y `monto` como números JSON | Solo informa si SUNAT acepta también ese formato | No hace fallar la corrida |
+
+Sin las variables, la corrida solo hace el primer paso y deja los demás como «omitido». Ese primer paso ya se hizo contra SUNAT real el 2026-10-31: SUNAT
+contestó `400 unauthorized_client` («cliente no autorizado») a un cliente inventado, que es lo que `ClienteOAuthSunat` traduce a «credenciales rechazadas».
+
+Después de la corrida con credenciales:
+
+1. Pegar `RESUMEN.md` en el issue #318. Si el paso «existente» cumple, el contrato de las rutas, el scope y el formato de `numero`/`monto` queda confirmado.
+2. Si SUNAT rechaza la consulta por el formato de `numero`/`monto`, ajustar `RestValidezGateway` (mandarlos como número, que es lo que el último paso informa) y su prueba, y repetir.
+3. Verificado el contrato, quitar el fallback ante `SunatRechazoException` en `ConsultarValidezService` y volver la prueba de la matriz a «un rechazo no cae a SOAP».
+4. Comprobar de punta a punta por la aplicación, con una empresa que tenga esas credenciales:
+   `curl "$API/v1/consultas/validez?ruc=<RUC emisor>&tipo=01&serie=F001&numero=<n>&fecha=<AAAA-MM-DD>&monto=<total>" -H "X-Api-Key: $KEY"`. Lo esperado:
+   `fuente: API_REST`, `estado: ACEPTADO`, sin `aviso`. Mientras dure el fallback provisional, un rechazo de la API no se ve como error: hay que mirar que la respuesta
+   diga `fuente: API_REST`; para probar sin fallback, hacerlo con una empresa sin clave SOL.
 
 ## 14. Guía de remisión electrónica por la API REST de SUNAT (#39) — EXPERIMENTAL
 
