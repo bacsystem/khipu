@@ -3938,6 +3938,10 @@
       "emitiendo": "Emitiendo…",
       "cancelar": "Cancelar",
       "errores": {
+        "sinDescripcionMotivo": "Con el motivo «Otros» describe el motivo del traslado.",
+        "pesoDecimales": "El peso bruto admite hasta 12 enteros y 3 decimales.",
+        "documentoNumeroInvalido": "El número de una factura, boleta o guía relacionada va como serie-número, por ejemplo F001-123.",
+        "documentoSinRuc": "Indica el RUC (11 dígitos) de quien emitió cada factura, boleta o guía relacionada.",
         "sinSerie": "Elige una serie.",
         "sinDestinatario": "Completa el tipo, el número y el nombre del destinatario.",
         "sinRemitente": "Completa el tipo, el número y el nombre del remitente.",

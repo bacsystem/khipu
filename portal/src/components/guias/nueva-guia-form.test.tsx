@@ -15,7 +15,11 @@ const SERIES: Serie[] = [
   { tipo: "09", serie: "T001", ultimo_numero: 8, activa: true, establecimiento: "0000" },
   { tipo: "31", serie: "V001", ultimo_numero: 1, activa: true, establecimiento: "0000" },
 ];
-const ESTABLECIMIENTOS = [{ codigo: "0002", nombre: "Tienda Miraflores", principal: false, activo: true }] as unknown as Establecimiento[];
+const ANEXO = { codigo: "0002", nombre: "Tienda Miraflores", principal: false, activo: true };
+const DOMICILIO_FISCAL = { codigo: "0000", nombre: "Domicilio fiscal", principal: true, activo: true };
+/** Una empresa que todavía no cargó su domicilio fiscal: solo tiene un anexo. */
+const ESTABLECIMIENTOS = [ANEXO] as unknown as Establecimiento[];
+const CON_DOMICILIO_FISCAL = [DOMICILIO_FISCAL, ANEXO] as unknown as Establecimiento[];
 const CATALOGOS: CatalogosDeGuia = {
   motivos: [
     { codigo: "01", descripcion: "Venta" },
@@ -65,6 +69,11 @@ async function llenarRemitentePrivada() {
   fireEvent.change(form.querySelector("#llegada-provincia")!, { target: { value: "LIMA" } });
   fireEvent.change(form.querySelector("#llegada-distrito")!, { target: { value: "150131" } });
   fireEvent.change(form.querySelector("#llegada-direccion")!, { target: { value: "Calle Los Pinos 450" } });
+  // Sin domicilio fiscal cargado la partida nace como dirección (F3): también se llena.
+  fireEvent.change(form.querySelector("#partida-departamento")!, { target: { value: "LIMA" } });
+  fireEvent.change(form.querySelector("#partida-provincia")!, { target: { value: "LIMA" } });
+  fireEvent.change(form.querySelector("#partida-distrito")!, { target: { value: "150131" } });
+  fireEvent.change(form.querySelector("#partida-direccion")!, { target: { value: "Av. Argentina 1234" } });
   fireEvent.change(form.querySelector("#guia-placa-0")!, { target: { value: "abc123" } });
   fireEvent.change(form.querySelector("#guia-conductor-0-num")!, { target: { value: "45678912" } });
   fireEvent.change(form.querySelector("#guia-conductor-0-nombres")!, { target: { value: "JUAN" } });
@@ -147,6 +156,44 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     expect(screen.queryByLabelText("Vehículo M1 o L (autos o motos)")).toBeNull();
     expect(screen.queryByLabelText("Vehículos y conductores del transportista")).toBeNull();
     expect(screen.getByLabelText("Transbordo programado")).toBeInTheDocument();
+  });
+});
+
+describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
+  it("una empresa sin domicilio fiscal empieza con la partida como dirección y no ofrece el 0000, que la API rechazaría (3366)", () => {
+    responder(() => exito(null));
+    montar();
+
+    const form = screen.getByTestId("nueva-guia-form");
+    expect(form.querySelector("#partida-departamento")).not.toBeNull();
+    expect(form.querySelector("#partida-establecimiento")).toBeNull();
+    // Con un anexo sí puede elegir un establecimiento, y la lista no trae el 0000.
+    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByLabelText("Un establecimiento de mi empresa"));
+    const opciones = Array.from(form.querySelectorAll<HTMLOptionElement>("#partida-establecimiento option")).map((o) => o.value);
+    expect(opciones).toEqual(["0002"]);
+  });
+
+  it("al elegir «un establecimiento» el estado toma el primero que existe, no un 0000 que la empresa no tiene", async () => {
+    responder((ruta) => (ruta.endsWith("/guias-remision") ? exito({ id: "g-1" }) : exito(null)));
+    montar();
+    await llenarRemitentePrivada();
+    const form = screen.getByTestId("nueva-guia-form");
+
+    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByLabelText("Un establecimiento de mi empresa"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir la guía" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const cuerpo = llamadasA("/guias-remision")[0][1]?.body as { traslado: { partida: unknown } };
+    expect(cuerpo.traslado.partida).toEqual({ establecimiento: "0002" });
+  });
+
+  it("una empresa con domicilio fiscal empieza con la partida en él y manda el código 0000", async () => {
+    responder((ruta) => (ruta.endsWith("/guias-remision") ? exito({ id: "g-2" }) : exito(null)));
+    render(<NuevaGuiaForm series={SERIES} establecimientos={CON_DOMICILIO_FISCAL} catalogos={CATALOGOS} hoy="2026-10-20" />);
+    const form = screen.getByTestId("nueva-guia-form");
+
+    expect((form.querySelector("#partida-establecimiento") as HTMLSelectElement).value).toBe("0000");
+    expect(within(form.querySelector("#partida-establecimiento") as HTMLElement).getByText("0000 · Domicilio fiscal")).toBeInTheDocument();
   });
 });
 

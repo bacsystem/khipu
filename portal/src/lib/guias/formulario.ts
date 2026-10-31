@@ -63,7 +63,11 @@ export const itemVacio = (): ItemForm => ({ codigo: "", descripcion: "", unidad:
 export const documentoVacio = (): DocumentoForm => ({ tipo: "01", numero: "", ruc_emisor: "" });
 export const puntoVacio = (modo: ModoDePunto = "establecimiento"): PuntoForm => ({ modo, establecimiento: "0000", ubigeo: "", direccion: "" });
 
-export function guiaVacia(serie: string, hoy: string): GuiaForm {
+/**
+ * `domicilioFiscal`: si la empresa ya cargó su domicilio fiscal (el establecimiento `0000` figura entre los suyos). Sin él, la API rechaza una partida con el código `0000`
+ * (3366 «la empresa no lo tiene configurado»), que es lo que le pasa a toda empresa nueva hasta que llena sus datos fiscales: la partida nace entonces como dirección.
+ */
+export function guiaVacia(serie: string, hoy: string, domicilioFiscal: boolean): GuiaForm {
   return {
     serie,
     fecha_emision: hoy,
@@ -77,7 +81,7 @@ export function guiaVacia(serie: string, hoy: string): GuiaForm {
     fecha_inicio: hoy,
     peso_bruto: "",
     unidad_peso: "KGM",
-    partida: puntoVacio(),
+    partida: puntoVacio(domicilioFiscal ? "establecimiento" : "direccion"),
     llegada: puntoVacio("direccion"),
     vehiculos: [""],
     conductores: [conductorVacio()],
@@ -112,6 +116,11 @@ export function llevaVehiculos(f: GuiaForm): boolean {
   return f.indicadores.includes("vehiculos_conductores_transportista");
 }
 
+/** Los documentos relacionados que la API trata como comprobantes (`DocumentoDeTraslado.COMPROBANTES`): van como serie-número y con el RUC de quien los emitió. */
+const COMPROBANTES_RELACIONADOS = new Set(["01", "03", "04", "09", "12", "31", "48"]);
+const NUMERO_DE_COMPROBANTE = /^[A-Z0-9]{4}-\d{1,8}$/;
+const RUC = /^\d{11}$/;
+
 const completa = (p: ParteForm) => p.tipo_doc.trim() !== "" && p.num_doc.trim() !== "" && p.nombre.trim() !== "";
 const conductorCompleto = (c: ConductorForm) => [c.tipo_doc, c.num_doc, c.nombres, c.apellidos, c.licencia].every((v) => v.trim() !== "");
 const conductorEnBlanco = (c: ConductorForm) => [c.num_doc, c.nombres, c.apellidos, c.licencia].every((v) => v.trim() === "");
@@ -133,15 +142,23 @@ export function validarGuia(f: GuiaForm): ClaveDeError | null {
     if (f.registro_mtc.trim() === "") return "sinMtc";
   } else {
     if (f.motivo.trim() === "") return "sinMotivo";
+    if (f.motivo.trim() === "13" && f.descripcion_motivo.trim() === "") return "sinDescripcionMotivo";
     if (f.modalidad === "01" && (f.transportista.ruc.trim() === "" || f.transportista.razon_social.trim() === "")) return "sinTransportista";
   }
   if (f.fecha_inicio.trim() === "") return "sinFechaInicio";
   if (!(aNumero(f.peso_bruto) > 0)) return "pesoInvalido";
+  // Regla 2880: hasta 12 enteros y 3 decimales.
+  if (!/^\d{1,12}(\.\d{1,3})?$/.test(f.peso_bruto.trim().replace(",", "."))) return "pesoDecimales";
   if (!puntoCompleto(f.partida, transportista)) return "sinPuntoPartida";
   if (!puntoCompleto(f.llegada, transportista)) return "sinPuntoLlegada";
   if (llevaVehiculos(f)) {
     if (f.vehiculos[0]?.trim() === "" || f.vehiculos.length === 0) return "sinVehiculo";
     if (f.conductores.length === 0 || !conductorCompleto(f.conductores[0])) return "sinConductor";
+  }
+  for (const d of f.documentos.filter((x) => x.numero.trim() !== "")) {
+    if (!COMPROBANTES_RELACIONADOS.has(d.tipo)) continue;
+    if (!NUMERO_DE_COMPROBANTE.test(d.numero.trim().toUpperCase())) return "documentoNumeroInvalido";
+    if (!RUC.test(d.ruc_emisor.trim())) return "documentoSinRuc";
   }
   const items = f.items.filter((i) => i.descripcion.trim() !== "" || i.codigo.trim() !== "" || i.codigo_sunat.trim() !== "");
   if (items.length === 0 || items.some((i) => i.descripcion.trim() === "" || i.unidad.trim() === "")) return "sinBienes";
@@ -205,7 +222,12 @@ export function cuerpoDeGuia(f: GuiaForm): CuerpoDeGuia {
 
   const documentos = f.documentos.filter((d) => d.numero.trim() !== "");
   if (documentos.length > 0) {
-    cuerpo.documentos_relacionados = documentos.map((d) => ({ tipo: d.tipo, numero: d.numero.trim(), ...sinVacios({ ruc_emisor: d.ruc_emisor }) }));
+    cuerpo.documentos_relacionados = documentos.map((d) => ({
+      tipo: d.tipo,
+      // Un comprobante va en mayúsculas (F001-123); los demás documentos (la DAM, el permiso…) llevan el número tal cual.
+      numero: COMPROBANTES_RELACIONADOS.has(d.tipo) ? d.numero.trim().toUpperCase() : d.numero.trim(),
+      ...sinVacios({ ruc_emisor: d.ruc_emisor }),
+    }));
   }
   if (f.observaciones.trim() !== "") cuerpo.observaciones = f.observaciones.trim();
   return cuerpo;

@@ -18,8 +18,8 @@ const UBIGEO = /^\d{6}$/;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HABILITADA = new Set(["g-firmada-habilitada"]);
 
-/** El domicilio fiscal de la empresa del mock, que una guía remitente resuelve con el código `0000`. */
-const DOMICILIO_FISCAL = { ubigeo: "150101", direccion: "Av. Argentina 1234, Cercado de Lima" };
+/** Los documentos relacionados que el backend trata como comprobantes: serie-número y RUC de quien los emitió (`DocumentoDeTraslado.COMPROBANTES`). */
+const COMPROBANTES_RELACIONADOS = new Set(["01", "03", "04", "09", "12", "31", "48"]);
 
 /** Lo que ya se emitió con cada `Idempotency-Key`: la misma clave y el mismo cuerpo devuelven la misma guía; con otro cuerpo, `422 IDEMPOTENCIA_INVALIDA`. */
 const emitidasPorClave = new Map<string, { huella: string; id: string }>();
@@ -42,7 +42,12 @@ function resolverPunto(empresaId: string, p: PuntoDeGuia | undefined, nombre: st
   if (!p) return fail(422, "TRASLADO_INVALIDO", `El ${nombre} es obligatorio`);
   if (p.establecimiento) {
     if (!remitente) return fail(422, "TRASLADO_INVALIDO", `El ${nombre}: el código de establecimiento solo se admite en una guía remitente; indique el ubigeo y la dirección`);
-    if (p.establecimiento === "0000") return { establecimiento: "0000", ...DOMICILIO_FISCAL };
+    if (p.establecimiento === "0000") {
+      // Como el backend (3366): el 0000 existe solo si la empresa cargó su domicilio fiscal; el seed del mock no lo tiene, igual que toda empresa nueva.
+      const fiscal = (db.establecimientosPorEmpresa.get(empresaId) ?? []).find((x) => x.codigo === "0000" && x.activo);
+      if (!fiscal) return fail(422, "TRASLADO_INVALIDO", `3366 - El ${nombre} es el domicilio fiscal (0000), pero la empresa no lo tiene configurado: cárguelo en PUT /v1/empresa/datos-fiscales o indique el ubigeo y la dirección`);
+      return { establecimiento: "0000", ubigeo: fiscal.domicilio.ubigeo, direccion: fiscal.domicilio.direccion };
+    }
     const e = (db.establecimientosPorEmpresa.get(empresaId) ?? []).find((x) => x.codigo === p.establecimiento);
     if (!e) return fail(422, "TRASLADO_INVALIDO", `3367 - El ${nombre}: el establecimiento ${p.establecimiento} no existe en la empresa`);
     if (!e.activo) return fail(422, "TRASLADO_INVALIDO", `3371 - El ${nombre}: el establecimiento ${p.establecimiento} está dado de baja`);
@@ -80,7 +85,9 @@ function validar(empresaId: string, c: CuerpoDeGuia): { guia: Omit<Guia, "id" | 
   const conductores = t.conductores ?? [];
   if (!t.fecha_inicio || !FECHA.test(t.fecha_inicio)) return fail(422, "TRASLADO_INVALIDO", "traslado.fecha_inicio es obligatoria (YYYY-MM-DD)");
   if (t.fecha_inicio < fechaEmision) return fail(422, "TRASLADO_INVALIDO", "3343 - La fecha de inicio del traslado no puede ser anterior a la de emisión");
-  if (!(Number(t.peso_bruto) > 0)) return fail(422, "TRASLADO_INVALIDO", "2880 - El peso bruto total tiene que ser mayor que cero");
+  if (!(Number(t.peso_bruto) > 0) || !/^\d{1,12}(\.\d{1,3})?$/.test(String(t.peso_bruto))) {
+    return fail(422, "TRASLADO_INVALIDO", "2880 - El peso bruto total es mayor que cero, con hasta 12 enteros y 3 decimales");
+  }
   if (t.unidad_peso && t.unidad_peso !== "KGM" && t.unidad_peso !== "TNE") return fail(422, "TRASLADO_INVALIDO", "unidad_peso es KGM o TNE");
 
   if (esRemitente) {
@@ -114,6 +121,10 @@ function validar(empresaId: string, c: CuerpoDeGuia): { guia: Omit<Guia, "id" | 
   }
   for (const doc of c.documentos_relacionados ?? []) {
     if (!doc.tipo || !doc.numero) return fail(422, "DOCUMENTO_RELACIONADO_INVALIDO", "Cada documento relacionado lleva su tipo y su número");
+    if (COMPROBANTES_RELACIONADOS.has(doc.tipo)) {
+      if (!/^[A-Z0-9]{4}-\d{1,8}$/.test(doc.numero)) return fail(422, "DOCUMENTO_RELACIONADO_INVALIDO", `3441 - El número del documento relacionado ${doc.tipo} no cumple el formato serie-número (F001-123, T001-45); recibido ${doc.numero}`);
+      if (!doc.ruc_emisor) return fail(422, "DOCUMENTO_RELACIONADO_INVALIDO", `Indique el RUC de quien emitió el documento relacionado ${doc.tipo} ${doc.numero}`);
+    }
   }
 
   return {

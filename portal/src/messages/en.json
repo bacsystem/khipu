@@ -3938,6 +3938,10 @@
       "emitiendo": "Issuing…",
       "cancelar": "Cancel",
       "errores": {
+        "sinDescripcionMotivo": "With the reason «Other», describe the reason for the transfer.",
+        "pesoDecimales": "The gross weight allows up to 12 integer digits and 3 decimals.",
+        "documentoNumeroInvalido": "The number of a related invoice, receipt or guide is written as series-number, for example F001-123.",
+        "documentoSinRuc": "Give the RUC (11 digits) of whoever issued each related invoice, receipt or guide.",
         "sinSerie": "Choose a series.",
         "sinDestinatario": "Fill in the recipient's document type, number and name.",
         "sinRemitente": "Fill in the sender's document type, number and name.",

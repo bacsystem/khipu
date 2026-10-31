@@ -6,7 +6,7 @@ const HOY = "2026-10-20";
 /** Una guía remitente en transporte privado con todo lo necesario; cada test cambia lo que prueba. */
 function remitentePrivada(cambios: Partial<GuiaForm> = {}): GuiaForm {
   return {
-    ...guiaVacia("T001", HOY),
+    ...guiaVacia("T001", HOY, true),
     destinatario: { tipo_doc: "6", num_doc: "20601234565", nombre: "PESQUERA PACÍFICO S.A.C." },
     motivo: "01",
     peso_bruto: "25.5",
@@ -53,7 +53,7 @@ describe("validarGuia", () => {
   });
 
   it("un formulario vacío empieza por el destinatario", () => {
-    expect(validarGuia(guiaVacia("T001", HOY))).toBe("sinDestinatario");
+    expect(validarGuia(guiaVacia("T001", HOY, true))).toBe("sinDestinatario");
   });
 
   it("sin serie no hay guía", () => {
@@ -114,6 +114,45 @@ describe("validarGuia", () => {
     expect(validarGuia(remitentePrivada({ items: [{ ...itemVacio(), descripcion: "Laptop", cantidad: "1" }, itemVacio()] }))).toBeNull();
     // Un código escrito sin descripción es una línea a medias, no una línea en blanco.
     expect(validarGuia(remitentePrivada({ items: [{ ...itemVacio(), codigo: "LAP-15" }] }))).toBe("sinBienes");
+  });
+});
+
+describe("guiaVacia: de dónde parte la mercadería (F3)", () => {
+  it("con el domicilio fiscal cargado la partida nace en él; sin domicilio nace como dirección, porque la API rechaza el 0000 (3366)", () => {
+    expect(guiaVacia("T001", HOY, true).partida.modo).toBe("establecimiento");
+    expect(guiaVacia("T001", HOY, false).partida.modo).toBe("direccion");
+    expect(guiaVacia("T001", HOY, false).llegada.modo).toBe("direccion");
+  });
+});
+
+describe("reglas del backend que el formulario comprueba antes de enviar (F4)", () => {
+  it("el motivo 13 (otros) pide describir el motivo (3457)", () => {
+    expect(validarGuia(remitentePrivada({ motivo: "13" }))).toBe("sinDescripcionMotivo");
+    expect(validarGuia(remitentePrivada({ motivo: "13", descripcion_motivo: "Muestras para una feria" }))).toBeNull();
+    expect(validarGuia(remitentePrivada({ motivo: "01" }))).toBeNull();
+  });
+
+  it("el peso admite hasta 3 decimales y 12 enteros (2880)", () => {
+    expect(validarGuia(remitentePrivada({ peso_bruto: "1,2345" }))).toBe("pesoDecimales");
+    expect(validarGuia(remitentePrivada({ peso_bruto: "1.234" }))).toBeNull();
+    expect(validarGuia(remitentePrivada({ peso_bruto: "1234567890123" }))).toBe("pesoDecimales");
+  });
+
+  it("una factura, boleta o guía relacionada va como serie-número y con el RUC de quien la emitió (3441)", () => {
+    const con = (d: { tipo: string; numero: string; ruc_emisor: string }) => remitentePrivada({ documentos: [d] });
+    expect(validarGuia(con({ tipo: "01", numero: "123", ruc_emisor: "20100047226" }))).toBe("documentoNumeroInvalido");
+    expect(validarGuia(con({ tipo: "01", numero: "F001-123", ruc_emisor: "" }))).toBe("documentoSinRuc");
+    expect(validarGuia(con({ tipo: "01", numero: "F001-123", ruc_emisor: "2010" }))).toBe("documentoSinRuc");
+    expect(validarGuia(con({ tipo: "01", numero: "f001-123", ruc_emisor: "20100047226" }))).toBeNull();
+  });
+
+  it("un documento que no es comprobante (la DAM, por ejemplo) lleva cualquier número y no pide RUC", () => {
+    expect(validarGuia(remitentePrivada({ documentos: [{ tipo: "50", numero: "118-2026-10-123456", ruc_emisor: "" }] }))).toBeNull();
+  });
+
+  it("el número de un comprobante relacionado viaja en mayúsculas", () => {
+    const c = cuerpoDeGuia(remitentePrivada({ documentos: [{ tipo: "01", numero: "f001-123", ruc_emisor: "20100047226" }] }));
+    expect(c.documentos_relacionados).toEqual([{ tipo: "01", numero: "F001-123", ruc_emisor: "20100047226" }]);
   });
 });
 

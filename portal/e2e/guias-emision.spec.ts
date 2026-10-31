@@ -14,6 +14,11 @@ async function llenarLoComun(page: Page) {
   await form.locator("#destinatario-num").fill("20601234565");
   await form.locator("#destinatario-nombre").fill("PESQUERA PACÍFICO S.A.C.");
   await form.locator("#guia-peso").fill("25,5");
+  // Partida: la empresa del mock no cargó su domicilio fiscal, así que parte de una dirección.
+  await form.locator("#partida-departamento").selectOption("LIMA");
+  await form.locator("#partida-provincia").selectOption("LIMA");
+  await form.locator("#partida-distrito").selectOption({ label: "MIRAFLORES" });
+  await form.locator("#partida-direccion").fill("Av. Larco 345, Miraflores");
   // Llegada: otra dirección, con el selector de ubigeo del catálogo 13.
   await form.locator("#llegada-departamento").selectOption("LIMA");
   await form.locator("#llegada-provincia").selectOption("LIMA");
@@ -39,6 +44,30 @@ test("el listado lleva a «Nueva guía» y el formulario avisa que es experiment
   await expect(page.getByRole("note")).toContainText("Función experimental");
   // El envío viene apagado en el servidor: la casilla de enviar al emitir nace sin marcar.
   await expect(page.getByLabel("Enviar a SUNAT al emitir")).not.toBeChecked();
+});
+
+test("una empresa sin domicilio fiscal parte de una dirección: no se le ofrece el 0000, que la API rechazaría", async ({ page }) => {
+  await page.goto("/guias/nueva");
+  const form = page.getByTestId("nueva-guia-form");
+  await expect(form.locator("#partida-departamento")).toBeVisible();
+  // El anexo 0002 sí existe: se puede elegir, y la lista no trae el 0000.
+  await form.locator("fieldset", { has: page.locator("#partida-departamento") }).getByLabel("Un establecimiento de mi empresa").check();
+  await expect(form.locator("#partida-establecimiento option")).toHaveText(["0002 · Tienda Miraflores"]);
+});
+
+test("los documentos relacionados que son comprobantes piden serie-número y el RUC de quien los emitió", async ({ page }) => {
+  await page.goto("/guias/nueva");
+  const form = page.getByTestId("nueva-guia-form");
+  await form.locator("#guia-motivo").selectOption("01");
+  await llenarLoComun(page);
+  await llenarTransportePrivado(page);
+  await form.getByRole("button", { name: "Agregar" }).last().click();
+  await form.locator("#guia-documento-0-numero").fill("F001");
+  await form.getByRole("button", { name: "Emitir la guía" }).click();
+  await expect(page.getByTestId("guia-error")).toContainText("serie-número");
+  await form.locator("#guia-documento-0-numero").fill("F001-123");
+  await form.getByRole("button", { name: "Emitir la guía" }).click();
+  await expect(page.getByTestId("guia-error")).toContainText("RUC");
 });
 
 test("emite una guía remitente en transporte privado: la valida sin numerar, la emite firmada y abre su ficha", async ({ page }) => {

@@ -120,14 +120,18 @@ function Parte({ prefijo, parte, alCambiar, tipos }: { prefijo: string; parte: P
 /** Un punto del traslado: un establecimiento de la empresa (solo en la guía remitente) o una dirección con su ubigeo. */
 function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEstablecimiento }: { prefijo: string; titulo: string; punto: PuntoForm; alCambiar: (p: PuntoForm) => void; establecimientos: Establecimiento[]; admiteEstablecimiento: boolean }) {
   const t = useMessages().guias.form;
-  const modo = admiteEstablecimiento ? punto.modo : "direccion";
+  // Solo los establecimientos que la empresa tiene: el `0000` figura únicamente si cargó su domicilio fiscal, y la API rechaza un código que no existe (3366, 3367).
+  const opciones = establecimientos.filter((e) => e.activo).map((e) => ({ valor: e.codigo, texto: `${e.codigo} · ${e.principal ? t.domicilioFiscal : e.nombre}` }));
+  const conEstablecimientos = admiteEstablecimiento && opciones.length > 0;
+  const modo = conEstablecimientos ? punto.modo : "direccion";
+  const aEstablecimiento = () => alCambiar({ ...punto, modo: "establecimiento", establecimiento: opciones.some((o) => o.valor === punto.establecimiento) ? punto.establecimiento : opciones[0].valor });
   return (
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
       <legend className="px-1 text-[12px] font-semibold text-foreground">{titulo}</legend>
-      {admiteEstablecimiento ? (
+      {conEstablecimientos ? (
         <div className="flex flex-wrap gap-4 text-[13px]">
           <label className="flex items-center gap-2">
-            <input type="radio" name={`${prefijo}-modo`} checked={modo === "establecimiento"} onChange={() => alCambiar({ ...punto, modo: "establecimiento" })} className="accent-primary" />
+            <input type="radio" name={`${prefijo}-modo`} checked={modo === "establecimiento"} onChange={aEstablecimiento} className="accent-primary" />
             {t.puntoEstablecimiento}
           </label>
           <label className="flex items-center gap-2">
@@ -142,7 +146,7 @@ function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEsta
             id={`${prefijo}-establecimiento`}
             valor={punto.establecimiento}
             alCambiar={(v) => alCambiar({ ...punto, establecimiento: v })}
-            opciones={[{ valor: "0000", texto: `0000 · ${t.domicilioFiscal}` }, ...establecimientos.filter((e) => !e.principal && e.activo).map((e) => ({ valor: e.codigo, texto: `${e.codigo} · ${e.nombre}` }))]}
+            opciones={opciones}
           />
         </Campo>
       ) : (
@@ -192,7 +196,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
   const mensajeError = useMensajeError();
   const router = useRouter();
   const soloLectura = useSoloLectura();
-  const [f, setF] = useState<GuiaForm>(() => guiaVacia(series[0]?.serie ?? "", hoy));
+  const [f, setF] = useState<GuiaForm>(() => guiaVacia(series[0]?.serie ?? "", hoy, establecimientos.some((e) => e.principal && e.activo)));
   const [enviando, setEnviando] = useState<"validar" | "emitir" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [valida, setValida] = useState(false);
