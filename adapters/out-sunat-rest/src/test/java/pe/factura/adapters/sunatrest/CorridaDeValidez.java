@@ -197,14 +197,14 @@ final class CorridaDeValidez {
                 .conCredencialesApiSunat(new CredencialesApiSunat(clientId, clientSecret));
     }
 
-    private static String describir(RuntimeException e) {
+    static String describir(RuntimeException e) {
         // SunatCredencialesException hereda de SunatTransientException: se pregunta primero por ella, o unas credenciales rechazadas se describirían como un fallo pasajero.
         String que = e instanceof SunatCredencialesException ? "SunatCredencialesException (SUNAT rechaza las credenciales de la empresa)"
                 : e instanceof SunatTransientException ? "SunatTransientException (fallo pasajero: SUNAT no respondió bien, no es un dato sobre el comprobante)" : e.getClass().getSimpleName();
         return que + ": " + acotar(e.getMessage());
     }
 
-    private static String acotar(String s) {
+    static String acotar(String s) {
         if (s == null) return "";
         String una = s.replaceAll("\\s+", " ").strip();
         return una.length() > 300 ? una.substring(0, 300) + "…" : una;
