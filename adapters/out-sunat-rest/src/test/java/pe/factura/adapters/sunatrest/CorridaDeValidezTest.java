@@ -14,6 +14,7 @@ import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * La corrida controlada de la validez (#318) contra un SUNAT simulado. Se prueba la corrida y no solo el gateway porque es lo que se ejecuta el día que se hace
@@ -94,7 +95,8 @@ class CorridaDeValidezTest {
         // Es el caso que el pendiente del issue quiere detectar: el contrato tal como lo escribió el manual no es el que SUNAT acepta.
         assertThat(pasos.get(1).cumple()).isFalse();
         assertThat(pasos.get(1).obtenido()).contains("SunatRechazoException 1033").contains("formato de numero inválido");
-        assertThat(pasos.get(3).cumple()).isFalse();
+        // El correlativo inexistente también se rechaza, y un rechazo es una de las formas válidas de decir «no existe» (F3): la puerta es el comprobante que sí existe.
+        assertThat(pasos.get(3).cumple()).isTrue();
         // Los pasos informativos registran el rechazo sin romper la corrida.
         assertThat(pasos.get(2).cumple()).isTrue();
         assertThat(pasos.get(4).cumple()).isTrue();
@@ -133,6 +135,53 @@ class CorridaDeValidezTest {
         // Un 5xx es un fallo pasajero: la corrida no puede dar por buena la URL del token con eso.
         assertThat(pasos.get(0).cumple()).isFalse();
         assertThat(pasos.get(0).obtenido()).contains("SunatTransientException").contains("HTTP 500");
+    }
+
+    @Test
+    void conCredencialesPeroSinElRucPideElRucEnVezDeConsultarConElDelCertificadoDePrueba(WireMockRuntimeInfo wm) {
+        sunatQueRespondeComoElManual();
+        // El RUC de quien consulta es el de la empresa dueña de las credenciales: sin él, un 403 de SUNAT parecería un problema de permisos de la aplicación.
+        Datos d = CorridaDeValidez.deEntorno(Map.of("VALIDEZ_URL_SEGURIDAD", wm.getHttpBaseUrl(), "VALIDEZ_URL_API", wm.getHttpBaseUrl(), "VALIDEZ_CLIENT_ID", ID, "VALIDEZ_CLIENT_SECRET", SECRETO,
+                "VALIDEZ_SERIE", "F001", "VALIDEZ_NUMERO", "15", "VALIDEZ_FECHA", "2026-10-20"));
+
+        List<Paso> pasos = CorridaDeValidez.correr(d);
+
+        assertThat(pasos).hasSize(2);
+        assertThat(pasos.get(1).omitido()).isTrue();
+        assertThat(pasos.get(1).obtenido()).contains("VALIDEZ_RUC");
+        assertThat(CorridaDeValidez.resumen(d, pasos, Instant.parse("2026-10-31T15:00:00Z"))).doesNotContain("20100066603").contains("(sin indicar)");
+    }
+
+    @Test
+    void unaVariableQueNoSeEntiendeDiceCualEs() {
+        for (Map.Entry<String, String> mala : Map.of("VALIDEZ_NUMERO", "abc", "VALIDEZ_FECHA", "20/10/2026", "VALIDEZ_MONTO", "doscientos").entrySet()) {
+            assertThatThrownBy(() -> CorridaDeValidez.deEntorno(Map.of(mala.getKey(), mala.getValue())))
+                    .as(mala.getKey()).isInstanceOf(IllegalArgumentException.class).hasMessageContaining(mala.getKey()).hasMessageContaining(mala.getValue());
+        }
+    }
+
+    @Test
+    void siSunatRechazaElCorrelativoInexistenteEsUnaRespuestaValidaYNoUnContratoRoto(WireMockRuntimeInfo wm) {
+        sunatQueRespondeComoElManual();
+        // «No existe» puede llegar como estadoCp 0 o como un rechazo con su mensaje: las dos son la respuesta de SUNAT. La puerta del contrato es el comprobante que sí existe.
+        stubFor(post(urlPathEqualTo(RUTA_CONSULTA)).withRequestBody(matchingJsonPath("$[?(@.numero == '99999999')]"))
+                .willReturn(badRequest().withBody("{\"success\":false,\"message\":\"El comprobante no existe\",\"errorCode\":\"1031\"}")));
+
+        List<Paso> pasos = CorridaDeValidez.correr(datos(wm, ID, SECRETO));
+
+        Paso inexistente = pasos.get(3);
+        assertThat(inexistente.cumple()).isTrue();
+        assertThat(inexistente.obtenido()).contains("SunatRechazoException 1031").contains("El comprobante no existe");
+        assertThat(pasos.get(1).cumple()).isTrue();
+    }
+
+    @Test
+    void siSunatDiceQueElCorrelativoInexistenteEstaAceptadoLaCorridaLoMarcaComoQueNoCumple(WireMockRuntimeInfo wm) {
+        sunatQueRespondeComoElManual();
+        stubFor(post(urlPathEqualTo(RUTA_CONSULTA)).withRequestBody(matchingJsonPath("$[?(@.numero == '99999999')]"))
+                .willReturn(okJson("{\"success\":true,\"data\":{\"estadoCp\":\"1\",\"estadoRuc\":\"00\",\"condDomiRuc\":\"00\"}}")));
+
+        assertThat(CorridaDeValidez.correr(datos(wm, ID, SECRETO)).get(3).cumple()).isFalse();
     }
 
     @Test

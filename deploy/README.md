@@ -630,6 +630,15 @@ de verdad, sin backend, base de datos ni Docker, y solo lee (no escribe nada en 
 VALIDEZ_RUC=<RUC de la empresa dueña de las credenciales> VALIDEZ_CLIENT_ID=<Id de la aplicación> VALIDEZ_CLIENT_SECRET=<Clave> VALIDEZ_SERIE=F001 VALIDEZ_NUMERO=<n> VALIDEZ_FECHA=<AAAA-MM-DD> VALIDEZ_MONTO=<total> ./gradlew :adapters:out-sunat-rest:validezReal
 ```
 
+En PowerShell las variables se fijan antes, en la misma sesión, y se borran al terminar:
+
+```powershell
+$env:VALIDEZ_RUC="<RUC>"; $env:VALIDEZ_CLIENT_ID="<Id>"; $env:VALIDEZ_CLIENT_SECRET="<Clave>"
+$env:VALIDEZ_SERIE="F001"; $env:VALIDEZ_NUMERO="<n>"; $env:VALIDEZ_FECHA="<AAAA-MM-DD>"; $env:VALIDEZ_MONTO="<total>"
+./gradlew :adapters:out-sunat-rest:validezReal
+Remove-Item Env:VALIDEZ_*
+```
+
 Las credenciales se generan en SOL: Empresas › Comprobantes de pago › Consulta de Validez de Comprobantes de Pago › Credenciales de API SUNAT (registrar una
 aplicación y copiar su «Id» y su «Clave»). El comprobante tiene que ser **uno propio ya aceptado** (`VALIDEZ_TIPO` es `01` por defecto; `VALIDEZ_RUC_EMISOR`, el RUC
 de la empresa por defecto). Las credenciales van en variables de entorno de ese comando y no se guardan en ningún archivo; la evidencia no las lleva.
@@ -640,7 +649,7 @@ La corrida hace seis preguntas y deja el resultado en `adapters/out-sunat-rest/b
 |---|---|---|
 | Credenciales inventadas | SUNAT las rechaza como credenciales (HTTP 400, `unauthorized_client`). No necesita ninguna variable | La URL del token o el trato de sus errores no son los de SUNAT |
 | El comprobante existente | `estadoCp` 1 (aceptado), con `estadoRuc` y `condDomiRuc` | **El contrato del manual no es el que SUNAT acepta**: mirar el `SunatRechazoException` que muestra y seguir el punto 2 de abajo |
-| Un correlativo que no existe | `estadoCp` 0 | Idem |
+| Un correlativo que no existe | `estadoCp` 0, o un rechazo de SUNAT que diga que no existe (las dos formas valen) | Solo falla si SUNAT lo da por aceptado |
 | Fecha equivocada, sin monto | Solo informan lo que SUNAT contesta (con o sin observación) | No hace fallar la corrida |
 | `numero` y `monto` como números JSON | Solo informa si SUNAT acepta también ese formato | No hace fallar la corrida |
 

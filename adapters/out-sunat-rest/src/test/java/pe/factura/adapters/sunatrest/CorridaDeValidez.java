@@ -34,6 +34,7 @@ import java.util.UUID;
 final class CorridaDeValidez {
     private CorridaDeValidez() {}
 
+    private static final String RUC_DE_RELLENO = "20100066603";
     static final String ID_INVENTADO = "00000000-0000-4000-8000-000000000000";
     /** Un correlativo que ninguna empresa llega a emitir: SUNAT debe decir que no existe. */
     static final long NUMERO_INEXISTENTE = 99_999_999L;
@@ -42,7 +43,10 @@ final class CorridaDeValidez {
     record Datos(String urlSeguridad, String urlApi, String ruc, String clientId, String clientSecret,
                  String rucEmisor, String tipo, String serie, long numero, LocalDate fecha, BigDecimal monto) {
         boolean conCredenciales() { return clientId != null && !clientId.isBlank() && clientSecret != null && !clientSecret.isBlank(); }
+        boolean conRuc() { return ruc != null && !ruc.isBlank(); }
         boolean conComprobante() { return serie != null && !serie.isBlank() && numero > 0 && fecha != null; }
+        /** El RUC con que se arma la empresa del paso de las credenciales inventadas, que no consulta nada: SUNAT rechaza el cliente antes de mirar el RUC. */
+        String rucDeRelleno() { return conRuc() ? ruc : RUC_DE_RELLENO; }
     }
 
     /**
@@ -57,18 +61,36 @@ final class CorridaDeValidez {
         String numero = env.getOrDefault("VALIDEZ_NUMERO", "").strip();
         String fecha = env.getOrDefault("VALIDEZ_FECHA", "").strip();
         String monto = env.getOrDefault("VALIDEZ_MONTO", "").strip();
+        // Una variable que no se entiende dice cuál es y qué valor llegó, en vez de una traza de NumberFormatException sin nombre.
+        long numeroLeido;
+        LocalDate fechaLeida;
+        BigDecimal montoLeido;
+        try {
+            numeroLeido = numero.isEmpty() ? 0 : Long.parseLong(numero);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("VALIDEZ_NUMERO debe ser un entero (el correlativo del comprobante), no «" + numero + "»", e);
+        }
+        try {
+            fechaLeida = fecha.isEmpty() ? null : LocalDate.parse(fecha);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("VALIDEZ_FECHA debe ser AAAA-MM-DD (la fecha de emisión), no «" + fecha + "»", e);
+        }
+        try {
+            montoLeido = monto.isEmpty() ? null : new BigDecimal(monto);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("VALIDEZ_MONTO debe ser un número (el total del comprobante, como 118.00), no «" + monto + "»", e);
+        }
+        String emisor = env.getOrDefault("VALIDEZ_RUC_EMISOR", "").strip();
         return new Datos(
                 env.getOrDefault("VALIDEZ_URL_SEGURIDAD", "https://api-seguridad.sunat.gob.pe").strip(),
                 env.getOrDefault("VALIDEZ_URL_API", "https://api.sunat.gob.pe").strip(),
-                ruc.isEmpty() ? "20100066603" : ruc,
+                ruc,
                 env.getOrDefault("VALIDEZ_CLIENT_ID", "").strip(),
                 env.getOrDefault("VALIDEZ_CLIENT_SECRET", "").strip(),
-                env.getOrDefault("VALIDEZ_RUC_EMISOR", ruc).strip(),
+                emisor.isEmpty() ? ruc : emisor,
                 env.getOrDefault("VALIDEZ_TIPO", "01").strip(),
                 env.getOrDefault("VALIDEZ_SERIE", "").strip(),
-                numero.isEmpty() ? 0 : Long.parseLong(numero),
-                fecha.isEmpty() ? null : LocalDate.parse(fecha),
-                monto.isEmpty() ? null : new BigDecimal(monto));
+                numeroLeido, fechaLeida, montoLeido);
     }
 
     static List<Paso> correr(Datos d) {
@@ -78,16 +100,21 @@ final class CorridaDeValidez {
             pasos.add(omitido("el comprobante existente", "faltan VALIDEZ_CLIENT_ID y VALIDEZ_CLIENT_SECRET"));
             return pasos;
         }
+        if (!d.conRuc()) {
+            // El RUC de quien consulta es el de la empresa dueña de las credenciales. Un RUC supuesto haría que un 403 de SUNAT pareciera un problema de la aplicación.
+            pasos.add(omitido("el comprobante existente", "falta VALIDEZ_RUC, el RUC de la empresa dueña de las credenciales"));
+            return pasos;
+        }
         if (!d.conComprobante()) {
             pasos.add(omitido("el comprobante existente", "faltan VALIDEZ_SERIE, VALIDEZ_NUMERO y VALIDEZ_FECHA (un comprobante tuyo ya aceptado)"));
             return pasos;
         }
         Tenant empresa = empresa(d, d.clientId(), d.clientSecret());
         RestValidezGateway g = gateway(d);
-        pasos.add(consulta("el comprobante existente", "estadoCp 1 (aceptado)", true, g, empresa, d, d.serie(), d.numero(), d.fecha(), d.monto(), "1"));
-        pasos.add(consulta("la fecha de emisión equivocada (un día antes)", "SUNAT contesta algo sobre el comprobante, sin error de credenciales", false, g, empresa, d, d.serie(), d.numero(), d.fecha().minusDays(1), d.monto(), null));
-        pasos.add(consulta("un correlativo que no existe", "estadoCp 0 (no existe)", true, g, empresa, d, d.serie(), NUMERO_INEXISTENTE, d.fecha(), d.monto(), "0"));
-        pasos.add(consulta("sin monto", "SUNAT contesta algo sobre el comprobante, sin error de credenciales", false, g, empresa, d, d.serie(), d.numero(), d.fecha(), null, null));
+        pasos.add(consulta("el comprobante existente", "estadoCp 1 (aceptado)", true, false, g, empresa, d, d.serie(), d.numero(), d.fecha(), d.monto(), "1"));
+        pasos.add(consulta("la fecha de emisión equivocada (un día antes)", "SUNAT contesta algo sobre el comprobante, sin error de credenciales", false, true, g, empresa, d, d.serie(), d.numero(), d.fecha().minusDays(1), d.monto(), null));
+        pasos.add(consulta("un correlativo que no existe", "estadoCp 0 (no existe), o un rechazo que lo diga", true, true, g, empresa, d, d.serie(), NUMERO_INEXISTENTE, d.fecha(), d.monto(), "0"));
+        pasos.add(consulta("sin monto", "SUNAT contesta algo sobre el comprobante, sin error de credenciales", false, true, g, empresa, d, d.serie(), d.numero(), d.fecha(), null, null));
         pasos.add(numerosComoNumeros(d, empresa));
         return pasos;
     }
@@ -101,7 +128,7 @@ final class CorridaDeValidez {
         String nombre = "credenciales inventadas";
         String esperado = "SUNAT las rechaza como credenciales (HTTP 400/401/403), no como un fallo pasajero";
         try {
-            gateway(d).validar(empresa(d, ID_INVENTADO, "secreto-inventado-que-sunat-no-conoce"), d.rucEmisor(), "01", "F001", 1, LocalDate.of(2026, 1, 2), null);
+            gateway(d).validar(empresa(d, ID_INVENTADO, "secreto-inventado-que-sunat-no-conoce"), d.rucDeRelleno(), "01", "F001", 1, LocalDate.of(2026, 1, 2), null);
             return new Paso(nombre, esperado, false, false, false, "SUNAT las aceptó: no debería");
         } catch (SunatCredencialesException e) {
             return new Paso(nombre, esperado, true, false, false, "SunatCredencialesException " + e.codigo() + ": " + acotar(e.getMessage()));
@@ -112,7 +139,11 @@ final class CorridaDeValidez {
 
     // ---- las consultas con credenciales ------------------------------------------------------------------------------------------------------------------------------
 
-    private static Paso consulta(String nombre, String esperado, boolean exigeEstado, RestValidezGateway g, Tenant empresa, Datos d,
+    /**
+     * @param exigeEstado        el paso es una puerta de la corrida: si no cumple, la corrida no cumple
+     * @param rechazoEsRespuesta un rechazo de SUNAT (400/422, {@code success: false}) es una respuesta válida de este paso; en el comprobante que sí existe no lo es: ahí un rechazo es el contrato roto
+     */
+    private static Paso consulta(String nombre, String esperado, boolean exigeEstado, boolean rechazoEsRespuesta, RestValidezGateway g, Tenant empresa, Datos d,
                                  String serie, long numero, LocalDate fecha, BigDecimal monto, String estadoEsperado) {
         try {
             Validez v = g.validar(empresa, d.rucEmisor(), d.tipo(), serie, numero, fecha, monto);
@@ -122,7 +153,7 @@ final class CorridaDeValidez {
             return new Paso(nombre, esperado, cumple, !exigeEstado, false, obtenido);
         } catch (SunatRechazoException e) {
             // SUNAT entendió el pedido y lo rechaza por sus datos: en el paso informativo es una respuesta válida, en el que exige un estado es el contrato roto.
-            return new Paso(nombre, esperado, !exigeEstado, !exigeEstado, false, "SunatRechazoException " + e.codigo() + ": " + acotar(e.getMessage()));
+            return new Paso(nombre, esperado, rechazoEsRespuesta, !exigeEstado, false, "SunatRechazoException " + e.codigo() + ": " + acotar(e.getMessage()));
         } catch (RuntimeException e) {
             return new Paso(nombre, esperado, false, false, false, describir(e));
         }
@@ -162,7 +193,7 @@ final class CorridaDeValidez {
     }
 
     private static Tenant empresa(Datos d, String clientId, String clientSecret) {
-        return new Tenant(UUID.randomUUID(), d.ruc(), "EMPRESA DE LA CORRIDA", Entorno.PRODUCCION, new CredencialesSol("USUARIO1", "clave-sol"), null)
+        return new Tenant(UUID.randomUUID(), d.rucDeRelleno(), "EMPRESA DE LA CORRIDA", Entorno.PRODUCCION, new CredencialesSol("USUARIO1", "clave-sol"), null)
                 .conCredencialesApiSunat(new CredencialesApiSunat(clientId, clientSecret));
     }
 
@@ -190,9 +221,9 @@ final class CorridaDeValidez {
         sb.append("Fecha: ").append(cuando).append("\n\n");
         sb.append("- Servicio de token: ").append(d.urlSeguridad()).append("\n");
         sb.append("- API: ").append(d.urlApi()).append("\n");
-        sb.append("- Empresa que consulta (RUC): ").append(d.ruc()).append("\n");
+        sb.append("- Empresa que consulta (RUC): ").append(d.conRuc() ? d.ruc() : "(sin indicar)").append("\n");
         sb.append("- Aplicación (Id): ").append(enmascarado(d.clientId())).append("\n");
-        if (d.conComprobante()) {
+        if (d.conComprobante() && d.conRuc()) {
             sb.append("- Comprobante preguntado: ").append(d.rucEmisor()).append(" ").append(d.tipo()).append(" ").append(d.serie()).append("-").append(d.numero())
                     .append(" del ").append(d.fecha()).append(d.monto() == null ? "" : " por " + d.monto().toPlainString()).append("\n");
         }
