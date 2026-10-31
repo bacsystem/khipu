@@ -27,7 +27,8 @@ import java.util.Map;
  *       {@code numeroSerie}, {@code numero}, {@code fechaEmision} (dd/mm/yyyy, obligatoria) y {@code monto} (solo comprobantes electrónicos) (sección C).</li>
  * </ul>
  * {@code numero} y {@code monto} van como texto, como en el ejemplo del manual ({@code "numero": "749"}, {@code "monto": "236.00"}); la tabla los da como
- * entero y decimal, y el ejemplo es lo único que SUNAT muestra funcionando. Asumido sin credenciales reales: ver el pendiente de prueba controlada del #318.
+ * entero y decimal, y el ejemplo es lo único que SUNAT muestra funcionando. Sin confirmar con credenciales reales hasta que se haga la corrida controlada del #318:
+ * {@code ./gradlew :adapters:out-sunat-rest:validezReal} (variables {@code VALIDEZ_*}, ver {@code deploy/README.md} sección 13), que además pregunta con {@code numero} y {@code monto} como números JSON.
  *
  * <p>SUNAT no publica una instancia de pruebas de esta API: la consulta lee datos reales y no escribe nada, así que por defecto la URL de beta es la misma
  * que la de producción (configurable).
