@@ -188,7 +188,7 @@ class SireApiE2ETest {
         assertThat(r.getBody()).containsEntry("codigo", "SUNAT_NO_DISPONIBLE");
     }
 
-    @Test void sinCredencialesDeLaApiNoSePuedeUsarLaRuta() {
+    @Test void sinApiKeyNiSesionNoSePuedeUsarLaRuta() {
         ResponseEntity<Map> r = http.exchange("/v1/sire/rvie/propuesta?periodo=" + PERIODO, HttpMethod.POST, new HttpEntity<>(null, new HttpHeaders()), Map.class);
         assertThat(r.getStatusCode().value()).isIn(401, 403);
     }
