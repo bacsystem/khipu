@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { apiRequest } from "@/lib/api/browser";
 import { BajaButton } from "./baja-button";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
@@ -12,6 +13,22 @@ function abrir(boleta: boolean) {
   fireEvent.click(screen.getByTestId("dar-de-baja"));
   return screen.getByTestId("baja-confirmacion").textContent ?? "";
 }
+
+/**
+ * #25: un corte de red no dice si la baja llegó a SUNAT, y la baja es irreversible: el diálogo avisa que pudo haber llegado en los tres cortes
+ * (sin conexión, conexión cortada antes de la respuesta, espera vencida) y no ofrece un mensaje genérico que invite a reintentar a ciegas.
+ */
+describe("BajaButton: cortes de red", () => {
+  it.each(["RED", "RED_CORTADA", "ESPERA_VENCIDA"])("con el código %s avisa que la baja pudo haber llegado a SUNAT", async (codigo) => {
+    vi.mocked(apiRequest).mockResolvedValue({ estado: "error", datos: null, mensaje: null, codigo, errores: null });
+    abrir(false);
+    const dialogo = screen.getByTestId("baja-confirmacion");
+    fireEvent.change(within(dialogo).getByLabelText(/Motivo/), { target: { value: "Error en el RUC del cliente" } });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Confirmar la baja" }));
+
+    expect(await within(dialogo).findByRole("alert")).toHaveTextContent("pudo haber llegado a SUNAT");
+  });
+});
 
 /**
  * #362 H8: el resumen diario (RC) con que se anula una boleta no lleva el motivo (BajaController: queda en khipu), así que el diálogo no puede decir
