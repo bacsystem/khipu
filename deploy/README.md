@@ -741,8 +741,9 @@ validez tributaria: use un traslado real y documentado), en un servidor con `SUN
 ## 15. Registro de ventas del SIRE (RVIE) (#322) — EXPERIMENTAL
 
 `GET /v1/sire/rvie?periodo=AAAAMM` descarga un archivo de reemplazo de la propuesta del RVIE armado con los comprobantes de la empresa, y
-`POST /v1/sire/rvie/conciliacion?periodo=AAAAMM` (cuerpo: la propuesta descargada del SIRE, `.txt` o `.zip`) lo compara con la propuesta de SUNAT. khipu **no se
-conecta al SIRE**: el archivo lo sube el contribuyente (o su contador) en SOL. No hay variables nuevas ni migración: todo se calcula de las tablas de comprobantes.
+`POST /v1/sire/rvie/conciliacion?periodo=AAAAMM` (cuerpo: la propuesta descargada del SIRE, `.txt` o `.zip`) lo compara con la propuesta de SUNAT. khipu **nunca escribe
+en el SIRE**: el archivo de reemplazo lo sube el contribuyente (o su contador) en SOL. La propuesta puede subirla a mano, o khipu puede pedírsela a SUNAT por la API del
+SIRE (fase 2, más abajo; apagada por defecto). No hay migración: todo se calcula de las tablas de comprobantes.
 
 **EXPERIMENTAL: formato reconstruido. No usarlo para reemplazar una propuesta real antes de validarlo con el PVSIRE** (corrida controlada al final). Nada de esto se
 verificó contra el SIRE ni contra el validador de SUNAT.
@@ -776,11 +777,21 @@ preparar la respuesta: si un comprobante cambia de estado durante la descarga (u
   - el campo 25 acepta positivos y negativos para todo tipo (3.38.0);
   - los campos 15–17 en `0`, `0.0` o `0.00` cuando no corresponden (3.25.0);
   - la fecha de vencimiento debe corresponder al periodo informado, salvo el tipo 14 (validación 210, 3.37.0 y 3.39.0).
+- **Manual del servicio API del Registro de Ventas e Información Electrónica, v31** (septiembre de 2026,
+  https://cpe.sunat.gob.pe/sites/default/files/2026-09/Manual%20del%20servicio%20API%20del%20Registro%20de%20Ventas%20e%20Informaci%C3%B3n%20Electr%C3%B3nica.%20v31_1.pdf).
+  Es la fuente de la fase 2 (token, ticket, descarga) y de lo que fija del archivo de reemplazo: se sube comprimido (`.zip`, error 1348 si no), el nombre sigue
+  `LE<RUC><AAAAMM>0014040002OIM2` y su ejemplo es `LE2010017645020230200140400020112.zip` (§5.3).
+- **Estructura del nombre del archivo** (posiciones 1–35: `LE`, RUC, año, mes, `00`, libro `140400`, código de oportunidad, y los indicadores de operaciones, de
+  contenido, de moneda y de generado por el SIRE), que SUNAT publica en la RS 112-2021 modificada por la RS 040-2022; no se leyó el texto de la resolución sino un
+  resumen de una revista contable (https://misha.pe/?p=16554), que coincide con el patrón y el ejemplo del manual: oportunidad `02` reemplaza la propuesta;
+  operaciones `1` empresa operativa; contenido `1` con información; moneda `1` soles; generado `2` por el nuevo sistema (fijo). El `03` de ajustes posteriores lleva
+  además un correlativo de 2 dígitos (posiciones 34–35), por eso hay fuentes que hablan de 35 caracteres: el reemplazo no lo lleva.
 - **Programa Validador SIRE (PVSIRE)** (https://cpe.sunat.gob.pe/programa-validador-sire-pvsire): valida sin conexión archivos de reemplazo del RVIE en txt o zip. No
   se usó (es un instalable externo): es el paso de la corrida controlada.
 
-**Sin fuente en el repositorio**: los campos 1, 4–6, 14–28 y 33–40 (salvo lo citado del control de cambios), el nombre del archivo, la codificación, el fin de línea,
-el separador al final de la fila y los valores del campo 35.
+**Sin fuente en el repositorio**: los campos 1, 4–6, 14–28 y 33–40 (salvo lo citado del control de cambios), la codificación, el fin de línea, el separador al final de
+la fila y los valores del campo 35. (El anexo que SUNAT publica en la RS 000138-2023 y el 2 de la propuesta salen con «(…)» donde faltan los demás campos: la tabla
+completa está en el Anexo 3 de la RS 112-2021 que no se pudo leer; la corrida de la fase 2 dirá si la propuesta real de SUNAT se lee con estas columnas.)
 
 ### Decisiones y supuestos
 
@@ -788,7 +799,7 @@ Cada una está en un solo lugar (`FormatoRvie` y `FilaRvie`, paquete `pe.factura
 
 | Decisión | Valor actual | Fuente | Dónde |
 |---|---|---|---|
-| Nombre | `LE<RUC><AAAAMM>00140400021112.txt` (33 caracteres) dentro de un `.zip` del mismo nombre | supuesto | `FormatoRvie.nombreArchivo` |
+| Nombre | `LE<RUC><AAAAMM>00140400021112.txt` (33 caracteres) dentro de un `.zip` del mismo nombre | manual v31 §5.3 (patrón, ejemplo y `.zip`); los indicadores `1112`, la estructura de posiciones (arriba); que el `.txt` interno se llame igual, supuesto | `FormatoRvie.nombreArchivo` |
 | Separador | `\|` entre campos | control de cambios (246) | `FormatoRvie.linea` |
 | Fin de fila | `\|` también al final; CRLF; sin fila de títulos | supuesto | `FormatoRvie.linea` |
 | Codificación | UTF-8 sin BOM | supuesto | `FormatoRvie.CODIFICACION` |
@@ -812,9 +823,10 @@ Un comprobante fuera de soles sin tipo de cambio (emitido antes del #316) hace r
 `permitir_sin_tipo_cambio=true` sale con el campo 28 vacío (cuenta en `X-Rvie-Sin-Tipo-Cambio`) y hay que completarlo a mano antes de subirlo.
 
 **Dudas abiertas, a confirmar con el PVSIRE**:
-- El nombre generado tiene 33 caracteres; una fuente secundaria lo describe de 35, con un correlativo de 2 dígitos en las posiciones 34–35. No se cambió.
-- Un periodo sin comprobantes responde `404 NO_ENCONTRADO`. Un archivo «en blanco» (txt vacío con el indicador de contenido `0` en la posición 31 del nombre)
-  podría ser lo que el SIRE espera, pero ninguna fuente del repositorio lo confirma: queda el 404.
+- El nombre generado tiene 33 caracteres. Los 35 son del archivo de ajustes posteriores (lleva un correlativo de 2 dígitos), no del reemplazo. El ejemplo del manual
+  usa el indicador de operaciones `0` (cierre de operaciones) y khipu escribe `1` (empresa operativa): se confirma con el PVSIRE.
+- Un periodo sin comprobantes responde `404 NO_ENCONTRADO`. SUNAT admite, según su página de estructura de archivos, un archivo «en blanco» cuando no hubo operaciones
+  (indicador de contenido `0` en la posición 31 del nombre), pero khipu no lo genera: queda el 404.
 - Si el campo 6 vacío se acepta en una factura al crédito que vence otro mes.
 
 **Conciliación.** Compara por tipo, serie y número (el número de dígitos sin ceros a la izquierda): fecha, moneda, estado (si la propuesta trae el campo 35),
@@ -826,21 +838,71 @@ base gravada, IGV, exonerado, inafecto y total. Lee la propuesta con el mismo la
 Una propuesta enviada como formulario es `400 PARAMETRO_INVALIDO`. Topes: 20 MB tal como llega y 64 MB descomprimido (`422 RVIE_PROPUESTA_DEMASIADO_GRANDE`). No
 guarda nada.
 
-**Fuera de alcance por ahora: la descarga automática de la propuesta por la API SIRE** (token OAuth con grant `password` de `clientessol` + credenciales API + clave
-SOL, solicitud de exportación de la propuesta → ticket → archivo, asíncrono). El único manual REST del repositorio es el de GRE (§1.2: el token `password` con scope
-`https://api-cpe.sunat.gob.pe`). El scope del SIRE, sus rutas y la forma del ticket y de la respuesta no están documentados aquí, y no se programaron sobre supuestos.
-`ClienteOAuthSunat` y `PedidoDeToken.password` (#318) ya sirven para el token cuando se tenga el manual de servicios web del SIRE. Aceptar la propuesta desde khipu
-queda fuera, como dice el issue.
+### Fase 2: la propuesta de SUNAT por la API del SIRE
+
+Con el manual v31, khipu puede pedirle a SUNAT la propuesta y conciliar sin que nadie la descargue ni la suba. **Solo lee**: pedir la propuesta hace que SUNAT arme un
+archivo (un ticket), no cambia el registro. Aceptar o reemplazar la propuesta desde khipu sigue fuera, como dice el issue.
+
+| Ruta | Qué hace |
+|---|---|
+| `POST /v1/sire/rvie/propuesta?periodo=AAAAMM` | Pide la propuesta (manual 5.18) y responde `202` con el `ticket` |
+| `GET /v1/sire/rvie/propuesta/{ticket}?periodo=AAAAMM` | Estado del ticket (5.16): `EN_PROCESO`, `TERMINADO` o `CON_ERRORES`, con el código y la descripción de SUNAT |
+| `GET /v1/sire/rvie/propuesta/{ticket}/conciliacion?periodo=AAAAMM` | Baja los archivos (5.17) y los concilia como la ruta con cuerpo; mismo reporte |
+
+Son lecturas para todos los roles (`PermisoDeRuta`). Es asíncrono a propósito: ninguna petición espera a SUNAT más de lo que tarda una llamada (30 s de tope por
+llamada, `SUNAT_API_SIRE_TIMEOUT_SECONDS`); quien llama repite el estado hasta `TERMINADO`. Si el periodo llega partido en varios archivos, se concilian como uno
+solo (hasta 50 y 20 MB en suma) y un error de lectura dice cuál archivo fue.
+
+**Qué necesita la empresa**: las credenciales API SUNAT (`client_id` y `client_secret`) de una aplicación registrada en SOL como **«MIGE RCE y RVIE - SIRE»** (el
+ámbito `https://api-sire.sunat.gob.pe`), más las credenciales SOL; el token es el del grant `password` con `username` = RUC + usuario SOL, igual que la GRE
+(`PedidoDeToken.password`). Sin ellas: `422 CREDENCIALES_API_SUNAT_NO_CARGADAS` / `CREDENCIALES_SOL_NO_CARGADAS`; si SUNAT las rechaza, `422
+CREDENCIALES_SIRE_RECHAZADAS`; si rechaza el pedido por sus datos, `422 SIRE_RECHAZO` con su código (1070, que no hay comprobantes en el periodo, es `404
+NO_ENCONTRADO`); si no responde, `503 SUNAT_NO_DISPONIBLE`. Un ticket que sigue en proceso es `409 PROPUESTA_NO_LISTA`; uno con errores, `422 PROPUESTA_CON_ERRORES`.
+
+**Apagado por defecto** (`422 SIRE_NO_DISPONIBLE`), por lo mismo que la GRE: el contrato no se verificó contra SUNAT.
+
+| Variable | Por defecto |
+|---|---|
+| `SUNAT_API_SIRE_HABILITADA` | `false` |
+| `SUNAT_API_SIRE_URL`, `SUNAT_API_SIRE_BETA_URL` | `https://api-sire.sunat.gob.pe` (SUNAT no publica una instancia de pruebas: lee datos reales de la empresa, también en BETA) |
+| `SUNAT_API_SIRE_TIMEOUT_SECONDS` | `30` (1 a 120) |
+| `SUNAT_API_SEGURIDAD_URL` | el de la validez y la GRE (`https://api-seguridad.sunat.gob.pe`) |
+
+**Lo que el manual deja ambiguo y khipu supone** (la corrida de abajo lo confirma o lo corrige en `RestSireGateway`):
+- que `codLibro=140000` y `codOrigenEnvio=2` van también en la consulta del ticket (la tabla de parámetros los pide como obligatorios; su ejemplo no los trae);
+- que los estados 04 y 06 del Anexo III son aquellos en que ya se baja el archivo, que 03 es el error y que 01, 02 y 05 siguen en proceso (un código que no es
+  ninguno de estos se trata como un fallo pasajero y no como terminado);
+- que el tipo de archivo del ticket viene como `codTipoAchivoReporte` (con esa errata, como la escribe el manual) o `codTipoArchivoReporte`, y que si es nulo la
+  descarga lo manda como el texto `null` (el manual lo pide así);
+- que la propuesta de texto (`codTipoArchivo=0`) llega como un ZIP con un `.txt` de las mismas columnas que lee `PropuestaRvie`.
 
 ### Corrida controlada (pendiente)
 
 Con una empresa en beta o producción que tenga comprobantes aceptados:
 
-1. **Validar el formato con el PVSIRE.**
+1. **Validar la fase 2 con el SIRE real**, con un solo comando, sin backend, base de datos ni Docker (el dueño de la cuenta, con la aplicación «MIGE RCE y RVIE - SIRE»
+   registrada en SOL). En PowerShell:
+   ```powershell
+   $env:SIRE_RUC="<RUC>"; $env:SIRE_USUARIO_SOL="<usuario SOL>"; $env:SIRE_CLAVE_SOL="<clave SOL>"
+   $env:SIRE_CLIENT_ID="<Id de la aplicación>"; $env:SIRE_CLIENT_SECRET="<Clave de la aplicación>"; $env:SIRE_PERIODO="<AAAAMM de un mes con ventas>"
+   ./gradlew :adapters:out-sunat-rest:sireReal
+   ```
+   Sin variables corre un solo paso, el de unas credenciales inventadas, que ya se corrió contra SUNAT: responde `400 access_denied` y la corrida lo reconoce como un
+   rechazo de credenciales. Con ellas pide la propuesta, sigue el ticket hasta `TERMINADO` (`SIRE_ESPERA_SEGUNDOS`, 180 por defecto), baja los archivos y los lee con
+   el lector de la conciliación. La evidencia queda en `adapters/out-sunat-rest/build/sire-real/RESUMEN.md`, sin secretos, sin filas de la propuesta y con los valores
+   que no se pudieron leer tachados. Qué mirar:
+   - el paso de la consulta sin `codLibro` ni `codOrigenEnvio` (informativo): si SUNAT la acepta o la rechaza;
+   - los estados que vio el ticket y los nombres, tipos y cantidad de archivos;
+   - la lectura: cuántas filas, si trae una fila de títulos y cuántos campos tiene la primera. **Si no se lee, el formato real difiere del supuesto de 40 columnas**:
+     corregir `PropuestaRvie` y `FormatoRvie` con lo que diga el error (línea y campo).
+   Si todo cumple: `SUNAT_API_SIRE_HABILITADA=true` en el servidor, y quitar la marca EXPERIMENTAL de las tres rutas nuevas.
+
+
+2. **Validar el formato del reemplazo con el PVSIRE.**
    - Generar con `GET /v1/sire/rvie` archivos de periodos que tengan, entre todos: una factura gravada en soles, una nota de crédito sobre ella, una boleta (con y
      sin documento del comprador), un comprobante anulado (baja aceptada), una factura en USD con tipo de cambio y una exportación.
    - Pasarlos por el PVSIRE (instalarlo y correrlo el dueño de la cuenta, no un agente) y revisar:
-     - el nombre del archivo (33 o 35 caracteres);
+     - el nombre del archivo (33 caracteres; el indicador de operaciones `1`);
      - el separador final y la codificación;
      - el CAR (campo 4);
      - el signo de la nota de crédito;
@@ -849,15 +911,13 @@ Con una empresa en beta o producción que tenga comprobantes aceptados:
      - el campo 6 vacío;
      - que el campo 25 cierre la suma.
    - Corregir `FormatoRvie` / `FilaRvie` y sus pruebas (`FilaRvieTest` fija la fila completa de una factura).
-2. Descargar el archivo: `curl -o rvie.zip "$API/v1/sire/rvie?periodo=<AAAAMM>" -H "X-Api-Key: $KEY" -D -` y revisar las cabeceras `X-Rvie-*`.
-3. En SOL › SIRE › Registro de Ventas, descargar la propuesta del mismo periodo y conciliar:
+3. Descargar el archivo: `curl -o rvie.zip "$API/v1/sire/rvie?periodo=<AAAAMM>" -H "X-Api-Key: $KEY" -D -` y revisar las cabeceras `X-Rvie-*`.
+4. En SOL › SIRE › Registro de Ventas, descargar la propuesta del mismo periodo y conciliar (o, con la fase 2 encendida, usar las rutas de `propuesta`):
    `curl -X POST "$API/v1/sire/rvie/conciliacion?periodo=<AAAAMM>" -H "X-Api-Key: $KEY" -H "Content-Type: application/zip" --data-binary @propuesta.zip`.
    Lo esperado: `cuadra: true`, o al menos `solo_en_sunat` vacío. Una diferencia sistemática (todas las notas de crédito con el signo cambiado, todos los totales
    distintos) es un supuesto del formato que no coincide, no una venta mal emitida. Lo de `solo_en_sunat` son ventas que khipu no emitió: con ellas no se reemplaza.
-4. **No reemplazar la propuesta de un periodo real** hasta haber cerrado el punto 1: probar primero el reemplazo en un periodo sin movimientos o con el contador.
-5. Cerrado el punto 1, quitar la marca EXPERIMENTAL del OpenAPI (`SireController`), de la guía de `/developers` y de esta sección.
-6. Si se automatiza la descarga de la propuesta por la API SIRE, partir del manual de servicios web del SIRE, con su scope y rutas, y probarlo con WireMock igual que
-   `RestValidezGateway` (#318).
+5. **No reemplazar la propuesta de un periodo real** hasta haber cerrado el punto 2: probar primero el reemplazo en un periodo sin movimientos o con el contador.
+6. Cerrado el punto 2, quitar la marca EXPERIMENTAL del OpenAPI (`SireController`), de la guía de `/developers` y de esta sección.
 
 ## 16. Retenciones y percepciones (#40)
 

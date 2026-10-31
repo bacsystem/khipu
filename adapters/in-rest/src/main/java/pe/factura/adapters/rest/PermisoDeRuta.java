@@ -43,10 +43,12 @@ final class PermisoDeRuta {
 
     /**
      * POST que no escriben nada y por eso son de todos: la conciliación del registro de ventas del SIRE (#322) recibe la propuesta de SUNAT en el cuerpo y solo la compara
-     * con lo emitido, sin guardar nada (es el contador, con solo lectura, quien la hace). Una ruta nueva entra aquí solo si de verdad no escribe.
+     * con lo emitido, sin guardar nada (es el contador, con solo lectura, quien la hace); y pedirle a SUNAT esa propuesta (un ticket que SUNAT prepara, sin cuerpo y sin
+     * tocar nada del registro ni de khipu). Una ruta nueva entra aquí solo si de verdad no escribe.
      */
     private static final List<Pattern> LECTURA_POR_POST = List.of(
-            Pattern.compile("/v1/sire/rvie/conciliacion"));
+            Pattern.compile("/v1/sire/rvie/conciliacion"),
+            Pattern.compile("/v1/sire/rvie/propuesta"));
 
     /**
      * Si la petición solo mira: un método que no escribe (GET, HEAD, OPTIONS) o un POST de {@link #LECTURA_POR_POST}. La única definición de «lectura»: la usan el rol

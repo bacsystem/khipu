@@ -79,16 +79,16 @@
       "description": "Empresas (RUC) asociadas a la cuenta del portal. Solo con sesión JWT: una API key pertenece a una sola empresa y no puede listar ni crear otras."
     },
     {
+      "name": "SIRE",
+      "description": "**EXPERIMENTAL.** Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y\nSUNAT tiene, y la conciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu nunca escribe en el SIRE: el archivo de reemplazo lo sube usted (o su contador)\nen SUNAT Operaciones en Línea. Lo único que khipu hace con el SIRE es leer la propuesta (`/v1/sire/rvie/propuesta`), y solo si el servidor tiene encendida esa conexión. **El formato está reconstruido** del Anexo III de la RS 000138-2023 (que cubre solo una parte de los campos) y del control de cambios\ndel Aplicativo Cliente SIRE: **no lo use para reemplazar una propuesta real antes de validarlo con el Programa Validador SIRE (PVSIRE)**. **Cubre solo lo emitido en\nkhipu**: reemplazar la propuesta con él saca las ventas emitidas por otros medios (SEE-SOL, comprobantes físicos, otro proveedor); antes de reemplazar, concilie y\nexija `solo_en_sunat` vacío. Autenticación: `X-Api-Key` o sesión del portal."
+    },
+    {
       "name": "Liquidaciones de compra",
       "description": "Liquidación de compra electrónica (tipo 04): la emite la empresa cuando **compra** a una persona sin RUC —un agricultor, un pescador artesanal, un\nrecolector—, que no puede darle factura ni boleta. Se emite como una factura, en una sola llamada: khipu la numera en su serie `L###`, genera el\n`SelfBilledInvoice` UBL 2.1, lo firma, lo valida y lo envía a SUNAT. Consulta, XML, CDR, PDF y reenvío usan los mismos endpoints que las facturas\n(`GET /v1/facturas/{id}`, `/xml`, `/cdr`, `/pdf`, `POST /v1/facturas/{id}/enviar`); el listado la filtra con `tipo=04`."
     },
     {
       "name": "Personalización del PDF",
       "description": "Diseño de la representación impresa de la empresa: plantilla, color primario, logo, pie de página y observaciones por\ndefecto. No afecta al XML ni a lo que se envía a SUNAT; al cambiarlo, los PDF se regeneran con el nuevo diseño la\npróxima vez que se piden (los ya enviados por correo no cambian)."
-    },
-    {
-      "name": "SIRE",
-      "description": "**EXPERIMENTAL.** Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y\nSUNAT tiene, y la conciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu no se conecta al SIRE: el archivo lo sube usted (o su contador)\nen SUNAT Operaciones en Línea. **El formato está reconstruido** del Anexo III de la RS 000138-2023 (que cubre solo una parte de los campos) y del control de cambios\ndel Aplicativo Cliente SIRE: **no lo use para reemplazar una propuesta real antes de validarlo con el Programa Validador SIRE (PVSIRE)**. **Cubre solo lo emitido en\nkhipu**: reemplazar la propuesta con él saca las ventas emitidas por otros medios (SEE-SOL, comprobantes físicos, otro proveedor); antes de reemplazar, concilie y\nexija `solo_en_sunat` vacío. Autenticación: `X-Api-Key` o sesión del portal."
     },
     {
       "name": "Comunicación de baja",
@@ -1232,6 +1232,45 @@
             "description": "OK"
           }
         }
+      }
+    },
+    "/v1/sire/rvie/propuesta": {
+      "post": {
+        "tags": [
+          "SIRE"
+        ],
+        "summary": "Pedir a SUNAT la propuesta del registro de ventas de un periodo (experimental)",
+        "description": "**EXPERIMENTAL: apagado por defecto en el servidor** (`422 SIRE_NO_DISPONIBLE`) hasta que el operador haga la corrida controlada contra el SIRE real.\n\nLe pide a SUNAT, por la API del SIRE, que prepare la propuesta del RVIE del periodo, y devuelve el ticket (`202`). Solo lee: no reemplaza ni acepta nada en el SIRE.\nUsa las credenciales API SUNAT de la empresa (una aplicación registrada en SOL como «MIGE RCE y RVIE - SIRE») y sus credenciales SOL. Siga con\n`GET /v1/sire/rvie/propuesta/{ticket}` hasta `TERMINADO` y concilie con `GET /v1/sire/rvie/propuesta/{ticket}/conciliacion`.\n\nErrores: `400 PARAMETRO_INVALIDO` (periodo), `404 NO_ENCONTRADO` (SUNAT no tiene comprobantes en el periodo), `422` con `SIRE_NO_DISPONIBLE`,\n`CREDENCIALES_API_SUNAT_NO_CARGADAS`, `CREDENCIALES_SOL_NO_CARGADAS`, `CREDENCIALES_SIRE_RECHAZADAS` o `SIRE_RECHAZO` (SUNAT rechaza el pedido; el mensaje trae su\ncódigo), y `503 SUNAT_NO_DISPONIBLE`.",
+        "operationId": "solicitarPropuestaRvie",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "description": "Periodo tributario, `AAAAMM`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202610
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "SUNAT aceptó el pedido: el ticket para seguirlo",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePropuestaRvie"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
       }
     },
     "/v1/sire/rvie/conciliacion": {
@@ -4848,6 +4887,104 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/StreamingResponseBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/sire/rvie/propuesta/{ticket}": {
+      "get": {
+        "tags": [
+          "SIRE"
+        ],
+        "summary": "Ver cómo va la propuesta que se le pidió a SUNAT (experimental)",
+        "description": "**EXPERIMENTAL: apagado por defecto en el servidor.** Consulta el ticket de `POST /v1/sire/rvie/propuesta` en el SIRE: `EN_PROCESO` (vuelva a consultar en unos\nsegundos), `TERMINADO` (lista para conciliar) o `CON_ERRORES`. Trae el código y la descripción del estado que da SUNAT. Los mismos errores que al pedirla,\nmás `404 NO_ENCONTRADO` si SUNAT no tiene ese ticket en ese periodo.",
+        "operationId": "estadoPropuestaRvie",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "description": "El número de ticket que dio `POST /v1/sire/rvie/propuesta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202600000123
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "description": "Periodo tributario del ticket, `AAAAMM`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202610
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePropuestaRvie"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/sire/rvie/propuesta/{ticket}/conciliacion": {
+      "get": {
+        "tags": [
+          "SIRE"
+        ],
+        "summary": "Conciliar el registro de ventas con la propuesta que SUNAT preparó (experimental)",
+        "description": "**EXPERIMENTAL: apagado por defecto en el servidor; el formato de la propuesta es un supuesto sin verificar contra el SIRE** (ver `POST /v1/sire/rvie/conciliacion`).\n\nBaja de SUNAT, por la API del SIRE, los archivos que preparó para el ticket y los concilia con lo que khipu emitió, igual que `POST /v1/sire/rvie/conciliacion` pero\nsin que usted descargue ni suba nada. No guarda nada. Como esa conciliación, **cubre solo lo emitido en khipu**: exija `solo_en_sunat` vacío antes de reemplazar\nla propuesta.\n\nErrores: los de `POST /v1/sire/rvie/propuesta`, más `409 PROPUESTA_NO_LISTA` (el ticket sigue en proceso), `422 PROPUESTA_CON_ERRORES` (SUNAT no pudo\nprepararla), `422 RVIE_ARCHIVO_INVALIDO` (un archivo que no se puede leer, de otro RUC o periodo; el mensaje dice cuál archivo, la línea y el campo),\n`422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE`.",
+        "operationId": "conciliarRvieConSunat",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "description": "El número de ticket que dio `POST /v1/sire/rvie/propuesta`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202600000123
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "description": "Periodo tributario del ticket, `AAAAMM`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 202610
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseConciliacionRvie"
                 }
               }
             }
@@ -8601,6 +8738,93 @@
             "format": "uuid"
           }
         }
+      },
+      "ApiResponsePropuestaRvie": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/PropuestaRvie"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              }
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": "null"
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "PropuestaRvie": {
+        "type": "object",
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "description": "Periodo de la propuesta, `AAAAMM`",
+            "example": "202610"
+          },
+          "ticket": {
+            "type": "string",
+            "description": "Número de ticket de SUNAT, con el que se consulta y se concilia",
+            "example": "202600000123"
+          },
+          "estado": {
+            "type": "string",
+            "description": "`EN_PROCESO` (SUNAT la prepara: vuelva a consultar), `TERMINADO` (lista para conciliar) o `CON_ERRORES` (SUNAT no pudo prepararla: pídala de nuevo)",
+            "example": "EN_PROCESO",
+            "enum": [
+              "EN_PROCESO",
+              "TERMINADO",
+              "CON_ERRORES"
+            ]
+          },
+          "codigo_sunat": {
+            "type": "string",
+            "description": "Código de estado de envío de SUNAT (Anexo III del manual del servicio API del RVIE); vacío al pedir la propuesta",
+            "example": "05"
+          },
+          "descripcion_sunat": {
+            "type": "string",
+            "description": "Descripción del estado de envío que da SUNAT; vacía al pedir la propuesta",
+            "example": "En proceso"
+          },
+          "archivos": {
+            "type": "integer",
+            "description": "Archivos que SUNAT preparó (un periodo grande llega partido); 0 mientras no termina",
+            "format": "int32",
+            "example": 1
+          }
+        },
+        "description": "EXPERIMENTAL. El ticket con que SUNAT prepara la propuesta del RVIE de un periodo, y cómo va"
       },
       "ApiResponseConciliacionRvie": {
         "type": "object",

@@ -4,6 +4,10 @@ import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase.Conciliacion;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase.Exportacion;
 import pe.factura.application.port.out.RegistroDeVentasRepository;
+import pe.factura.application.port.out.SunatCredencialesException;
+import pe.factura.application.port.out.SunatRechazoException;
+import pe.factura.application.port.out.SunatSireGateway;
+import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
 import pe.factura.domain.documento.EstadoDocumento;
@@ -13,11 +17,14 @@ import pe.factura.domain.documento.Receptor;
 import pe.factura.domain.documento.TipoAfectacionIgv;
 import pe.factura.domain.documento.TipoDocumento;
 import pe.factura.domain.sire.FilaRvie;
+import pe.factura.domain.sire.PeriodoSire;
+import pe.factura.domain.tenant.Tenant;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -91,7 +98,7 @@ class RegistroDeVentasSireServiceTest {
 
     final Fakes.Tenants tenants = new Fakes.Tenants();
     final RegistroFalso registro = new RegistroFalso();
-    final RegistroDeVentasSireService service = new RegistroDeVentasSireService(registro, tenants, CLOCK);
+    final RegistroDeVentasSireService service = new RegistroDeVentasSireService(registro, tenants, new SireFalso(), CLOCK);
     final UUID tenant = UUID.randomUUID();
 
     { tenants.guardar(Fakes.tenantListo(tenant)); }
@@ -150,7 +157,7 @@ class RegistroDeVentasSireServiceTest {
         RegistroFalso grande = new RegistroFalso() {
             @Override public Conteo contar(UUID t, LocalDate d, LocalDate h, int e) { return new Conteo(RegistroDeVentasSireService.MAXIMO_REGISTROS + 1L, 0, 0, List.of()); }
         };
-        RegistroDeVentasSireService s = new RegistroDeVentasSireService(grande, tenants, CLOCK);
+        RegistroDeVentasSireService s = new RegistroDeVentasSireService(grande, tenants, new SireFalso(), CLOCK);
         assertThatThrownBy(() -> s.preparar(tenant, "202610", false)).hasMessageContaining("100000").extracting("codigo").isEqualTo("RVIE_EXCEDE_EL_TOPE");
     }
 
@@ -368,5 +375,177 @@ class RegistroDeVentasSireServiceTest {
         factura(1, LocalDate.of(2026, 10, 1));
         registro.pendientes = 4;
         assertThat(service.conciliar(tenant, "202610", new ByteArrayInputStream(propuesta())).pendientesDeSunat()).isEqualTo(4);
+    }
+
+    // --- la propuesta que SUNAT prepara por la API del SIRE (fase 2) ------------------------------------------------------------------------
+
+    /** El SIRE de SUNAT en memoria: el estado que se le diga, los archivos que se le den, y cuántas veces se le pidió cada cosa. */
+    static class SireFalso implements SunatSireGateway {
+        EstadoDelTicket estado;
+        final Map<String, byte[]> archivos = new HashMap<>();
+        RuntimeException fallo;
+        String ticketDado = "202600000123";
+        int solicitudes, consultas, descargas;
+
+        public boolean disponible() { return true; }
+        public String solicitarPropuesta(Tenant t, PeriodoSire periodo) { solicitudes++; falla(); return ticketDado; }
+        public EstadoDelTicket consultar(Tenant t, PeriodoSire periodo, String ticket) { consultas++; falla(); return estado; }
+        public byte[] descargar(Tenant t, ArchivoDelTicket a, long maximoBytes) { descargas++; falla(); return archivos.get(a.nombre()); }
+        private void falla() { if (fallo != null) throw fallo; }
+
+        SireFalso terminado(String... nombres) {
+            estado = new EstadoDelTicket("202600000123", Fase.TERMINADO, "06", "Terminado", java.util.Arrays.stream(nombres).map(n -> new ArchivoDelTicket("202600000123", n, "01", "13", "202610")).toList());
+            return this;
+        }
+    }
+
+    final SireFalso sire = new SireFalso();
+    final RegistroDeVentasSireService conSire = new RegistroDeVentasSireService(registro, tenants, sire, CLOCK);
+
+    /** Las filas del propio registro de khipu como las bajaría SUNAT: un ZIP con el .txt. */
+    byte[] propuestaDeSunat(String... lineas) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ZipOutputStream z = new ZipOutputStream(out)) {
+            z.putNextEntry(new ZipEntry("20100066603-CPF-202610.txt"));
+            z.write(String.join("\r\n", lineas).getBytes(StandardCharsets.UTF_8));
+            z.closeEntry();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return out.toByteArray();
+    }
+
+    @Test void pedirLaPropuestaDevuelveElTicketYValidaElPeriodoAntesDeLlamarASunat() {
+        assertThat(conSire.solicitarPropuesta(tenant, "202610")).satisfies(p -> {
+            assertThat(p.ticket()).isEqualTo("202600000123");
+            assertThat(p.periodo().aaaamm()).isEqualTo("202610");
+        });
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(tenant, "202611")).extracting("codigo").isEqualTo("PARAMETRO_INVALIDO");
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(UUID.randomUUID(), "202610")).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+        assertThat(sire.solicitudes).as("solo el pedido válido llegó a SUNAT").isEqualTo(1);
+    }
+
+    @Test void elEstadoDelTicketDiceLaFaseYCuantosArchivosHay() {
+        sire.terminado("a.zip", "b.zip");
+        assertThat(conSire.estadoDePropuesta(tenant, "202610", "202600000123")).satisfies(e -> {
+            assertThat(e.fase()).isEqualTo(SunatSireGateway.Fase.TERMINADO);
+            assertThat(e.archivos()).isEqualTo(2);
+            assertThat(e.codigoSunat()).isEqualTo("06");
+        });
+    }
+
+    @Test void conciliarConLaPropuestaDeSunatBajaElArchivoYConcilia() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        factura(2, LocalDate.of(2026, 10, 2));
+        sire.terminado("a.zip");
+        sire.archivos.put("a.zip", propuesta());
+
+        Conciliacion c = conSire.conciliarConSunat(tenant, "202610", "202600000123");
+
+        assertThat(c.resultado().cuadra()).isTrue();
+        assertThat(c.resultado().coinciden()).isEqualTo(2);
+        assertThat(sire.descargas).isEqualTo(1);
+    }
+
+    @Test void unPeriodoPartidoEnVariosArchivosSeConciliaComoUnoSolo() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        factura(2, LocalDate.of(2026, 10, 2));
+        String[] filas = texto(propuesta()).split("\r\n");
+        sire.terminado("parte1.zip", "parte2.zip");
+        sire.archivos.put("parte1.zip", propuestaDeSunat(filas[0]));
+        sire.archivos.put("parte2.zip", propuestaDeSunat(filas[1]));
+
+        Conciliacion c = conSire.conciliarConSunat(tenant, "202610", "202600000123");
+
+        assertThat(c.resultado().cuadra()).isTrue();
+        assertThat(c.resultado().registrosSunat()).isEqualTo(2);
+    }
+
+    @Test void unArchivoIlegibleDiceCualDeLosVariosEs() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        String[] filas = texto(propuesta()).split("\r\n");
+        sire.terminado("parte1.zip", "parte2.zip");
+        sire.archivos.put("parte1.zip", propuestaDeSunat(filas[0]));
+        sire.archivos.put("parte2.zip", propuestaDeSunat("20100066603|x|202610"));
+
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).hasMessageContainingAll("Archivo 2 de 2", "parte2.zip", "línea 1")
+                .extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+    }
+
+    @Test void conUnSoloArchivoElErrorNoHablaDeArchivos() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.terminado("a.zip");
+        sire.archivos.put("a.zip", propuestaDeSunat("20100066603|x|202610"));
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).hasMessageNotContaining("Archivo 1 de 1");
+    }
+
+    @Test void siElTicketNoTerminoNoSeBajaNada() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.estado = new SunatSireGateway.EstadoDelTicket("202600000123", SunatSireGateway.Fase.EN_PROCESO, "05", "En proceso", List.of());
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).hasMessageContaining("En proceso").extracting("codigo").isEqualTo("PROPUESTA_NO_LISTA");
+        sire.estado = new SunatSireGateway.EstadoDelTicket("202600000123", SunatSireGateway.Fase.CON_ERRORES, "03", "Procesado con errores", List.of());
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("PROPUESTA_CON_ERRORES");
+        assertThat(sire.descargas).isZero();
+    }
+
+    @Test void unTicketTerminadoSinArchivosNoEsUnaConciliacionVacia() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.terminado();
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+    }
+
+    @Test void unArchivoSinFilasDeComprobantesNoEsUnaConciliacionVacia() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.terminado("a.zip");
+        sire.archivos.put("a.zip", propuestaDeSunat("RUC|Razón social|Periodo"));
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("RVIE_ARCHIVO_INVALIDO");
+    }
+
+    @Test void losArchivosDeUnTicketTienenUnTopeEnSuma() throws IOException {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.terminado("a.zip", "b.zip");
+        // Cada archivo es una propuesta válida con 11 MB de relleno que no se comprime: ninguno pasa solo del tope, los dos juntos sí.
+        byte[] relleno = new byte[11 * 1024 * 1024];
+        new java.util.Random(7).nextBytes(relleno);
+        ByteArrayOutputStream zip = new ByteArrayOutputStream();
+        try (ZipOutputStream z = new ZipOutputStream(zip)) {
+            z.putNextEntry(new ZipEntry("p.txt"));
+            z.write(texto(propuesta()).getBytes(StandardCharsets.UTF_8));
+            z.closeEntry();
+            z.putNextEntry(new ZipEntry("relleno.bin"));
+            z.write(relleno);
+            z.closeEntry();
+        }
+        sire.archivos.put("a.zip", zip.toByteArray());
+        sire.archivos.put("b.zip", zip.toByteArray());
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("RVIE_PROPUESTA_DEMASIADO_GRANDE");
+    }
+
+    @Test void masArchivosQueElTopeNoSeBajan() {
+        factura(1, LocalDate.of(2026, 10, 1));
+        sire.terminado(java.util.stream.IntStream.rangeClosed(1, RegistroDeVentasSireService.MAXIMO_ARCHIVOS + 1).mapToObj(i -> "p" + i + ".zip").toArray(String[]::new));
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("RVIE_EXCEDE_EL_TOPE");
+        assertThat(sire.descargas).isZero();
+    }
+
+    @Test void loQueSunatContestaSeConvierteEnErroresDelApi() {
+        sire.fallo = new SunatCredencialesException("400", "SUNAT no acepta las credenciales API SUNAT (HTTP 400: unauthorized_client)");
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(tenant, "202610")).hasMessageContainingAll("MIGE RCE y RVIE - SIRE", "unauthorized_client")
+                .extracting("codigo").isEqualTo("CREDENCIALES_SIRE_RECHAZADAS");
+
+        sire.fallo = new SunatRechazoException("1070", "No se ha encontrado información de comprobantes de pago en Periodo Seleccionado");
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(tenant, "202610")).extracting("codigo").isEqualTo("NO_ENCONTRADO");
+
+        sire.fallo = new SunatRechazoException("1006", "Formato de perTributario no cumple con el formato yyyymm");
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(tenant, "202610")).hasMessageContaining("1006").extracting("codigo").isEqualTo("SIRE_RECHAZO");
+
+        sire.fallo = new SunatTransientException("0109", "Tiempo de espera agotado");
+        assertThatThrownBy(() -> conSire.estadoDePropuesta(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("SUNAT_NO_DISPONIBLE");
+        assertThatThrownBy(() -> conSire.conciliarConSunat(tenant, "202610", "202600000123")).extracting("codigo").isEqualTo("SUNAT_NO_DISPONIBLE");
+    }
+
+    @Test void loQueElGatewayYaEsUnErrorDelApiPasaTalCual() {
+        sire.fallo = new DomainException("SIRE_NO_DISPONIBLE", "apagado");
+        assertThatThrownBy(() -> conSire.solicitarPropuesta(tenant, "202610")).extracting("codigo").isEqualTo("SIRE_NO_DISPONIBLE");
     }
 }

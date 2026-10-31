@@ -16,9 +16,9 @@ import java.util.List;
  * <p><b>EXPERIMENTAL: formato reconstruido, no validado con el PVSIRE ni con el SIRE.</b> Fuentes: el Anexo III de la RS 000138-2023/SUNAT («Estructura y reglas
  * para elaborar el archivo plano que permita la comparación con la propuesta RVIE o reemplazar esa última»), que fija los campos 2, 3, 7–13 y 29–32 y las notas 1,
  * 3–6, y el «Control de cambios del Aplicativo Cliente SIRE» (separador «palotes "|"» y cantidad de campos, validaciones 246 y 453; tipo de cambio en soles
- * {@code 0.000}, versión 3.17.0; campo 25 con signo libre, 3.38.0; vencimiento dentro del periodo, validación 210). Los campos 1, 4–6, 14–28 y 33–40, el nombre del
- * archivo, la codificación y el fin de línea no tienen fuente en el repositorio: son supuestos, y cada uno está aquí para corregirlo en un solo sitio
- * ({@code deploy/README.md} §15).
+ * {@code 0.000}, versión 3.17.0; campo 25 con signo libre, 3.38.0; vencimiento dentro del periodo, validación 210). Los campos 1, 4–6, 14–28 y 33–40, la codificación y el fin de
+ * línea no tienen fuente en el repositorio: son supuestos, y cada uno está aquí para corregirlo en un solo sitio ({@code deploy/README.md} §15). El nombre del
+ * archivo sí la tiene: el manual del servicio API del RVIE v31 (§5.3) da su patrón y un ejemplo.
  * <ul>
  *   <li>Campos separados por {@value #SEPARADOR} (control de cambios, validación 246); también al final de la línea, como en el PLE (supuesto); fin de línea
  *       CRLF (supuesto).</li>
@@ -37,8 +37,9 @@ public final class FormatoRvie {
     /** Código del libro del RVIE en el nombre del archivo. */
     public static final String LIBRO_RVIE = "140400";
     /**
-     * Lo que sigue al libro en el nombre del archivo de reemplazo: {@code 02} (código de oportunidad), {@code 1} (indicador de operaciones), {@code 1} (con
-     * información), {@code 1} (moneda: soles) y {@code 2} (generado para el SIRE). Supuesto: ver la nota de la clase.
+     * Lo que sigue al libro en el nombre del archivo de reemplazo, según el patrón {@code 0014040002OIM2} del manual v31 (§5.3): {@code 02} (código de oportunidad:
+     * reemplaza la propuesta), {@code 1} (indicador de operaciones: empresa operativa), {@code 1} (contenido: con información), {@code 1} (moneda: soles) y {@code 2}
+     * (generado por el nuevo sistema, fijo). El ejemplo del manual usa {@code 0} en operaciones (cierre de operaciones), que no es lo de una empresa que emite.
      */
     static final String SUFIJO_REEMPLAZO = "021112";
 

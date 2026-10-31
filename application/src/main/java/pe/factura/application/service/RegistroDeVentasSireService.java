@@ -4,6 +4,10 @@ import pe.factura.application.port.in.RegistroDeVentasSireUseCase;
 import pe.factura.application.port.out.RegistroDeVentasRepository;
 import pe.factura.application.port.out.RegistroDeVentasRepository.Posicion;
 import pe.factura.application.port.out.RegistroDeVentasRepository.Referencia;
+import pe.factura.application.port.out.SunatCredencialesException;
+import pe.factura.application.port.out.SunatRechazoException;
+import pe.factura.application.port.out.SunatSireGateway;
+import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.Comprobante;
@@ -31,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
@@ -51,12 +56,16 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
     static final long MAXIMO_ARCHIVO = 20L * 1024 * 1024;
     static final long MAXIMO_DESCOMPRIMIDO = 64L * 1024 * 1024;
 
+    /** Archivos de la propuesta que se concilian de un ticket: SUNAT parte un periodo grande en varios, pero más que esto es otra cosa. */
+    static final int MAXIMO_ARCHIVOS = 50;
+
     private final RegistroDeVentasRepository registro;
     private final TenantRepository tenants;
+    private final SunatSireGateway sire;
     private final Clock clock;
 
-    public RegistroDeVentasSireService(RegistroDeVentasRepository registro, TenantRepository tenants, Clock clock) {
-        this.registro = registro; this.tenants = tenants; this.clock = clock;
+    public RegistroDeVentasSireService(RegistroDeVentasRepository registro, TenantRepository tenants, SunatSireGateway sire, Clock clock) {
+        this.registro = registro; this.tenants = tenants; this.sire = sire; this.clock = clock;
     }
 
     @Override public Exportacion preparar(UUID tenantId, String periodo, boolean permitirSinTipoCambio) {
@@ -102,7 +111,20 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
         ConciliacionRvie conciliacion = new ConciliacionRvie();
         recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
         PropuestaRvie lector = new PropuestaRvie(t.ruc(), p);
-        long filas = 0;
+        long filas = leerPropuesta(propuesta, lector, conciliacion, 0, "");
+        // H11: sin ninguna fila de datos (cuerpo vacío, solo títulos) el reporte diría que SUNAT no tiene nada: es un archivo equivocado, no una conciliación.
+        if (filas == 0 && lector.consolidadas() == 0)
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta no trae ninguna fila de comprobantes: envíe el archivo descargado del SIRE para el periodo " + p);
+        return new Conciliacion(p, pendientes, lector.consolidadas(), conciliacion.resultado());
+    }
+
+    /**
+     * Lee un archivo de la propuesta ({@code .txt} o {@code .zip} con un {@code .txt}) hacia la conciliación y devuelve cuántas filas de comprobantes llevan leídas en
+     * total ({@code yaLeidas} más las de este archivo: el tope es del periodo, no de cada archivo). {@code donde} se antepone al mensaje de un error de lectura, para decir
+     * en cuál de los archivos de un ticket fue.
+     */
+    private long leerPropuesta(InputStream propuesta, PropuestaRvie lector, ConciliacionRvie conciliacion, long yaLeidas, String donde) throws IOException {
+        long filas = yaLeidas;
         // H11: un ZIP cuyos datos comprimidos están dañados falla al leerlo, no al abrirlo: el recorrido entero responde 422, no 500.
         try (java.io.Reader r = new java.io.BufferedReader(new InputStreamReader(texto(propuesta), FormatoRvie.CODIFICACION))) {
             String linea;
@@ -115,12 +137,77 @@ public class RegistroDeVentasSireService implements RegistroDeVentasSireUseCase 
                 conciliacion.deSunat(fila);
             }
         } catch (ZipException | java.io.EOFException ex) {
-            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "El ZIP de la propuesta está dañado: " + ex.getMessage());
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", donde + "El ZIP de la propuesta está dañado: " + ex.getMessage());
+        } catch (DomainException ex) {
+            if (donde.isEmpty() || !"RVIE_ARCHIVO_INVALIDO".equals(ex.codigo())) throw ex;
+            throw new DomainException(ex.codigo(), donde + ex.getMessage());
         }
-        // H11: sin ninguna fila de datos (cuerpo vacío, solo títulos) el reporte diría que SUNAT no tiene nada: es un archivo equivocado, no una conciliación.
+        return filas;
+    }
+
+    @Override public PropuestaSolicitada solicitarPropuesta(UUID tenantId, String periodo) {
+        PeriodoSire p = periodo(periodo);
+        Tenant t = tenant(tenantId);
+        return new PropuestaSolicitada(p, delSire(() -> sire.solicitarPropuesta(t, p)));
+    }
+
+    @Override public EstadoDePropuesta estadoDePropuesta(UUID tenantId, String periodo, String ticket) {
+        PeriodoSire p = periodo(periodo);
+        Tenant t = tenant(tenantId);
+        SunatSireGateway.EstadoDelTicket e = delSire(() -> sire.consultar(t, p, ticket));
+        return new EstadoDePropuesta(p, e.ticket(), e.fase(), e.codigoSunat(), e.descripcionSunat(), e.archivos().size());
+    }
+
+    @Override public Conciliacion conciliarConSunat(UUID tenantId, String periodo, String ticket) throws IOException {
+        PeriodoSire p = periodo(periodo);
+        Tenant t = tenant(tenantId);
+        SunatSireGateway.EstadoDelTicket e = delSire(() -> sire.consultar(t, p, ticket));
+        if (e.fase() == SunatSireGateway.Fase.EN_PROCESO)
+            throw new DomainException("PROPUESTA_NO_LISTA", "SUNAT todavía prepara la propuesta del ticket " + ticket + " (" + e.descripcionSunat() + "): consulte su estado y vuelva a pedir la conciliación al terminar");
+        if (e.fase() == SunatSireGateway.Fase.CON_ERRORES)
+            throw new DomainException("PROPUESTA_CON_ERRORES", "SUNAT terminó el ticket " + ticket + " con errores (" + e.descripcionSunat() + "): pida la propuesta de nuevo");
+        if (e.archivos().isEmpty())
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "SUNAT terminó el ticket " + ticket + " sin entregar ningún archivo de la propuesta");
+        if (e.archivos().size() > MAXIMO_ARCHIVOS)
+            throw new DomainException("RVIE_EXCEDE_EL_TOPE", "SUNAT entregó " + e.archivos().size() + " archivos para el ticket " + ticket + " y khipu concilia hasta " + MAXIMO_ARCHIVOS + ": pídale la conciliación a soporte");
+        long pendientes = registro.contar(tenantId, p.desde(), p.hasta(), 0).pendientesDeSunat();
+        ConciliacionRvie conciliacion = new ConciliacionRvie();
+        recorrer(tenantId, p, false, f -> conciliacion.deKhipu(f.importes()), t.ruc(), t.razonSocial());
+        PropuestaRvie lector = new PropuestaRvie(t.ruc(), p);
+        long filas = 0;
+        // El tope de bytes es de todo el ticket: un periodo partido en archivos no puede, en suma, llevar la conciliación más allá de lo que admite el archivo subido.
+        long restante = MAXIMO_ARCHIVO;
+        int numero = 0;
+        for (SunatSireGateway.ArchivoDelTicket a : e.archivos()) {
+            numero++;
+            byte[] bytes = delSire(() -> sire.descargar(t, a, MAXIMO_ARCHIVO));
+            restante -= bytes.length;
+            if (restante < 0)
+                throw new DomainException("RVIE_PROPUESTA_DEMASIADO_GRANDE", "Los archivos de la propuesta de SUNAT pasan, en suma, de los " + MAXIMO_ARCHIVO / (1024 * 1024) + " MB que khipu concilia");
+            filas = leerPropuesta(new java.io.ByteArrayInputStream(bytes), lector, conciliacion, filas,
+                    e.archivos().size() > 1 ? "Archivo " + numero + " de " + e.archivos().size() + " de la propuesta de SUNAT (" + a.nombre() + "): " : "");
+        }
         if (filas == 0 && lector.consolidadas() == 0)
-            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta no trae ninguna fila de comprobantes: envíe el archivo descargado del SIRE para el periodo " + p);
+            throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta que entregó SUNAT no trae ninguna fila de comprobantes para el periodo " + p);
         return new Conciliacion(p, pendientes, lector.consolidadas(), conciliacion.resultado());
+    }
+
+    /**
+     * Lo que SUNAT contesta al SIRE, como errores del API: las credenciales que no acepta, el pedido que rechaza por sus datos (1070, que no tiene comprobantes en el
+     * periodo, es {@code NO_ENCONTRADO}) y su caída o demora. Los mensajes ya vienen sin secretos.
+     */
+    private static <T> T delSire(Supplier<T> llamada) {
+        try {
+            return llamada.get();
+        } catch (SunatCredencialesException ex) {
+            throw new DomainException("CREDENCIALES_SIRE_RECHAZADAS", "SUNAT no acepta las credenciales para el SIRE: revise las credenciales API SUNAT (la aplicación debe estar registrada en SOL como «MIGE RCE y RVIE - SIRE») "
+                    + "y la clave SOL. " + ex.getMessage());
+        } catch (SunatRechazoException ex) {
+            if ("1070".equals(ex.codigo())) throw new DomainException("NO_ENCONTRADO", "SUNAT no tiene comprobantes en ese periodo: " + ex.descripcion());
+            throw new DomainException("SIRE_RECHAZO", "SUNAT rechazó el pedido al SIRE (" + ex.codigo() + "): " + ex.descripcion());
+        } catch (SunatTransientException ex) {
+            throw new DomainException("SUNAT_NO_DISPONIBLE", "No se pudo hablar con el SIRE de SUNAT, reintente en unos minutos: " + ex.getMessage());
+        }
     }
 
     /** Largo máximo de una línea de la propuesta: una fila del RVIE ocupa unos 300 caracteres y su campo más largo admite 1 500. */
