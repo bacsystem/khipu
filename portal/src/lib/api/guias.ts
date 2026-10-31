@@ -80,6 +80,14 @@ export const estaEnviandoGuia = (g: Pick<Guia, "estado">) => g.estado === "ENVIA
 /** La guía ya tiene la respuesta definitiva de SUNAT. */
 export const esGuiaResuelta = (g: Pick<Guia, "estado">) => g.estado === "ACEPTADO" || g.estado === "ACEPTADO_CON_OBS" || g.estado === "RECHAZADO";
 
+/**
+ * El enlace de consulta de la guía sale del CDR de SUNAT, no del usuario, pero llega al navegador como un `href`: solo se confía en una URL `https`. Otro esquema
+ * (`javascript:`, `http:`) o una ruta relativa no se muestra como enlace.
+ */
+export function enlaceDeConsultaSeguro(url: string | null | undefined): string | null {
+  return typeof url === "string" && /^https:\/\/[^\s]+$/.test(url) ? url : null;
+}
+
 export type FiltrosDeGuias = { estado?: string; tipo?: string; serie?: string; desde?: string; hasta?: string };
 export type PaginaDeGuias = { datos: Guia[]; total: number };
 

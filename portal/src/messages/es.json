@@ -3855,7 +3855,7 @@
       "consultarTicket": "Consultar el ticket",
       "consultando": "Consultando…",
       "retomar": "Retomar el envío",
-      "retomarAyuda": "La guía quedó «enviando» sin respuesta. No se sabe si SUNAT la recibió: retómala solo si ya revisaste en SOL que no llegó.",
+      "retomarAyuda": "La guía quedó «enviando» sin respuesta. No se sabe si SUNAT la recibió: solo se puede retomar pasados 10 minutos, y solo si ya revisaste en SOL que no llegó.",
       "retomarConfirmacion": "Revisé en SOL que la guía no llegó",
       "sinConexion": "Se cortó la conexión y no sabemos si el pedido llegó. Recarga la ficha para ver el estado de la guía antes de volver a intentarlo."
     },

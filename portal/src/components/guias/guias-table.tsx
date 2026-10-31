@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { type FormEvent } from "react";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { CONTENEDOR_TABLA, PieTabla, TablaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { Locale } from "@/i18n/config";
@@ -44,7 +45,7 @@ export function GuiasTable({
   function url(f: FiltrosDeGuias, p: number, n: number): string {
     const qs = paramsDeFiltrosDeGuias(f);
     if (p > 1) qs.set("pagina", String(p));
-    if (n !== 10) qs.set("por_pagina", String(n));
+    if (n !== POR_PAGINA_DEFECTO) qs.set("por_pagina", String(n));
     const texto = qs.toString();
     return texto ? `/guias?${texto}` : "/guias";
   }

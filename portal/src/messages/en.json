@@ -3855,7 +3855,7 @@
       "consultarTicket": "Check the ticket",
       "consultando": "Checking…",
       "retomar": "Resume the send",
-      "retomarAyuda": "The guide was left «sending» with no answer. It is not known whether SUNAT received it: resume it only if you already checked in SOL that it did not arrive.",
+      "retomarAyuda": "The guide was left «sending» with no answer. It is not known whether SUNAT received it: it can only be resumed after 10 minutes, and only if you already checked in SOL that it did not arrive.",
       "retomarConfirmacion": "I checked in SOL that the guide did not arrive",
       "sinConexion": "The connection dropped and we do not know whether the request arrived. Reload the page to see the guide's status before trying again."
     },

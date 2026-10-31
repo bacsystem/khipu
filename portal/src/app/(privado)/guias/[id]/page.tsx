@@ -8,7 +8,7 @@ import { EstadoGuiaBadge } from "@/components/guias/estado-guia-badge";
 import { GuiaAcciones } from "@/components/guias/guia-acciones";
 import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
-import { numeroDeGuia, obtenerGuia, type Guia, type PuntoDeGuia } from "@/lib/api/guias";
+import { enlaceDeConsultaSeguro, numeroDeGuia, obtenerGuia, type Guia, type PuntoDeGuia } from "@/lib/api/guias";
 import { ApiError } from "@/lib/api/types";
 import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha, formatearPrecioUnitario } from "@/lib/formato";
@@ -141,8 +141,8 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
             ) : null}
           </div>
         ) : null}
-        {g.enlace_consulta ? (
-          <a href={g.enlace_consulta} target="_blank" rel="noopener noreferrer" className="flex w-fit items-center gap-1.5 text-[12px] text-primary hover:underline">
+        {enlaceDeConsultaSeguro(g.enlace_consulta) ? (
+          <a href={enlaceDeConsultaSeguro(g.enlace_consulta)!} target="_blank" rel="noopener noreferrer" className="flex w-fit items-center gap-1.5 text-[12px] text-primary hover:underline">
             <ExternalLinkIcon className="size-3.5" />
             {t.enlaceConsulta}
           </a>

@@ -139,6 +139,12 @@ describe("GuiaAcciones", () => {
     expect(apiRequest).toHaveBeenCalledWith("/api/proxy/guias-remision/g-1/enviar?forzar=true", { method: "POST" });
   });
 
+  it("avisa que un envío en curso solo se retoma pasados 10 minutos, que es cuando el backend lo permite (H1)", () => {
+    render(<GuiaAcciones guia={guia("ENVIANDO")} />);
+
+    expect(screen.getByText(/10 minutos/)).toBeInTheDocument();
+  });
+
   it("con el rol de solo lectura las acciones se ven apagadas, con el motivo", () => {
     render(
       <SoloLectura activa={false} rol="LECTURA">

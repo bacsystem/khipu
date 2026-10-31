@@ -3,6 +3,7 @@ import {
   estaEnviandoGuia,
   esGuiaResuelta,
   filtrosDeGuiasDesdeParams,
+  enlaceDeConsultaSeguro,
   listarGuias,
   numeroDeGuia,
   paramsDeFiltrosDeGuias,
@@ -66,6 +67,18 @@ describe("qué se puede hacer con una guía según su estado", () => {
 describe("numeroDeGuia", () => {
   it("escribe el correlativo con ocho dígitos, como SUNAT", () => {
     expect(numeroDeGuia({ serie: "T001", numero: 15 })).toBe("T001-00000015");
+  });
+});
+
+describe("enlaceDeConsultaSeguro (H2)", () => {
+  it("deja pasar solo una URL https; el enlace sale del CDR de SUNAT y no se confía en su esquema", () => {
+    expect(enlaceDeConsultaSeguro("https://e-factura.sunat.gob.pe/consulta")).toBe("https://e-factura.sunat.gob.pe/consulta");
+    expect(enlaceDeConsultaSeguro("javascript:alert(1)")).toBeNull();
+    expect(enlaceDeConsultaSeguro("http://sunat.gob.pe/consulta")).toBeNull();
+    expect(enlaceDeConsultaSeguro("//evil.example/x")).toBeNull();
+    expect(enlaceDeConsultaSeguro("/guias")).toBeNull();
+    expect(enlaceDeConsultaSeguro("")).toBeNull();
+    expect(enlaceDeConsultaSeguro(undefined)).toBeNull();
   });
 });
 
