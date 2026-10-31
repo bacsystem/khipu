@@ -4228,7 +4228,7 @@
       "emisionSimultanea": "La emisión no tiene un tope de peticiones por segundo: lo que la acota es el tope mensual del plan. Las emisiones simultáneas sobre **una misma serie** se atienden una tras otra, porque SUNAT exige numeración consecutiva sin huecos; repartir la carga en varias series las paraleliza.",
       "pendienteIntro": "Lo que khipu ofrece hoy de infraestructura, durante la beta, para no suponer más de lo que hay:",
       "pendientes": [
-        "**IPs de salida.** khipu no garantiza una lista de IPs de salida hacia su servidor: el tráfico sale de la infraestructura del proveedor de alojamiento y puede cambiar. No filtre los webhooks por IP; verifique cada entrega con la firma `X-Khipu-Signature`, que no depende de la IP: vea [Webhooks](/developers/guia#webhooks).",
+        "**IPs de salida.** khipu no garantiza una lista de IPs de salida hacia su servidor ni se compromete a mantener las que usa hoy. No filtre los webhooks por IP; verifique cada entrega con la firma `X-Khipu-Signature`, que no depende de la IP: vea [Webhooks](/developers/guia#webhooks).",
         "**SLA.** Durante la beta no hay un compromiso de disponibilidad ni de tiempos de respuesta. Sí está medido el costo de preparar un comprobante sin SUNAT (alrededor de 30 ms al percentil 95 con 50 documentos por segundo en la prueba de carga, medido en desarrollo: no es un compromiso); el tiempo total depende de SUNAT.",
         "**SDKs y conectores** oficiales: no existen todavía. La API es REST con JSON y los snippets de la [guía de inicio rápido](/developers/guia#inicio-rapido) son el punto de partida."
       ],
