@@ -61,11 +61,11 @@ test("el token de soporte vive en una cookie httpOnly: el JS de la página no lo
 
   const visibleParaElJs = await page.evaluate(() => document.cookie);
   const cookies = await page.context().cookies();
-  const acceso = cookies.find((c) => c.name === "factura_access");
+  const acceso = cookies.find((c) => c.name === "khipu_access");
 
-  expect(visibleParaElJs).not.toContain("factura_access");
+  expect(visibleParaElJs).not.toContain("khipu_access");
   expect(acceso?.httpOnly).toBe(true);
-  expect(cookies.find((c) => c.name === "factura_refresh"), "una sesión de soporte no tiene refresh").toBeUndefined();
+  expect(cookies.find((c) => c.name === "khipu_refresh"), "una sesión de soporte no tiene refresh").toBeUndefined();
 });
 
 test("salir del modo soporte vuelve a la cuenta en el backoffice, cierra la sesión del cliente y deja la del administrador", async ({ page }) => {
@@ -79,7 +79,7 @@ test("salir del modo soporte vuelve a la cuenta en el backoffice, cierra la sesi
   await expect(page).toHaveURL(new RegExp(`/admin/cuentas/${ID_SOL}$`));
   await expect(page.getByTestId("cuenta-detalle")).toBeVisible();
   const cookies = await page.context().cookies();
-  expect(cookies.find((c) => c.name === "factura_access" && c.value !== "")).toBeUndefined();
+  expect(cookies.find((c) => c.name === "khipu_access" && c.value !== "")).toBeUndefined();
   // El portal del cliente ya no se abre: la sesión de soporte terminó.
   await page.goto("/series");
   await expect(page).toHaveURL(/\/login/);
@@ -95,7 +95,7 @@ test("un usuario desactivado no tiene el botón, y el backend se niega con su c�
   const res = await page.request.post(`/api/admin/cuentas/${ID_SOL}/usuarios/${CARLA}/impersonar`);
   expect(res.status()).toBe(409);
   expect((await res.json()).codigo).toBe("USUARIO_INACTIVO");
-  expect(await page.context().cookies().then((c) => c.find((x) => x.name === "factura_access")), "un intento rechazado no deja ninguna cookie de soporte").toBeUndefined();
+  expect(await page.context().cookies().then((c) => c.find((x) => x.name === "khipu_access")), "un intento rechazado no deja ninguna cookie de soporte").toBeUndefined();
 });
 
 test("el BFF rechaza ids inválidos, usuarios que no existen y la falta de sesión", async ({ page, request }) => {

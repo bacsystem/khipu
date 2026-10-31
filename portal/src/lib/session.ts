@@ -1,8 +1,8 @@
 import type { NextRequest, NextResponse } from "next/server";
 
-export const COOKIE_ACCESS = "factura_access";
-export const COOKIE_REFRESH = "factura_refresh";
-export const COOKIE_EMPRESA = "factura_empresa";
+export const COOKIE_ACCESS = "khipu_access";
+export const COOKIE_REFRESH = "khipu_refresh";
+export const COOKIE_EMPRESA = "khipu_empresa";
 
 export const ACCESS_MAX_AGE = 15 * 60;
 export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
