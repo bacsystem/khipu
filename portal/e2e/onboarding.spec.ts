@@ -81,7 +81,7 @@ test("onboarding: con la empresa ya creada, /onboarding lleva al portal en vez d
     return res.status;
   }, [ruc]);
   test.skip(creada !== 201, "otro worker ya tomó el RUC de ejemplo");
-  const empresaActiva = async () => (await page.context().cookies()).find((c) => c.name === "factura_empresa");
+  const empresaActiva = async () => (await page.context().cookies()).find((c) => c.name === "khipu_empresa");
   expect(await empresaActiva()).toBeUndefined();
 
   await page.reload();

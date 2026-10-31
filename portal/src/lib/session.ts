@@ -1,8 +1,13 @@
 import type { NextRequest, NextResponse } from "next/server";
 
-export const COOKIE_ACCESS = "factura_access";
-export const COOKIE_REFRESH = "factura_refresh";
-export const COOKIE_EMPRESA = "factura_empresa";
+export const COOKIE_ACCESS = "khipu_access";
+export const COOKIE_REFRESH = "khipu_refresh";
+export const COOKIE_EMPRESA = "khipu_empresa";
+/**
+ * Los nombres que tenían antes de #10. Un navegador con una sesión de antes del cambio conserva el refresh de 30 días, que nadie lee: el logout y el login
+ * lo expiran para que no quede una credencial válida en el disco. Se pueden quitar cuando hayan pasado los 30 días del último despliegue con el nombre viejo.
+ */
+export const COOKIES_ANTERIORES = ["factura_access", "factura_refresh", "factura_empresa"] as const;
 
 export const ACCESS_MAX_AGE = 15 * 60;
 export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;
@@ -43,7 +48,12 @@ export function readSession(req: NextRequest): Session {
   };
 }
 
+function expirarAnteriores(res: NextResponse): void {
+  for (const nombre of COOKIES_ANTERIORES) res.cookies.set(nombre, "", { ...baseCookie, maxAge: 0 });
+}
+
 export function writeTokens(res: NextResponse, tokens: { access: string; refresh: string }): void {
+  expirarAnteriores(res);
   res.cookies.set(COOKIE_ACCESS, tokens.access, { ...baseCookie, maxAge: ACCESS_MAX_AGE });
   res.cookies.set(COOKIE_REFRESH, tokens.refresh, { ...baseCookie, maxAge: REFRESH_MAX_AGE });
 }
@@ -70,6 +80,7 @@ export function clearEmpresaActiva(res: NextResponse): void {
 }
 
 export function clearSession(res: NextResponse): void {
+  expirarAnteriores(res);
   res.cookies.set(COOKIE_ACCESS, "", { ...baseCookie, maxAge: 0 });
   res.cookies.set(COOKIE_REFRESH, "", { ...baseCookie, maxAge: 0 });
   res.cookies.set(COOKIE_EMPRESA, "", { ...baseCookie, maxAge: 0 });

@@ -4,7 +4,7 @@ Plataforma multi-tenant de facturación electrónica para Perú: **API** Java/Sp
 
 Estado: fase 1A (factura electrónica 01 extremo a extremo con SUNAT beta) + etapa 1 del portal. Design system: [bacsystem/khipu-design-system](https://github.com/bacsystem/khipu-design-system).
 
-> Nomenclatura: el proyecto se llama **khipu**; por historia, el paquete Java es `pe.factura`, el `rootProject` de Gradle y la base de datos se llaman `factura`, y las cookies del portal son `factura_*`. Son identificadores técnicos; renombrarlos implica migración de datos/sesiones y queda como tarea aparte.
+> Nomenclatura: el proyecto se llama **khipu**; por historia, el paquete Java es `pe.factura` y el `rootProject` de Gradle y la base de datos se llaman `factura`. Qué se renombró y qué no, y por qué, está en [Naming y modelo de envío](#naming-y-modelo-de-envío-decisiones).
 
 ## Requisitos
 Java 21, Docker.
@@ -162,6 +162,23 @@ Cubre facturas, notas de crédito/débito y la comunicación de baja (RA).
 Variables opcionales: `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT` / `HOMOLOGACION_CERT_CLAVE` (PKCS#12 con `OU` = RUC; van juntas con
 el RUC), `HOMOLOGACION_SERIE`. En Actions se toman de los secretos `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT_B64` y `HOMOLOGACION_CERT_CLAVE`;
 sin ellos usa el certificado de prueba del repo.
+
+## Naming y modelo de envío (decisiones)
+
+**Nombre (#10, 2026-10-31).** La marca es **khipu**: el repo (`bacsystem/khipu`), el portal, el remitente de los correos y la cookie de idioma ya se llaman así.
+
+Los identificadores técnicos que todavía dicen «factura» se decidieron uno por uno:
+
+| Identificador | Decisión | Motivo |
+|---|---|---|
+| Paquete Java `pe.factura`, proyecto raíz de Gradle y base de datos Postgres `factura` | **Se mantienen** | Ningún cliente ni documento los ve. Renombrarlos toca cada archivo del backend y, en producción, obliga a mover la base viva sin aportar nada a la venta. Si algún día se hace, el paquete y el proyecto son un refactor mecánico sin riesgo de datos; la base se renombra con una ventana de mantenimiento. |
+| Cookies de sesión `factura_access`, `factura_refresh`, `factura_empresa` | **Se renombran a** `khipu_access`, `khipu_refresh`, `khipu_empresa` | Es lo único que se ve (en las herramientas del navegador) y lo único que cuesta más después. Impacto: las sesiones abiertas al desplegar se cierran una vez y el usuario vuelve a iniciar sesión. Hoy producción no tiene clientes, así que se hace antes del primer piloto. |
+
+**Modelo de envío a SUNAT (#41, 2026-10-31).** khipu sigue enviando **directo a SUNAT como SEE-Del Contribuyente**, con el certificado y la clave SOL de cada cliente, y no a través de un OSE.
+
+- Por qué ahora: ya está construido y homologado en e-beta con escenarios automáticos (`:bootstrap:homologacion`), no añade un proveedor externo en el camino de cada comprobante ni un costo por documento.
+- Qué costaría un OSE: un proveedor más en la ruta crítica, un costo por comprobante (hay que cotizarlo con cada proveedor; no es un dato del repo) y un `BillingGateway` alternativo por tenant. A cambio, el OSE valida antes de SUNAT y evita la homologación por contribuyente.
+- Cuándo se revisa: si un cliente del piloto exige un OSE por contrato, o si la homologación ante SUNAT se vuelve un obstáculo para incorporar clientes. Hasta entonces no se construye el segundo gateway.
 
 ## Convenciones de código
 

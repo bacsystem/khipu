@@ -27,7 +27,7 @@ Leyenda: 🔧 corregido, a la espera de recert · ✅ verificado por una recert 
 
 ## Menores
 
-Todos en [pendientes.md](pendientes.md): cookie `factura_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga), fault SOAP de credenciales clasificado como transitorio, `CREDENCIALES_INVALIDAS` mapeado a 401 para un caso de validación, cuatro claves de mensaje faltantes, `cert_vigencia_hasta` nullable, RUC sin dígito verificador en cliente, y la cita equivocada de la regla 3034.
+Todos en [pendientes.md](pendientes.md): cookie `khipu_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga), fault SOAP de credenciales clasificado como transitorio, `CREDENCIALES_INVALIDAS` mapeado a 401 para un caso de validación, cuatro claves de mensaje faltantes, `cert_vigencia_hasta` nullable, RUC sin dígito verificador en cliente, y la cita equivocada de la regla 3034.
 
 ## Verificación de los arreglos (segunda ronda, PR #162)
 
