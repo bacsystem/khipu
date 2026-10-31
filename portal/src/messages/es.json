@@ -4205,12 +4205,12 @@
     },
     "entornos": {
       "titulo": "Entornos y límites",
-      "resumen": "En qué se diferencian BETA y producción, qué topes tiene la API y cuánto esperar antes de volver a intentar. Todo lo de esta página es lo que hoy hace khipu; lo que todavía no se publica está al final.",
+      "resumen": "En qué se diferencian BETA y producción, qué topes tiene la API y cuánto esperar antes de volver a intentar. Todo lo de esta página es lo que hoy hace khipu; al final están las IPs de salida, el SLA y los conectores.",
       "indice": {
         "entornos": "BETA y producción",
         "limites": "Límites y cuotas",
         "reintentos": "Reintentos y vigencias",
-        "pendiente": "Lo que aún no está publicado"
+        "pendiente": "Infraestructura: IPs, SLA y conectores"
       },
       "intro": "Cada empresa tiene su entorno, que se fija al registrarla. La URL de la API y la API key son las mismas en los dos: lo que cambia es adónde envía khipu el comprobante y qué validez tiene. El paso de BETA a producción lo hace la plataforma, a pedido de soporte, cuando SUNAT haya aprobado la homologación: no hay un control para hacerlo en el portal ni en la API, y se rechaza (409) mientras la empresa tenga envíos pendientes.",
       "notaBeta": "Integre y pruebe todo en `BETA`: lo que SUNAT acepta allí lo acepta en producción con las mismas reglas de contenido. Los casos que khipu verificó contra e-beta están en la [guía de emisión](/developers/guia).",
@@ -4226,10 +4226,10 @@
         ]
       },
       "emisionSimultanea": "La emisión no tiene un tope de peticiones por segundo: lo que la acota es el tope mensual del plan. Las emisiones simultáneas sobre **una misma serie** se atienden una tras otra, porque SUNAT exige numeración consecutiva sin huecos; repartir la carga en varias series las paraleliza.",
-      "pendienteIntro": "Esto no se ha definido todavía y por eso no figura arriba con un número; cuando exista se publica aquí:",
+      "pendienteIntro": "Lo que khipu ofrece hoy de infraestructura, durante la beta, para no suponer más de lo que hay:",
       "pendientes": [
-        "**IPs de salida** de khipu hacia su servidor (para quien filtra por IP los webhooks). Mientras tanto, verifique cada entrega con la firma `X-Khipu-Signature`, que no depende de la IP: vea [Webhooks](/developers/guia#webhooks).",
-        "**SLA** de disponibilidad y tiempos de respuesta. Sí está medido el costo de preparar un comprobante sin SUNAT (alrededor de 30 ms al percentil 95 con 50 documentos por segundo en la prueba de carga, medido en desarrollo: no es un compromiso); el tiempo total depende de SUNAT.",
+        "**IPs de salida.** khipu no garantiza una lista de IPs de salida hacia su servidor ni se compromete a mantener las que usa hoy. No filtre los webhooks por IP; verifique cada entrega con la firma `X-Khipu-Signature`, que no depende de la IP: vea [Webhooks](/developers/guia#webhooks).",
+        "**SLA.** Durante la beta no hay un compromiso de disponibilidad ni de tiempos de respuesta. Sí está medido el costo de preparar un comprobante sin SUNAT (alrededor de 30 ms al percentil 95 con 50 documentos por segundo en la prueba de carga, medido en desarrollo: no es un compromiso); el tiempo total depende de SUNAT.",
         "**SDKs y conectores** oficiales: no existen todavía. La API es REST con JSON y los snippets de la [guía de inicio rápido](/developers/guia#inicio-rapido) son el punto de partida."
       ],
       "filas": {

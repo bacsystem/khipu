@@ -185,7 +185,7 @@ test("la cabecera recorre las secciones y el buscador lleva a un estado y a un c
   await expect(page.getByRole("heading", { name: "BETA y producción" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Límites y cuotas" })).toBeVisible();
   await expect(page.getByText("429 LIMITE_PLAN", { exact: false }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Lo que aún no está publicado" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Infraestructura: IPs, SLA y conectores" })).toBeVisible();
 
   const buscador = page.getByLabel("Buscar en la documentación");
   await buscador.fill("error_envio");
