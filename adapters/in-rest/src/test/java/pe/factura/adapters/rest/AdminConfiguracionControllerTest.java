@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,14 +39,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * La configuración de la plataforma desde el backoffice (#199). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su **forma real** (snake_case, lo
  * opcional ausente en lugar de nulo) y el status de cada error del dominio.
  */
-@WebMvcTest(controllers = AdminConfiguracionController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminConfiguracionController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminConfiguracionControllerTest {
     static final Instant ACTUALIZADO = Instant.parse("2026-10-15T15:00:00Z");
     static final RemitenteDeCorreo PREDETERMINADO = new RemitenteDeCorreo(null, "no-responder@khipu.pe", null);
 
     @Autowired MockMvc mvc;
-    @MockBean ConfigurarPlataformaUseCase configuracion;
+    @MockitoBean ConfigurarPlataformaUseCase configuracion;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

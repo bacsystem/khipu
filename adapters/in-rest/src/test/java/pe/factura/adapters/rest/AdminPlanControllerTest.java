@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.GestionarPlanesUseCase;
@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Planes desde el backoffice (#190): cómo se piden, cómo se responden y qué código HTTP tiene cada rechazo. */
-@WebMvcTest(controllers = AdminPlanController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminPlanController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminPlanControllerTest {
     static final UUID ID = UUID.randomUUID();
@@ -44,7 +44,7 @@ class AdminPlanControllerTest {
             {"nombre":"Estudio","precio_mensual":49.90,"limites":{"documentos_al_mes":{"maximo":300},"rucs":1,"usuarios":{"maximo":1},"api_keys":{"ilimitado":true},"retencion_anios":5}}""";
 
     @Autowired MockMvc mvc;
-    @MockBean GestionarPlanesUseCase planes;
+    @MockitoBean GestionarPlanesUseCase planes;
 
     static PlanConUso plan(long cuentas) {
         return new PlanConUso(new Plan(ID, "Estudio", new BigDecimal("49.90"), LIMITES, EstadoPlan.ACTIVO, false), cuentas);

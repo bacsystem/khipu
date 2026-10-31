@@ -5,7 +5,8 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
@@ -14,7 +15,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.core.io.ByteArrayResource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.adapters.scheduler.OutboxWorker;
@@ -34,8 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @Testcontainers
 @WireMockTest(httpPort = 18089)
+@AutoConfigureTestRestTemplate
 class FacturaE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @DynamicPropertySource static void props(DynamicPropertyRegistry r) {
         r.add("app.sunat.beta-url", () -> "http://localhost:18089/billService");
@@ -172,7 +174,7 @@ class FacturaE2ETest {
 
         // El rechazo de dominio es el de la emisión, y la emisión que sigue arranca en el correlativo 1 (calcular no consumió ninguno).
         ResponseEntity<Map> malo = http.postForEntity("/v1/facturas/calcular", new HttpEntity<>(FACTURA.replace("\"unidad\":\"NIU\"", "\"unidad\":\"XYZ\""), h), Map.class);
-        assertThat(malo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(malo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(malo.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
         ResponseEntity<Map> emitida = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
         assertThat(((Map<?, ?>) emitida.getBody().get("datos")).get("numero")).isEqualTo(1);
@@ -190,7 +192,7 @@ class FacturaE2ETest {
         HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<Map> rara = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"unidad\":\"NIU\"", "\"unidad\":\"XYZ\""), h), Map.class);
-        assertThat(rara.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rara.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(rara.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
         assertThat((String) rara.getBody().get("mensaje")).startsWith("2936 - ").contains("XYZ").contains("catálogo 03");
 
@@ -227,22 +229,22 @@ class FacturaE2ETest {
         boletas.put("2023", boleta.formatted(hoy, "0101", mil));
         boletas.forEach((regla, cuerpo) -> {
             ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, h), Map.class);
-            assertThat(r.getStatusCode()).as(regla).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getStatusCode()).as(regla).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
             assertThat(r.getBody().get("codigo")).as(regla).isEqualTo("ITEM_INVALIDO");
             assertThat((String) r.getBody().get("mensaje")).as(regla).startsWith(regla.strip() + " - ");
         });
         String factura = FACTURA.replace("\"precio_unitario\":2360.00", "\"precio_unitario\":0");
         ResponseEntity<Map> sinPrecio = http.postForEntity("/v1/facturas", new HttpEntity<>(factura, h), Map.class);
-        assertThat(sinPrecio.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinPrecio.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat((String) sinPrecio.getBody().get("mensaje")).startsWith("2369 - ");
         // H4 (revisión de #354): el negativo ya no es un 422 VALIDACION de Bean Validation sino ITEM_INVALIDO del dominio, con la misma regla que el cero.
         ResponseEntity<Map> negativo = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replace("\"precio_unitario\":2360.00", "\"precio_unitario\":-5"), h), Map.class);
-        assertThat(negativo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(negativo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(negativo.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
         assertThat((String) negativo.getBody().get("mensaje")).startsWith("2369 - ");
         ResponseEntity<Map> deMas = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA.replaceAll("\"items\":\\[.*\\]", "\"items\":[" + String.join(",", java.util.Collections.nCopies(1000,
                 pan.formatted("1.18"))) + "]"), h), Map.class);
-        assertThat(deMas.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(deMas.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat((String) deMas.getBody().get("mensaje")).startsWith("2023 - ");
 
         // Nada de lo anterior numeró: la primera boleta válida con bolsas es la B001-1, y la primera factura válida la F001-1.
@@ -273,7 +275,7 @@ class FacturaE2ETest {
             """;
         for (String tipo : new String[]{"06", "07"}) {
             ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, tipo), h), Map.class);
-            assertThat(r.getStatusCode()).as(tipo).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            assertThat(r.getStatusCode()).as(tipo).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
             assertThat(r.getBody().get("codigo")).as(tipo).isEqualTo("DOCUMENTO_RELACIONADO_INVALIDO");
             assertThat((String) r.getBody().get("mensaje")).as(tipo).startsWith("4009 - ").contains(tipo);
         }
@@ -303,7 +305,7 @@ class FacturaE2ETest {
         String hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).toString();
 
         ResponseEntity<Map> caro = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "1401"), h), Map.class);
-        assertThat(caro.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(caro.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(caro.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
 
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(boleta.formatted(hoy, "10"), h), Map.class);
@@ -444,7 +446,7 @@ class FacturaE2ETest {
         String unaLeche = ",\"items\":[{\"codigo\":\"P002\",\"descripcion\":\"Leche\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":4.72,\"tipo_afectacion_igv\":\"10\"}]";
 
         ResponseEntity<Map> descuento = http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "04", unaLeche), h), Map.class);
-        assertThat(descuento.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(descuento.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat((String) descuento.getBody().get("mensaje")).startsWith("4367");
 
         Map<?, ?> total = (Map<?, ?>) http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "01", ""), h), Map.class).getBody().get("datos");
@@ -456,7 +458,7 @@ class FacturaE2ETest {
         assertThat(xml).contains("<ds:Signature", "<cbc:ID>BC01-1</cbc:ID>", "<cbc:ID>B001-1</cbc:ID>", ">03</cbc:DocumentTypeCode>", "schemeID=\"-\"");
 
         ResponseEntity<Map> excede = http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("07", "BC01", hoy, "07", unaLeche), h), Map.class);
-        assertThat(excede.getStatusCode()).as("la NC total ya acreditó la boleta").isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(excede.getStatusCode()).as("la NC total ya acreditó la boleta").isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat((String) excede.getBody().get("mensaje")).startsWith("3286");
 
         Map<?, ?> debito = (Map<?, ?>) http.postForEntity("/v1/notas", new HttpEntity<>(nota.formatted("08", "BD01", hoy, "01", unaLeche), h), Map.class).getBody().get("datos");
@@ -498,13 +500,13 @@ class FacturaE2ETest {
                 .getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"L001\",\"correlativo_inicial\":0}", h), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"F002\",\"correlativo_inicial\":0}", h), Map.class).getStatusCode())
-                .as("la serie de la liquidación empieza con L").isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                .as("la serie de la liquidación empieza con L").isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
 
         // Un vendedor con RUC y el cálculo previo no gastan número: la liquidación emitida después es la 1.
         ResponseEntity<Map> conRuc = http.postForEntity("/v1/liquidaciones-compra", new HttpEntity<>(LIQUIDACION.replace("\"tipo_doc\":\"1\",\"num_doc\":\"45678912\"", "\"tipo_doc\":\"6\",\"num_doc\":\"20131312955\""), h), Map.class);
-        assertThat(conRuc.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(conRuc.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         ResponseEntity<Map> sinUbigeo = http.postForEntity("/v1/liquidaciones-compra", new HttpEntity<>(LIQUIDACION.replace("\"ubigeo\":\"060801\"", "\"ubigeo\":\"999999\""), h), Map.class);
-        assertThat(sinUbigeo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinUbigeo.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(sinUbigeo.getBody().get("codigo")).isEqualTo("LIQUIDACION_INVALIDA");
         assertThat((String) sinUbigeo.getBody().get("mensaje")).startsWith("2917 - ");
         ResponseEntity<Map> calculada = http.postForEntity("/v1/liquidaciones-compra/calcular", new HttpEntity<>(LIQUIDACION, h), Map.class);
@@ -537,7 +539,7 @@ class FacturaE2ETest {
         assertThat((List<?>) listado.getBody().get("datos")).hasSize(1);
 
         ResponseEntity<Map> baja = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Error en el vendedor\"}", h), Map.class);
-        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(baja.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(baja.getBody().get("codigo")).isEqualTo("BAJA_INVALIDA");
         assertThat((String) baja.getBody().get("mensaje")).startsWith("2308 - ");
         ResponseEntity<Map> cdr = http.postForEntity("/v1/facturas/" + id + "/cdr/recuperar", new HttpEntity<>(h), Map.class);
@@ -571,7 +573,7 @@ class FacturaE2ETest {
         assertThat(empresa.get("agente")).isEqualTo(Map.of("retencion", false, "percepcion", false));
 
         ResponseEntity<Map> sinDesignacion = http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"20\",\"serie\":\"R001\",\"correlativo_inicial\":0}", h), Map.class);
-        assertThat(sinDesignacion.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinDesignacion.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(sinDesignacion.getBody().get("codigo")).isEqualTo("AGENTE_NO_DESIGNADO");
         ResponseEntity<Map> emisionSinDesignacion = http.postForEntity("/v1/retenciones", new HttpEntity<>(RETENCION, h), Map.class);
         assertThat(emisionSinDesignacion.getBody().get("codigo")).isEqualTo("AGENTE_NO_DESIGNADO");
@@ -587,7 +589,7 @@ class FacturaE2ETest {
         String fueraDelMes = RETENCION.replaceFirst("\"pago\":\\{\"numero\":1,\"fecha\":\"[0-9-]+\"", "\"pago\":{\"numero\":1,\"fecha\":\"2020-01-01\"");
         assertThat(fueraDelMes).isNotEqualTo(RETENCION);
         ResponseEntity<Map> rechazada = http.postForEntity("/v1/retenciones", new HttpEntity<>(fueraDelMes, h), Map.class);
-        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(rechazada.getBody().get("codigo")).isEqualTo("RETENCION_INVALIDA");
         assertThat((String) rechazada.getBody().get("mensaje")).startsWith("2625 - ");
         ResponseEntity<Map> calculada = http.postForEntity("/v1/retenciones/calcular", new HttpEntity<>(RETENCION, h), Map.class);
@@ -703,6 +705,28 @@ class FacturaE2ETest {
 
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     private void jdbcAdelantarOutbox() { jdbc.update("UPDATE outbox SET siguiente_intento = now() - interval '1 second'"); }
+
+    /**
+     * DEPS-02: los dos multipart del sistema suben una sola parte; Tomcat limita el número de partes y sus cabeceras (CVE-2025-48976/48988, DoS con decenas de miles de
+     * partes en 2 MB) y application.yml lo baja a 5. Una petición con más partes se rechaza con un 422 que nombra ese tope (no con un 500 ni agotando memoria, y
+     * tampoco como ARCHIVO_DEMASIADO_GRANDE: son 3 KB), y una normal sigue pasando.
+     */
+    @Test void unMultipartConMasPartesDeLasPermitidasSeRechazaSinLlegarAlControlador() throws Exception {
+        String apiKey = provisionarTenant();
+        // El mismo certificado válido que acepta provisionarTenant, para que lo único que cambie sea el número de partes
+        byte[] p12 = EmpresaDePrueba.class.getResourceAsStream("/test-cert.p12").readAllBytes();
+        org.springframework.util.MultiValueMap<String, Object> form = new org.springframework.util.LinkedMultiValueMap<>();
+        form.add("archivo", new ByteArrayResource(p12) { @Override public String getFilename() { return "cert.p12"; } });
+        form.add("clave", "test1234");
+        for (int i = 0; i < 20; i++) form.add("relleno" + i, "v");
+        HttpHeaders mh = new HttpHeaders(); mh.set("X-Api-Key", apiKey); mh.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        ResponseEntity<String> r = http.postForEntity("/v1/empresa/certificado", new HttpEntity<>(form, mh), String.class);
+
+        // Spring envuelve el tope de partes de Tomcat en MaxUploadSizeExceededException; el handler lo distingue del tamaño por la causa y responde el máximo real
+        assertThat(r.getStatusCode()).as("%s", r.getBody()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(r.getBody()).contains("DEMASIADAS_PARTES").contains("máximo 5").doesNotContain("ARCHIVO_DEMASIADO_GRANDE");
+    }
 
     @Test void sinApiKeyEs401() {
         ResponseEntity<String> r = http.getForEntity("/v1/facturas", String.class);
@@ -871,7 +895,7 @@ class FacturaE2ETest {
 
         // 20601234565 es un RUC válido que el padrón no tiene.
         ResponseEntity<Map> inexistente = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
-        assertThat(inexistente.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(inexistente.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(inexistente.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
         assertThat((String) inexistente.getBody().get("mensaje")).contains("1083").contains("20601234565");
         assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("el rechazo no gastó el número 1").isZero();
@@ -974,7 +998,7 @@ class FacturaE2ETest {
 
         // Solo con clave SOL, en BETA no hay billValidService.
         ResponseEntity<Map> sinApi = http.exchange(consulta, HttpMethod.GET, new HttpEntity<>(h), Map.class);
-        assertThat(sinApi.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(sinApi.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(sinApi.getBody().get("codigo")).isEqualTo("NO_DISPONIBLE_EN_BETA");
 
         String id = "d20b421e-4ace-46d8-ac8c-4fbb44cfde17";
@@ -1025,7 +1049,7 @@ class FacturaE2ETest {
         assertThat(repetido.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(repetido.getBody().get("codigo")).isEqualTo("DUPLICADO");
         ResponseEntity<Map> invalido = http.postForEntity("/v1/clientes", new HttpEntity<>("{\"tipo_doc\":\"1\",\"num_doc\":\"123\",\"razon_social\":\"JUAN PEREZ\"}", h), Map.class);
-        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(invalido.getBody().get("codigo")).isEqualTo("RECEPTOR_INVALIDO");
 
         ResponseEntity<Map> busqueda = http.exchange("/v1/clientes?q=pacifico", HttpMethod.GET, new HttpEntity<>(h), Map.class);
@@ -1063,10 +1087,10 @@ class FacturaE2ETest {
         assertThat(repetido.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(repetido.getBody().get("codigo")).isEqualTo("DUPLICADO");
         ResponseEntity<Map> invalido = http.postForEntity("/v1/productos", new HttpEntity<>("{\"descripcion\":\"Algo\",\"unidad\":\"XYZ\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":10}", h), Map.class);
-        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(invalido.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(invalido.getBody().get("codigo")).isEqualTo("ITEM_INVALIDO");
         ResponseEntity<Map> enCero = http.postForEntity("/v1/productos", new HttpEntity<>("{\"descripcion\":\"Algo\",\"unidad\":\"ZZ\",\"tipo_afectacion_igv\":\"10\",\"precio_unitario\":0}", h), Map.class);
-        assertThat(enCero.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(enCero.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
 
         ResponseEntity<Map> busqueda = http.exchange("/v1/productos?q=consultoria", HttpMethod.GET, new HttpEntity<>(h), Map.class);
         assertThat(busqueda.getHeaders().getFirst("X-Total-Count")).isEqualTo("1");

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ResumirComprobantesUseCase;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * El resumen de comprobantes de la empresa (#15). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su forma real (snake_case, el desglose
  * de la atención requerida, las monedas) y cómo se rechaza un rango mal pedido.
  */
-@WebMvcTest(controllers = FacturaResumenController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = FacturaResumenController.class)
 @Import(GlobalExceptionHandler.class)
 class FacturaResumenControllerTest {
     static final UUID EMPRESA = UUID.randomUUID();
@@ -38,7 +38,7 @@ class FacturaResumenControllerTest {
     static final LocalDate HASTA = LocalDate.of(2026, 9, 30);
 
     @Autowired MockMvc mvc;
-    @MockBean ResumirComprobantesUseCase resumir;
+    @MockitoBean ResumirComprobantesUseCase resumir;
 
     @Test void elResumenDiceLoEmitidoLoAceptadoLaAtencionDesglosadaYLoFacturadoPorMoneda() throws Exception {
         when(resumir.resumir(EMPRESA, DESDE, HASTA)).thenReturn(new Resumen(DESDE, HASTA, 120, 100, 7, 3, 2, 1, 4, List.of(new Total("PEN", new BigDecimal("12345.67")), new Total("USD", new BigDecimal("500.00")))));

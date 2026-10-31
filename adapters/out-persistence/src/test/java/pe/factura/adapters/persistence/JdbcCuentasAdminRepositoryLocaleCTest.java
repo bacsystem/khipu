@@ -6,7 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import pe.factura.application.port.in.ListarCuentasAdminUseCase.CuentaResumen;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Testcontainers
 class JdbcCuentasAdminRepositoryLocaleCTest {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine")
+    @Container static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine")
             .withEnv("POSTGRES_INITDB_ARGS", "--locale=C --encoding=UTF8");
     static JdbcTemplate jdbc;
     static final Instant T0 = Instant.parse("2026-09-01T10:00:00Z");

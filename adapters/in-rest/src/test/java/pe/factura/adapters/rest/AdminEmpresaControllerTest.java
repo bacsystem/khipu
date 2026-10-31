@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.DetalleEmpresaAdminUseCase;
@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdminEmpresaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminEmpresaController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminEmpresaControllerTest {
     static final UUID ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -37,8 +37,8 @@ class AdminEmpresaControllerTest {
             EstadoCertificado.POR_VENCER, LocalDate.of(2026, 10, 20), 17, true, 2, 31, LocalDate.of(2026, 10, 2), null);
 
     @Autowired MockMvc mvc;
-    @MockBean ListarEmpresasAdminUseCase listar;
-    @MockBean DetalleEmpresaAdminUseCase detalle;
+    @MockitoBean ListarEmpresasAdminUseCase listar;
+    @MockitoBean DetalleEmpresaAdminUseCase detalle;
 
     @Test void devuelveLasEmpresasConTodasLasColumnasYElTotalEnLaCabecera() throws Exception {
         when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(ANDINA));

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarPlanesPublicadosUseCase;
@@ -24,11 +24,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Los planes de la página de precios (H20): público, solo lo que se publica (nombre, precio, límites), sin ids ni cuentas. */
-@WebMvcTest(controllers = PlanesPublicadosController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = PlanesPublicadosController.class)
 @Import(GlobalExceptionHandler.class)
 class PlanesPublicadosControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean ConsultarPlanesPublicadosUseCase planes;
+    @MockitoBean ConsultarPlanesPublicadosUseCase planes;
 
     static final Limites LIMITES = new Limites(Limite.de(300), 1, Limite.de(1), Limite.sinLimite(), 5);
 

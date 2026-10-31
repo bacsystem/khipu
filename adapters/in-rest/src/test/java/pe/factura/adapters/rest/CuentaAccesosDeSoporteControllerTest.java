@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AccesosDeSoporteUseCase;
@@ -21,13 +21,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** El historial de accesos de soporte que ve el propio cliente (#184). */
-@WebMvcTest(controllers = CuentaAccesosDeSoporteController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = CuentaAccesosDeSoporteController.class)
 @Import(GlobalExceptionHandler.class)
 class CuentaAccesosDeSoporteControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
 
     @Autowired MockMvc mvc;
-    @MockBean AccesosDeSoporteUseCase accesos;
+    @MockitoBean AccesosDeSoporteUseCase accesos;
 
     @Test void devuelveLosAccesosDeLaCuentaDeLaSesion() throws Exception {
         when(accesos.deLaCuenta(CUENTA)).thenReturn(List.of(new AccesoDeSoporte(Instant.parse("2026-10-04T10:00:00Z"), "ana@negocio.pe", 900L)));

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.GestionarClientesUseCase;
@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** La API de clientes guardados (#319): su forma real (snake_case, lo opcional ausente), el total en la cabecera y el status de cada error. */
-@WebMvcTest(controllers = ClientesController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = ClientesController.class)
 @Import(GlobalExceptionHandler.class)
 class ClientesControllerTest {
     static final UUID TENANT = UUID.randomUUID(), ID = UUID.randomUUID();
@@ -38,7 +38,7 @@ class ClientesControllerTest {
     static final String CREAR = "{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"COMERCIAL ANDINA S.A.C.\",\"direccion\":\"Av. Lima 1\",\"email\":\"a@b.pe\"}";
 
     @Autowired MockMvc mvc;
-    @MockBean GestionarClientesUseCase clientes;
+    @MockitoBean GestionarClientesUseCase clientes;
 
     static ClienteGuardado cliente() {
         return new ClienteGuardado(ID, TENANT, "6", "20601234565", "COMERCIAL ANDINA S.A.C.", "Av. Lima 1", null, "a@b.pe", AHORA, AHORA);

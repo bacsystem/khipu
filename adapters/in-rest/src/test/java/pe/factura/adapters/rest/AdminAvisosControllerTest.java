@@ -3,8 +3,8 @@ package pe.factura.adapters.rest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,16 +42,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Los avisos a los clientes desde el backoffice (#197). El portal escribe sus tipos a mano a partir de este JSON: lo que se fija acá es su **forma real** (snake_case, lo opcional
  * ausente en lugar de nulo, el total en la cabecera) y el status de cada error del dominio.
  */
-@WebMvcTest(controllers = AdminAvisosController.class, properties = "app.portal-url=https://portal.khipu.test",
-        excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminAvisosController.class, properties = "app.portal-url=https://portal.khipu.test")
 @Import(GlobalExceptionHandler.class)
 class AdminAvisosControllerTest {
     static final UUID EMPRESA = UUID.randomUUID();
     static final UUID CUENTA = UUID.randomUUID();
 
     @Autowired MockMvc mvc;
-    @MockBean ConsultarAvisosUseCase consultar;
-    @MockBean AvisarAlClienteUseCase avisar;
+    @MockitoBean ConsultarAvisosUseCase consultar;
+    @MockitoBean AvisarAlClienteUseCase avisar;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

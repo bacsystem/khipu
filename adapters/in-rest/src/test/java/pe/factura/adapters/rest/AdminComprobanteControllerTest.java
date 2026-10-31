@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.ConsultarComprobanteAdminUseCase;
@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** La ficha de un comprobante en el backoffice (#251). El portal escribe sus tipos a mano: se fija la forma real del JSON (snake_case, lo opcional ausente). */
-@WebMvcTest(controllers = AdminComprobanteController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminComprobanteController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminComprobanteControllerTest {
     static final UUID COMPROBANTE = UUID.randomUUID();
@@ -33,7 +33,7 @@ class AdminComprobanteControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
 
     @Autowired MockMvc mvc;
-    @MockBean ConsultarComprobanteAdminUseCase consulta;
+    @MockitoBean ConsultarComprobanteAdminUseCase consulta;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase;
@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** El plan de una cuenta desde el backoffice (#191): ver, previsualizar y cambiar. */
-@WebMvcTest(controllers = AdminPlanDeCuentaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminPlanDeCuentaController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminPlanDeCuentaControllerTest {
     static final UUID CUENTA = UUID.randomUUID();
@@ -48,7 +48,7 @@ class AdminPlanDeCuentaControllerTest {
     static final Limites LIMITES = new Limites(Limite.de(300), 1, Limite.de(1), Limite.sinLimite(), 5);
 
     @Autowired MockMvc mvc;
-    @MockBean CambiarPlanDeCuentaUseCase planes;
+    @MockitoBean CambiarPlanDeCuentaUseCase planes;
 
     static org.springframework.test.web.servlet.request.RequestPostProcessor clave() {
         return r -> { r.setAttribute(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE); return r; };

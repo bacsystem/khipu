@@ -99,14 +99,18 @@ public class SireController {
             @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")),
             @Content(mediaType = "text/plain", schema = @Schema(type = "string", format = "binary")),
             @Content(mediaType = "application/octet-stream", schema = @Schema(type = "string", format = "binary"))})
-    public ApiResponse<ConciliacionRvieResponse> conciliar(HttpServletRequest req,
-                                                           @Parameter(description = "Periodo tributario, `AAAAMM`", example = "202610") @RequestParam String periodo) throws IOException {
+    @Parameter(name = "periodo", in = io.swagger.v3.oas.annotations.enums.ParameterIn.QUERY, required = true, description = "Periodo tributario, `AAAAMM`", example = "202610", schema = @Schema(type = "string"))
+    public ApiResponse<ConciliacionRvieResponse> conciliar(HttpServletRequest req) throws IOException {
         // Un formulario (lo que curl manda con --data-binary si no se le da Content-Type) lo lee el contenedor como parámetros al buscar `periodo`: el cuerpo llegaría
-        // vacío y la conciliación diría que SUNAT no tiene nada. Se rechaza en vez de responder un reporte falso.
+        // vacío y la conciliación diría que SUNAT no tiene nada. Se rechaza en vez de responder un reporte falso. El periodo se toma de la query string sin pasar por
+        // getParameter: con Tomcat 11 (DEPS-02) un @RequestParam hacía que el contenedor intentara leer el ZIP como formulario y respondía 500 antes de llegar aquí.
         String tipo = req.getContentType() == null ? "" : req.getContentType().toLowerCase(java.util.Locale.ROOT);
         if (tipo.startsWith(MediaType.APPLICATION_FORM_URLENCODED_VALUE) || tipo.startsWith("multipart/"))
             throw new DomainException("PARAMETRO_INVALIDO", "Envíe la propuesta como cuerpo de la petición con Content-Type application/zip, text/plain o application/octet-stream, no como formulario"
                     + " (con curl: -H \"Content-Type: application/zip\" --data-binary @propuesta.zip)");
+        String periodo = org.springframework.web.util.UriComponentsBuilder.fromUriString("?" + (req.getQueryString() == null ? "" : req.getQueryString())).build().getQueryParams().getFirst("periodo");
+        if (periodo == null || periodo.isBlank()) throw new DomainException("PARAMETRO_INVALIDO", "Falta el parámetro periodo (AAAAMM)");
+        periodo = org.springframework.web.util.UriUtils.decode(periodo, java.nio.charset.StandardCharsets.UTF_8);
         if (req.getContentLengthLong() == 0)
             throw new DomainException("RVIE_ARCHIVO_INVALIDO", "La propuesta llegó vacía: envíe el archivo descargado del SIRE como cuerpo de la petición");
         try (InputStream cuerpo = req.getInputStream()) {

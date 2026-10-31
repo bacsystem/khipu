@@ -4,7 +4,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -22,7 +22,7 @@ class MigracionDePlanesTest {
     static final Instant T0 = Instant.parse("2026-03-01T10:00:00Z");
 
     @Test void lasCuentasQueYaExistenMigranAGratisDesdeElDiaQueSeCrearon() {
-        try (PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine")) {
+        try (PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine")) {
             pg.start();
             DriverManagerDataSource ds = new DriverManagerDataSource(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword());
             JdbcTemplate jdbc = new JdbcTemplate(ds);
@@ -46,7 +46,7 @@ class MigracionDePlanesTest {
     }
 
     @Test void sinCuentasLaMigracionNoCreaSuscripciones() {
-        try (PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine")) {
+        try (PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine")) {
             pg.start();
             DriverManagerDataSource ds = new DriverManagerDataSource(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword());
             JdbcTemplate jdbc = new JdbcTemplate(ds);

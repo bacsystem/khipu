@@ -6,7 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -21,7 +22,7 @@ import pe.factura.application.port.in.InformarEnResumenUseCase;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatConsultaGateway;
 import pe.factura.domain.DomainException;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -47,8 +48,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 // Su propiedad da un contexto propio y Spring los guarda todos en caché: cerrarlo al terminar evita sumar uno más al tope de memoria de la suite (ver bootstrap/build.gradle.kts).
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@AutoConfigureTestRestTemplate
 class RelojDesplazadoE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
@@ -96,7 +98,7 @@ class RelojDesplazadoE2ETest {
 
         ResponseEntity<Map> deHoyDeVerdad = http.postForEntity("/v1/facturas",
                 new HttpEntity<>(factura(hoyDelBackend.plusDays(8)), conKey(apiKey)), Map.class);
-        assertThat(deHoyDeVerdad.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(deHoyDeVerdad.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(deHoyDeVerdad.getBody().get("codigo")).isEqualTo("FECHA_INVALIDA");
     }
 
@@ -107,7 +109,7 @@ class RelojDesplazadoE2ETest {
 
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(factura(LocalDate.now(clock)), conKey(apiKey)), Map.class);
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(r.getBody().get("codigo")).isEqualTo("RELOJ_DESPLAZADO");
         assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("no consumió numeración").isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM documento", Long.class)).isZero();
@@ -122,7 +124,7 @@ class RelojDesplazadoE2ETest {
 
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/enviar", new HttpEntity<>(null, conKey(apiKey)), Map.class);
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(r.getBody().get("codigo")).isEqualTo("RELOJ_DESPLAZADO");
         assertThat(jdbc.queryForObject("SELECT estado FROM documento WHERE id = ?::uuid", String.class, id)).as("sigue firmado, no se intentó el envío").isEqualTo("FIRMADO");
     }
@@ -148,7 +150,7 @@ class RelojDesplazadoE2ETest {
 
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/enviar", new HttpEntity<>(null, conKey(apiKey)), Map.class);
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(r.getBody().get("codigo")).isEqualTo("RELOJ_DESPLAZADO");
         assertThat(estado(id)).as("no se cerró por plazo con una fecha falsa").isEqualTo("FIRMADO");
     }
@@ -192,7 +194,7 @@ class RelojDesplazadoE2ETest {
 
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Error en el RUC del cliente\"}", conKey(apiKey)), Map.class);
 
-        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(r.getBody().get("codigo")).isEqualTo("RELOJ_DESPLAZADO");
     }
 

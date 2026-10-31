@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,12 +24,12 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class, AdminIntegridadController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class, AdminIntegridadController.class})
 @Import(GlobalExceptionHandler.class)
 class EmpresaControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean AdministrarTenantUseCase admin;
-    @MockBean pe.factura.application.port.in.VerificarIntegridadUseCase integridad;
+    @MockitoBean AdministrarTenantUseCase admin;
+    @MockitoBean pe.factura.application.port.in.VerificarIntegridadUseCase integridad;
     UUID tenant = UUID.randomUUID();
     UUID cuenta = UUID.randomUUID();
 
@@ -188,6 +188,18 @@ class EmpresaControllerTest {
                         .param("clave", "x").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("ARCHIVO_DEMASIADO_GRANDE"));
+    }
+
+    /** DEPS-02: el tope de partes de Tomcat llega envuelto en la misma MaxUploadSizeExceededException; la respuesta nombra ese límite, no el tamaño del archivo. */
+    @Test void multipartConMasPartesDeLasPermitidasEs422ConSuPropioCodigo() throws Exception {
+        var tope = new org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException("attachment", 5);
+        org.mockito.Mockito.doThrow(new org.springframework.web.multipart.MaxUploadSizeExceededException(-1, new IllegalStateException(tope)))
+                .when(admin).cargarCertificado(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        mvc.perform(multipart("/v1/empresa/certificado").file(new MockMultipartFile("archivo", "c.p12", "application/x-pkcs12", new byte[]{1, 2}))
+                        .param("clave", "x").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("DEMASIADAS_PARTES"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("máximo 5")));
     }
 
     @Test void establecimientosAnexos() throws Exception {

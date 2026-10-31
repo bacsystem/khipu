@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AccionesDeEmpresaUseCase;
@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Cambiar el entorno, revocar una API key y probar la conexión de una empresa desde el backoffice (#187). */
-@WebMvcTest(controllers = AdminEmpresaAccionesController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminEmpresaAccionesController.class)
 @Import(GlobalExceptionHandler.class)
 class AdminEmpresaAccionesControllerTest {
     static final UUID ID = UUID.randomUUID();
@@ -36,7 +36,7 @@ class AdminEmpresaAccionesControllerTest {
     static final String BASE = "/v1/admin/empresas/" + ID;
 
     @Autowired MockMvc mvc;
-    @MockBean AccionesDeEmpresaUseCase acciones;
+    @MockitoBean AccionesDeEmpresaUseCase acciones;
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder conClave(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder b) {
         return b.requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE);

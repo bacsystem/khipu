@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.SoporteDeAccesoUseCase;
@@ -23,8 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdminUsuarioController.class, properties = "app.portal-url=https://portal.khipu.test",
-        excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AdminUsuarioController.class, properties = "app.portal-url=https://portal.khipu.test")
 @Import(GlobalExceptionHandler.class)
 class AdminUsuarioControllerTest {
     static final UUID CUENTA = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -33,7 +32,7 @@ class AdminUsuarioControllerTest {
     static final ActorAdmin CLAVE = ActorAdmin.clavePlataforma("127.0.0.1");
 
     @Autowired MockMvc mvc;
-    @MockBean SoporteDeAccesoUseCase soporte;
+    @MockitoBean SoporteDeAccesoUseCase soporte;
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder como(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder b) {
         return b.requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE);

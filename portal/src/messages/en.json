@@ -1762,6 +1762,7 @@
     "NO_ENCONTRADO": "We could not find what you are looking for.",
     "CREDENCIALES_SOL_INVALIDAS": "The SOL user is required and cannot contain spaces. The password cannot be empty either.",
     "ARCHIVO_DEMASIADO_GRANDE": "The file exceeds the maximum size. A .p12 certificate weighs only a few KB: check that it is the right file.",
+    "DEMASIADAS_PARTES": "The request has more parts than allowed. The certificate is sent with two fields (file and password) and the logo with one.",
     "DOMICILIO_INVALIDO": "The registered address is not valid. Check the district and the address.",
     "CUENTA_DETRACCIONES_INVALIDA": "The Banco de la Nación detractions account is not valid.",
     "NOMBRE_COMERCIAL_INVALIDO": "The trade name is not valid: up to 1500 characters, no line breaks.",
@@ -4293,8 +4294,8 @@
           ],
           [
             "Digital certificate",
-            "A .p12 or .pfx file of up to 1 MB.",
-            "422 ARCHIVO_DEMASIADO_GRANDE."
+            "A .p12 or .pfx file of up to 1 MB, in a multipart request of up to 5 parts.",
+            "422 ARCHIVO_DEMASIADO_GRANDE or 422 DEMASIADAS_PARTES."
           ],
           [
             "Portal sign-in",

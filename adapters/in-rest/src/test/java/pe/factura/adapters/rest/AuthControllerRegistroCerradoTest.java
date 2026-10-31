@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AceptarTerminosUseCase;
@@ -22,12 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * puesto a mano en el test. Es la propiedad de seguridad que importa — un despliegue que se olvida de fijar
  * {@code REGISTRO_ABIERTO} queda cerrado, no abierto.
  */
-@WebMvcTest(controllers = AuthController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = AuthController.class)
 @Import({GlobalExceptionHandler.class, IpDelCliente.class})
 class AuthControllerRegistroCerradoTest {
     @Autowired MockMvc mvc;
-    @MockBean AutenticarUsuarioUseCase auth;
-    @MockBean AceptarTerminosUseCase terminos;
+    @MockitoBean AutenticarUsuarioUseCase auth;
+    @MockitoBean AceptarTerminosUseCase terminos;
 
     @Test void conElRegistroCerradoRechazaAntesDeLlamarAlCasoDeUso() throws Exception {
         mvc.perform(post("/v1/auth/registro").contentType("application/json")

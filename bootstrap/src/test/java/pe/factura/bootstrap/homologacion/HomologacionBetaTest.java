@@ -10,14 +10,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import pe.factura.adapters.sunat.ZipUtil;
 
 import java.io.IOException;
@@ -50,10 +51,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.MethodName.class)
+@AutoConfigureTestRestTemplate
 class HomologacionBetaTest {
     // Con PER_CLASS la instancia (y el contexto de Spring) se crea antes de los callbacks de @Testcontainers, así que el
     // contenedor se arranca en el inicializador estático; Ryuk lo elimina al terminar la JVM.
-    @ServiceConnection static final PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @ServiceConnection static final PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
     static { pg.start(); }
 
     static final String RUC = env("HOMOLOGACION_RUC", "20100066603");
