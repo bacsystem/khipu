@@ -17,6 +17,8 @@ test("el menú lleva a las guías, que se listan con su estado y avisan que son 
   await expect(page.getByRole("heading", { name: "Guías de remisión" })).toBeVisible();
   await expect(page.getByRole("note")).toContainText("Función experimental");
 
+  // Las guías que emiten otros specs en el mismo mock van delante (por fecha) y empujan las fixtures a la segunda página de 10: se pide una de 50, como en los specs de admin.
+  await page.goto("/guias?por_pagina=50");
   const aceptada = page.getByRole("row", { name: /T001-00000008/ });
   await expect(aceptada).toContainText("Aceptada");
   await expect(aceptada).toContainText("PESQUERA PACÍFICO S.A.C.");
@@ -43,7 +45,7 @@ test("filtra por estado y por tipo, y los filtros viven en la URL", async ({ pag
 });
 
 test("la ficha de una guía aceptada muestra su constancia, el traslado, los bienes y las descargas", async ({ page }) => {
-  await page.goto("/guias");
+  await page.goto("/guias?por_pagina=50");
   await page.getByRole("link", { name: "Ver la guía T001-00000008" }).click();
   await expect(page).toHaveURL(/\/guias\/g-aceptada/);
   await expect(page.getByTestId("guia-numero")).toHaveText("T001-00000008");

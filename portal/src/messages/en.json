@@ -3860,6 +3860,7 @@
       "sinConexion": "The connection dropped and we do not know whether the request arrived. Reload the page to see the guide's status before trying again."
     },
     "form": {
+      "domicilioFiscal": "Tax address",
       "titulo": "New dispatch guide",
       "volver": "Back to the guides",
       "serie": "Series",
@@ -3881,7 +3882,6 @@
         "01": "Public transport (a transport company does it)",
         "02": "Private transport (you do it, with your own vehicle)"
       },
-      "transportista": "Transport company",
       "transportistaRuc": "Carrier RUC",
       "transportistaNombre": "Business name",
       "registroMtc": "MTC registry",
@@ -3901,9 +3901,6 @@
       "puntoEstablecimiento": "An establishment of my company",
       "puntoDireccion": "Another address",
       "puntoEstablecimientoSelect": "Establishment",
-      "ubigeo": "Ubigeo",
-      "ubigeoAyuda": "6 digits from SUNAT's catalog 13.",
-      "ubigeoDesconocido": "That ubigeo is not in catalog 13.",
       "direccion": "Address",
       "vehiculos": "Vehicles",
       "vehiculosAyuda": "The first is the main one; you can add up to two secondary ones.",
@@ -3941,6 +3938,10 @@
       "emitiendo": "Issuing…",
       "cancelar": "Cancel",
       "errores": {
+        "sinDescripcionMotivo": "With the reason «Other», describe the reason for the transfer.",
+        "pesoDecimales": "The gross weight allows up to 12 integer digits and 3 decimals.",
+        "documentoNumeroInvalido": "The number of a related invoice, receipt or guide is written as series-number, for example F001-123.",
+        "documentoSinRuc": "Give the RUC (11 digits) of whoever issued each related invoice, receipt or guide.",
         "sinSerie": "Choose a series.",
         "sinDestinatario": "Fill in the recipient's document type, number and name.",
         "sinRemitente": "Fill in the sender's document type, number and name.",

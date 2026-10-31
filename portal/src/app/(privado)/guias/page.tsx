@@ -4,6 +4,7 @@ import { getMessages } from "next-intl/server";
 import { porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { AvisoExperimental } from "@/components/guias/aviso-experimental";
 import { GuiasTable } from "@/components/guias/guias-table";
+import { NuevaGuiaEnlace } from "@/components/guias/nueva-guia-enlace";
 import { filtrosDeGuiasDesdeParams, listarGuias } from "@/lib/api/guias";
 import { getServerSession } from "@/lib/session-server";
 
@@ -41,6 +42,9 @@ export default async function GuiasPage({
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       {/* El título de la página (h1) lo pone la barra superior con la miga. */}
+      <div className="flex justify-end">
+        <NuevaGuiaEnlace />
+      </div>
       <AvisoExperimental />
       <GuiasTable datos={datos} total={total} pagina={paginaNum} porPagina={porPagina} filtros={filtros} />
     </div>

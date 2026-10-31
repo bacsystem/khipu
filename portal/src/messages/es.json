@@ -3860,6 +3860,7 @@
       "sinConexion": "Se cortó la conexión y no sabemos si el pedido llegó. Recarga la ficha para ver el estado de la guía antes de volver a intentarlo."
     },
     "form": {
+      "domicilioFiscal": "Domicilio fiscal",
       "titulo": "Nueva guía de remisión",
       "volver": "Volver a las guías",
       "serie": "Serie",
@@ -3881,7 +3882,6 @@
         "01": "Transporte público (lo hace una empresa de transporte)",
         "02": "Transporte privado (lo haces tú, con tu vehículo)"
       },
-      "transportista": "Empresa de transporte",
       "transportistaRuc": "RUC del transportista",
       "transportistaNombre": "Razón social",
       "registroMtc": "Registro MTC",
@@ -3901,9 +3901,6 @@
       "puntoEstablecimiento": "Un establecimiento de mi empresa",
       "puntoDireccion": "Otra dirección",
       "puntoEstablecimientoSelect": "Establecimiento",
-      "ubigeo": "Ubigeo",
-      "ubigeoAyuda": "6 dígitos del catálogo 13 de SUNAT.",
-      "ubigeoDesconocido": "Ese ubigeo no está en el catálogo 13.",
       "direccion": "Dirección",
       "vehiculos": "Vehículos",
       "vehiculosAyuda": "El primero es el principal; puedes añadir hasta dos secundarios.",
@@ -3941,6 +3938,10 @@
       "emitiendo": "Emitiendo…",
       "cancelar": "Cancelar",
       "errores": {
+        "sinDescripcionMotivo": "Con el motivo «Otros» describe el motivo del traslado.",
+        "pesoDecimales": "El peso bruto admite hasta 12 enteros y 3 decimales.",
+        "documentoNumeroInvalido": "El número de una factura, boleta o guía relacionada va como serie-número, por ejemplo F001-123.",
+        "documentoSinRuc": "Indica el RUC (11 dígitos) de quien emitió cada factura, boleta o guía relacionada.",
         "sinSerie": "Elige una serie.",
         "sinDestinatario": "Completa el tipo, el número y el nombre del destinatario.",
         "sinRemitente": "Completa el tipo, el número y el nombre del remitente.",
