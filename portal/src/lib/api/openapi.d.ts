@@ -474,6 +474,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sire/rvie/propuesta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir a SUNAT la propuesta del registro de ventas de un periodo (experimental)
+         * @description **EXPERIMENTAL: apagado por defecto en el servidor** (`422 SIRE_NO_DISPONIBLE`) hasta que el operador haga la corrida controlada contra el SIRE real.
+         *
+         *     Le pide a SUNAT, por la API del SIRE, que prepare la propuesta del RVIE del periodo, y devuelve el ticket (`202`). Solo lee: no reemplaza ni acepta nada en el SIRE.
+         *     Usa las credenciales API SUNAT de la empresa (una aplicación registrada en SOL como «MIGE RCE y RVIE - SIRE») y sus credenciales SOL. Siga con
+         *     `GET /v1/sire/rvie/propuesta/{ticket}` hasta `TERMINADO` y concilie con `GET /v1/sire/rvie/propuesta/{ticket}/conciliacion`.
+         *
+         *     Errores: `400 PARAMETRO_INVALIDO` (periodo), `404 NO_ENCONTRADO` (SUNAT no tiene comprobantes en el periodo), `422` con `SIRE_NO_DISPONIBLE`,
+         *     `CREDENCIALES_API_SUNAT_NO_CARGADAS`, `CREDENCIALES_SOL_NO_CARGADAS`, `CREDENCIALES_SIRE_RECHAZADAS` o `SIRE_RECHAZO` (SUNAT rechaza el pedido; el mensaje trae su
+         *     código), y `503 SUNAT_NO_DISPONIBLE`.
+         */
+        post: operations["solicitarPropuestaRvie"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sire/rvie/conciliacion": {
         parameters: {
             query?: never;
@@ -2293,6 +2321,56 @@ export interface paths {
          *     `X-Rvie-Sin-Tipo-Cambio`). Si la lectura falla a mitad de camino, la descarga se corta con un ZIP inválido, nunca con un archivo que parezca completo.
          */
         get: operations["exportarRvie"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sire/rvie/propuesta/{ticket}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver cómo va la propuesta que se le pidió a SUNAT (experimental)
+         * @description **EXPERIMENTAL: apagado por defecto en el servidor.** Consulta el ticket de `POST /v1/sire/rvie/propuesta` en el SIRE: `EN_PROCESO` (vuelva a consultar en unos
+         *     segundos), `TERMINADO` (lista para conciliar) o `CON_ERRORES`. Trae el código y la descripción del estado que da SUNAT. Los mismos errores que al pedirla,
+         *     más `404 NO_ENCONTRADO` si SUNAT no tiene ese ticket en ese periodo.
+         */
+        get: operations["estadoPropuestaRvie"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sire/rvie/propuesta/{ticket}/conciliacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conciliar el registro de ventas con la propuesta que SUNAT preparó (experimental)
+         * @description **EXPERIMENTAL: apagado por defecto en el servidor; el formato de la propuesta es un supuesto sin verificar contra el SIRE** (ver `POST /v1/sire/rvie/conciliacion`).
+         *
+         *     Baja de SUNAT, por la API del SIRE, los archivos que preparó para el ticket y los concilia con lo que khipu emitió, igual que `POST /v1/sire/rvie/conciliacion` pero
+         *     sin que usted descargue ni suba nada. No guarda nada. Como esa conciliación, **cubre solo lo emitido en khipu**: exija `solo_en_sunat` vacío antes de reemplazar
+         *     la propuesta.
+         *
+         *     Errores: los de `POST /v1/sire/rvie/propuesta`, más `409 PROPUESTA_NO_LISTA` (el ticket sigue en proceso), `422 PROPUESTA_CON_ERRORES` (SUNAT no pudo
+         *     prepararla), `422 RVIE_ARCHIVO_INVALIDO` (un archivo que no se puede leer, de otro RUC o periodo; el mensaje dice cuál archivo, la línea y el campo),
+         *     `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE`.
+         */
+        get: operations["conciliarRvieConSunat"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4328,6 +4406,68 @@ export interface components {
              * @description Id de la entrega de prueba; aparece en el log de entregas
              */
             entrega_id?: string;
+        };
+        ApiResponsePropuestaRvie: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["PropuestaRvie"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        /** @description EXPERIMENTAL. El ticket con que SUNAT prepara la propuesta del RVIE de un periodo, y cómo va */
+        PropuestaRvie: {
+            /**
+             * @description Periodo de la propuesta, `AAAAMM`
+             * @example 202610
+             */
+            periodo?: string;
+            /**
+             * @description Número de ticket de SUNAT, con el que se consulta y se concilia
+             * @example 202600000123
+             */
+            ticket?: string;
+            /**
+             * @description `EN_PROCESO` (SUNAT la prepara: vuelva a consultar), `TERMINADO` (lista para conciliar) o `CON_ERRORES` (SUNAT no pudo prepararla: pídala de nuevo)
+             * @example EN_PROCESO
+             * @enum {string}
+             */
+            estado?: "EN_PROCESO" | "TERMINADO" | "CON_ERRORES";
+            /**
+             * @description Código de estado de envío de SUNAT (Anexo III del manual del servicio API del RVIE); vacío al pedir la propuesta
+             * @example 05
+             */
+            codigo_sunat?: string;
+            /**
+             * @description Descripción del estado de envío que da SUNAT; vacía al pedir la propuesta
+             * @example En proceso
+             */
+            descripcion_sunat?: string;
+            /**
+             * Format: int32
+             * @description Archivos que SUNAT preparó (un periodo grande llega partido); 0 mientras no termina
+             * @example 1
+             */
+            archivos?: number;
         };
         ApiResponseConciliacionRvie: {
             /**
@@ -11827,6 +11967,32 @@ export interface operations {
             };
         };
     };
+    solicitarPropuestaRvie: {
+        parameters: {
+            query: {
+                /**
+                 * @description Periodo tributario, `AAAAMM`
+                 * @example 202610
+                 */
+                periodo: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SUNAT aceptó el pedido: el ticket para seguirlo */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePropuestaRvie"];
+                };
+            };
+        };
+    };
     conciliarRvie: {
         parameters: {
             query: {
@@ -14180,6 +14346,70 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["StreamingResponseBody"];
+                };
+            };
+        };
+    };
+    estadoPropuestaRvie: {
+        parameters: {
+            query: {
+                /**
+                 * @description Periodo tributario del ticket, `AAAAMM`
+                 * @example 202610
+                 */
+                periodo: string;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description El número de ticket que dio `POST /v1/sire/rvie/propuesta`
+                 * @example 202600000123
+                 */
+                ticket: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePropuestaRvie"];
+                };
+            };
+        };
+    };
+    conciliarRvieConSunat: {
+        parameters: {
+            query: {
+                /**
+                 * @description Periodo tributario del ticket, `AAAAMM`
+                 * @example 202610
+                 */
+                periodo: string;
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description El número de ticket que dio `POST /v1/sire/rvie/propuesta`
+                 * @example 202600000123
+                 */
+                ticket: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseConciliacionRvie"];
                 };
             };
         };

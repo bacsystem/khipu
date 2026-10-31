@@ -58,6 +58,7 @@ import pe.factura.adapters.sunat.SoapConsultaGateway;
 import pe.factura.adapters.sunat.SondeoDeSunatHttp;
 import pe.factura.adapters.sunatrest.ClienteApiSunat;
 import pe.factura.adapters.sunatrest.RestGreGateway;
+import pe.factura.adapters.sunatrest.RestSireGateway;
 import pe.factura.adapters.sunatrest.RestValidezGateway;
 import pe.factura.adapters.sunatrest.UrlPorEntorno;
 import pe.factura.adapters.scheduler.RecuperarCdrWorker;
@@ -380,6 +381,21 @@ public class AppConfig {
         if (!habilitada) LoggerFactory.getLogger(AppConfig.class).info("Envío de guías de remisión a SUNAT apagado (SUNAT_API_GRE_HABILITADA=false): se emiten sin enviar. Ver deploy/README.md §14.");
         return g;
     }
+    /**
+     * #322: la propuesta del RVIE del SIRE por la API REST de SUNAT. Solo lee. Apagado por defecto ({@code app.sunat-api.sire-habilitada}): el contrato no se verificó
+     * contra SUNAT. SUNAT no publica una instancia de pruebas del SIRE, así que beta usa por defecto las URLs de producción. Ver RestSireGateway y deploy/README.md §15.
+     */
+    @Bean SunatSireGateway sunatSireGateway(Clock clock, @Value("${app.sunat-api.sire-habilitada:false}") boolean habilitada,
+                                            @Value("${app.sunat-api.seguridad-url}") String seguridad, @Value("${app.sunat-api.seguridad-beta-url}") String seguridadBeta,
+                                            @Value("${app.sunat-api.sire-url}") String sire, @Value("${app.sunat-api.sire-beta-url}") String sireBeta,
+                                            @Value("${app.sunat-api.sire-timeout-seconds:30}") int segundos) {
+        if (segundos < 1 || segundos > 120) throw new IllegalStateException("SUNAT_API_SIRE_TIMEOUT_SECONDS debe estar entre 1 y 120 (es " + segundos + ")");
+        Duration espera = Duration.ofSeconds(segundos);
+        ClienteApiSunat cliente = new ClienteApiSunat(espera.compareTo(Duration.ofSeconds(5)) < 0 ? espera : Duration.ofSeconds(5), espera, clock);
+        if (!habilitada) LoggerFactory.getLogger(AppConfig.class).info("Conexión con el SIRE apagada (SUNAT_API_SIRE_HABILITADA=false): la propuesta del RVIE se concilia subiendo el archivo. Ver deploy/README.md §15.");
+        return new RestSireGateway(habilitada, new UrlPorEntorno(seguridadBeta, seguridad), new UrlPorEntorno(sireBeta, sire), cliente);
+    }
+
     @Bean RechazoDeCredencialesGreRepository rechazoDeCredencialesGreRepository(JdbcTemplate jdbc) { return new JdbcRechazoDeCredencialesGreRepository(jdbc); }
     @Bean GuiaRemisionRepository guiaRemisionRepository(JdbcTemplate jdbc) { return new JdbcGuiaRemisionRepository(jdbc); }
     @Bean GuiaUblGenerator guiaUblGenerator() { return new FreemarkerGuiaUblGenerator(); }
@@ -587,8 +603,8 @@ public class AppConfig {
     @Bean pe.factura.application.port.out.RegistroDeVentasRepository registroDeVentasRepository(JdbcTemplate jdbc) {
         return new JdbcRegistroDeVentasRepository(jdbc, new JdbcComprobanteRepository(jdbc));
     }
-    @Bean pe.factura.application.port.in.RegistroDeVentasSireUseCase registroDeVentasSire(pe.factura.application.port.out.RegistroDeVentasRepository registro, TenantRepository tenants, Clock clock) {
-        return new pe.factura.application.service.RegistroDeVentasSireService(registro, tenants, clock);
+    @Bean pe.factura.application.port.in.RegistroDeVentasSireUseCase registroDeVentasSire(pe.factura.application.port.out.RegistroDeVentasRepository registro, TenantRepository tenants, SunatSireGateway sire, Clock clock) {
+        return new pe.factura.application.service.RegistroDeVentasSireService(registro, tenants, sire, clock);
     }
     @Bean ConsultarConsumoDeCuentasUseCase consultarConsumoDeCuentas(ConsumoPorCuentaRepository consumos, Clock clock) { return new ConsultarConsumoDeCuentasService(consumos, clock); }
     /** Un solo servicio para las dos caras del cambio de plan: lo que hacen los administradores y lo que aplica el trabajo programado al llegar la fecha. */

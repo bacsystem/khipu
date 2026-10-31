@@ -166,6 +166,12 @@ app:
     gre-seguridad-beta-url: ${SUNAT_API_GRE_SEGURIDAD_BETA_URL:}
     # La GRE puede tardar más que una consulta: el envío lleva el ZIP del XML firmado.
     gre-timeout-seconds: ${SUNAT_API_GRE_TIMEOUT_SECONDS:30}
+    # #322: la propuesta del RVIE del SIRE (api-sire.sunat.gob.pe; token del mismo api-seguridad). Solo lee. Apagado por defecto: el contrato con el SIRE no se
+    # verificó contra SUNAT; el dueño lo enciende tras la corrida controlada de deploy/README.md §15. SUNAT no publica una instancia de pruebas: beta usa la misma URL.
+    sire-habilitada: ${SUNAT_API_SIRE_HABILITADA:false}
+    sire-url: ${SUNAT_API_SIRE_URL:https://api-sire.sunat.gob.pe}
+    sire-beta-url: ${SUNAT_API_SIRE_BETA_URL:https://api-sire.sunat.gob.pe}
+    sire-timeout-seconds: ${SUNAT_API_SIRE_TIMEOUT_SECONDS:30}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}

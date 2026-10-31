@@ -277,6 +277,16 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <NotaProsa>
           <Rico texto={t.sire.consolidadas} />
         </NotaProsa>
+        <P>
+          <Rico texto={t.sire.propuestaSunat} />
+        </P>
+        <BloqueCodigo
+          titulo={t.sire.curlPropuesta}
+          codigo={tecnico`curl -X POST "${base}/v1/sire/rvie/propuesta?periodo=202610" \\
+  -H "X-Api-Key: fk_TU_API_KEY"
+curl "${base}/v1/sire/rvie/propuesta/TICKET/conciliacion?periodo=202610" \\
+  -H "X-Api-Key: fk_TU_API_KEY"`}
+        />
       </Seccion>
 
       <Seccion id="buenas-practicas" titulo={t.indice.buenasPracticas}>

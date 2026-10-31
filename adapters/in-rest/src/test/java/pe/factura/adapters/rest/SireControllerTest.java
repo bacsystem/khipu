@@ -9,6 +9,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase.Conciliacion;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase.Exportacion;
+import pe.factura.application.port.in.RegistroDeVentasSireUseCase.EstadoDePropuesta;
+import pe.factura.application.port.in.RegistroDeVentasSireUseCase.PropuestaSolicitada;
+import pe.factura.application.port.out.SunatSireGateway;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.sire.ConciliacionRvie;
 import pe.factura.domain.sire.PeriodoSire;
@@ -125,5 +128,55 @@ class SireControllerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("RVIE_ARCHIVO_INVALIDO"))
                 .andExpect(jsonPath("$.mensaje").value("La propuesta del RVIE no se puede leer (línea 3): x"));
+    }
+
+    // --- la propuesta que SUNAT prepara por la API del SIRE (fase 2) ------------------------------------------------------------------------
+
+    @Test void pedirLaPropuestaResponde202ConElTicket() throws Exception {
+        when(registro.solicitarPropuesta(tenant, "202610")).thenReturn(new PropuestaSolicitada(PeriodoSire.de("202610"), "202600000123"));
+        mvc.perform(post("/v1/sire/rvie/propuesta?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.datos.periodo").value("202610"))
+                .andExpect(jsonPath("$.datos.ticket").value("202600000123"))
+                .andExpect(jsonPath("$.datos.estado").value("EN_PROCESO"))
+                .andExpect(jsonPath("$.datos.archivos").value(0));
+    }
+
+    @Test void elEstadoDelTicketDiceLaFaseYLoQueSunatInforma() throws Exception {
+        when(registro.estadoDePropuesta(tenant, "202610", "202600000123"))
+                .thenReturn(new EstadoDePropuesta(PeriodoSire.de("202610"), "202600000123", SunatSireGateway.Fase.TERMINADO, "06", "Terminado", 2));
+        mvc.perform(get("/v1/sire/rvie/propuesta/202600000123?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.estado").value("TERMINADO"))
+                .andExpect(jsonPath("$.datos.codigo_sunat").value("06"))
+                .andExpect(jsonPath("$.datos.descripcion_sunat").value("Terminado"))
+                .andExpect(jsonPath("$.datos.archivos").value(2));
+    }
+
+    @Test void conciliarConSunatResponde200ConElMismoReporteQueLaConciliacionSubida() throws Exception {
+        ConciliacionRvie.Resultado r = new ConciliacionRvie.Resultado(2, 2, 2, 0, 0, 0, 0, List.of(), List.of(), List.of());
+        when(registro.conciliarConSunat(tenant, "202610", "202600000123")).thenReturn(new Conciliacion(PeriodoSire.de("202610"), 0, 0, r));
+        mvc.perform(get("/v1/sire/rvie/propuesta/202600000123/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.cuadra").value(true))
+                .andExpect(jsonPath("$.datos.coinciden").value(2));
+    }
+
+    @Test void sinPeriodoLasRutasDeLaPropuestaSonParametroInvalido() throws Exception {
+        mvc.perform(post("/v1/sire/rvie/propuesta").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isBadRequest());
+        mvc.perform(get("/v1/sire/rvie/propuesta/1").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isBadRequest());
+        mvc.perform(get("/v1/sire/rvie/propuesta/1/conciliacion").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isBadRequest());
+        verifyNoInteractions(registro);
+    }
+
+    @Test void losErroresDelSireTienenSuCodigoYSuHttp() throws Exception {
+        record Caso(String codigo, int http) {}
+        for (Caso c : List.of(new Caso("NO_ENCONTRADO", 404), new Caso("PROPUESTA_NO_LISTA", 409), new Caso("PROPUESTA_CON_ERRORES", 422), new Caso("SIRE_NO_DISPONIBLE", 422),
+                new Caso("CREDENCIALES_SIRE_RECHAZADAS", 422), new Caso("SIRE_RECHAZO", 422), new Caso("SUNAT_NO_DISPONIBLE", 503), new Caso("CREDENCIALES_API_SUNAT_NO_CARGADAS", 422))) {
+            reset(registro);
+            when(registro.conciliarConSunat(any(), any(), any())).thenThrow(new DomainException(c.codigo(), "motivo " + c.codigo()));
+            mvc.perform(get("/v1/sire/rvie/propuesta/1/conciliacion?periodo=202610").requestAttr(TenantActual.ATRIBUTO, tenant))
+                    .andExpect(status().is(c.http())).andExpect(jsonPath("$.codigo").value(c.codigo()));
+        }
     }
 }

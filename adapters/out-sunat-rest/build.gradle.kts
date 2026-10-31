@@ -11,7 +11,7 @@ dependencies {
 // #318: la prueba controlada con SUNAT real (sale a Internet y, con credenciales, lee datos reales de una empresa): no forma parte de `test`.
 // Se corre a propósito con `./gradlew :adapters:out-sunat-rest:validezReal` (variables VALIDEZ_*, ver deploy/README.md sección 13).
 tasks.test {
-    useJUnitPlatform { excludeTags("sunat-real") }
+    useJUnitPlatform { excludeTags("sunat-real", "sunat-real-sire") }
 }
 
 tasks.register<Test>("validezReal") {
@@ -25,5 +25,20 @@ tasks.register<Test>("validezReal") {
     doFirst { salida.deleteRecursively() }   // evidencia solo de esta ejecución
     outputs.upToDateWhen { false }
     // El resumen ya lo imprime la prueba; sin esto Gradle lo esconde cuando la corrida cumple.
+    testLogging { events("passed", "failed"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+}
+
+// #322: la prueba controlada con el SIRE real (pide la propuesta del RVIE de un periodo, sigue el ticket y baja el archivo; solo lee). Misma idea que `validezReal`, con su propia
+// etiqueta para que una corrida no arrastre a la otra. Variables SIRE_*, ver deploy/README.md sección 15.
+tasks.register<Test>("sireReal") {
+    description = "Pide la propuesta del RVIE al SIRE de SUNAT con las credenciales de una empresa y la lee (corrida controlada, #322)"
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("sunat-real-sire") }
+    val salida = layout.buildDirectory.dir("sire-real").get().asFile
+    systemProperty("sire.salida", salida.absolutePath)
+    doFirst { salida.deleteRecursively() }   // evidencia solo de esta ejecución
+    outputs.upToDateWhen { false }
     testLogging { events("passed", "failed"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

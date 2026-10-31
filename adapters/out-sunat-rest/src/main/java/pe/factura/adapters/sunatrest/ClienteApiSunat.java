@@ -61,7 +61,23 @@ public class ClienteApiSunat {
         return llamar(credenciales, token -> http.get(url, "Bearer " + token), codigo);
     }
 
+    /**
+     * La descarga autenticada de un archivo (#322: el de la propuesta del SIRE), con el mismo trato de errores que {@link #getJson}: los bytes tal cual los dio
+     * SUNAT. Si pasan de {@code maximoBytes}, {@code TransporteHttp.ArchivoDemasiadoGrande}.
+     */
+    byte[] descargar(PedidoDeToken credenciales, String url, long maximoBytes) {
+        return exitosa(credenciales, token -> http.getBinario(url, "Bearer " + token, maximoBytes), CodigoDeRechazo.DEL_DETALLE).bytes();
+    }
+
     private JsonNode llamar(PedidoDeToken credenciales, java.util.function.Function<String, TransporteHttp.Respuesta> llamada, CodigoDeRechazo codigo) {
+        TransporteHttp.Respuesta r = exitosa(credenciales, llamada, codigo);
+        JsonNode n = leer(r.cuerpo());
+        if (n == null) throw new SunatTransientException("0000", "La API de SUNAT respondió algo que no es JSON");
+        return n;
+    }
+
+    /** La respuesta 2xx de la llamada, o la excepción que corresponde a cualquier otra (ver la tabla de la clase). */
+    private TransporteHttp.Respuesta exitosa(PedidoDeToken credenciales, java.util.function.Function<String, TransporteHttp.Respuesta> llamada, CodigoDeRechazo codigo) {
         TransporteHttp.Respuesta r = llamada.apply(oauth.token(credenciales));
         if (r.status() == 401) {
             oauth.invalidar(credenciales);
@@ -77,9 +93,7 @@ public class ClienteApiSunat {
             throw new SunatRechazoException(cod.isBlank() ? String.valueOf(r.status()) : cod, "HTTP " + r.status() + motivo(r.cuerpo(), credenciales));
         }
         if (r.status() < 200 || r.status() >= 300) throw new SunatTransientException("0000", "La API de SUNAT respondió HTTP " + r.status() + motivo(r.cuerpo(), credenciales));
-        JsonNode n = leer(r.cuerpo());
-        if (n == null) throw new SunatTransientException("0000", "La API de SUNAT respondió algo que no es JSON");
-        return n;
+        return r;
     }
 
     /** El código del primer error de {@code errors[]}: {@code codError} (consulta de validez, ticket de la GRE) o {@code cod} (envío de la GRE). */

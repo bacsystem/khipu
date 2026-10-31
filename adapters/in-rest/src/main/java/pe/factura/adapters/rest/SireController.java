@@ -13,12 +13,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import pe.factura.adapters.rest.dto.ConciliacionRvieResponse;
+import pe.factura.adapters.rest.dto.PropuestaRvieResponse;
 import pe.factura.application.port.in.RegistroDeVentasSireUseCase;
 import pe.factura.domain.DomainException;
 
@@ -30,8 +32,8 @@ import java.io.InputStream;
 @RequiredArgsConstructor
 @Tag(name = "SIRE", description = """
         **EXPERIMENTAL.** Registro de Ventas e Ingresos Electrónico (RVIE) del SIRE: el archivo de reemplazo de la propuesta, armado con los comprobantes que khipu emitió y
-        SUNAT tiene, y la conciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu no se conecta al SIRE: el archivo lo sube usted (o su contador)
-        en SUNAT Operaciones en Línea. **El formato está reconstruido** del Anexo III de la RS 000138-2023 (que cubre solo una parte de los campos) y del control de cambios
+        SUNAT tiene, y la conciliación de esos comprobantes con la propuesta que usted descarga del SIRE. khipu nunca escribe en el SIRE: el archivo de reemplazo lo sube usted (o su contador)
+        en SUNAT Operaciones en Línea. Lo único que khipu hace con el SIRE es leer la propuesta (`/v1/sire/rvie/propuesta`), y solo si el servidor tiene encendida esa conexión. **El formato está reconstruido** del Anexo III de la RS 000138-2023 (que cubre solo una parte de los campos) y del control de cambios
         del Aplicativo Cliente SIRE: **no lo use para reemplazar una propuesta real antes de validarlo con el Programa Validador SIRE (PVSIRE)**. **Cubre solo lo emitido en
         khipu**: reemplazar la propuesta con él saca las ventas emitidas por otros medios (SEE-SOL, comprobantes físicos, otro proveedor); antes de reemplazar, concilie y
         exija `solo_en_sunat` vacío. Autenticación: `X-Api-Key` o sesión del portal.""")
@@ -116,5 +118,50 @@ public class SireController {
         try (InputStream cuerpo = req.getInputStream()) {
             return ApiResponse.ok(ConciliacionRvieResponse.de(registro.conciliar(TenantActual.id(req), periodo, cuerpo)));
         }
+    }
+
+    @PostMapping("/rvie/propuesta")
+    @Operation(operationId = "solicitarPropuestaRvie", summary = "Pedir a SUNAT la propuesta del registro de ventas de un periodo (experimental)", description = """
+            **EXPERIMENTAL: apagado por defecto en el servidor** (`422 SIRE_NO_DISPONIBLE`) hasta que el operador haga la corrida controlada contra el SIRE real.
+
+            Le pide a SUNAT, por la API del SIRE, que prepare la propuesta del RVIE del periodo, y devuelve el ticket (`202`). Solo lee: no reemplaza ni acepta nada en el SIRE.
+            Usa las credenciales API SUNAT de la empresa (una aplicación registrada en SOL como «MIGE RCE y RVIE - SIRE») y sus credenciales SOL. Siga con
+            `GET /v1/sire/rvie/propuesta/{ticket}` hasta `TERMINADO` y concilie con `GET /v1/sire/rvie/propuesta/{ticket}/conciliacion`.
+
+            Errores: `400 PARAMETRO_INVALIDO` (periodo), `404 NO_ENCONTRADO` (SUNAT no tiene comprobantes en el periodo), `422` con `SIRE_NO_DISPONIBLE`,
+            `CREDENCIALES_API_SUNAT_NO_CARGADAS`, `CREDENCIALES_SOL_NO_CARGADAS`, `CREDENCIALES_SIRE_RECHAZADAS` o `SIRE_RECHAZO` (SUNAT rechaza el pedido; el mensaje trae su
+            código), y `503 SUNAT_NO_DISPONIBLE`.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "SUNAT aceptó el pedido: el ticket para seguirlo")
+    public ResponseEntity<ApiResponse<PropuestaRvieResponse>> solicitarPropuesta(HttpServletRequest req,
+                                                                                @Parameter(description = "Periodo tributario, `AAAAMM`", example = "202610") @RequestParam String periodo) {
+        return ResponseEntity.accepted().body(ApiResponse.ok(PropuestaRvieResponse.de(registro.solicitarPropuesta(TenantActual.id(req), periodo))));
+    }
+
+    @GetMapping("/rvie/propuesta/{ticket}")
+    @Operation(operationId = "estadoPropuestaRvie", summary = "Ver cómo va la propuesta que se le pidió a SUNAT (experimental)", description = """
+            **EXPERIMENTAL: apagado por defecto en el servidor.** Consulta el ticket de `POST /v1/sire/rvie/propuesta` en el SIRE: `EN_PROCESO` (vuelva a consultar en unos
+            segundos), `TERMINADO` (lista para conciliar) o `CON_ERRORES`. Trae el código y la descripción del estado que da SUNAT. Los mismos errores que al pedirla,
+            más `404 NO_ENCONTRADO` si SUNAT no tiene ese ticket en ese periodo.""")
+    public ApiResponse<PropuestaRvieResponse> estadoPropuesta(HttpServletRequest req,
+                                                              @Parameter(description = "El número de ticket que dio `POST /v1/sire/rvie/propuesta`", example = "202600000123") @PathVariable String ticket,
+                                                              @Parameter(description = "Periodo tributario del ticket, `AAAAMM`", example = "202610") @RequestParam String periodo) {
+        return ApiResponse.ok(PropuestaRvieResponse.de(registro.estadoDePropuesta(TenantActual.id(req), periodo, ticket)));
+    }
+
+    @GetMapping("/rvie/propuesta/{ticket}/conciliacion")
+    @Operation(operationId = "conciliarRvieConSunat", summary = "Conciliar el registro de ventas con la propuesta que SUNAT preparó (experimental)", description = """
+            **EXPERIMENTAL: apagado por defecto en el servidor; el formato de la propuesta es un supuesto sin verificar contra el SIRE** (ver `POST /v1/sire/rvie/conciliacion`).
+
+            Baja de SUNAT, por la API del SIRE, los archivos que preparó para el ticket y los concilia con lo que khipu emitió, igual que `POST /v1/sire/rvie/conciliacion` pero
+            sin que usted descargue ni suba nada. No guarda nada. Como esa conciliación, **cubre solo lo emitido en khipu**: exija `solo_en_sunat` vacío antes de reemplazar
+            la propuesta.
+
+            Errores: los de `POST /v1/sire/rvie/propuesta`, más `409 PROPUESTA_NO_LISTA` (el ticket sigue en proceso), `422 PROPUESTA_CON_ERRORES` (SUNAT no pudo
+            prepararla), `422 RVIE_ARCHIVO_INVALIDO` (un archivo que no se puede leer, de otro RUC o periodo; el mensaje dice cuál archivo, la línea y el campo),
+            `422 RVIE_PROPUESTA_DEMASIADO_GRANDE` y `422 RVIE_EXCEDE_EL_TOPE`.""")
+    public ApiResponse<ConciliacionRvieResponse> conciliarConSunat(HttpServletRequest req,
+                                                                   @Parameter(description = "El número de ticket que dio `POST /v1/sire/rvie/propuesta`", example = "202600000123") @PathVariable String ticket,
+                                                                   @Parameter(description = "Periodo tributario del ticket, `AAAAMM`", example = "202610") @RequestParam String periodo) throws IOException {
+        return ApiResponse.ok(ConciliacionRvieResponse.de(registro.conciliarConSunat(TenantActual.id(req), periodo, ticket)));
     }
 }
