@@ -15,6 +15,7 @@ import type { Empresa, EmpresaDetalle, Domicilio, PersonalizacionPdf, Credencial
 import type { Validez } from "./validez";
 import type { Establecimiento } from "./establecimientos";
 import type { Serie } from "./series";
+import type { Guia, ParteDeGuia, TransportistaDeGuia, PuntoDeGuia, VehiculoDeGuia, ConductorDeGuia, TrasladoDeGuia, ItemDeGuia, DocumentoDeGuia, CdrDeGuia, EnlacesDeGuia, CuerpoDeGuia } from "./guias";
 import type { ApiKeyResumen } from "./api-keys";
 import type { AceptacionDeTerminos, DatosDeRegistro, Usuario, Tokens } from "./auth";
 import type { MiCuenta } from "./cuenta";
@@ -82,6 +83,19 @@ export type ContratoDeLaApi = [
   Verifica<Contrato<Establecimiento, S["EstablecimientoResponse"]>>,
   // series
   Verifica<Contrato<Serie, S["SerieResponse"]>>,
+  // guías de remisión (#39)
+  Verifica<Contrato<Guia, S["GuiaRemisionResponse"]>>,
+  Verifica<Contrato<ParteDeGuia, S["GuiaRemisionParteResponse"]>>,
+  Verifica<Contrato<TransportistaDeGuia, S["GuiaRemisionTransportistaResponse"]>>,
+  Verifica<Contrato<PuntoDeGuia, S["GuiaRemisionPuntoResponse"]>>,
+  Verifica<Contrato<VehiculoDeGuia, S["GuiaRemisionVehiculoResponse"]>>,
+  Verifica<Contrato<ConductorDeGuia, S["GuiaRemisionConductorResponse"]>>,
+  Verifica<Contrato<TrasladoDeGuia, S["GuiaRemisionEnvioResponse"]>>,
+  Verifica<Contrato<ItemDeGuia, S["GuiaRemisionItemResponse"]>>,
+  Verifica<Contrato<DocumentoDeGuia, S["GuiaRemisionDocumentoResponse"]>>,
+  Verifica<Contrato<CdrDeGuia, S["GuiaRemisionCdrResponse"]>>,
+  Verifica<Contrato<EnlacesDeGuia, S["GuiaRemisionEnlacesResponse"]>>,
+  Verifica<ContratoDePeticion<CuerpoDeGuia, S["GuiaRemisionRequest"]>>,
   // api-keys
   Verifica<Contrato<ApiKeyResumen, S["ApiKeyResumenResponse"]>>,
   // auth

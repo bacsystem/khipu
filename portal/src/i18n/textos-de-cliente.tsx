@@ -45,6 +45,7 @@ export const TEXTOS_DE_CLIENTE = {
     "empresa",
     "equipo",
     "establecimientos",
+    "guias",
     "nav",
     "productos",
     "referenciaTecnica",

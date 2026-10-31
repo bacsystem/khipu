@@ -28,6 +28,7 @@ type Nav = Mensajes["nav"];
 const MIGAS: Array<{ prefijo: string; seccion: keyof Nav["migas"]["secciones"]; pagina: (t: Nav) => string }> = [
   { prefijo: "/inicio", seccion: "panel", pagina: (t) => t.items.inicio },
   { prefijo: "/comprobantes", seccion: "facturacion", pagina: (t) => t.items.comprobantes },
+  { prefijo: "/guias", seccion: "facturacion", pagina: (t) => t.items.guias },
   { prefijo: "/series", seccion: "emision", pagina: (t) => t.items.series },
   { prefijo: "/clientes", seccion: "emision", pagina: (t) => t.items.clientes },
   { prefijo: "/productos", seccion: "emision", pagina: (t) => t.items.productos },
