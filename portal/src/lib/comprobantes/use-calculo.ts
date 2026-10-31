@@ -20,7 +20,7 @@ export type Calculo =
   | { estado: "rechazado"; mensaje: string }
   | { estado: "sin-servicio" };
 
-const CODIGOS_SIN_SERVICIO = new Set(["RED", "RESPUESTA_INVALIDA"]);
+const CODIGOS_SIN_SERVICIO = new Set(["RED", "RED_CORTADA", "ESPERA_VENCIDA", "RESPUESTA_INVALIDA"]);
 
 /**
  * Pide el cálculo cada vez que cambia el cuerpo (con una pausa, para no consultar en cada tecla) y descarta la respuesta de un cuerpo que ya no es el actual.

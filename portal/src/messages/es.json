@@ -1690,7 +1690,11 @@
   "errores": {
     "generico": "Ocurrió un error. Intenta de nuevo.",
     "RED": "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.",
-    "RESPUESTA_INVALIDA": "La respuesta del servidor no se pudo interpretar. Intenta de nuevo en unos minutos.",
+    "RESPUESTA_INVALIDA": "La respuesta del servidor no se pudo interpretar. Recarga la página para ver el estado real antes de volver a intentarlo.",
+    "RED_CORTADA": "Se cortó la conexión antes de recibir la respuesta. Verifica el estado del envío antes de reintentar.",
+    "ESPERA_VENCIDA": "El servidor tardó demasiado en responder. Verifica el estado antes de reintentar: lo que enviaste pudo haberse procesado.",
+    "ERROR_DE_COMUNICACION": "Error de comunicación con la API. Intenta de nuevo en unos minutos.",
+    "ERROR_INESPERADO": "Ocurrió un error inesperado. Intenta de nuevo en unos minutos.",
     "DUPLICADO": "Ya existe una cuenta con ese correo.",
     "CREDENCIALES_INVALIDAS": "Correo o contraseña incorrectos.",
     "TELEFONO_INVALIDO": "El celular debe tener 9 dígitos y empezar con 9.",

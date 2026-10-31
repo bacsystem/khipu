@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
  * `--suppress-all` y subirla. Este tope lo impide: al migrar literales, bájalo al número nuevo en el mismo cambio. **Nunca se sube
  * sin revisión**: si un cambio necesita subirlo, el texto va a messages, no a la línea base.
  */
-const TOPE_DE_LITERALES = 9;
-const TOPE_DE_ARCHIVOS = 3;
+const TOPE_DE_LITERALES = 0;
+const TOPE_DE_ARCHIVOS = 0;
 
 type LineaBase = Record<string, Record<string, { count: number }>>;
 

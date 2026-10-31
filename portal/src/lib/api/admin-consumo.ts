@@ -1,7 +1,7 @@
 import { POR_PAGINA_DEFECTO, porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { apiBaseUrl, backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
-import { ApiError, type ApiEnvelope } from "./types";
+import { ApiError, CODIGO_COMUNICACION, type ApiEnvelope } from "./types";
 
 /** Qué cuentas mostrar (#193): todas, las que ya llegaron al umbral de alerta de su tope, o las que dejaron de pagar (en gracia o ya vencidas). */
 export const FILTROS_DE_CONSUMO = ["TODAS", "CERCA_DEL_LIMITE", "PLAN_VENCIDO"] as const;
@@ -133,8 +133,8 @@ export async function exportarConsumoDeCuentas(access: string, params: ParamsCon
         return null;
       }
     })();
-    // eslint-disable-next-line khipu/no-literal-de-ui -- mensaje técnico del ApiError, igual que en client.ts: la pantalla muestra el texto de `codigo`
-    throw new ApiError(res.status, json?.codigo ?? null, json?.mensaje ?? "Error de comunicación con la API", json?.errores ?? null);
+    // El mensaje del ApiError es técnico, para los logs; la pantalla muestra el texto de `codigo` (#25).
+    throw new ApiError(res.status, json?.codigo ?? CODIGO_COMUNICACION, json?.mensaje ?? "API communication error", json?.errores ?? null);
   }
   return { cuerpo, disposicion: res.headers.get("content-disposition") };
 }

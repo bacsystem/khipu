@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
 import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
@@ -98,7 +99,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
     const res = await apiRequest<unknown>(`/api/admin/cuentas/${cuentaId}/plan`, { method: "POST", body: r.cuerpo });
     enviandoRef.current = false;
     setEnviando(false);
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (un reintento podría hacer un segundo cambio).
       setError(interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }));
       return;

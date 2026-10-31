@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { PlantillaDeCorreo, TextoDeCorreo } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { insertarEnPosicion } from "@/lib/configuracion-formulario";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
@@ -76,7 +77,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
 
   async function llamar<T>(ruta: string, metodo: "PUT" | "POST"): Promise<{ datos: T } | { mensaje: string }> {
     const res = await apiRequest<T>(ruta, { method: metodo, body: { asunto, cuerpo } });
-    if (res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA") {
+    if (noSeSabeSiLlego(res)) {
       // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas.
       return { mensaje: interpolar(messages.admin.recargar.estado, { error: res.mensaje ?? mensajeError(res.codigo) }) };
     }

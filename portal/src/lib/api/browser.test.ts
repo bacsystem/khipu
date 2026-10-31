@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, MENSAJE_ESPERA_VENCIDA, noSeSabeSiLlego, postJson, seVencioLaEspera } from "./browser";
+import en from "@/messages/en.json";
+import es from "@/messages/es.json";
+import { apiRequest, noSeSabeSiLlego, postJson, seVencioLaEspera } from "./browser";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -60,7 +62,8 @@ describe("apiRequest / postJson", () => {
 
       expect(res.estado).toBe("error");
       expect(res.codigo).toBe("RED");
-      expect(res.mensaje).toBeTruthy();
+      // Un error de transporte viaja sin texto: el formulario lo toma del catálogo, en el idioma de la sesión (#25).
+      expect(res.mensaje).toBeNull();
     });
 
     it("corte de red al leer el cuerpo de la respuesta", async () => {
@@ -71,7 +74,8 @@ describe("apiRequest / postJson", () => {
       const res = await postJson("/api/auth/login", { email: "a@b.com", password: "x" });
 
       expect(res.estado).toBe("error");
-      expect(res.codigo).toBe("RED");
+      expect(res.codigo).toBe("RED_CORTADA");
+      expect(noSeSabeSiLlego(res)).toBe(true);
     });
 
     it("respuesta que no es JSON (el HTML de un 502 de proxy)", async () => {
@@ -103,24 +107,32 @@ describe("tope de espera (#117)", () => {
     espera.mockRestore();
   });
 
-  it("un pedido que vence cae en el corte de red, con el aviso de que pudo haberse procesado, y no cuelga al llamador", async () => {
+  it("un pedido que vence cae en el corte de red, con su propio código, y no cuelga al llamador", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")));
 
     const res = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
 
     expect(res.estado).toBe("error");
-    expect(res.codigo).toBe("RED");
+    expect(res.codigo).toBe("ESPERA_VENCIDA");
     expect(noSeSabeSiLlego(res)).toBe(true);
-    expect(res.mensaje).toMatch(/tardó demasiado.*pudo haberse procesado/);
+    expect(res.mensaje).toBeNull();
   });
 
-  it("un corte de red que no es de tiempo conserva su mensaje de conexión", async () => {
+  it("un corte de red que no es de tiempo se queda en el código de conexión", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
 
     const res = await apiRequest("/api/proxy/series", { method: "GET" });
 
     expect(res.codigo).toBe("RED");
-    expect(res.mensaje).toMatch(/No se pudo conectar/);
+    expect(res.mensaje).toBeNull();
+    expect(seVencioLaEspera(res)).toBe(false);
+  });
+
+  it("cada código de transporte tiene su texto en español y en inglés, y ninguno viaja como literal", () => {
+    for (const codigo of ["RED", "RED_CORTADA", "ESPERA_VENCIDA", "RESPUESTA_INVALIDA", "ERROR_DE_COMUNICACION", "ERROR_INESPERADO"]) {
+      expect((es.errores as Record<string, string>)[codigo], `es: ${codigo}`).toBeTruthy();
+      expect((en.errores as Record<string, string>)[codigo], `en: ${codigo}`).toBeTruthy();
+    }
   });
 
   it("una llamada puede pedir su propia espera (el barrido de integridad), y un tiempo vencido se distingue de un corte", async () => {
@@ -133,7 +145,7 @@ describe("tope de espera (#117)", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")));
     const vencido = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
     expect(seVencioLaEspera(vencido)).toBe(true);
-    expect(vencido.mensaje).toBe(MENSAJE_ESPERA_VENCIDA);
+    expect(vencido.codigo).toBe("ESPERA_VENCIDA");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     expect(seVencioLaEspera(await apiRequest("/api/proxy/facturas", { method: "POST", body: {} }))).toBe(false);
   });

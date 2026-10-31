@@ -49,6 +49,18 @@ describe("backendFetch", () => {
     });
   });
 
+  it("un error sin cuerpo sube con el código de comunicación y un mensaje técnico, no con texto de pantalla (#25)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 502 })));
+
+    await expect(backendFetch("/v1/algo")).rejects.toMatchObject({ status: 502, codigo: "ERROR_DE_COMUNICACION", message: "API communication error" });
+  });
+
+  it("una respuesta que no es JSON (el HTML de un proxy) sube igual que un cuerpo vacío (#25)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>Bad gateway</html>", { status: 502 })));
+
+    await expect(backendFetch("/v1/algo")).rejects.toMatchObject({ status: 502, codigo: "ERROR_DE_COMUNICACION", message: "API communication error" });
+  });
+
   it("devuelve undefined en 204 sin intentar parsear el body", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
 
