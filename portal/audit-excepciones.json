@@ -1,0 +1,26 @@
+[
+  {
+    "aviso": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+    "paquete": "postcss (anidado en next 15.5: node_modules/next/node_modules/postcss 8.4.31)",
+    "motivo": "XSS al serializar CSS con </style> sin escapar. Solo aplica al procesar CSS controlado por un atacante; el portal compila únicamente su propio CSS en build y no acepta CSS de usuarios. No hay fix dentro de Next 15 (lo trae Next 16).",
+    "vence": "2027-01-31"
+  },
+  {
+    "aviso": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+    "paquete": "postcss (anidado en next 15.5)",
+    "motivo": "Lectura de archivos vía sourceMappingURL controlado por un atacante al procesar CSS ajeno. Mismo análisis: el build procesa solo CSS propio. Sin fix dentro de Next 15.",
+    "vence": "2027-01-31"
+  },
+  {
+    "aviso": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+    "paquete": "postcss (anidado en next 15.5)",
+    "motivo": "Corrección incompleta del anterior (sourceMappingURL). Mismo análisis. Sin fix dentro de Next 15.",
+    "vence": "2027-01-31"
+  },
+  {
+    "aviso": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+    "paquete": "postcss (anidado en next 15.5)",
+    "motivo": "Path traversal al autocargar source maps previos (sourceMappingURL) de CSS ajeno. Mismo análisis. Sin fix dentro de Next 15.",
+    "vence": "2027-01-31"
+  }
+]

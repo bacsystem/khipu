@@ -12,10 +12,14 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("lista comprobantes con su estado y permite ver el detalle", async ({ page }) => {
+  // 50 por página: las 10 fixtures llenaban justo la primera página de 10, y lo que emiten los specs que corren antes (clientes, avisos-de-emision) las
+  // desplazaba a la segunda.
+  await page.goto("/comprobantes?por_pagina=50");
   const tabla = page.locator("table");
   await expect(page.getByText("F001-00000001")).toBeVisible();
-  // Un aceptado con CDR se etiqueta así en la tabla; el filtro de estado tiene un ítem "Aceptado" a secas.
-  await expect(tabla.getByText("Aceptado con CDR", { exact: true })).toBeVisible();
+  // Un aceptado con CDR se etiqueta así en la tabla; el filtro de estado tiene un ítem "Aceptado" a secas. `.first()`: las facturas de los specs
+  // anteriores también están aceptadas y se listan primero.
+  await expect(tabla.getByText("Aceptado con CDR", { exact: true }).first()).toBeVisible();
   // El segundo comprobante lo muta el test de reenvío (corre en paralelo): se comprueba la fila, no su estado.
   await expect(tabla.getByText("F001-00000002")).toBeVisible();
 
@@ -237,7 +241,7 @@ test("la ficha consulta la validez del comprobante en SUNAT (#315)", async ({ pa
 });
 
 test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la moneda y las líneas, y se emite con la fecha de hoy (#323)", async ({ page }) => {
-  await page.goto("/comprobantes");
+  await page.goto("/comprobantes?por_pagina=50"); // la F001-4 ya no cabe en la primera página de 10 tras lo que emiten los specs anteriores
   await page.getByRole("button", { name: "Duplicar F001-00000004" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
@@ -298,13 +302,16 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
 
   // Aterriza en el detalle de la nota con el bloque "Nota de crédito sobre" y vuelve a la factura, que ya la lista.
   await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  const numeroNota = (await page.getByText(/^FC01-\d{8}$/).first().textContent()) ?? "";
   const nota = page.getByTestId("nota");
   await expect(nota.getByText("F001-1")).toBeVisible();
   await expect(nota.getByText("Devolución por ítem")).toBeVisible();
   await expect(page.getByText("Nota de crédito electrónica")).toBeVisible();
   await page.goto("/comprobantes/f-aceptada");
   const notas = page.getByTestId("notas");
-  await expect(notas.getByText("FC01-1")).toBeVisible();
+  // El número sale de la ficha de la nota (arriba): el test de la nota con descuento y cargo (#314) emite antes sobre esta misma factura (con un
+  // worker, siempre), así que la de este test no es la FC01-1.
+  await expect(notas.getByText(`FC01-${Number(numeroNota.slice("FC01-".length))}`)).toBeVisible();
   // `.first()`: otros tests emiten NC 07 sobre esta misma factura en paralelo y el panel puede traer dos «Devolución
   // por ítem» (medido: 1 rojo en 5 corridas por strict mode). Lo que se afirma es que el motivo se lista.
   await expect(notas.getByText("Devolución por ítem").first()).toBeVisible();
