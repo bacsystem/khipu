@@ -89,7 +89,10 @@ function validar(empresaId: string, c: CuerpoDeGuia): { guia: Omit<Guia, "id" | 
     if (c.modalidad !== "01" && c.modalidad !== "02") return fail(422, "TRASLADO_INVALIDO", "La modalidad es 01 (transporte público) o 02 (privado)");
     if (c.modalidad === "01") {
       if (!c.transportista?.ruc || !c.transportista.razon_social) return fail(422, "TRANSPORTE_INVALIDO", "En transporte público va el transportista (RUC y razón social)");
-      if (vehiculos.length > 0 || conductores.length > 0) return fail(422, "TRANSPORTE_INVALIDO", "En transporte público no se registran vehículos ni conductores del remitente");
+      // Solo con el indicador de vehículos y conductores del transportista (reglas 3450 y 3451) el remitente los registra en transporte público.
+      if ((vehiculos.length > 0 || conductores.length > 0) && !indicadores.includes("vehiculos_conductores_transportista")) {
+        return fail(422, "TRANSPORTE_INVALIDO", "En transporte público no se registran vehículos ni conductores del remitente");
+      }
     } else if (!indicadores.includes("vehiculo_m1_o_l") && (vehiculos.length === 0 || conductores.length === 0)) {
       return fail(422, "TRANSPORTE_INVALIDO", "En transporte privado van el vehículo y el conductor principales (o el indicador vehiculo_m1_o_l)");
     }

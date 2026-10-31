@@ -925,7 +925,24 @@ const UBIGEOS = [
 /** Subconjunto de los catálogos SUNAT, suficiente para la página /developers/catalogos y el formulario de domicilio. */
 const CATALOGOS = [
   { id: "06", nombre: "Código de tipo de documento de identidad", columnas: ["Código", "Descripción"],
-    entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }] },
+    entradas: [{ codigo: "1", descripcion: "DNI", extra: {} }, { codigo: "4", descripcion: "Carnet de extranjería", extra: {} }, { codigo: "6", descripcion: "RUC", extra: {} }, { codigo: "7", descripcion: "Pasaporte", extra: {} }] },
+  // #39: los catálogos del formulario de «Nueva guía». El 20 son los motivos de traslado y el 61 los documentos que sustentan el traslado, con la columna que dice
+  // a qué guía aplican (remitente, transportista o solo una).
+  { id: "20", nombre: "Código de motivo de traslado", columnas: ["Código", "Descripción"],
+    entradas: [
+      { codigo: "01", descripcion: "Venta", extra: {} },
+      { codigo: "02", descripcion: "Compra", extra: {} },
+      { codigo: "04", descripcion: "Traslado entre establecimientos de la misma empresa", extra: {} },
+      { codigo: "08", descripcion: "Importación", extra: {} },
+      { codigo: "13", descripcion: "Otros", extra: {} },
+    ] },
+  { id: "61", nombre: "Código de tipo de documento relacionado con la guía de remisión", columnas: ["Código", "Descripción", "GRE aplicable"],
+    entradas: [
+      { codigo: "01", descripcion: "Factura", extra: { "GRE aplicable": "remitente, transportista" } },
+      { codigo: "09", descripcion: "Guía de Remisión Remitente", extra: { "GRE aplicable": "remitente, transportista" } },
+      { codigo: "49", descripcion: "Constancia de Depósito - IVAP (Ley 28211)", extra: { "GRE aplicable": "solo remitente" } },
+      { codigo: "69", descripcion: "Permiso / Autorización de operación de transporte de mercancías", extra: { "GRE aplicable": "solo transportista" } },
+    ] },
   { id: "09", nombre: "Códigos de tipo de nota de crédito electrónica", columnas: ["Código", "Descripción"],
     entradas: [
       { codigo: "01", descripcion: "Anulación de la operación", extra: {} },

@@ -20,5 +20,8 @@ async function publico<T>(path: string): Promise<T> {
   return json.datos as T;
 }
 
+/** Un catálogo con sus entradas (`GET /v1/catalogos/{id}`), por ejemplo el 20 (motivos de traslado) o el 61 (documentos de una guía). */
+export function obtenerCatalogo(id: string) { return publico<CatalogoSunat>(`/v1/catalogos/${id}`); }
+
 /** Todos los catálogos con sus entradas en una sola llamada (`completo=true`). */
 export function listarCatalogosCompletos() { return publico<CatalogoSunat[]>("/v1/catalogos?completo=true"); }
