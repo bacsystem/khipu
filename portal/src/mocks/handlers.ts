@@ -8,6 +8,7 @@ import { avisoDePlazo, fechaMinimaDeEmision, PLAZO_ENVIO } from "@/lib/comproban
 import { errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { CODIGOS_PAIS } from "@/lib/comprobantes/paises";
 import { calcularTotales, esGratuita, redondear } from "@/lib/comprobantes/totales";
+import { handlersDeGuias } from "./handlers-guias";
 import { rechazoPorLineaMock, rechazoPorNrusMock, rechazoPorTopeDeLineasMock, rechazoPorValorDeVentaMock, type LineaMock } from "./reglas-linea";
 import { CODIGOS_UNIDAD, UNIDADES_MAS_USADAS, db, fakeJwt, idCuentaMock, idApiKeyMock, idEmpresaMock, idPagoMock, idUsuarioMock, PERSONALIZACION_POR_DEFECTO, resetDb, type Administrador, type Baja, type Comprobante, type Empresa, type Establecimiento, type PersonalizacionPdf, type PagoMock, type PlanDeCuentaMock, type PlanMock, type Usuario, type InvitacionMock } from "./data";
 
@@ -1488,6 +1489,7 @@ const handlersDeEquipo = [
 
 export const handlers = [
   ...handlersDeEquipo,
+  ...handlersDeGuias,
   // Solo bajo API_MOCKING: `globalSetup` de Playwright lo llama al empezar cada corrida. Sin esto la suite no era
   // idempotente contra un dev server reutilizado (`reuseExistingServer` en local): cada corrida gastaba el tope 3286
   // de f-aceptada y dejaba f-obs anulada para siempre —corrida 2: 6 rojos; corrida 3: 10—, y un rojo que «a veces

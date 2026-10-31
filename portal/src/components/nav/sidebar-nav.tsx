@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, GaugeIcon, LayoutDashboardIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, UsersIcon, PackageIcon, UserCogIcon } from "lucide-react";
+import { EyeIcon, GaugeIcon, LayoutDashboardIcon, ListOrderedIcon, ReceiptTextIcon, ShieldCheckIcon, TerminalIcon, StoreIcon, TruckIcon, UsersIcon, PackageIcon, UserCogIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMessages } from "next-intl";
@@ -33,6 +33,7 @@ const GRUPOS: Grupo[] = [
     titulo: "emision",
     items: [
       { href: "/comprobantes", label: "comprobantes", icon: ReceiptTextIcon },
+      { href: "/guias", label: "guias", icon: TruckIcon },
       { href: "/series", label: "series", icon: ListOrderedIcon },
       { href: "/clientes", label: "clientes", icon: UsersIcon },
       { href: "/productos", label: "productos", icon: PackageIcon },

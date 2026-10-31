@@ -1,8 +1,10 @@
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import type { EnvioAlCliente } from "@/lib/api/facturas";
+import type { Guia } from "@/lib/api/guias";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import type { EntregaWebhook, Webhook } from "@/lib/api/webhooks";
 import { hoyLima, inicioDelProximoCiclo, sumarDias } from "@/lib/formato";
+import { guiasIniciales } from "./guias-data";
 
 function base64url(obj: unknown): string {
   return btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -321,6 +323,7 @@ export const db = {
   usuariosPorEmail: new Map<string, { usuario: Usuario; password: string }>(),
   empresasPorCuenta: new Map<string, Empresa[]>(),
   seriesPorEmpresa: new Map<string, Serie[]>(),
+  guiasPorEmpresa: new Map<string, Guia[]>(),
   establecimientosPorEmpresa: new Map<string, Establecimiento[]>(),
   apiKeysPorEmpresa: new Map<string, ApiKey[]>(),
   /** Los clientes guardados de cada empresa (#319). */
@@ -391,6 +394,7 @@ export function resetDb() {
   db.usuariosPorEmail.clear();
   db.empresasPorCuenta.clear();
   db.seriesPorEmpresa.clear();
+  db.guiasPorEmpresa.clear();
   db.establecimientosPorEmpresa.clear();
   db.apiKeysPorEmpresa.clear();
   db.clientesPorEmpresa.clear();
@@ -704,7 +708,11 @@ export function resetDb() {
     // #294: las notas sobre boletas van en series B.
     { tipo: "07", serie: "BC01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
     { tipo: "08", serie: "BD01", ultimo_numero: 0, activa: true, establecimiento: "0000" },
+    // #39: las guías de remisión, con el correlativo por delante de las fixtures de `guias-data.ts` (la remitente llega a la 8 y la transportista a la 1).
+    { tipo: "09", serie: "T001", ultimo_numero: 8, activa: true, establecimiento: "0000" },
+    { tipo: "31", serie: "V001", ultimo_numero: 1, activa: true, establecimiento: "0000" },
   ]);
+  db.guiasPorEmpresa.set(empresa.id, guiasIniciales());
   db.establecimientosPorEmpresa.set(empresa.id, [
     { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
   ]);
