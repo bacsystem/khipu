@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, cookieSegura, readSession, writeTokens } from "./session";
+import { clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, COOKIES_ANTERIORES, cookieSegura, readSession, writeTokens } from "./session";
 
 function requestWithCookies(cookies: Record<string, string>) {
   const header = Object.entries(cookies)
@@ -48,6 +48,22 @@ describe("session", () => {
     expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("");
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
     expect(res.cookies.get(COOKIE_EMPRESA)?.value).toBe("");
+  });
+
+  // #10: las cookies se llamaban factura_*. Un navegador con una sesión de antes del cambio conserva el refresh viejo (30 días) y nadie lo lee ni lo borra: seguiría siendo una
+  // credencial válida en el disco después de cerrar sesión. El logout y el login las expiran.
+  it("clearSession y writeTokens expiran las cookies con el nombre anterior", () => {
+    for (const operacion of [(r: NextResponse) => clearSession(r), (r: NextResponse) => writeTokens(r, { access: "a1", refresh: "r1" })]) {
+      const res = NextResponse.json({ ok: true });
+
+      operacion(res);
+
+      expect(COOKIES_ANTERIORES).toEqual(["factura_access", "factura_refresh", "factura_empresa"]);
+      for (const nombre of COOKIES_ANTERIORES) {
+        expect(res.cookies.get(nombre)?.value, nombre).toBe("");
+        expect(res.cookies.get(nombre)?.maxAge, nombre).toBe(0);
+      }
+    }
   });
 });
 
