@@ -25,8 +25,9 @@ import {
   type UltimoAviso,
 } from "@/lib/api/admin-avisos";
 import { atascadosEnPalabras, certificadoEnPalabras, ultimoAvisoEnPalabras } from "@/lib/avisos-formato";
-import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CABECERA_TABLA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
+import { cn } from "@/lib/utils";
 
 /** Lo que las dos listas tienen en común, para dibujarlas con la misma tabla. `situacion` es lo propio de cada una. */
 type Fila = {
@@ -130,7 +131,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "overflow-x-auto")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

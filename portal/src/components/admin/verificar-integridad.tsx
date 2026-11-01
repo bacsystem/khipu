@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/api/browser";
 
 /** El barrido lee cada XML y CDR del rango de todas las empresas (hasta 92 días): puede tardar bastante más que cualquier otra llamada; el límite del proxy es de 5 minutos. */
 const ESPERA_DE_LA_VERIFICACION_MS = 300_000;
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFecha, sumarDias } from "@/lib/formato";
 import { MAX_DIAS_DE_INTEGRIDAD, validarRango, type ErroresDeRango } from "@/lib/integridad-formulario";
 import type { Locale } from "@/i18n/config";
@@ -84,7 +84,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
   const verificando = fase.estado === "verificando";
   return (
     <div className="grid min-w-0 gap-4">
-      <form onSubmit={verificar} noValidate className="flex flex-wrap items-start gap-3 rounded-xl border border-border/90 bg-card p-4 shadow-xs">
+      <form onSubmit={verificar} noValidate className={cn(TARJETA, "flex flex-wrap items-start gap-3 p-4 shadow-xs")}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="integridad-desde" className={ETIQUETA_CAMPO}>
             {t.desde}
@@ -170,7 +170,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
 
       {limpio ? null : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
+          <div className={cn(TARJETA, "overflow-x-auto")}>
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

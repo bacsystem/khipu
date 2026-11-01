@@ -5,7 +5,8 @@ import { expect, test } from "@playwright/test";
 // que lo exacto se afirma sobre días con un solo comprobante que nadie toca, y el mes en curso solo en su forma. Sembrados:
 //   2026-08-20  f-anulada       factura ANULADA, S/
 //   2026-08-31  f-export-cargo  factura ACEPTADA de exportación, $ 110.00
-const metrica = (page: import("@playwright/test").Page, etiqueta: string) => page.getByText(etiqueta, { exact: true }).locator("..");
+// La tarjeta entera de la métrica (la `Metrica` del design system: la etiqueta, el valor y la ayuda son hermanos dentro de ella).
+const metrica = (page: import("@playwright/test").Page, etiqueta: string) => page.locator(`[data-metrica="${etiqueta}"]`);
 const tira = (page: import("@playwright/test").Page) => page.getByTestId("resumen-de-comprobantes");
 
 test.beforeEach(async ({ page }) => {

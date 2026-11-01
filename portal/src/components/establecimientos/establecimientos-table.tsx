@@ -15,7 +15,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -147,7 +147,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity", refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

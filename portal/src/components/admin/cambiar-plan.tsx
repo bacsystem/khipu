@@ -4,7 +4,7 @@ import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
@@ -14,6 +14,7 @@ import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO,
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Previa = { estado: "ninguna" } | { estado: "calculando" } | { estado: "lista"; datos: PrevisualizacionDePlanAdmin } | { estado: "error"; mensaje: string };
 
@@ -122,17 +123,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
         {messages.admin.planDeCuenta.cambiar}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="cambiar-plan-dialogo" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <ArrowsLeftRightIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={ArrowsLeftRightIcon} titulo={<>{t.titulo.replace("{cuenta}", cuentaNombre)}</>} descripcion={t.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex flex-col gap-1.5">
@@ -206,7 +197,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
@@ -220,7 +211,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
             <ArrowsLeftRightIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

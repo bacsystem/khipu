@@ -4,9 +4,10 @@ import { BuildingsIcon, PlusIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { NuevaEmpresaForm } from "@/components/empresa/nueva-empresa-form";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 export function NuevaEmpresaDialog({ className, etiqueta }: { className?: string; etiqueta?: string }) {
   const t = useMessages().empresa.nueva;
@@ -22,19 +23,7 @@ export function NuevaEmpresaDialog({ className, etiqueta }: { className?: string
         {etiqueta ?? t.nuevaEmpresa}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <BuildingsIcon className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">
-                {t.descripcion}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={BuildingsIcon} titulo={t.titulo} descripcion={t.descripcion} />
         <div className="px-5 py-4">
           <NuevaEmpresaForm onGuardado={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
         </div>

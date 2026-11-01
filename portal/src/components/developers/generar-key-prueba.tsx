@@ -7,6 +7,8 @@ import { Button } from "khipu-design-system/ui/button";
 import { apiRequest } from "@/lib/api/browser";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { TARJETA } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 
 export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => void }) {
   const soloLectura = useSinPermisoDeConfigurar();
@@ -39,7 +41,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
 
   if (apiKey) {
     return (
-      <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
+      <div className={cn(TARJETA, "grid gap-2 p-4")}>
         <p className="text-control text-muted-foreground">
           {t.cargada}
         </p>
@@ -57,7 +59,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
   }
 
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
+    <div className={cn(TARJETA, "grid gap-2 p-4")}>
       {error ? <p role="alert" className="text-control text-destructive">{error}</p> : null}
       <p className="text-control text-muted-foreground">{t.intro}</p>
       <Button type="button" size="sm" className="w-fit" disabled={generando || soloLectura !== null} title={soloLectura ?? undefined} onClick={generar}>

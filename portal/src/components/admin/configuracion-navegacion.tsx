@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useMessages } from "next-intl";
 import { hrefConfiguracion, SECCIONES_DE_CONFIGURACION, type PlantillaDeCorreo, type SeccionDeConfiguracion } from "@/lib/api/admin-configuracion";
 import { cn } from "@/lib/utils";
-import { SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 
 /** Las tres cosas que se configuran: enlaces (la sección vive en la URL, así que se puede compartir y el servidor solo pide lo que se ve). */
 export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfiguracion }) {
@@ -27,7 +27,7 @@ export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfigur
 export function ListaDePlantillas({ plantillas, actual }: { plantillas: PlantillaDeCorreo[]; actual: string }) {
   const t = useMessages().admin.configuracion;
   return (
-    <nav aria-label={t.plantillas.lista} className="grid content-start gap-0.5 rounded-xl border border-border bg-card p-1.5 shadow-xs">
+    <nav aria-label={t.plantillas.lista} className={cn(TARJETA, "grid content-start gap-0.5 p-1.5 shadow-xs")}>
       {plantillas.map((p) => (
         <Link
           key={p.tipo}

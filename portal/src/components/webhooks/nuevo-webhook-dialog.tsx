@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { WebhookCreado } from "@/lib/api/webhooks";
 import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
@@ -14,6 +14,7 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { errorDeUrlWebhook, EVENTOS_WEBHOOK } from "@/lib/webhooks/eventos";
 import { cn } from "@/lib/utils";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 const TODOS = EVENTOS_WEBHOOK.map((e) => e.evento) as string[];
 
@@ -87,17 +88,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
         {t.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <WebhooksLogoIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={WebhooksLogoIcon} titulo={t.titulo} descripcion={t.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
           {secreto ? (
@@ -136,7 +127,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           {secreto ? (
             <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO}>
               {messages.webhooks.listo}
@@ -151,7 +142,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
               </button>
             </>
           )}
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

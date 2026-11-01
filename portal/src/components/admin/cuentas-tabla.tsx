@@ -11,7 +11,7 @@ import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +68,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "overflow-hidden")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

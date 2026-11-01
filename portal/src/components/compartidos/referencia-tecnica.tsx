@@ -5,6 +5,7 @@ import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { cn } from "@/lib/utils";
+import { TARJETA } from "@/lib/estilos";
 
 type Icono = typeof BookOpenIcon;
 
@@ -93,7 +94,7 @@ export function SeccionReferencia({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border/80 bg-card shadow-xs">
+    <section className={TARJETA}>
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-border/60 px-4 py-3">
         <div className={ICONO}>
           <IconoSeccion className="size-4" />

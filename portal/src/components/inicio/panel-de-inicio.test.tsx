@@ -17,7 +17,8 @@ const resumen = (extra: Partial<ResumenDeFacturas> = {}): ResumenDeFacturas => (
   facturado: [{ moneda: "PEN", total: 418 }],
   ...extra,
 });
-const metrica = (etiqueta: string) => screen.getByText(etiqueta, { exact: true }).parentElement as HTMLElement;
+// La tarjeta entera de la métrica (la etiqueta, el valor y la ayuda son hermanos dentro de ella).
+const metrica = (etiqueta: string) => screen.getByText(etiqueta, { exact: true }).closest("[data-metrica]") as HTMLElement;
 const MES = { desde: "2026-10-01", hasta: "2026-10-05" };
 
 describe("KpisDelMes (#24)", () => {
@@ -88,12 +89,19 @@ describe("GraficoDeEmision (#24)", () => {
     expect(screen.getByTestId("grafico-emision-maximo").textContent).toBe("4");
   });
 
-  it("la barra más alta llena el alto y las demás en proporción, con el color de la paleta de gráficos", () => {
+  it("la barra más alta llena el alto y las demás en proporción, con el color base del design system y hoy en el acento", () => {
     render(<GraficoDeEmision serie={serie} titulo="Emisión por día" />);
 
     const barras = screen.getAllByTestId("grafico-emision-dia").map((d) => d.querySelectorAll("rect")[1]).filter(Boolean) as SVGRectElement[];
     expect(barras.map((b) => b.getAttribute("height"))).toEqual(["50", "100"]);
-    expect(barras.every((b) => b.getAttribute("class")?.includes("fill-chart-1"))).toBe(true);
+    expect(barras.every((b) => b.getAttribute("class")?.includes("fill-chart-base"))).toBe(true);
+  });
+
+  it("hoy, el último día del mes en curso, lleva el acento de la paleta", () => {
+    render(<GraficoDeEmision serie={serieDiaria({ dias: [{ fecha: "2026-10-05", emitidos: 3, facturado: [{ moneda: "PEN", total: 10 }] }] }, MES)} titulo="Emisión por día" />);
+
+    const dias = screen.getAllByTestId("grafico-emision-dia");
+    expect(dias.at(-1)?.querySelectorAll("rect")[1]?.getAttribute("class")).toContain("fill-chart-destacado");
   });
 
   it("cada día dice en su title lo emitido y lo facturado por moneda", () => {

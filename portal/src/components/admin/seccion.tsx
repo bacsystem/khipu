@@ -2,6 +2,8 @@ import { TrayIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { ReactNode } from "react";
 import { TableCell, TableRow } from "khipu-design-system/ui/table";
+import { TARJETA } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 
 /** Fila de cabecera de las tablas de detalle del backoffice. */
 export const CABECERA_FILA = "border-b border-border/80 bg-muted hover:bg-muted";
@@ -13,7 +15,7 @@ export function Seccion({ titulo, id, children }: { titulo: string; id: string; 
       <h2 id={id} className="font-heading text-titulo">
         {titulo}
       </h2>
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">{children}</div>
+      <div className={cn(TARJETA, "overflow-x-auto")}>{children}</div>
     </section>
   );
 }

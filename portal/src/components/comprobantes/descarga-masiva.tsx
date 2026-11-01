@@ -5,7 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
-import { CONTROL_FILTRO } from "@/lib/estilos";
+import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
         {t.boton}
       </button>
       {abierto ? (
-        <div id="descarga-masiva-panel" className="absolute right-0 z-20 mt-2 grid w-72 gap-3 rounded-xl border border-border bg-card p-3 shadow-lg" data-testid="descarga-masiva">
+        <div id="descarga-masiva-panel" className={cn(TARJETA, "absolute right-0 z-20 mt-2 grid w-72 gap-3 p-3 shadow-lg")} data-testid="descarga-masiva">
           <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(locale === "en" ? "en-US" : "es-PE") })}</p>
           <fieldset className="grid gap-1.5">
             <legend className="mb-1 text-control font-medium">{t.archivosLegend}</legend>

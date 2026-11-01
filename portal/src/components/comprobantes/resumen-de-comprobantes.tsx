@@ -4,6 +4,7 @@ import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { Metrica } from "@/components/compartidos/metrica";
 import type { PeriodoDelResumen, ResumenDeFacturas } from "@/lib/api/facturas";
 import { formatearMonto } from "@/lib/formato";
+import { CheckCircleIcon, ReceiptIcon, WalletIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
 
 /** `2026-10-04` como «4 Oct»; sin año, que es lo que cabe en la franja. */
 function diaYMes(iso: string, t: Mensajes["comprobantes"]["resumen"]): string {
@@ -48,7 +49,7 @@ export function ResumenDeComprobantes({ resumen, periodo }: { resumen: ResumenDe
       aria-label={t.region}
       data-testid="resumen-de-comprobantes"
       data-cargado={resumen !== null}
-      className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
     >
       {resumen === null ? (
         <>
@@ -59,7 +60,7 @@ export function ResumenDeComprobantes({ resumen, periodo }: { resumen: ResumenDe
         </>
       ) : (
         <>
-          <Metrica etiqueta={t.totalFacturado} ayuda={interpolar(t.neto, { cuando })}>
+          <Metrica etiqueta={t.totalFacturado} icono={WalletIcon} tono="acento" ayuda={interpolar(t.neto, { cuando })}>
             {resumen.facturado.length === 0 ? (
               <span data-testid="metrica-facturado">{formatearMonto("PEN", 0, locale)}</span>
             ) : (
@@ -70,16 +71,18 @@ export function ResumenDeComprobantes({ resumen, periodo }: { resumen: ResumenDe
               ))
             )}
           </Metrica>
-          <Metrica etiqueta={t.emitidos} ayuda={cuando}>
+          <Metrica etiqueta={t.emitidos} icono={ReceiptIcon} tono="neutro" ayuda={cuando}>
             <span data-testid="metrica-emitidos">{resumen.emitidos}</span>
           </Metrica>
           <Metrica
             etiqueta={t.aceptados}
+            icono={CheckCircleIcon}
+            tono="ok"
             ayuda={resumen.emitidos > 0 ? interpolar(t.porcentaje, { n: Math.floor((resumen.aceptados_con_cdr * 100) / resumen.emitidos) }) : t.sinComprobantes}
           >
             <span data-testid="metrica-aceptados">{resumen.aceptados_con_cdr}</span>
           </Metrica>
-          <Metrica etiqueta={t.atencion} ayuda={<span data-testid="metrica-atencion-detalle">{atencionEnPalabras(resumen.atencion_requerida, messages)}</span>}>
+          <Metrica etiqueta={t.atencion} icono={WarningCircleIcon} tono={resumen.atencion_requerida.total > 0 ? "error" : "ok"} ayuda={<span data-testid="metrica-atencion-detalle">{atencionEnPalabras(resumen.atencion_requerida, messages)}</span>}>
             <span data-testid="metrica-atencion" className={resumen.atencion_requerida.total > 0 ? "text-destructive" : undefined}>
               {resumen.atencion_requerida.total}
             </span>

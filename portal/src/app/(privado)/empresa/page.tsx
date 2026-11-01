@@ -1,5 +1,5 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import { ArrowSquareOutIcon, BuildingsIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOutIcon, BuildingsIcon, CertificateIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -24,6 +24,7 @@ import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/compartidos/metrica";
 import { interpolar } from "@/i18n/mensajes";
+import { FilaMetricas } from "khipu-design-system/patrones/metricas";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -126,10 +127,10 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           : { tono: "ok", texto: ec.vigente };
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
+    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+      <FilaMetricas>
         <Metrica
-          etiqueta={tm.estadoCertificado}
+          etiqueta={tm.estadoCertificado} icono={CertificateIcon} tono={estadoCert.tono}
           ayuda={
             vigencia ? (
               <>
@@ -160,7 +161,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
         </Metrica>
 
         <Metrica
-          etiqueta={tm.credencialesSol}
+          etiqueta={tm.credencialesSol} icono={KeyIcon} tono={rechazoSol ? "error" : empresa.tiene_credenciales_sol ? "ok" : "aviso"}
           ayuda={
             rechazoSol ? (
               <span className="flex items-center gap-1 text-destructive">
@@ -181,7 +182,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
         </Metrica>
 
         <Metrica
-          etiqueta={messages.empresa.comun.entornoSunat}
+          etiqueta={messages.empresa.comun.entornoSunat} icono={CloudIcon} tono={beta ? "aviso" : "ok"}
           ayuda={
             <>
               <span className="truncate">{interpolar(tm.rucNumero, { ruc: empresa.ruc })}</span>
@@ -195,7 +196,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
         </Metrica>
 
         <Metrica
-          etiqueta={tm.empresasEnLaCuenta}
+          etiqueta={tm.empresasEnLaCuenta} icono={BuildingsIcon} tono="acento"
           ayuda={
             <>
               {/* «Con certificado y SOL», no «listas para emitir»: el listado no trae la vigencia del certificado, y uno vencido no emite (264-H4). */}
@@ -206,7 +207,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           {empresas.length}
           <span className="text-control font-normal text-muted-foreground">{empresas.length === 1 ? tm.registrada : tm.registradas}</span>
         </Metrica>
-      </section>
+      </FilaMetricas>
 
       <GuiaParaEmitir pasos={pasosParaEmitir(empresa, series, hoyLima(), messages)} />
 

@@ -8,6 +8,7 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { useSeccionActiva } from "@/lib/seccion-activa";
 import { cn } from "@/lib/utils";
 import { Rico } from "./guia/rico";
+import { TARJETA } from "@/lib/estilos";
 
 /**
  * Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía): el texto
@@ -84,7 +85,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
         </header>
         {visibles.length === 0 ? <p className="text-control text-muted-foreground">{interpolar(t.sinCoincidencias, { filtro })}</p> : null}
         {visibles.map((c) => (
-          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+          <section key={c.id} id={`cat-${c.id}`} className={cn(TARJETA, "scroll-mt-16 overflow-hidden")}>
             <div className="border-b border-border/60 px-4 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta font-semibold text-primary">{interpolar(t.catalogo, { id: c.id })}</span>

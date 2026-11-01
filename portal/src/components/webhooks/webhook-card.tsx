@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { Webhook } from "@/lib/api/webhooks";
-import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -103,7 +103,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
   const bloqueado = soloLectura !== null || trabajando !== null;
 
   return (
-    <article data-testid="webhook" aria-label={interpolar(t.aria, { url: webhook.url })} className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
+    <article data-testid="webhook" aria-label={interpolar(t.aria, { url: webhook.url })} className={cn(TARJETA, "min-w-0 overflow-hidden")}>
       <div className="grid gap-3 px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">

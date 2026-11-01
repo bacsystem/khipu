@@ -3,9 +3,10 @@ import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useLocale, useMessages } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { AccesoDeSoporte } from "@/lib/api/accesos-de-soporte";
-import { CABECERA_TABLA } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFechaHora } from "@/lib/formato";
+import { cn } from "@/lib/utils";
 
 /** La duración como la lee una persona: en minutos si es un número redondo de minutos, y en segundos si no. */
 export function duracionEnPalabras(segundos: number, messages: Mensajes): string {
@@ -22,7 +23,7 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
   const locale = useLocale();
   const t = messages.soporte.accesos;
   return (
-    <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs" data-testid="accesos-de-soporte">
+    <div className={cn(TARJETA, "overflow-hidden")} data-testid="accesos-de-soporte">
       <Table>
         <TableHeader>
           <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

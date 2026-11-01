@@ -4,7 +4,7 @@ import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
@@ -15,6 +15,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
@@ -140,17 +141,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
         {edicion ? t.editar : t.nuevo}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="plan-formulario" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <Icono className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</DialogTitle>
-              <DialogDescription className="text-control">{edicion ? f.descripcionEditar : f.descripcionNuevo}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={Icono} titulo={<>{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</>} descripcion={edicion ? f.descripcionEditar : f.descripcionNuevo} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
@@ -242,7 +233,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {f.cancelar}
           </button>
@@ -250,7 +241,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
             <Icono className="size-4" />
             {enviando ? (edicion ? f.guardando : f.creando) : edicion ? f.guardar : f.crear}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

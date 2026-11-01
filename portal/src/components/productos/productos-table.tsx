@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
 import { afectaciones } from "@/lib/comprobantes/tributos";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { formatearPrecioUnitario } from "@/lib/formato";
 import type { Locale } from "@/i18n/config";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -123,7 +123,7 @@ export function ProductosTable() {
         </p>
       ) : null}
 
-      <div className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "min-w-0 overflow-hidden")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

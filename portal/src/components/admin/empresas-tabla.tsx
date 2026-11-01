@@ -21,7 +21,7 @@ import {
   type EstadoCertificadoAdmin,
   type ParamsEmpresas,
 } from "@/lib/api/admin-empresas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -121,7 +121,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "overflow-x-auto")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

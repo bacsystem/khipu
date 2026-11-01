@@ -5,6 +5,8 @@ import { useMessages } from "next-intl";
 import type { Webhook } from "@/lib/api/webhooks";
 import { NuevoWebhookDialog } from "./nuevo-webhook-dialog";
 import { WebhookCard } from "./webhook-card";
+import { TARJETA } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 
 /**
  * Los webhooks de la empresa (#19): en vez de consultar cada comprobante, khipu avisa con un POST firmado a la URL del cliente cuando cambia de estado. `webhooks` es nulo si
@@ -35,11 +37,11 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
       </div>
 
       {webhooks === null ? (
-        <p role="alert" className="rounded-xl border border-border bg-card px-4 py-6 text-center text-cuerpo text-muted-foreground">
+        <p role="alert" className={cn(TARJETA, "px-4 py-6 text-center text-cuerpo text-muted-foreground")}>
           {t.errorLectura}
         </p>
       ) : webhooks.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-10 text-center text-muted-foreground">
+        <div className={cn(TARJETA, "flex flex-col items-center gap-2 px-4 py-10 text-center text-muted-foreground")}>
           <WebhooksLogoIcon weight={PESO_ICONO} className="size-6" />
           <p className="text-cuerpo">{t.vacia}</p>
         </div>

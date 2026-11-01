@@ -4,13 +4,14 @@ import { CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, UserPlusIcon } f
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionEnviada, type Rol } from "@/lib/api/equipo";
 import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** #21: invitar a alguien a la cuenta con un rol. Solo un administrador (el backend lo vuelve a exigir). */
 export function InvitarDialog({ className }: { className?: string }) {
@@ -68,17 +69,7 @@ export function InvitarDialog({ className }: { className?: string }) {
         {t.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <EnvelopeSimpleIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{t.subtitulo}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={EnvelopeSimpleIcon} titulo={t.titulo} descripcion={t.subtitulo} />
         <form onSubmit={onSubmit} className="flex flex-col gap-4 px-5 py-4" noValidate>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="invitar-email" className={ETIQUETA_CAMPO}>

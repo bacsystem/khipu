@@ -7,6 +7,8 @@ import { getServerSession } from "@/lib/session-server";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
 import { interpolar } from "@/i18n/mensajes";
+import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { ListNumbersIcon, MapPinIcon, ReceiptIcon, StorefrontIcon } from "@phosphor-icons/react/dist/ssr";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -35,10 +37,10 @@ export default async function EstablecimientosPage() {
   const seriesEnAnexos = series.filter((s) => s.activa && (s.establecimiento ?? "0000") !== "0000").length;
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
+    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+      <FilaMetricas>
         <Metrica
-          etiqueta={t.domicilioFiscal}
+          etiqueta={t.domicilioFiscal} icono={MapPinIcon} tono={principal ? "ok" : "aviso"}
           ayuda={
             principal ? (
               <span className="truncate">{principal.domicilio.direccion}</span>
@@ -52,19 +54,19 @@ export default async function EstablecimientosPage() {
         >
           <span className="font-mono">0000</span>
         </Metrica>
-        <Metrica etiqueta={t.anexosActivos} ayuda={anexos.length - activos > 0 ? interpolar(t.dadosDeBaja, { cantidad: anexos.length - activos }) : t.anexosAyuda}>
+        <Metrica etiqueta={t.anexosActivos} icono={StorefrontIcon} tono="acento" ayuda={anexos.length - activos > 0 ? interpolar(t.dadosDeBaja, { cantidad: anexos.length - activos }) : t.anexosAyuda}>
           {activos}
           <span className="text-control font-normal text-muted-foreground">{interpolar(t.registrados, { total: anexos.length })}</span>
         </Metrica>
-        <Metrica etiqueta={t.seriesEnAnexos} ayuda={seriesEnAnexos > 0 ? t.seriesEnAnexosAyuda : t.seriesEnFiscal}>
+        <Metrica etiqueta={t.seriesEnAnexos} icono={ListNumbersIcon} tono="neutro" ayuda={seriesEnAnexos > 0 ? t.seriesEnAnexosAyuda : t.seriesEnFiscal}>
           {seriesEnAnexos}
           <span className="text-control font-normal text-muted-foreground">{interpolar(t.activas, { total: series.filter((s) => s.activa).length })}</span>
         </Metrica>
-        <Metrica etiqueta={t.enElXml} ayuda={t.enElXmlAyuda}>
+        <Metrica etiqueta={t.enElXml} icono={ReceiptIcon} tono="neutro" ayuda={t.enElXmlAyuda}>
           {/* eslint-disable-next-line khipu/no-literal-de-ui -- nombre del elemento UBL, no se traduce */}
           <span className="text-primary">AddressTypeCode</span>
         </Metrica>
-      </section>
+      </FilaMetricas>
 
       <EstablecimientosTable establecimientos={establecimientos} series={series} />
     </div>

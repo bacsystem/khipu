@@ -13,6 +13,7 @@ import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
+import { PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /**
  * Dar de baja o reponer una cuenta (#201). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón que
@@ -131,7 +132,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
@@ -139,7 +140,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
             <Icono className="size-4" />
             {enviando ? textos.enviando : textos.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );
