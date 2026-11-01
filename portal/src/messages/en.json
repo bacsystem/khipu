@@ -1813,7 +1813,6 @@
     "rucInvalido": "The RUC is not valid: check the digits (SUNAT validates the check digit)"
   },
   "nav": {
-    "principal": "Main navigation",
     "grupos": {
       "panel": "Dashboard",
       "emision": "Issuing & SUNAT",
@@ -1847,8 +1846,6 @@
         "developers": "Developers"
       }
     },
-    "ubicacion": "Breadcrumb",
-    "abrirMenu": "Open menu",
     "ubl": "UBL 2.1",
     "entorno": {
       "betaAyuda": "SUNAT BETA environment: documents issued here have no tax validity",

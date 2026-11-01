@@ -1,13 +1,20 @@
+"use client";
+
+import { ChipSidebar, SidebarContent as SidebarDelDiseno } from "khipu-design-system/nav/sidebar";
 import { useMessages } from "next-intl";
 import type { Usuario } from "@/lib/api/auth";
 import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa } from "@/lib/api/empresas";
 import { EmpresaSelector } from "./empresa-selector";
+import { gruposDeNavegacion } from "./grupos-de-navegacion";
 import { LogoMarca } from "./logo";
 import { PerfilUsuario } from "./perfil-usuario";
 import { PlanYConsumo } from "./plan-y-consumo";
-import { SidebarNav } from "./sidebar-nav";
 
+/**
+ * El contenido del menú lateral (en escritorio, la tarjeta flotante; en el teléfono, el cajón): el `SidebarContent` del design system con lo propio del portal en sus
+ * espacios. Es un componente de cliente porque los íconos de los grupos son funciones y no pueden cruzar desde el layout del servidor.
+ */
 export function SidebarContent({
   usuario,
   cuenta,
@@ -21,30 +28,18 @@ export function SidebarContent({
   activaId?: string;
 }) {
   const t = useMessages().nav;
+  const activa = empresas.find((e) => e.id === activaId) ?? empresas[0];
   return (
-    <div className="flex h-full w-full min-w-0 flex-col justify-between overflow-hidden select-none">
-      <div className="flex w-full min-w-0 flex-col">
-        <div className="flex h-14 w-full min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-border/60 px-4">
-          <LogoMarca />
-          <span className="inline-flex shrink-0 items-center rounded border border-border/60 bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium whitespace-nowrap text-secondary-foreground/70">
-            {t.ubl}
-          </span>
-        </div>
-
-        {empresas.length > 0 ? (
-          <div className="px-3 pt-3 pb-2">
-            <EmpresaSelector empresas={empresas} activaId={activaId} />
-          </div>
-        ) : null}
-
-        <SidebarNav rol={usuario.rol} />
-      </div>
-
-      <div className="flex w-full min-w-0 flex-col gap-2.5 border-t border-border/60 p-3">
-        <PlanYConsumo cuenta={cuenta} />
-        {/* El menú de usuario incluye el tema (en móvil el TopBar lo oculta), el cambio de contraseña y el cierre de sesión. */}
-        <PerfilUsuario usuario={usuario} nombreCuenta={cuenta?.nombre ?? null} />
-      </div>
-    </div>
+    <SidebarDelDiseno
+      marca={<LogoMarca />}
+      // El entorno de la empresa activa, siempre a la vista: la «píldora» de la barra superior del design system se oculta en pantallas angostas, y emitir en producción
+      // creyendo que es BETA (o al revés) es lo que no puede pasar desapercibido en el teléfono.
+      chip={activa ? <ChipSidebar>{activa.entorno === "BETA" ? t.entorno.beta : t.entorno.produccion}</ChipSidebar> : undefined}
+      selector={empresas.length > 0 ? <EmpresaSelector empresas={empresas} activaId={activaId} /> : undefined}
+      grupos={gruposDeNavegacion(t, usuario.rol)}
+      pie={<PlanYConsumo cuenta={cuenta} />}
+      // El menú de usuario incluye el tema (en móvil la barra superior no lo muestra), «Apariencia…», el cambio de contraseña y el cierre de sesión.
+      usuario={<PerfilUsuario usuario={usuario} nombreCuenta={cuenta?.nombre ?? null} />}
+    />
   );
 }

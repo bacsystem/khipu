@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, ChevronsUpDownIcon, KeyRoundIcon, LogOutIcon, MailCheckIcon, PaletteIcon, ShieldCheckIcon } from "lucide-react";
+import { BookOpenIcon, CaretRightIcon, CaretUpDownIcon, EnvelopeSimpleOpenIcon, KeyIcon, PaletteIcon, ShieldCheckIcon, SignOutIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMessages } from "next-intl";
@@ -11,7 +11,7 @@ import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import type { Usuario } from "@/lib/api/auth";
 import { postJson } from "@/lib/api/browser";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ROTULO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
@@ -55,7 +55,7 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <KeyRoundIcon className="size-4" />
+              <KeyIcon weight="duotone" className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
@@ -67,7 +67,7 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
         <div className="grid gap-3 px-5 py-4">
           {estado === "enviado" ? (
             <div role="status" className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-[13px] leading-relaxed text-success-foreground">
-              <MailCheckIcon className="mt-0.5 size-4 shrink-0" />
+              <EnvelopeSimpleOpenIcon weight="duotone" className="mt-0.5 size-4 shrink-0" />
               <p>
                 {t.enviadoA} <strong className="font-semibold">{email}</strong>
                 {t.enviadoDetalle}
@@ -139,55 +139,56 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
         <MenuTrigger
           aria-label={t.menu}
           className={cn(
-            "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg border border-border/60 bg-muted/80 p-2 text-left transition-colors outline-none select-none",
+            "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-xl bg-secondary p-2 text-left transition-colors outline-none select-none",
             "hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-secondary",
           )}
         >
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-acento text-etiqueta font-bold text-acento-texto shadow-xs">
               {iniciales(nombre)}
             </div>
             <div className="min-w-0 overflow-hidden">
-              <p className="truncate text-[12px] leading-tight font-medium text-foreground">{nombre}</p>
-              <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground">{usuario.email}</p>
+              <p className="truncate text-control leading-tight font-medium text-foreground">{nombre}</p>
+              <p className="truncate text-etiqueta leading-tight text-muted-foreground">{usuario.email}</p>
             </div>
           </div>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground/70" />
+          <CaretUpDownIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/70" />
         </MenuTrigger>
 
         {/* Mismo ancho y alineación que el disparador, como el selector de empresas. */}
         <MenuContent side="top" align="start" className="w-(--anchor-width) min-w-0">
-          <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">{t.tuCuenta}</div>
+          <div className="px-2 pt-1.5 pb-1 text-etiqueta font-medium text-muted-foreground">{t.tuCuenta}</div>
           {/* Datos completos, sin truncar: el correo se parte en dos líneas si hace falta. */}
-          <div className="flex items-start gap-2.5 rounded-md bg-accent/70 py-1.5 pr-2 pl-2 text-accent-foreground">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
+          <div className="flex items-start gap-2.5 rounded-lg bg-accent py-1.5 pr-2 pl-2 text-accent-foreground">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-acento text-etiqueta font-bold text-acento-texto shadow-xs">
               {iniciales(nombre)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] leading-tight font-medium">{nombre}</p>
-              <p className="mt-0.5 font-mono text-[10px] leading-snug break-all text-muted-foreground">{usuario.email}</p>
-              <p data-testid="rol-del-usuario" className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{rol}</p>
+              <p className="text-control leading-tight font-medium">{nombre}</p>
+              <p className="mt-0.5 text-etiqueta leading-snug break-all text-muted-foreground">{usuario.email}</p>
+              <p data-testid="rol-del-usuario" className="mt-0.5 text-etiqueta leading-tight text-muted-foreground">{rol}</p>
             </div>
-            <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            <ShieldCheckIcon weight="duotone" className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
           </div>
 
           <MenuSeparator />
 
-          {/* Tema en línea (el mismo control de la barra superior, con etiquetas), no como ítems del menú. */}
-          <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">{t.tema}</div>
-          <div className="px-0.5 pb-1.5">
-            <ThemeToggle conTexto />
+          {/* Tema en línea, solo con íconos, como el menú del design system, no como ítems del menú. */}
+          <div className="flex items-center justify-between gap-3 px-2 py-1.5">
+            <span className={ROTULO}>{t.tema}</span>
+            <ThemeToggle />
           </div>
           {/* La paleta, el tono oscuro y la tipografía son del design system (v0.5.0): se eligen en su panel y se guardan en el navegador. */}
           <MenuItem onClick={() => setApariencia(true)}>
             <PaletteIcon />
-            {t.apariencia}
+            <span className="flex-1">{t.apariencia}</span>
+            <CaretRightIcon weight="bold" className="size-3.5 text-texto-terciario" />
           </MenuItem>
 
           <MenuSeparator />
 
           <MenuItem disabled={soloLectura !== null} onClick={() => setCambiandoContrasena(true)}>
-            <KeyRoundIcon />
+            <KeyIcon />
             {t.cambiarContrasena}
           </MenuItem>
           <MenuLinkItem href="/developers" target="_blank">
@@ -198,7 +199,7 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
           <MenuSeparator />
 
           <MenuItem variant="destructive" disabled={saliendo} onClick={salir}>
-            <LogOutIcon />
+            <SignOutIcon />
             {messages.comun.cerrarSesion}
           </MenuItem>
         </MenuContent>

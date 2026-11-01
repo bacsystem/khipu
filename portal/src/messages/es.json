@@ -1813,7 +1813,6 @@
     "rucInvalido": "El RUC no es válido: revisa los dígitos (SUNAT valida el dígito verificador)"
   },
   "nav": {
-    "principal": "Navegación principal",
     "grupos": {
       "panel": "Panel",
       "emision": "Emisión & SUNAT",
@@ -1847,8 +1846,6 @@
         "developers": "Developers"
       }
     },
-    "ubicacion": "Ubicación",
-    "abrirMenu": "Abrir menú",
     "ubl": "UBL 2.1",
     "entorno": {
       "betaAyuda": "Entorno BETA de SUNAT: los comprobantes emitidos aquí no tienen validez tributaria",

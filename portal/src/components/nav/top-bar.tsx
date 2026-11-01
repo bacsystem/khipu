@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileNav } from "khipu-design-system/nav/mobile-nav";
+import { TopBar as TopBarDelDiseno, type Miga, type PillEntorno } from "khipu-design-system/nav/top-bar";
 import { usePathname } from "next/navigation";
 import { useMessages } from "next-intl";
 import type { Mensajes } from "@/i18n/mensajes";
@@ -21,7 +23,7 @@ import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
-import { MobileNav } from "./mobile-nav";
+import { SidebarContent } from "./sidebar-content";
 
 type Nav = Mensajes["nav"];
 
@@ -42,6 +44,49 @@ const MIGAS: Array<{ prefijo: string; seccion: keyof Nav["migas"]["secciones"]; 
   { prefijo: "/cuenta/equipo", seccion: "cuenta", pagina: (t) => t.items.equipo },
 ];
 
+/** Las acciones de la sección en la que se está: lo que cada página ofrece arriba a la derecha (la principal, y a lo sumo dos secundarias). */
+function AccionesDeLaPagina({ usuario, apiBaseUrl }: { usuario: Usuario; apiBaseUrl: string }) {
+  const pathname = usePathname();
+
+  // Solo acciones que funcionan (C6): la búsqueda global, «Exportar», el monitoreo OSE y la prueba de conexión se veían pero no
+  // hacían nada. Vuelven cuando existan.
+  if (pathname.startsWith("/series"))
+    return (
+      <>
+        <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <NuevaSerieDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/api-keys"))
+    return (
+      <>
+        <ReferenciaApiKeysDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <EjemploIntegracionDialog baseUrl={apiBaseUrl} className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")} />
+        <NuevaApiKeyDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/empresa"))
+    return (
+      <>
+        <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/establecimientos")) return <EstablecimientoDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/clientes")) return <ClienteDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/productos")) return <ProductoDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/comprobantes") || pathname.startsWith("/inicio")) return <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />;
+  /* #39: «Nueva guía» es la acción de la sección, como «Nuevo comprobante» en la suya; en el propio formulario no hace falta. */
+  if (pathname.startsWith("/guias") && pathname !== "/guias/nueva") return <NuevaGuiaEnlace />;
+  if (pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN") return <InvitarDialog className={ACCION_PRINCIPAL} />;
+  /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */
+  return null;
+}
+
+/**
+ * La barra superior del design system con lo propio del portal: la miga traducida (es el h1 de la página), el entorno de la empresa activa, el menú del teléfono (el mismo
+ * menú lateral en un cajón) y las acciones de la sección.
+ */
 export function TopBar({
   entorno,
   usuario,
@@ -58,74 +103,27 @@ export function TopBar({
   /** URL pública de la API, para los ejemplos de integración. */
   apiBaseUrl: string;
 }) {
-  const pathname = usePathname();
   const t = useMessages().nav;
-  const miga = MIGAS.find((m) => pathname.startsWith(m.prefijo));
+  const migas: Miga[] = MIGAS.map((m) => ({ prefijo: m.prefijo, seccion: t.migas.secciones[m.seccion], pagina: m.pagina(t) }));
   const beta = entorno === "BETA";
+  const pill: PillEntorno = beta
+    ? { texto: t.entorno.betaSunat, tono: "aviso", title: t.entorno.betaAyuda }
+    : { texto: t.entorno.produccion, tono: "oscuro", title: t.entorno.produccionAyuda };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/80 px-4 backdrop-blur md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="md:hidden">
-          <MobileNav usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
-        </div>
-
-        {miga ? (
-          <nav aria-label={t.ubicacion} className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap">
-            <span className="text-muted-foreground/80">{t.migas.secciones[miga.seccion]}</span>
-            <span className="text-muted-foreground/40">/</span>
-            <h1 className="truncate font-heading font-semibold text-foreground">{miga.pagina(t)}</h1>
-          </nav>
-        ) : null}
-
-        <div className="hidden h-4 w-px bg-border sm:block" />
-
-        <span
-          title={beta ? t.entorno.betaAyuda : t.entorno.produccionAyuda}
-          className={cn(
-            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
-            beta ? "border border-warning-border bg-warning text-warning-foreground" : "bg-foreground text-background",
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", beta ? "bg-warning-solid" : "bg-success-solid")} />
-          {beta ? t.entorno.betaSunat : t.entorno.produccion}
-        </span>
-      </div>
-
-      {/* Solo acciones que funcionan (C6): la búsqueda global, «Exportar», el monitoreo OSE y la prueba de conexión se veían pero no
-          hacían nada. Vuelven cuando existan. */}
-      <div className="flex shrink-0 items-center gap-2.5">
-        {pathname.startsWith("/series") ? (
-          <>
-            <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <NuevaSerieDialog className={ACCION_PRINCIPAL} />
-          </>
-        ) : pathname.startsWith("/api-keys") ? (
-          <>
-            <ReferenciaApiKeysDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <EjemploIntegracionDialog baseUrl={apiBaseUrl} className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")} />
-            <NuevaApiKeyDialog className={ACCION_PRINCIPAL} />
-          </>
-        ) : pathname.startsWith("/empresa") ? (
-          <>
-            <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
-          </>
-        ) : pathname.startsWith("/establecimientos") ? (
-          <EstablecimientoDialog className={ACCION_PRINCIPAL} />
-        ) : pathname.startsWith("/clientes") ? (
-          <ClienteDialog className={ACCION_PRINCIPAL} />
-        ) : pathname.startsWith("/productos") ? (
-          <ProductoDialog className={ACCION_PRINCIPAL} />
-        ) : pathname.startsWith("/comprobantes") || pathname.startsWith("/inicio") ? (
-          <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />
-        ) : pathname.startsWith("/guias") && pathname !== "/guias/nueva" ? (
-          /* #39: «Nueva guía» es la acción de la sección, como «Nuevo comprobante» en la suya; en el propio formulario no hace falta. */
-          <NuevaGuiaEnlace />
-        ) : pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN" ? (
-          <InvitarDialog className={ACCION_PRINCIPAL} />
-        ) : /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */ null}
-      </div>
-    </header>
+    <TopBarDelDiseno
+      migas={migas}
+      pills={[pill]}
+      menuMovil={
+        <MobileNav>
+          {/* El cajón del design system no se desplaza (su contenido es `h-full overflow-hidden`): en una pantalla baja el menú de usuario —tema, «Apariencia…», salir— quedaba
+              fuera y no había cómo llegar a él. Se le da un contenedor que se desplaza y se deja crecer al contenido. */}
+          <div className="h-full overflow-y-auto [&>div]:h-auto [&>div]:min-h-full [&>div]:overflow-visible">
+            <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
+          </div>
+        </MobileNav>
+      }
+      acciones={<AccionesDeLaPagina usuario={usuario} apiBaseUrl={apiBaseUrl} />}
+    />
   );
 }

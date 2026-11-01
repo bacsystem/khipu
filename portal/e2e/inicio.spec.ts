@@ -24,7 +24,8 @@ test("al entrar se llega al panel, que es el primer ítem de la navegación y el
 
   await expect(page).toHaveTitle(/^Inicio · /);
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
-  const navegacion = page.getByRole("navigation", { name: "Navegación principal" });
+  // El menú lateral es el `nav` del `aside` (el design system no le da nombre: el de «Ubicación» es el de la miga).
+  const navegacion = page.getByRole("complementary").getByRole("navigation");
   await expect(navegacion.getByRole("link").first()).toHaveText("Inicio");
   await expect(navegacion.getByRole("link").first()).toHaveAttribute("aria-current", "page");
 
