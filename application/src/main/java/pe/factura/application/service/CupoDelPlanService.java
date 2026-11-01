@@ -32,6 +32,6 @@ public class CupoDelPlanService implements CupoDelPlan {
         long usados = ocupados.ocupados(cuentaId, recurso, ahora);
         if (!tope.llenoCon(usados)) return;
         throw new DomainException("CUPO_DEL_PLAN", "Tu plan " + plan.nombre() + " incluye " + recurso.cantidad(tope.maximo()) + " y ya tienes " + recurso.cantidad(usados)
-                + recurso.loQueCuenta() + ". " + recurso.paraLiberar());
+                + recurso.loQueCuenta(usados) + ". " + recurso.paraLiberar());
     }
 }

@@ -5,7 +5,7 @@ import { fijarLocaleDePrueba } from "./prueba";
 import en from "@/messages/en.json";
 import es from "@/messages/es.json";
 
-const SERVIDOR = "Tu plan Gratis incluye 1 API key y ya tienes 1 API key activas. Revoca una que ya no uses, o pide un cambio de plan";
+const SERVIDOR = "Tu plan Gratis incluye 1 API key y ya tienes 1 API key activa. Revoca una que ya no uses, o pide un cambio de plan";
 
 /** #498: con `CUPO_DEL_PLAN` el texto que sirve es el del backend (nombra el plan, cuánto incluye y cómo liberar un lugar); el resto de los códigos sigue siendo el catálogo. */
 describe("useMensajeError", () => {

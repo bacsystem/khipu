@@ -57,8 +57,13 @@ class CupoDelPlanServiceTest {
                 .hasFieldOrPropertyWithValue("codigo", "CUPO_DEL_PLAN")
                 .hasMessageContaining("Emprende")
                 .hasMessageContaining("incluye 1 API key")
-                .hasMessageContaining("ya tienes 1 API key activas")
+                .hasMessageContaining("ya tienes 1 API key activa. Revoca")
                 .hasMessageContaining("Revoca");
+    }
+
+    @Test void conMasDeUnaKeyEnUnPlanDeUnaElMensajeVaEnPlural() {
+        ocupados.put(RecursoDelPlan.API_KEYS, 2L);
+        assertThatThrownBy(() -> service.exigirLugar(cuentaId, RecursoDelPlan.API_KEYS)).hasMessageContaining("incluye 1 API key y ya tienes 2 API keys activas.");
     }
 
     @Test void cadaRecursoTieneSuPropioTope() {

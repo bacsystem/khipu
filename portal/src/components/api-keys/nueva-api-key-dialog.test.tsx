@@ -10,7 +10,7 @@ vi.mock("@/lib/api/browser", () => ({ apiRequest: (...a: unknown[]) => apiReques
 afterEach(cleanup);
 beforeEach(() => apiRequest.mockReset());
 
-const DEL_SERVIDOR = "Tu plan Gratis incluye 1 API key y ya tienes 1 API key activas. Revoca una que ya no uses, o pide un cambio de plan";
+const DEL_SERVIDOR = "Tu plan Gratis incluye 1 API key y ya tienes 1 API key activa. Revoca una que ya no uses, o pide un cambio de plan";
 
 async function generar() {
   fireEvent.click(screen.getByRole("button", { name: "Crear API key" }));

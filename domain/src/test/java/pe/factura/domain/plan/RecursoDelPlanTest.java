@@ -21,7 +21,14 @@ class RecursoDelPlanTest {
     }
 
     @Test void losUsuariosAclaranQueLasInvitacionesPendientesCuentan() {
-        assertThat(RecursoDelPlan.USUARIOS.loQueCuenta()).contains("invitación pendiente");
-        assertThat(RecursoDelPlan.API_KEYS.loQueCuenta()).contains("activas");
+        assertThat(RecursoDelPlan.USUARIOS.loQueCuenta(2)).contains("invitación pendiente");
+    }
+
+    /** F1: «1 API key activas» era un error de concordancia en el mensaje que ve el cliente al primer rechazo. */
+    @Test void loQueCuentaConcuerdaConLaCantidad() {
+        assertThat(RecursoDelPlan.API_KEYS.cantidad(1) + RecursoDelPlan.API_KEYS.loQueCuenta(1)).isEqualTo("1 API key activa");
+        assertThat(RecursoDelPlan.API_KEYS.cantidad(2) + RecursoDelPlan.API_KEYS.loQueCuenta(2)).isEqualTo("2 API keys activas");
+        assertThat(RecursoDelPlan.USUARIOS.cantidad(1) + RecursoDelPlan.USUARIOS.loQueCuenta(1)).isEqualTo("1 usuario (activo o con invitación pendiente)");
+        assertThat(RecursoDelPlan.RUCS.loQueCuenta(1)).isEmpty();
     }
 }

@@ -23,7 +23,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
     const res = await apiRequest<{ api_key: string }>("/api/proxy/empresa/api-keys", { method: "POST" });
     setGenerando(false);
     if (res.estado !== "exito" || !res.datos) {
-      setError(mensajeError(res.codigo));
+      setError(mensajeError(res.codigo, res.mensaje));
       return;
     }
     setApiKey(res.datos.api_key);
