@@ -14,6 +14,8 @@ import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/compartidos/metrica";
 import { interpolar } from "@/i18n/mensajes";
+import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { ClockCounterClockwiseIcon, KeyIcon, LockIcon, ProhibitIcon } from "@phosphor-icons/react/dist/ssr";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -63,10 +65,10 @@ export default async function ApiKeysPage() {
   const ultima = apiKeys[0]; // la API devuelve la más reciente primero
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
+    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+      <FilaMetricas>
         <Metrica
-          etiqueta={t.activas}
+          etiqueta={t.activas} icono={KeyIcon} tono={activas.length > 0 ? "ok" : "aviso"}
           ayuda={
             activas.length > 0 && faltan === null ? (
               <span className="text-muted-foreground">{t.activasSinComprobar}</span>
@@ -97,19 +99,19 @@ export default async function ApiKeysPage() {
           <span className="text-control font-normal text-muted-foreground">{interpolar(t.creadas, { total: apiKeys.length })}</span>
         </Metrica>
 
-        <Metrica etiqueta={t.ultima} ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia}>
+        <Metrica etiqueta={t.ultima} icono={ClockCounterClockwiseIcon} tono="neutro" ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia}>
           {ultima ? <span className={cn(!ultima.activa && "text-muted-foreground line-through")}>{ultima.prefijo}</span> : <span className="text-muted-foreground/60">—</span>}
         </Metrica>
 
         <Metrica
-          etiqueta={t.revocadas}
+          etiqueta={t.revocadas} icono={ProhibitIcon} tono="neutro"
           ayuda={revocadas > 0 ? t.revocadasAyuda : t.ningunaRevocada}
         >
           <span className={cn(revocadas > 0 && "text-muted-foreground")}>{revocadas}</span>
         </Metrica>
 
         <Metrica
-          etiqueta={t.autenticacion}
+          etiqueta={t.autenticacion} icono={LockIcon} tono="acento"
           ayuda={
             <>
               <span className="truncate">{t.autenticacionAyuda}</span>
@@ -120,7 +122,7 @@ export default async function ApiKeysPage() {
         >
           <span className="text-primary">{"X-Api-Key"}</span>
         </Metrica>
-      </section>
+      </FilaMetricas>
 
       <ApiKeysTable apiKeys={apiKeys} />
 

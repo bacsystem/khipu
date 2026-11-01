@@ -5,7 +5,7 @@ import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { DestinatarioAdmin } from "@/lib/api/admin-acceso";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
@@ -14,6 +14,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Tipo = "restablecer" | "verificar";
 
@@ -81,17 +82,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
         {textos.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="acceso-confirmacion" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <Icono className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{textos.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{textos.descripcion.replace("{correo}", correo)}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={Icono} titulo={textos.titulo} descripcion={<>{textos.descripcion.replace("{correo}", correo)}</>} />
 
         <div className="grid gap-4 px-5 py-4">
           {enviadoA ? (
@@ -112,7 +103,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {enviadoA ? t.cerrar : textos.cancelar}
           </button>
@@ -122,7 +113,7 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
               {enviando ? textos.enviando : textos.confirmar}
             </button>
           )}
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

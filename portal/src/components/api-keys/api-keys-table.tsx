@@ -15,7 +15,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { cn } from "@/lib/utils";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 const TODAS = "todas";
@@ -169,7 +169,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity", refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

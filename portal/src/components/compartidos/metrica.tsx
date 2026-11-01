@@ -1,24 +1,39 @@
+import type { IconoComponente } from "khipu-design-system/lib/iconos";
+import { Metrica as MetricaDelDiseno, type TonoMetrica, type VisualMetrica } from "khipu-design-system/patrones/metricas";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Indicador de cabecera de página (etiqueta · valor · ayuda). `pendiente` lo atenúa cuando el dato todavía no existe. */
+/**
+ * Indicador de cabecera de página: la tarjeta de métrica del design system (etiqueta con ícono, valor grande, mini visual opcional y ayuda). `pendiente` la atenúa cuando el
+ * dato todavía no existe y deja «—» como valor. Va dentro de una `FilaMetricas`.
+ */
 export function Metrica({
   etiqueta,
   children,
+  sufijo,
   ayuda,
+  icono,
+  tono,
+  visual,
+  destacada,
   pendiente = false,
 }: {
   etiqueta: string;
-  children?: React.ReactNode;
-  ayuda: React.ReactNode;
+  children?: ReactNode;
+  /** Texto menor junto al valor («/ 30», «registrada»). */
+  sufijo?: ReactNode;
+  ayuda: ReactNode;
+  icono?: IconoComponente;
+  tono?: TonoMetrica;
+  visual?: VisualMetrica;
+  destacada?: boolean;
   pendiente?: boolean;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-0.5", pendiente && "opacity-60")}>
-      <span className="truncate text-etiqueta font-medium text-muted-foreground">{etiqueta}</span>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-titulo font-semibold tracking-tight text-foreground">
+    <div data-metrica={etiqueta} className={cn("min-w-0 [&>*]:h-full", pendiente && "opacity-60")}>
+      <MetricaDelDiseno etiqueta={etiqueta} sufijo={sufijo} ayuda={ayuda} icono={icono} tono={tono} visual={visual} destacada={destacada}>
         {children ?? "—"}
-      </div>
-      <div className="flex min-w-0 items-center gap-1 truncate text-etiqueta text-muted-foreground">{ayuda}</div>
+      </MetricaDelDiseno>
     </div>
   );
 }

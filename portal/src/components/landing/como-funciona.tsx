@@ -2,6 +2,7 @@ import { KeyIcon, ListNumbersIcon, ShieldCheckIcon, SignatureIcon } from "@phosp
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 import { cn } from "@/lib/utils";
+import { TARJETA } from "@/lib/estilos";
 
 /**
  * Cómo se pasa del certificado a la constancia.
@@ -64,7 +65,7 @@ export function ComoFunciona() {
                 return (
                   <li
                     key={paso.clave}
-                    className="group rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]"
+                    className={cn(TARJETA, "group p-5 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]")}
                   >
                     <div className="flex items-center justify-between">
                       <span

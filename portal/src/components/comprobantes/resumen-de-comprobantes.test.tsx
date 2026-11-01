@@ -17,7 +17,8 @@ const resumen = (extra: Partial<ResumenDeFacturas> = {}): ResumenDeFacturas => (
 });
 
 const mostrar = (r: ResumenDeFacturas | null, p: PeriodoDelResumen = MES) => render(<ResumenDeComprobantes resumen={r} periodo={p} />);
-const metrica = (etiqueta: string) => screen.getByText(etiqueta).parentElement as HTMLElement;
+// La tarjeta entera de la métrica (la etiqueta, el valor y la ayuda son hermanos dentro de ella).
+const metrica = (etiqueta: string) => screen.getByText(etiqueta).closest("[data-metrica]") as HTMLElement;
 
 describe("periodoEnPalabras", () => {
   it("dice el período como se lo ve en la franja", () => {

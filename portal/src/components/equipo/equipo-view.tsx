@@ -9,7 +9,7 @@ import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
-import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -257,7 +257,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.usuarios}>
         <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} />
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
+        <div className={cn(TARJETA, "min-w-0 overflow-x-auto")}>
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -278,7 +278,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
         <Encabezado icono={EnvelopeSimpleIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
+        <div className={cn(TARJETA, "min-w-0 overflow-x-auto")}>
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

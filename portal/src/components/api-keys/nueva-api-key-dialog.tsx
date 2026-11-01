@@ -4,13 +4,14 @@ import { KeyIcon, PlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { ApiKeyRevelada } from "./api-key-revelada";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** Crea una API key y la muestra una sola vez; al cerrar, refresca la lista del servidor. */
 export function NuevaApiKeyDialog({ className }: { className?: string }) {
@@ -57,17 +58,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
         {t.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <KeyIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={KeyIcon} titulo={t.titulo} descripcion={t.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
           {apiKey ? (
@@ -82,7 +73,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           {apiKey ? (
             <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_PRIMARIO}>
               {t.listo}
@@ -97,7 +88,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
               </button>
             </>
           )}
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

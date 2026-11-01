@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Lenguaje = "curl" | "node" | "python";
 
@@ -116,17 +117,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
       </DialogTrigger>
 
       <DialogContent className="gap-0 p-0" style={{ maxWidth: "min(1200px, calc(100vw - 3rem))" }}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <TerminalWindowIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={TerminalWindowIcon} titulo={t.titulo} descripcion={t.descripcion} />
 
         <div className="@container bg-muted/40 px-5 py-4">
           <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-12">

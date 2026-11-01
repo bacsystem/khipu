@@ -10,6 +10,8 @@ import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
 import { interpolar } from "@/i18n/mensajes";
 import type { Locale } from "@/i18n/config";
+import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { ListNumbersIcon, ReceiptIcon, ShieldCheckIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -53,10 +55,10 @@ export default async function SeriesPage() {
   const porcentaje = series.length === 0 ? 0 : Math.round((activas / series.length) * 100);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <section className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs lg:grid-cols-4 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5">
+    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+      <FilaMetricas>
         <Metrica
-          etiqueta={t.seriesHabilitadas}
+          etiqueta={t.seriesHabilitadas} icono={ListNumbersIcon} tono={porcentaje === 100 ? "ok" : "aviso"}
           ayuda={
             <span className={cn("flex items-center gap-1", porcentaje === 100 ? "text-success-foreground" : "text-warning-foreground")}>
               <span className={cn("size-1.5 shrink-0 rounded-full", porcentaje === 100 ? "bg-success-solid" : "bg-warning-solid")} />
@@ -69,7 +71,7 @@ export default async function SeriesPage() {
         </Metrica>
 
         <Metrica
-          etiqueta={t.ultimoCorrelativo}
+          etiqueta={t.ultimoCorrelativo} icono={ReceiptIcon} tono="acento"
           ayuda={
             ultimo ? (
               <>
@@ -93,7 +95,7 @@ export default async function SeriesPage() {
         </Metrica>
 
         <Metrica
-          etiqueta={t.cobertura}
+          etiqueta={t.cobertura} icono={ShieldCheckIcon} tono="neutro"
           ayuda={
             <>
               <span className="truncate">
@@ -109,7 +111,7 @@ export default async function SeriesPage() {
         </Metrica>
 
         <Metrica
-          etiqueta={t.tiposSinSerie}
+          etiqueta={t.tiposSinSerie} icono={WarningCircleIcon} tono={sinSerie.length > 0 ? "error" : "ok"}
           ayuda={
             sinSerie.length > 0 ? (
               <span className="flex min-w-0 items-center gap-1 text-destructive">
@@ -123,7 +125,7 @@ export default async function SeriesPage() {
         >
           <span className={cn(sinSerie.length > 0 && "text-destructive")}>{sinSerie.length}</span>
         </Metrica>
-      </section>
+      </FilaMetricas>
 
       <SeriesTable series={series} />
     </div>

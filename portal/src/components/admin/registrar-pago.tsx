@@ -4,7 +4,7 @@ import { MoneyIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
@@ -15,6 +15,7 @@ import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { validarPago, type ErroresDePago } from "@/lib/pago-formulario";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Props = {
   cuentaId: string;
@@ -139,17 +140,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
         {messages.admin.pagos.registrar}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="registrar-pago-dialogo" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <MoneyIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={MoneyIcon} titulo={<>{t.titulo.replace("{cuenta}", cuentaNombre)}</>} descripcion={t.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -287,7 +278,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
@@ -295,7 +286,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
             <MoneyIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

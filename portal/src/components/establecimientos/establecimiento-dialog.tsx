@@ -4,12 +4,13 @@ import { PencilSimpleIcon, PlusIcon, StorefrontIcon } from "@phosphor-icons/reac
 import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 import { EstablecimientoForm } from "./establecimiento-form";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** Alta (sin `existente`) o edición de un anexo en el mismo `Dialog` que series y API keys. */
 export function EstablecimientoDialog({ existente, trigger, className }: { existente?: Establecimiento | null; trigger?: ReactNode; className?: string }) {
@@ -30,19 +31,7 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
         )}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <StorefrontIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{existente ? interpolar(t.tituloEditar, { codigo: existente.codigo }) : t.tituloNuevo}</DialogTitle>
-              <DialogDescription className="text-control">
-                {existente ? t.descripcionEditar : t.descripcionNuevo}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={StorefrontIcon} titulo={<>{existente ? interpolar(t.tituloEditar, { codigo: existente.codigo }) : t.tituloNuevo}</>} descripcion={existente ? t.descripcionEditar : t.descripcionNuevo} />
         <div className="px-5 py-4">
           <EstablecimientoForm existente={existente} onGuardado={() => setAbierto(false)} onCancelar={() => setAbierto(false)} />
         </div>

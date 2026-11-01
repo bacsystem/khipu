@@ -13,6 +13,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
+import { PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 export type DialogoDeAccionProps = {
   /** Base de los `data-testid`: el botón es `{testId}`, el diálogo `{testId}-dialogo` y el de confirmar `{testId}-confirmar`. */
@@ -157,7 +158,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {p.cancelar}
           </button>
@@ -171,7 +172,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
             <Icono className="size-4" />
             {enviando ? p.enviando : p.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

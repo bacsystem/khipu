@@ -35,7 +35,7 @@ import { DescargaMasiva } from "./descarga-masiva";
 import { ExportarComprobantes } from "./exportar-comprobantes";
 import { DuplicarButton } from "./duplicar-button";
 import { etiquetasEstado, EstadoBadge } from "./estado-badge";
-import { CONTROL_FILTRO } from "@/lib/estilos";
+import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 
 const ESTADOS: EstadoDocumento[] = [
   "RECIBIDO",
@@ -272,8 +272,7 @@ export function ComprobantesTable({
       </div>
 
       <div
-        className={cn(
-          "min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity",
+        className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity",
           isFetching && "opacity-60",
         )}
       >

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "k
 import { apiRequest } from "@/lib/api/browser";
 import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
 import { listarEntregas } from "@/lib/api/webhooks-browser";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -118,7 +118,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
         </p>
       ) : null}
 
-      <div className="min-w-0 overflow-hidden rounded-lg border border-border/90 bg-card">
+      <div className={cn(TARJETA, "min-w-0 overflow-hidden")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

@@ -19,7 +19,7 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +108,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
         <li>{t.ayudaAlerta.replace("{umbral}", String(datos.umbral_de_alerta))}</li>
       </ul>
 
-      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "overflow-hidden")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

@@ -4,7 +4,7 @@ import { BookOpenIcon, CaretRightIcon, CaretUpDownIcon, EnvelopeSimpleOpenIcon, 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMessages } from "next-intl";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
 import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger } from "khipu-design-system/ui/menu";
 import { PanelApariencia } from "khipu-design-system/nav/panel-apariencia";
 import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
@@ -15,6 +15,7 @@ import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ROTULO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** Las dos primeras letras del nombre de la cuenta («FT» de «Ferretería Torres»), o del correo si no se pudo leer la cuenta. */
 function iniciales(nombre: string): string {
@@ -52,17 +53,7 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
   return (
     <Dialog open={abierto} onOpenChange={(v) => (v ? onOpenChange(v) : cerrar())}>
       <DialogContent className="gap-0 p-0">
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <KeyIcon weight="duotone" className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={KeyIcon} titulo={t.titulo} descripcion={t.descripcion} />
 
         <div className="grid gap-3 px-5 py-4">
           {estado === "enviado" ? (
@@ -89,7 +80,7 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           {estado === "enviado" ? (
             <button type="button" onClick={cerrar} className={BOTON_PRIMARIO}>
               {t.entendido}
@@ -104,7 +95,7 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
               </BotonAsync>
             </>
           )}
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

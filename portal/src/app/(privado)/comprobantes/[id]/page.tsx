@@ -24,7 +24,7 @@ import { avisoDePlazo } from "@/lib/comprobantes/plazo";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -208,7 +208,7 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
 /** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
 function Historial({ eventos, t, estados, locale }: { eventos: Comprobante["eventos"]; t: T; estados: Record<string, string>; locale: Locale }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="historial">
+    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="historial">
       <div className={cn(TITULO_SECCION, "mb-3")}>
         <ClockCounterClockwiseIcon weight={PESO_ICONO} className="size-4" />
         {t.historial.titulo}
@@ -313,7 +313,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
       {aviso ? <AvisoBoletaSinInformar aviso={aviso} que={c.tipo === "03" ? "boleta" : "nota"} /> : null}
 
-      <section className="rounded-xl border border-border bg-card p-6 shadow-xs">
+      <section className={cn(TARJETA, "p-6 shadow-xs")}>
         <div className="flex flex-col justify-between gap-4 border-b border-border/60 pb-5 md:flex-row md:items-center">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -397,7 +397,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5 shadow-xs">
+      <section className={cn(TARJETA, "p-5 shadow-xs")}>
         <div className={cn(TITULO_SECCION, "mb-3")}>
           <IdentificationCardIcon weight={PESO_ICONO} className="size-4" />
           {t.receptor.titulo}
@@ -448,7 +448,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
 
       {c.observaciones ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="observaciones">
+        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="observaciones">
           <div className={cn(TITULO_SECCION, "mb-2")}>{t.observaciones}</div>
           <p className="text-control leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
         </section>
@@ -478,7 +478,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       ) : null}
 
       {c.notas?.length ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="notas">
+        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="notas">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <FileMinusIcon weight={PESO_ICONO} className="size-4" />
             {c.tipo === "03" ? t.notas.sobreBoleta : t.notas.sobreFactura}
@@ -504,7 +504,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       ) : null}
 
       {c.referencias ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="referencias">
+        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="referencias">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <LinkIcon weight={PESO_ICONO} className="size-4" />
             {t.referencias.titulo}
@@ -547,7 +547,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.agente ? (
         <DocumentosDeAgente agente={c.agente} retencion={c.tipo === "20"} />
       ) : (
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+      <section className={cn(TARJETA, "overflow-hidden")}>
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
           <div className={TITULO_SECCION}>
             <RowsIcon weight={PESO_ICONO} className="size-4" />
@@ -682,7 +682,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <section className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-xs lg:col-span-7">
+        <section className={cn(TARJETA, "space-y-4 p-5 shadow-xs lg:col-span-7")}>
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <span className={TITULO_SECCION}>{t.tecnica.titulo}</span>
             <span className="font-mono text-etiqueta text-muted-foreground/70">{t.tecnica.tabla}</span>
@@ -706,7 +706,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-xs lg:col-span-5">
+        <section className={cn(TARJETA, "space-y-3 p-5 shadow-xs lg:col-span-5")}>
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <span className={TITULO_SECCION}>{t.importes.titulo}</span>
             <span className="font-mono text-etiqueta text-muted-foreground/70">{monedas[c.moneda] ?? c.moneda}</span>

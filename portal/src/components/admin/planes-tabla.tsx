@@ -5,7 +5,7 @@ import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
-import { CABECERA_TABLA } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { formatearFechaDeLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
   const columnas = t.columnas;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
+      <div className={cn(TARJETA, "overflow-hidden")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">

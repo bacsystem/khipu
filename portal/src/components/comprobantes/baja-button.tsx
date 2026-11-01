@@ -4,7 +4,7 @@ import { ProhibitIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
@@ -14,6 +14,7 @@ import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CA
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /**
  * Comunicación de baja (`POST /v1/facturas/{id}/baja`). Es irreversible ante SUNAT, así que pide el motivo y la confirmación
@@ -108,28 +109,14 @@ export function BajaButton({
         {t.darDeBaja}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive-suave text-destructive-texto">
-              <ProhibitIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">
-                {t.darDeBaja} <span className="font-mono">{numero}</span>
-              </DialogTitle>
-              <DialogDescription className="text-control">
-                {reversion ? (
+        <CabeceraDialogo icon={ProhibitIcon} tono="peligro" titulo={<>{t.darDeBaja} <span className="font-mono">{numero}</span></>} descripcion={<>{reversion ? (
                   t.reversion
                 ) : (
                   <>
                     {interpolar(t.plazo, { tramite: boleta ? t.resumenDiario : t.comunicacion, dias: PLAZO_BAJA_DIAS })}{" "}
                     {diasRestantes === 0 ? t.ultimoDia : interpolar(diasRestantes === 1 ? t.quedaUno : t.quedanVarios, { n: diasRestantes })}
                   </>
-                )}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+                )}</>} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-control leading-relaxed text-foreground">
@@ -165,7 +152,7 @@ export function BajaButton({
           {error ? <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">{error}</p> : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {messages.comun.cancelar}
           </button>
@@ -173,7 +160,7 @@ export function BajaButton({
             <ProhibitIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

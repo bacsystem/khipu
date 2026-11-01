@@ -12,6 +12,7 @@ import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BO
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
+import { PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 function empresasAfectadas(n: number, t: Mensajes["admin"]["suspension"]): string {
   if (n === 0) return t.sinEmpresasAfectadas;
@@ -143,7 +144,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">
+        <PieDialogo>
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
@@ -157,7 +158,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
             <Icono className="size-4" />
             {enviando ? textos.enviando : textos.confirmar}
           </button>
-        </div>
+        </PieDialogo>
       </DialogContent>
     </Dialog>
   );

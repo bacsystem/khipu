@@ -49,7 +49,7 @@ function conRotulo(i: number, total: number, fecha: string): boolean {
 }
 
 /**
- * Comprobantes emitidos por día del mes (#24). Una sola serie, así que un solo color (`--chart-1`, la marca, con contraste ≥ 3:1 sobre la tarjeta en claro y en oscuro) y
+ * Comprobantes emitidos por día del mes (#24). Una sola serie, así que un solo color (`--chart-base` y su trazo, y el acento de la paleta para hoy, como el `GraficoBarras` del design system) y
  * sin leyenda: el título la nombra. SVG con `role="img"` y su descripción; cada día tiene su `title` con lo emitido y lo facturado, sobre una franja de alto completo para que
  * el puntero no tenga que acertarle a una barra baja; y la misma información como tabla, plegada. `serie` en `null`: no se pudo cargar.
  */
@@ -103,7 +103,19 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
                     <title>{descripcionDelDia(p, messages, locale)}</title>
                     <rect x={i * ANCHO_DIA} y={0} width={ANCHO_DIA} height={ALTO} className="fill-transparent group-hover:fill-muted/60" />
                     {p.emitidos > 0 ? (
-                      <rect x={i * ANCHO_DIA + (ANCHO_DIA - ANCHO_BARRA) / 2} y={ALTO - alto} width={ANCHO_BARRA} height={alto} className="fill-chart-1 group-hover:opacity-80" />
+                      <rect
+                        x={i * ANCHO_DIA + (ANCHO_DIA - ANCHO_BARRA) / 2}
+                        y={ALTO - alto}
+                        width={ANCHO_BARRA}
+                        height={alto}
+                        strokeWidth={1}
+                        vectorEffect="non-scaling-stroke"
+                        className={cn(
+                          // El pastel de la paleta con el borde que sí llega a 3:1 sobre la tarjeta (WCAG 1.4.11), como las barras del design system; hoy, el último día, en el acento.
+                          i === serie.length - 1 ? "fill-chart-destacado stroke-[var(--chart-trazo-destacado)]" : "fill-chart-base stroke-[var(--chart-trazo-base)]",
+                          "group-hover:opacity-80",
+                        )}
+                      />
                     ) : null}
                   </g>
                 );

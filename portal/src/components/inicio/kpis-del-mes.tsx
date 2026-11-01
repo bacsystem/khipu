@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearMonto } from "@/lib/formato";
 import { facturadoEn, variacion, variacionEnPalabras } from "@/lib/inicio/panel";
+import { CheckCircleIcon, ClockIcon, ReceiptIcon, WalletIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
 
 /** La comparación con el mismo tramo del mes anterior, o lo que se diga cuando no hay base (`sinBase`). */
 function comparacion(actual: number, anterior: number | null, sinBase: string, messages: Mensajes) {
@@ -34,7 +35,7 @@ export function KpisDelMes({ resumen, anterior }: { resumen: ResumenDeFacturas |
       aria-label={t.titulo}
       data-testid="kpis-del-mes"
       data-cargado={resumen !== null}
-      className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-border bg-card px-5 py-3 shadow-xs sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-border lg:[&>*:not(:first-child)]:pl-5"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
     >
       {resumen === null ? (
         [t.facturado, t.emitidos, t.aceptados, t.pendientes, t.atencion].map((etiqueta) => <Metrica key={etiqueta} etiqueta={etiqueta} ayuda={t.sinDatos} pendiente />)
@@ -42,6 +43,8 @@ export function KpisDelMes({ resumen, anterior }: { resumen: ResumenDeFacturas |
         <>
           <Metrica
             etiqueta={t.facturado}
+            icono={WalletIcon}
+            tono="acento"
             ayuda={
               <span data-testid="kpi-facturado-variacion">{ayudaDeFacturado(resumen, anterior, messages)}</span>
             }
@@ -56,19 +59,21 @@ export function KpisDelMes({ resumen, anterior }: { resumen: ResumenDeFacturas |
               ))
             )}
           </Metrica>
-          <Metrica etiqueta={t.emitidos} ayuda={<span data-testid="kpi-emitidos-variacion">{comparacion(resumen.emitidos, anterior?.emitidos ?? null, t.esteMes, messages)}</span>}>
+          <Metrica etiqueta={t.emitidos} icono={ReceiptIcon} tono="neutro" ayuda={<span data-testid="kpi-emitidos-variacion">{comparacion(resumen.emitidos, anterior?.emitidos ?? null, t.esteMes, messages)}</span>}>
             <span data-testid="kpi-emitidos">{resumen.emitidos}</span>
           </Metrica>
           <Metrica
             etiqueta={t.aceptados}
+            icono={CheckCircleIcon}
+            tono="ok"
             ayuda={resumen.emitidos > 0 ? interpolar(t.porcentajeEmitido, { n: Math.floor((resumen.aceptados_con_cdr * 100) / resumen.emitidos) }) : t.sinComprobantes}
           >
             <span data-testid="kpi-aceptados">{resumen.aceptados_con_cdr}</span>
           </Metrica>
-          <Metrica etiqueta={t.pendientes} ayuda={t.pendientesAyuda}>
+          <Metrica etiqueta={t.pendientes} icono={ClockIcon} tono="aviso" ayuda={t.pendientesAyuda}>
             <span data-testid="kpi-pendientes">{resumen.en_camino}</span>
           </Metrica>
-          <Metrica etiqueta={t.atencion} ayuda={<span data-testid="kpi-atencion-detalle">{atencionEnPalabras(resumen.atencion_requerida, messages)}</span>}>
+          <Metrica etiqueta={t.atencion} icono={WarningCircleIcon} tono={resumen.atencion_requerida.total > 0 ? "error" : "ok"} ayuda={<span data-testid="kpi-atencion-detalle">{atencionEnPalabras(resumen.atencion_requerida, messages)}</span>}>
             <span data-testid="kpi-atencion" className={resumen.atencion_requerida.total > 0 ? "text-destructive" : undefined}>
               {resumen.atencion_requerida.total}
             </span>

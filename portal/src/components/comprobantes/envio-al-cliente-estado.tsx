@@ -4,7 +4,7 @@ import { useLocale, useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
 import type { EnvioAlCliente } from "@/lib/api/facturas";
 import { formatearFechaHora } from "@/lib/formato";
-import { TITULO_SECCION } from "@/lib/estilos";
+import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /** El tono y el icono de cada estado; el título está en `messages.comprobantes.envioAlCliente.titulos` (#25). */
@@ -22,7 +22,7 @@ export function EnvioAlClienteEstado({ envio }: { envio: EnvioAlCliente }) {
   const { tono, Icono } = PRESENTACION[envio.estado];
   const titulo = t.titulos[envio.estado];
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="envio-al-cliente" data-estado={envio.estado}>
+    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="envio-al-cliente" data-estado={envio.estado}>
       <div className={cn(TITULO_SECCION, "mb-2", tono)}>
         <Icono weight={PESO_ICONO} className="size-4" />
         {titulo}
