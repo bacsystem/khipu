@@ -5,7 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import {
@@ -19,7 +19,7 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -108,10 +108,10 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
         <li>{t.ayudaAlerta.replace("{umbral}", String(datos.umbral_de_alerta))}</li>
       </ul>
 
-      <div className={cn(TARJETA, "overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.cuenta}</TableHead>
               <TableHead className={CABECERA_TABLA}>{columnas.plan}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.documentos}</TableHead>
@@ -122,7 +122,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           </TableHeader>
           <TableBody className="text-control">
             {datos.cuentas.map((c) => (
-              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta} className={cn("border-b border-border/60 hover:bg-muted/80", c.en_alerta && "bg-warning/40 hover:bg-warning/60")}>
+              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta} className={cn(c.en_alerta && "*:bg-warning/40")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.cuenta_id)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -158,14 +158,9 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
               </TableRow>
             ))}
             {datos.cuentas.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">{t.vacio[params.filtro]}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                {t.vacio[params.filtro]}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

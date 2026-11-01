@@ -7,11 +7,11 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -68,10 +68,10 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
         ) : null}
       </div>
 
-      <div className={cn(TARJETA, "overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.cuenta}</TableHead>
               <TableHead className={CABECERA_TABLA}>{columnas.telefono}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.empresas}</TableHead>
@@ -82,7 +82,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
           </TableHeader>
           <TableBody className="text-control">
             {datos.map((c) => (
-              <TableRow key={c.id} data-estado-cuenta={c.estado} className={cn("border-b border-border/60 hover:bg-muted/80", c.estado === "SUSPENDIDA" && "bg-destructive/5 hover:bg-destructive-suave")}>
+              <TableRow key={c.id} data-estado-cuenta={c.estado} className={cn(c.estado === "SUSPENDIDA" && "*:bg-destructive/5")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.id)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -103,14 +103,9 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
               </TableRow>
             ))}
             {datos.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">{hayFiltros ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                {hayFiltros ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

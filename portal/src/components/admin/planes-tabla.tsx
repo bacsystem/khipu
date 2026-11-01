@@ -3,9 +3,10 @@ import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useLocale, useMessages } from "next-intl";
 import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
+import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
-import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaDeLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -39,10 +40,10 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
   const columnas = t.columnas;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className={cn(TARJETA, "overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.plan}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.precio}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.documentos}</TableHead>
@@ -60,7 +61,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
                 key={p.id}
                 data-testid={`plan-fila-${p.id}`}
                 data-estado={p.estado}
-                className={cn("border-b border-border/60 hover:bg-muted/80", p.estado === "INACTIVO" && "bg-muted/40 text-muted-foreground")}
+                className={cn(p.estado === "INACTIVO" && "text-muted-foreground")}
               >
                 <TableCell className="py-2 pr-3 pl-4 whitespace-normal">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -93,14 +94,9 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
               </TableRow>
             ))}
             {planes.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={9} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon weight={PESO_ICONO} className="size-6" />
-                    <p className="text-cuerpo">{t.vacio}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={9} icon={<TrayIcon weight={PESO_ICONO} className="size-6" />}>
+                {t.vacio}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

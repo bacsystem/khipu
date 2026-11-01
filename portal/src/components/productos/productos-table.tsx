@@ -3,13 +3,13 @@
 import { MagnifyingGlassIcon, PackageIcon, TrashIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
 import { afectaciones } from "@/lib/comprobantes/tributos";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearPrecioUnitario } from "@/lib/formato";
 import type { Locale } from "@/i18n/config";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -123,10 +123,10 @@ export function ProductosTable() {
         </p>
       ) : null}
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.producto}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.codigo}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.unidad}</TableHead>
@@ -137,7 +137,7 @@ export function ProductosTable() {
           </TableHeader>
           <TableBody className="text-control">
             {(productos ?? []).map((p) => (
-              <TableRow key={p.id} data-testid="producto" className="border-b border-border/60 hover:bg-muted/80">
+              <TableRow key={p.id} data-testid="producto">
                 <TableCell className="max-w-80 py-2 pr-3 pl-4 font-medium break-words">{p.descripcion}</TableCell>
                 <TableCell className="px-3 py-2 font-mono text-muted-foreground">{p.codigo ?? "—"}</TableCell>
                 <TableCell className="px-3 py-2 font-mono">{p.unidad}</TableCell>
@@ -172,21 +172,12 @@ export function ProductosTable() {
               </TableRow>
             ))}
             {productos !== null && productos.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <PackageIcon className="size-6" />
-                    <p className="text-cuerpo">{q ? t.sinCoincidencias : t.vacio}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<PackageIcon className="size-6" />}>
+                {q ? t.sinCoincidencias : t.vacio}
+              </FilaVacia>
             ) : null}
             {productos === null && !error ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center text-cuerpo text-muted-foreground">
-                  {t.cargando}
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6}>{t.cargando}</FilaVacia>
             ) : null}
           </TableBody>
         </Table>

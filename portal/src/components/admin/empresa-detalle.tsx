@@ -97,7 +97,7 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
   const t = messages.admin.empresaDetalle;
   const s = t.series;
   return (
-    <Seccion titulo={s.titulo} id="empresa-series">
+    <Seccion titulo={s.titulo} id="empresa-series" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -110,7 +110,7 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
         </TableHeader>
         <TableBody className="text-control">
           {series.map((x) => (
-            <TableRow key={`${x.tipo}-${x.codigo}`} className="border-b border-border/60">
+            <TableRow key={`${x.tipo}-${x.codigo}`}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.codigo}</TableCell>
               <TableCell className="px-3 py-2 text-control" title={x.tipo}>
                 {(messages.documentos.tipos as Record<string, string>)[x.tipo] ?? x.tipo}
@@ -133,7 +133,7 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
   const t = useMessages().admin.empresaDetalle;
   const s = t.establecimientos;
   return (
-    <Seccion titulo={s.titulo} id="empresa-establecimientos">
+    <Seccion titulo={s.titulo} id="empresa-establecimientos" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -145,7 +145,7 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
         </TableHeader>
         <TableBody className="text-control">
           {establecimientos.map((x) => (
-            <TableRow key={x.codigo} className="border-b border-border/60">
+            <TableRow key={x.codigo}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.codigo}</TableCell>
               <TableCell className="px-3 py-2">{x.nombre}</TableCell>
               <TableCell className="px-3 py-2 text-control text-foreground/80">{direccion(x.domicilio)}</TableCell>
@@ -166,7 +166,7 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
   const t = useMessages().admin.empresaDetalle;
   const k = t.apiKeys;
   return (
-    <Seccion titulo={k.titulo} id="empresa-api-keys">
+    <Seccion titulo={k.titulo} id="empresa-api-keys" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -179,7 +179,7 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
         </TableHeader>
         <TableBody className="text-control">
           {keys.map((x) => (
-            <TableRow key={x.id} className="border-b border-border/60">
+            <TableRow key={x.id}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.prefijo}…</TableCell>
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? k.activa : k.revocada}</Etiqueta>
@@ -194,7 +194,7 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
           {keys.length === 0 ? <Vacio columnas={5} texto={k.vacio} /> : null}
         </TableBody>
       </Table>
-      <p className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">{k.nota}</p>
+      <p className="px-4 py-2 text-etiqueta text-muted-foreground">{k.nota}</p>
     </Seccion>
   );
 }
@@ -233,7 +233,7 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
   const t = useMessages().admin.empresaDetalle;
   const c = t.comprobantes;
   return (
-    <Seccion titulo={c.titulo} id="empresa-comprobantes">
+    <Seccion titulo={c.titulo} id="empresa-comprobantes" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -247,7 +247,7 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
         </TableHeader>
         <TableBody className="text-control">
           {comprobantes.map((x) => (
-            <TableRow key={x.id} className="border-b border-border/60 align-top">
+            <TableRow key={x.id} className="align-top">
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">
                 <Link href={hrefDetalleComprobante(x.id)} className="text-primary hover:underline" data-testid="comprobante-enlace">
                   {numero(x.serie, x.numero)}
@@ -299,7 +299,7 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
   const t = messages.admin.empresaDetalle;
   const v = t.eventos;
   return (
-    <Seccion titulo={v.titulo} id="empresa-eventos">
+    <Seccion titulo={v.titulo} id="empresa-eventos" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -311,7 +311,7 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
         </TableHeader>
         <TableBody className="text-control">
           {eventos.map((x, i) => (
-            <TableRow key={`${x.comprobante}-${x.ocurrido_en}-${i}`} className="border-b border-border/60">
+            <TableRow key={`${x.comprobante}-${x.ocurrido_en}-${i}`}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.comprobante}</TableCell>
               <TableCell className="px-3 py-2 text-control">
                 {x.estado_anterior ? etiquetaEstado(x.estado_anterior, messages) : v.inicio} → <span className="font-medium">{etiquetaEstado(x.estado_nuevo, messages)}</span>
@@ -332,7 +332,7 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
   const t = useMessages().admin.empresaDetalle;
   const o = t.outbox;
   return (
-    <Seccion titulo={o.titulo} id="empresa-outbox">
+    <Seccion titulo={o.titulo} id="empresa-outbox" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -344,7 +344,7 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
         </TableHeader>
         <TableBody className="text-control">
           {outbox.proximas.map((x) => (
-            <TableRow key={`${x.agregado_id}-${x.accion}`} className="border-b border-border/60">
+            <TableRow key={`${x.agregado_id}-${x.accion}`}>
               <TableCell className="py-2 pr-3 pl-4 text-control">
                 <span className="font-medium">{x.accion}</span> <span className="text-muted-foreground">{x.agregado}</span>
               </TableCell>
@@ -357,7 +357,7 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
         </TableBody>
       </Table>
       {outbox.total > 0 ? (
-        <p data-testid="outbox-total" className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
+        <p data-testid="outbox-total" className="px-4 py-2 text-etiqueta text-muted-foreground">
           {outbox.total === 1 ? o.unaTarea : o.total.replace("{n}", String(outbox.total))}
         </p>
       ) : null}

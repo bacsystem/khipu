@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
 import { useState, useTransition } from "react";
+import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
-import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -76,7 +77,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
   }
 
   return (
-    <TableRow className={cn("border-b border-border/60 hover:bg-muted/80", !m.activo && "opacity-80")} data-testid={`miembro-${m.email}`}>
+    <TableRow className={cn(!m.activo && "opacity-80")} data-testid={`miembro-${m.email}`}>
       <Dialog open={degradandome !== null} onOpenChange={(v) => (v ? null : setDegradandome(null))}>
         <DialogContent className="gap-0 p-0">
           <CabeceraDialogo icon={WarningIcon} tono="aviso" titulo={t.degradarme.titulo} descripcion={t.degradarme.descripcion.replace("{rol}", degradandome ? etiquetas[degradandome] : "")} />
@@ -183,7 +184,7 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
   const bloqueado = sinPermiso !== null || pendiente;
 
   return (
-    <TableRow className="border-b border-border/60 hover:bg-muted/80" data-testid={`invitacion-${i.email}`}>
+    <TableRow data-testid={`invitacion-${i.email}`}>
       <TableCell className="py-2 pr-3 pl-4 font-mono text-control text-foreground">{i.email}</TableCell>
       <TableCell className="px-3 py-2 text-control">{etiquetas[i.rol] ?? i.rol}</TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">
@@ -253,10 +254,10 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.usuarios}>
         <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} />
-        <div className={cn(TARJETA, "min-w-0 overflow-x-auto")}>
+        <div className={CONTENEDOR_TABLA}>
           <Table>
             <TableHeader>
-              <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+              <TableRow className="hover:bg-transparent">
                 <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.usuario}</TableHead>
                 <TableHead className={CABECERA_TABLA}>{t.columnas.rol}</TableHead>
                 <TableHead className={CABECERA_TABLA}>{t.columnas.estado}</TableHead>
@@ -274,10 +275,10 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
         <Encabezado icono={EnvelopeSimpleIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
-        <div className={cn(TARJETA, "min-w-0 overflow-x-auto")}>
+        <div className={CONTENEDOR_TABLA}>
           <Table>
             <TableHeader>
-              <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+              <TableRow className="hover:bg-transparent">
                 <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.correo}</TableHead>
                 <TableHead className={CABECERA_TABLA}>{t.columnas.rol}</TableHead>
                 <TableHead className={CABECERA_TABLA}>{t.columnas.estado}</TableHead>
@@ -289,11 +290,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
                 <FilaInvitacion key={i.id} i={i} />
               ))}
               {invitaciones.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="py-10 text-center text-cuerpo text-muted-foreground">
-                    {t.sinInvitaciones}
-                  </TableCell>
-                </TableRow>
+                <FilaVacia columnas={4}>{t.sinInvitaciones}</FilaVacia>
               ) : null}
             </TableBody>
           </Table>

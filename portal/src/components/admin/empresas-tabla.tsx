@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
@@ -21,14 +21,14 @@ import {
   type EstadoCertificadoAdmin,
   type ParamsEmpresas,
 } from "@/lib/api/admin-empresas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-/** Una fila con el certificado vencido o por vencer se tiñe: el administrador las ve sin leer la columna (#185). */
+/** Una fila con el certificado vencido o por vencer se tiñe (en sus celdas, que son las que pintan la fila en la tabla del design system): el administrador las ve sin leer la columna (#185). */
 const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
-  VENCIDO: "bg-destructive/5 hover:bg-destructive-suave",
-  POR_VENCER: "bg-warning/40 hover:bg-warning/60",
+  VENCIDO: "*:bg-destructive/5",
+  POR_VENCER: "*:bg-warning/40",
 };
 
 /**
@@ -121,10 +121,10 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
         ) : null}
       </div>
 
-      <div className={cn(TARJETA, "overflow-x-auto")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{t.columnas.empresa}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.cuenta}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.entorno}</TableHead>
@@ -139,7 +139,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
           </TableHeader>
           <TableBody className="text-control">
             {datos.map((e) => (
-              <TableRow key={e.id} data-certificado={e.certificado} className={cn("border-b border-border/60 hover:bg-muted/80", TINTE[e.certificado])}>
+              <TableRow key={e.id} data-certificado={e.certificado} className={cn(TINTE[e.certificado])}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleEmpresa(e.id)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -177,14 +177,9 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
               </TableRow>
             ))}
             {datos.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">{hayFiltros ? t.sinResultados : t.vacio}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={8} icon={<TrayIcon className="size-6" />}>
+                {hayFiltros ? t.sinResultados : t.vacio}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

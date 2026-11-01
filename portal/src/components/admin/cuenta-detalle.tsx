@@ -20,7 +20,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
   const t = messages.admin.detalle;
   const u = t.usuarios;
   return (
-    <Seccion titulo={u.titulo} id="detalle-usuarios">
+    <Seccion titulo={u.titulo} id="detalle-usuarios" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -34,7 +34,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
         </TableHeader>
         <TableBody className="text-control">
           {usuarios.map((x) => (
-            <TableRow key={x.id} className="border-b border-border/60">
+            <TableRow key={x.id}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.email}</TableCell>
               <TableCell className="px-3 py-2 text-control">{x.rol}</TableCell>
               <TableCell className="px-3 py-2">
@@ -68,7 +68,7 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
   const t = useMessages().admin.detalle;
   const e = t.empresas;
   return (
-    <Seccion titulo={e.titulo} id="detalle-empresas">
+    <Seccion titulo={e.titulo} id="detalle-empresas" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -80,7 +80,7 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
         </TableHeader>
         <TableBody className="text-control">
           {empresas.map((x) => (
-            <TableRow key={x.id} className="border-b border-border/60">
+            <TableRow key={x.id}>
               <TableCell className="py-2 pr-3 pl-4">
                 <div className="flex flex-col">
                   <span className="font-medium text-foreground">{x.razon_social}</span>
@@ -111,7 +111,7 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
   const t = messages.admin.detalle;
   const c = t.comprobantes;
   return (
-    <Seccion titulo={c.titulo} id="detalle-comprobantes">
+    <Seccion titulo={c.titulo} id="detalle-comprobantes" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -124,7 +124,7 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
         </TableHeader>
         <TableBody className="text-control">
           {comprobantes.map((x) => (
-            <TableRow key={x.id} className="border-b border-border/60">
+            <TableRow key={x.id}>
               <TableCell className="py-2 pr-3 pl-4 font-mono text-control">
                 {x.serie}-{String(x.numero).padStart(8, "0")}
               </TableCell>
@@ -156,7 +156,7 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
   const e = t.eventos;
   const acciones = e.acciones as Record<string, string>;
   return (
-    <Seccion titulo={e.titulo} id="detalle-eventos">
+    <Seccion titulo={e.titulo} id="detalle-eventos" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -168,7 +168,7 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
         </TableHeader>
         <TableBody className="text-control">
           {eventos.map((x, i) => (
-            <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
+            <TableRow key={`${x.ocurrido_en}-${i}`}>
               {/* Una acción que este portal todavía no conoce se muestra con su código, no se esconde. */}
               <TableCell className="py-2 pr-3 pl-4">{acciones[x.accion] ?? x.accion}</TableCell>
               <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>
@@ -191,7 +191,7 @@ function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
   const h = t.historial;
   const acciones = t.eventos.acciones as Record<string, string>;
   return (
-    <Seccion titulo={h.titulo} id="detalle-historial-estado">
+    <Seccion titulo={h.titulo} id="detalle-historial-estado" tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -205,7 +205,7 @@ function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
           {historial.map((x, i) => {
             const motivo = motivoDe(x.detalle);
             return (
-              <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
+              <TableRow key={`${x.ocurrido_en}-${i}`}>
                 <TableCell className="py-2 pr-3 pl-4 text-control whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2">{acciones[x.accion] ?? x.accion}</TableCell>
                 <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>

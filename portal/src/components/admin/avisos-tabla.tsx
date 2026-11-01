@@ -9,7 +9,7 @@ import type { Locale } from "@/i18n/config";
 import type { Mensajes } from "@/i18n/mensajes";
 import { AvisarAlCliente } from "@/components/admin/avisar-al-cliente";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import {
@@ -25,9 +25,8 @@ import {
   type UltimoAviso,
 } from "@/lib/api/admin-avisos";
 import { atascadosEnPalabras, certificadoEnPalabras, ultimoAvisoEnPalabras } from "@/lib/avisos-formato";
-import { CABECERA_TABLA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 /** Lo que las dos listas tienen en común, para dibujarlas con la misma tabla. `situacion` es lo propio de cada una. */
 type Fila = {
@@ -131,10 +130,10 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
         </p>
       ) : null}
 
-      <div className={cn(TARJETA, "overflow-x-auto")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{t.columnas.empresa}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.situacion}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.ultimoAviso}</TableHead>
@@ -143,7 +142,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
           </TableHeader>
           <TableBody className="text-control">
             {filas.map((f) => (
-              <TableRow key={`${f.empresaId}-${f.motivo}`} data-testid="avisos-fila" data-empresa={f.ruc} data-motivo={f.motivo} className="border-b border-border/60 align-top hover:bg-muted/80">
+              <TableRow key={`${f.empresaId}-${f.motivo}`} data-testid="avisos-fila" data-empresa={f.ruc} data-motivo={f.motivo} className="align-top">
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleEmpresa(f.empresaId)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -177,14 +176,9 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
               </TableRow>
             ))}
             {filas.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="py-14 text-center">
-                  <div data-testid="avisos-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">{t.vacio[params.vista]}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={4} icon={<TrayIcon className="size-6" />}>
+                <span data-testid="avisos-vacio">{t.vacio[params.vista]}</span>
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

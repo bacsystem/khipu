@@ -249,10 +249,10 @@ function Horas({ horas }: { horas: Franja[] }) {
 
       <details className="text-control">
         <summary className="cursor-pointer text-primary">{t.horas.tabla}</summary>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-border/90">
+        <div className="mt-2 min-w-0">
           <Table>
             <TableHeader>
-              <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+              <TableRow className="hover:bg-transparent">
                 <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.horas.hora}</TableHead>
                 <TableHead className={`${CABECERA_TABLA} text-right`}>{t.categorias.total}</TableHead>
                 {CATEGORIAS.map((c) => (
@@ -264,7 +264,7 @@ function Horas({ horas }: { horas: Franja[] }) {
             </TableHeader>
             <TableBody className="text-control tabular-nums">
               {horas.map((h) => (
-                <TableRow key={h.desde} className="border-b border-border/60">
+                <TableRow key={h.desde}>
                   <TableCell className="py-1.5 pl-3">{formatearHoraDeLima(h.desde)}</TableCell>
                   <TableCell className="py-1.5 text-right">{h.total}</TableCell>
                   {CATEGORIAS.map((c) => (

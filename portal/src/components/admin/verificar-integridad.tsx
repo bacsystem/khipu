@@ -5,6 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { esIdDeComprobante, hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
@@ -170,10 +171,10 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
 
       {limpio ? null : (
         <>
-          <div className={cn(TARJETA, "overflow-x-auto")}>
+          <div className={CONTENEDOR_TABLA}>
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+                <TableRow className="hover:bg-transparent">
                   <TableHead className={`${CABECERA_TABLA} pl-4`}>{t.columnas.problema}</TableHead>
                   <TableHead className={CABECERA_TABLA}>{t.columnas.comprobante}</TableHead>
                   <TableHead className={CABECERA_TABLA}>{t.columnas.detalle}</TableHead>
@@ -182,7 +183,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
               </TableHeader>
               <TableBody className="text-control">
                 {informe.problemas.map((p, i) => (
-                  <TableRow key={`${p.comprobante_id}-${p.tipo}-${i}`} data-testid="integridad-problema" data-tipo={p.tipo} className="border-b border-border/60">
+                  <TableRow key={`${p.comprobante_id}-${p.tipo}-${i}`} data-testid="integridad-problema" data-tipo={p.tipo}>
                     <TableCell className="py-2 pr-3 pl-4 align-top">
                       <Etiqueta tono={TONO[p.tipo]}>{t.tipos[p.tipo]}</Etiqueta>
                     </TableCell>

@@ -18,8 +18,8 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
   const locale = useLocale();
   const fecha = (iso: string) => formatearFecha(iso, locale);
   return (
-    <Seccion titulo={t.titulo} id="detalle-pagos">
-      <div data-testid="pagos-de-cuenta" className="grid gap-3 p-4 pb-0">
+    <Seccion titulo={t.titulo} id="detalle-pagos" tabla>
+      <div data-testid="pagos-de-cuenta" className="grid gap-3 px-2 pt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <p className="max-w-2xl text-control text-muted-foreground">{t.descripcion}</p>
           <RegistrarPago cuentaId={cuentaId} cuentaNombre={cuentaNombre} plan={plan} hoy={hoy} />
@@ -38,7 +38,7 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
         </TableHeader>
         <TableBody className="text-control">
           {pagos.datos.map((p) => (
-            <TableRow key={p.id} data-testid="pago-fila" data-extendio={p.extendio_hasta ? "true" : "false"} className="border-b border-border/60">
+            <TableRow key={p.id} data-testid="pago-fila" data-extendio={p.extendio_hasta ? "true" : "false"}>
               <TableCell className="py-2 pr-3 pl-4 whitespace-nowrap">{fecha(p.fecha_de_pago)}</TableCell>
               <TableCell className="px-3 py-2 whitespace-nowrap">
                 {t.periodo.replace("{desde}", fecha(p.periodo_desde)).replace("{hasta}", fecha(p.periodo_hasta))}
@@ -58,7 +58,7 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
         </TableBody>
       </Table>
       {pagos.total > pagos.datos.length ? (
-        <p data-testid="pagos-recortados" className="border-t border-border/60 px-4 py-2 text-control text-muted-foreground">
+        <p data-testid="pagos-recortados" className="px-4 py-2 text-control text-muted-foreground">
           {t.muestra.replace("{n}", String(pagos.datos.length)).replace("{total}", String(pagos.total))}
         </p>
       ) : null}
