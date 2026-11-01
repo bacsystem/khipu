@@ -19,7 +19,7 @@ export function DevelopersHeader({ autenticado }: { autenticado: boolean }) {
         <div className="order-last w-full lg:order-none lg:w-64 lg:shrink-0">
           <BuscarEnLaDocumentacion entradas={entradas(messages)} />
         </div>
-        <nav className="flex shrink-0 items-center gap-4 text-[12px] text-muted-foreground">
+        <nav className="flex shrink-0 items-center gap-4 text-control text-muted-foreground">
           <Link href="/#precios" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
             {t.precios}
           </Link>

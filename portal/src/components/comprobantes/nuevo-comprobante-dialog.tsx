@@ -343,7 +343,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-5 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 px-5 py-8 text-cuerpo text-muted-foreground">
             <Spinner tamano="sm" />
             {messages.comun.cargando}
           </div>

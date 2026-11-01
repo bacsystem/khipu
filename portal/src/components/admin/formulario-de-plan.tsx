@@ -116,13 +116,13 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           className={CAMPO}
         />
         {ilimitado ? (
-          <label className="flex items-center gap-2 text-[12px] text-foreground/80">
+          <label className="flex items-center gap-2 text-control text-foreground/80">
             <input type="checkbox" checked={marcado} onChange={(e) => poner(ilimitado, e.target.checked)} className="size-3.5 accent-primary" />
             {f.ilimitado}
           </label>
         ) : null}
         {errores[campo] ? (
-          <span id={`plan-${id}-${campo}-error`} className="text-[12px] text-destructive">
+          <span id={`plan-${id}-${campo}-error`} className="text-control text-destructive">
             {errores[campo]}
           </span>
         ) : null}
@@ -146,14 +146,14 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
               <Icono className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{edicion ? f.descripcionEditar : f.descripcionNuevo}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</DialogTitle>
+              <DialogDescription className="text-control">{edicion ? f.descripcionEditar : f.descripcionNuevo}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
+          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
             <ul className="grid list-disc gap-1 pl-4">
               {efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>
@@ -161,7 +161,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
             </ul>
           </div>
           {programado ? (
-            <p data-testid="plan-hay-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-[12px] text-warning-foreground">
+            <p data-testid="plan-hay-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-control text-warning-foreground">
               {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
             </p>
           ) : null}
@@ -183,7 +183,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
               autoFocus
             />
             {errores.nombre ? (
-              <span id={`plan-${id}-nombre-error`} className="text-[12px] text-destructive">
+              <span id={`plan-${id}-nombre-error`} className="text-control text-destructive">
                 {errores.nombre}
               </span>
             ) : null}
@@ -204,7 +204,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
               className={CAMPO}
             />
             {errores.precio ? (
-              <span id={`plan-${id}-precio-error`} className="text-[12px] text-destructive">
+              <span id={`plan-${id}-precio-error`} className="text-control text-destructive">
                 {errores.precio}
               </span>
             ) : (
@@ -221,7 +221,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           </div>
 
           {/* H20: un plan a medida para un cliente se asigna y se cobra igual, pero no se publica en la página de precios. */}
-          <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-foreground">
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-foreground">
             <input
               type="checkbox"
               data-testid="plan-visible"
@@ -231,12 +231,12 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
             />
             <span className="grid gap-0.5">
               <span className="font-medium">{f.visible}</span>
-              <span className="text-[12px] text-muted-foreground">{f.visibleAyuda}</span>
+              <span className="text-control text-muted-foreground">{f.visibleAyuda}</span>
             </span>
           </label>
 
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { ClienteDialog } from "./cliente-dialog";
 import { alCambiarLosClientes, avisarQueCambiaronLosClientes } from "./eventos";
 
-const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** La lista de clientes guardados (#319): búsqueda por documento o nombre, páginas y las acciones de cambiar y eliminar. */
 export function ClientesTable() {
@@ -97,8 +97,8 @@ export function ClientesTable() {
             <UsersIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
+            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
         <label className="relative">
@@ -115,12 +115,12 @@ export function ClientesTable() {
       </div>
 
       {error ? (
-        <p role="alert" className="text-[12px] text-destructive">
+        <p role="alert" className="text-control text-destructive">
           {error}
         </p>
       ) : null}
 
-      <div className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -131,13 +131,13 @@ export function ClientesTable() {
               <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {(clientes ?? []).map((c) => (
               <TableRow key={c.id} data-testid="cliente" className="border-b border-border/60 hover:bg-muted/80">
                 <TableCell className="max-w-72 py-2 pr-3 pl-4 font-medium break-words">{c.razon_social}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <span className="font-mono tabular-nums">{c.num_doc}</span>
-                  <span className="ml-1.5 text-[11px] text-muted-foreground">{ETIQUETA_DOCUMENTO.get(c.tipo_doc) ?? c.tipo_doc}</span>
+                  <span className="ml-1.5 text-etiqueta text-muted-foreground">{ETIQUETA_DOCUMENTO.get(c.tipo_doc) ?? c.tipo_doc}</span>
                 </TableCell>
                 <TableCell className="max-w-64 px-3 py-2 text-muted-foreground">{c.direccion ?? "—"}</TableCell>
                 <TableCell className="px-3 py-2 text-muted-foreground">{c.email ?? "—"}</TableCell>
@@ -145,7 +145,7 @@ export function ClientesTable() {
                   <div className="flex items-center justify-end gap-1">
                     {confirmando === c.id ? (
                       <>
-                        <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarEliminar}</span>
+                        <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarEliminar}</span>
                         <button type="button" disabled={eliminando === c.id} onClick={() => eliminar(c)} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
                           {t.siEliminar}
                         </button>
@@ -155,8 +155,8 @@ export function ClientesTable() {
                       </>
                     ) : (
                       <>
-                        <ClienteDialog existente={c} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted")} />
-                        <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(c.id)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+                        <ClienteDialog existente={c} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-xs hover:bg-muted")} />
+                        <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(c.id)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
                           <TrashIcon className="size-3.5" />
                           {t.eliminar}
                         </button>
@@ -171,14 +171,14 @@ export function ClientesTable() {
                 <TableCell colSpan={5} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <UsersIcon className="size-6" />
-                    <p className="text-sm">{q ? t.sinCoincidencias : t.vacio}</p>
+                    <p className="text-cuerpo">{q ? t.sinCoincidencias : t.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : null}
             {clientes === null && !error ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-14 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={5} className="py-14 text-center text-cuerpo text-muted-foreground">
                   {t.cargando}
                 </TableCell>
               </TableRow>

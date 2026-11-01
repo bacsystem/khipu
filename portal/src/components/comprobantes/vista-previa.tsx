@@ -73,8 +73,8 @@ export function VistaPrevia({
       <Sheet open={abierto !== null} onOpenChange={(open) => !open && setAbierto(null)}>
         <SheetContent side="right" className="w-full gap-0 p-0 data-[side=right]:sm:max-w-4xl">
           <SheetHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <SheetTitle className="text-sm font-semibold">{titulo}</SheetTitle>
-            <SheetDescription className="font-mono text-xs">{archivo}</SheetDescription>
+            <SheetTitle className="text-cuerpo font-semibold">{titulo}</SheetTitle>
+            <SheetDescription className="font-mono text-etiqueta">{archivo}</SheetDescription>
           </SheetHeader>
 
           <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/60 px-5 py-2">
@@ -106,14 +106,14 @@ export function VistaPrevia({
 
           <div className="min-h-0 flex-1 overflow-auto bg-card">
             {!contenido || contenido.estado === "cargando" ? (
-              <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
+              <div className="flex h-40 items-center justify-center gap-2 text-etiqueta text-muted-foreground">
                 <CircleNotchIcon weight="bold" className="size-4 animate-spin" />
                 {t.cargando}
               </div>
             ) : contenido.estado === "error" ? (
-              <div className="m-5 rounded-lg border border-destructive-border bg-destructive/10 p-3 text-xs text-destructive">{contenido.mensaje}</div>
+              <div className="m-5 rounded-lg border border-destructive-border bg-destructive-suave p-3 text-etiqueta text-destructive-texto">{contenido.mensaje}</div>
             ) : (
-              <pre className="px-5 py-4 font-mono text-[11.5px] leading-relaxed break-all whitespace-pre-wrap text-foreground/90 tabular-nums">
+              <pre className="px-5 py-4 font-mono text-etiqueta leading-relaxed break-all whitespace-pre-wrap text-foreground/90 tabular-nums">
                 {contenido.texto}
               </pre>
             )}

@@ -20,10 +20,10 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
             <WebhooksLogoIcon weight={PESO_ICONO} className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 id="webhooks-titulo" className="text-[13px] font-semibold text-foreground">
+            <h2 id="webhooks-titulo" className="text-cuerpo font-semibold text-foreground">
               {t.titulo}
             </h2>
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-control text-muted-foreground">
               {t.descripcion}{" "}
               <Link href="/developers/guia#webhooks" className="text-primary hover:underline">
                 {t.comoVerificar}
@@ -35,13 +35,13 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
       </div>
 
       {webhooks === null ? (
-        <p role="alert" className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
+        <p role="alert" className="rounded-xl border border-border bg-card px-4 py-6 text-center text-cuerpo text-muted-foreground">
           {t.errorLectura}
         </p>
       ) : webhooks.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-10 text-center text-muted-foreground">
           <WebhooksLogoIcon weight={PESO_ICONO} className="size-6" />
-          <p className="text-sm">{t.vacia}</p>
+          <p className="text-cuerpo">{t.vacia}</p>
         </div>
       ) : (
         <div className="grid gap-3">

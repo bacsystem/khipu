@@ -25,8 +25,8 @@ export default async function AdminMonitorPage() {
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <h1 className="font-heading text-2xl">{messages.admin.monitor.titulo}</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">{messages.admin.monitor.descripcion}</p>
+        <h1 className="font-heading text-titulo-pagina">{messages.admin.monitor.titulo}</h1>
+        <p className="max-w-3xl text-cuerpo text-muted-foreground">{messages.admin.monitor.descripcion}</p>
       </div>
       <PanelDelMonitor inicial={inicial} />
     </div>

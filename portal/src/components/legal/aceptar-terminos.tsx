@@ -48,7 +48,7 @@ export function AceptarTerminos() {
 
   return (
     <form className="grid gap-4" onSubmit={aceptar} noValidate data-testid="aceptar-terminos">
-      <p className="text-sm text-foreground/80">{t.descripcion}</p>
+      <p className="text-cuerpo text-foreground/80">{t.descripcion}</p>
       <CasillaDeTerminos
         id="acepta-terminos"
         checked={marcada}

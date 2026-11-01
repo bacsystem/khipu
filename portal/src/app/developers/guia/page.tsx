@@ -25,12 +25,12 @@ export default function GuiaPage() {
   const messages = useMessages();
   const t = messages.developers.guia;
   const casosDeEmision = casos(messages);
-  const lista = "list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-muted-foreground";
-  const subtitulo = "mt-2 text-[14px] font-semibold text-foreground";
+  const lista = "list-disc space-y-1.5 pl-5 text-control leading-relaxed text-muted-foreground";
+  const subtitulo = "mt-2 text-cuerpo font-semibold text-foreground";
   return (
     <PaginaGuia titulo={t.titulo} resumen={t.resumen} indice={indiceGuia(messages)}>
       <Seccion id="inicio-rapido" titulo={t.indice.inicioRapido}>
-        <ol className="list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+        <ol className="list-decimal space-y-2 pl-5 text-control leading-relaxed text-muted-foreground">
           {t.inicioRapido.pasos.map((paso) => (
             <li key={paso}>
               <Rico texto={interpolar(paso, { base })} negrita="text-foreground" />
@@ -149,18 +149,18 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             <>
               {" "}
               {t.casos.marcadosAntes}{" "}
-              <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>{" "}
+              <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-etiqueta font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>{" "}
               {t.casos.marcadosDespues}
             </>
           ) : null}
         </P>
         <div className="space-y-8">
           {casosDeEmision.map((c) => (
-            <article key={c.id} id={c.id} className={cn("scroll-mt-16 space-y-3 rounded-xl border border-border bg-card p-5 shadow-2xs", !c.disponible && "opacity-90")}>
+            <article key={c.id} id={c.id} className={cn("scroll-mt-16 space-y-3 rounded-xl border border-border bg-card p-5 shadow-xs", !c.disponible && "opacity-90")}>
               <header className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[15px] font-semibold text-foreground">{c.titulo}</h3>
+                <h3 className="text-base font-semibold text-foreground">{c.titulo}</h3>
                 {c.disponible ? null : (
-                  <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>
+                  <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-etiqueta font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>
                 )}
               </header>
               <P>
@@ -170,7 +170,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
                 titulo={interpolar(c.disponible ? t.casos.request : t.casos.requestPrevisto, { endpoint: c.endpoint ?? "/v1/facturas" })}
                 codigo={c.request}
               />
-              <ul className="list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+              <ul className="list-disc space-y-1 pl-5 text-control leading-relaxed text-muted-foreground">
                 {c.notas.map((n, i) => (
                   <li key={i}>
                     <Rico texto={n} />
@@ -290,7 +290,7 @@ curl "${base}/v1/sire/rvie/propuesta/TICKET/conciliacion?periodo=202610" \\
       </Seccion>
 
       <Seccion id="buenas-practicas" titulo={t.indice.buenasPracticas}>
-        <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+        <ul className="list-disc space-y-2 pl-5 text-control leading-relaxed text-muted-foreground">
           {t.buenasPracticas.map((texto) => (
             <li key={texto}>
               <Rico texto={texto} negrita="text-foreground" />

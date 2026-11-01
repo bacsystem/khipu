@@ -34,11 +34,11 @@ export function AlertasDelPanel({ alertas, incompleto, guiaPendiente = false }: 
         </div>
       ))}
       {incompleto ? (
-        <p data-testid="alertas-incompletas" className="text-[12px] text-muted-foreground">
+        <p data-testid="alertas-incompletas" className="text-control text-muted-foreground">
           {t.incompleto}
         </p>
       ) : alertas.length === 0 && !guiaPendiente ? (
-        <p data-testid="alertas-sin-avisos" className="flex items-center gap-1.5 text-[12px] text-success-foreground">
+        <p data-testid="alertas-sin-avisos" className="flex items-center gap-1.5 text-control text-success-foreground">
           <CheckCircleIcon weight={PESO_ICONO} className="size-3.5 shrink-0" aria-hidden />
           {t.sinAvisos}
         </p>

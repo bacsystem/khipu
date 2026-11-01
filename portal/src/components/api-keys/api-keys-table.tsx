@@ -21,17 +21,17 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 const TODAS = "todas";
 
 const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activa }: { activa: boolean }) {
   const t = useMessages().apiKeys.tabla;
   return activa ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
       <span className="size-1.5 rounded-full bg-success-solid" />
       {t.activa}
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
       {t.revocada}
     </span>
@@ -49,7 +49,7 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
   const [error, setError] = useState<string | null>(null);
   const [revocando, startTransition] = useTransition();
 
-  if (!apiKey.activa) return <span className="text-[11px] text-muted-foreground/60">—</span>;
+  if (!apiKey.activa) return <span className="text-etiqueta text-muted-foreground/60">—</span>;
 
   function revocar() {
     setError(null);
@@ -69,7 +69,7 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
       <div className="flex items-center justify-end gap-1">
         {confirmando ? (
           <>
-            <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarRevocar}</span>
+            <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarRevocar}</span>
             <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
               {revocando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
               {t.siRevocar}
@@ -85,13 +85,13 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
           </>
         ) : (
           // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
-          <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+          <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
             <ProhibitIcon className="size-3.5" />
             {t.revocar}
           </button>
         )}
       </div>
-      {error ? <span className="text-[11px] text-destructive">{error}</span> : null}
+      {error ? <span className="text-etiqueta text-destructive">{error}</span> : null}
     </div>
   );
 }
@@ -132,8 +132,8 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
             <KeyIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
+            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
 
@@ -169,7 +169,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity", refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -180,28 +180,28 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
               <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {data.map((k) => (
               <TableRow key={k.id} className={cn("group border-b border-border/60 hover:bg-muted/80", !k.activa && "opacity-80")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
-                        "rounded px-2 py-0.5 font-mono text-[13px] font-semibold tracking-tight",
+                        "rounded px-2 py-0.5 font-mono text-cuerpo font-semibold tracking-tight",
                         k.activa ? "bg-secondary text-primary" : "bg-muted text-muted-foreground line-through",
                       )}
                     >
                       {k.prefijo}
                     </span>
-                    <span className="font-mono text-[12px] tracking-[0.2em] text-muted-foreground/50 select-none">••••••••••</span>
+                    <span className="font-mono text-control tracking-[0.2em] text-muted-foreground/50 select-none">••••••••••</span>
                     <BotonCopiar texto={k.prefijo} titulo={t.copiarPrefijo} className="opacity-0 group-hover:opacity-100" />
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80" title={k.id}>
+                  <div className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80" title={k.id}>
                     {interpolar(t.id, { id: k.id.slice(0, 8) })}
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap text-foreground tabular-nums">{formatearFechaHora(k.creada_en, locale)}</TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap text-muted-foreground tabular-nums">
+                <TableCell className="px-3 py-2 font-mono text-control whitespace-nowrap text-foreground tabular-nums">{formatearFechaHora(k.creada_en, locale)}</TableCell>
+                <TableCell className="px-3 py-2 font-mono text-control whitespace-nowrap text-muted-foreground tabular-nums">
                   {k.revocada_en ? formatearFechaHora(k.revocada_en, locale) : "—"}
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
@@ -217,7 +217,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
                 <TableCell colSpan={5} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <KeyIcon className="size-6" />
-                    <p className="text-sm">
+                    <p className="text-cuerpo">
                       {apiKeys.length === 0 ? t.vacia : t.sinResultados}
                     </p>
                   </div>

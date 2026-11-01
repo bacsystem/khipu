@@ -121,7 +121,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             maxLength={4}
             required
             autoFocus
-            className={cn(CAMPO, "font-mono uppercase")}
+            className={cn(CAMPO, "font-mono")}
           />
           <span className={AYUDA_CAMPO}>{t.codigoAyuda}</span>
         </div>
@@ -173,7 +173,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
       {/* Una casilla «Activa» fija y deshabilitada no decidía nada (C6): toda serie nueva nace activa, y se dice así. */}
       <p className={AYUDA_CAMPO}>{t.seCreaActiva}</p>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
 
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
         {onCancelar ? (

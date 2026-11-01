@@ -14,11 +14,11 @@ export function Metrica({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-0.5", pendiente && "opacity-60")}>
-      <span className="truncate text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{etiqueta}</span>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-lg font-semibold tracking-tight text-foreground">
+      <span className="truncate text-etiqueta font-medium text-muted-foreground">{etiqueta}</span>
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-titulo font-semibold tracking-tight text-foreground">
         {children ?? "—"}
       </div>
-      <div className="flex min-w-0 items-center gap-1 truncate text-[11px] text-muted-foreground">{ayuda}</div>
+      <div className="flex min-w-0 items-center gap-1 truncate text-etiqueta text-muted-foreground">{ayuda}</div>
     </div>
   );
 }

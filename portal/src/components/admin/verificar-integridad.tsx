@@ -84,7 +84,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
   const verificando = fase.estado === "verificando";
   return (
     <div className="grid min-w-0 gap-4">
-      <form onSubmit={verificar} noValidate className="flex flex-wrap items-start gap-3 rounded-xl border border-border/90 bg-card p-4 shadow-2xs">
+      <form onSubmit={verificar} noValidate className="flex flex-wrap items-start gap-3 rounded-xl border border-border/90 bg-card p-4 shadow-xs">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="integridad-desde" className={ETIQUETA_CAMPO}>
             {t.desde}
@@ -101,7 +101,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
             aria-invalid={errores.desde ? true : undefined}
             className={cn(CAMPO, "w-44")}
           />
-          {errores.desde ? <span className="text-[12px] text-destructive">{errores.desde}</span> : null}
+          {errores.desde ? <span className="text-control text-destructive">{errores.desde}</span> : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="integridad-hasta" className={ETIQUETA_CAMPO}>
@@ -119,7 +119,7 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
             aria-invalid={errores.hasta ? true : undefined}
             className={cn(CAMPO, "w-44")}
           />
-          {errores.hasta ? <span className="text-[12px] text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
+          {errores.hasta ? <span className="text-control text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
         </div>
         <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-6")}>
           <ShieldCheckIcon className="size-4" />
@@ -129,12 +129,12 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
 
       <div role="status" aria-live="polite" className="grid min-w-0 gap-4">
         {fase.estado === "verificando" ? (
-          <p data-testid="integridad-aviso" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
+          <p data-testid="integridad-aviso" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
             {t.avisoVerificando}
           </p>
         ) : null}
         {fase.estado === "error" ? (
-          <p data-testid="integridad-error" role="alert" className="rounded-lg border border-destructive-border bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <p data-testid="integridad-error" role="alert" className="rounded-lg border border-destructive-border bg-destructive-suave px-3 py-2.5 text-cuerpo text-destructive-texto">
             {t.error} {fase.mensaje}
           </p>
         ) : null}
@@ -155,7 +155,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
     <section data-testid="integridad-resultado" data-limpio={limpio} className="grid min-w-0 gap-3">
       <div
         className={cn(
-          "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm",
+          "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-cuerpo",
           limpio ? "border-success-border bg-success text-success-foreground" : "border-warning-border bg-warning text-warning-foreground",
         )}
       >
@@ -170,7 +170,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
 
       {limpio ? null : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+          <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -180,13 +180,13 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
                   <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.empresa}</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="text-[13px]">
+              <TableBody className="text-control">
                 {informe.problemas.map((p, i) => (
                   <TableRow key={`${p.comprobante_id}-${p.tipo}-${i}`} data-testid="integridad-problema" data-tipo={p.tipo} className="border-b border-border/60">
                     <TableCell className="py-2 pr-3 pl-4 align-top">
                       <Etiqueta tono={TONO[p.tipo]}>{t.tipos[p.tipo]}</Etiqueta>
                     </TableCell>
-                    <TableCell className="px-3 py-2 align-top font-mono text-[12px] whitespace-nowrap">
+                    <TableCell className="px-3 py-2 align-top font-mono text-control whitespace-nowrap">
                       {/* #251: el fallo lleva a la ficha del comprobante; sin un id válido (un archivo suelto) queda solo el nombre. */}
                       {esIdDeComprobante(p.comprobante_id) ? (
                         <Link href={hrefDetalleComprobante(p.comprobante_id)} className="text-foreground hover:text-primary hover:underline">
@@ -196,7 +196,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
                         p.nombre_archivo
                       )}
                     </TableCell>
-                    <TableCell className="px-3 py-2 align-top font-mono text-[11px] break-all text-muted-foreground">{p.detalle ?? "—"}</TableCell>
+                    <TableCell className="px-3 py-2 align-top font-mono text-etiqueta break-all text-muted-foreground">{p.detalle ?? "—"}</TableCell>
                     <TableCell className="py-2 pr-4 pl-3 align-top whitespace-nowrap">
                       <Link href={hrefDetalleEmpresa(p.tenant_id)} className="text-primary hover:underline">
                         {t.verEmpresa}
@@ -207,7 +207,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
               </TableBody>
             </Table>
           </div>
-          <dl data-testid="integridad-leyenda" className="grid gap-1 text-[12px] text-muted-foreground">
+          <dl data-testid="integridad-leyenda" className="grid gap-1 text-control text-muted-foreground">
             {tipos.map((tipo) => (
               <div key={tipo} className="flex flex-wrap gap-x-2">
                 <dt className="font-medium text-foreground/80">{t.tipos[tipo]}:</dt>

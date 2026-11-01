@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 /** Una fila con el certificado vencido o por vencer se tiñe: el administrador las ve sin leer la columna (#185). */
 const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
-  VENCIDO: "bg-destructive/5 hover:bg-destructive/10",
+  VENCIDO: "bg-destructive/5 hover:bg-destructive-suave",
   POR_VENCER: "bg-warning/40 hover:bg-warning/60",
 };
 
@@ -78,7 +78,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
           </button>
         </form>
         <div className="grid gap-1">
-          <label htmlFor="filtro-entorno" className="text-[11px] font-medium text-muted-foreground">
+          <label htmlFor="filtro-entorno" className="text-etiqueta font-medium text-muted-foreground">
             {t.filtroEntorno}
           </label>
           <select
@@ -96,7 +96,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
           </select>
         </div>
         <div className="grid gap-1">
-          <label htmlFor="filtro-certificado" className="text-[11px] font-medium text-muted-foreground">
+          <label htmlFor="filtro-certificado" className="text-etiqueta font-medium text-muted-foreground">
             {t.filtroCertificado}
           </label>
           <select
@@ -115,13 +115,13 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
         </div>
         <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefEmpresas({ ...params, bajas, pagina: 1 }))} />
         {hayFiltros ? (
-          <Link href={hrefEmpresas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-xs text-primary hover:underline">
+          <Link href={hrefEmpresas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-etiqueta text-primary hover:underline">
             {t.quitarFiltros}
           </Link>
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -137,7 +137,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.ultimaEmision}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {datos.map((e) => (
               <TableRow key={e.id} data-certificado={e.certificado} className={cn("border-b border-border/60 hover:bg-muted/80", TINTE[e.certificado])}>
                 <TableCell className="py-2 pr-3 pl-4">
@@ -145,7 +145,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
                     <Link href={hrefDetalleEmpresa(e.id)} className="font-medium text-foreground hover:text-primary hover:underline">
                       {e.razon_social}
                     </Link>
-                    <span className="font-mono text-[11px] text-muted-foreground">{e.ruc}</span>
+                    <span className="font-mono text-etiqueta text-muted-foreground">{e.ruc}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2">
@@ -171,7 +171,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.series}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.comprobantes_del_mes}</TableCell>
-                <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
+                <TableCell className="py-2 pr-4 pl-3 text-control text-foreground/80">
                   {e.ultima_emision ? formatearFecha(e.ultima_emision, locale) : <span className="text-muted-foreground">{t.nuncaEmitio}</span>}
                 </TableCell>
               </TableRow>
@@ -181,7 +181,7 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
                 <TableCell colSpan={8} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">{hayFiltros ? t.sinResultados : t.vacio}</p>
+                    <p className="text-cuerpo">{hayFiltros ? t.sinResultados : t.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>

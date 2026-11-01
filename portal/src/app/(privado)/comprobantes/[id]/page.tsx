@@ -60,10 +60,10 @@ const ESTADOS_CON_RESPUESTA: Record<string, "exito" | "error" | "aviso"> = {
 function FormaPagoDetalle({ formaPago, moneda, t, locale }: { formaPago: FormaPago; moneda: string; t: T; locale: Locale }) {
   const credito = formaPago.tipo === "credito";
   return (
-    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="forma-pago">
+    <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="forma-pago">
       <div className="flex items-center justify-between">
         <span className={ETIQUETA_DATO}>{t.formaPago.titulo}</span>
-        <span className={cn("rounded border px-2 py-0.5 text-[11px] font-medium", credito ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-secondary-foreground")}>
+        <span className={cn("rounded border px-2 py-0.5 text-etiqueta font-medium", credito ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-secondary-foreground")}>
           {credito ? t.formaPago.credito : t.formaPago.contado}
         </span>
       </div>
@@ -91,7 +91,7 @@ function FormaPagoDetalle({ formaPago, moneda, t, locale }: { formaPago: FormaPa
 /** Exportación (0200–0208): Incoterm de la venta y, en servicios, el país donde se usa. */
 function ExportacionDetalle({ exportacion, t }: { exportacion: Exportacion; t: T }) {
   return (
-    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="exportacion">
+    <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="exportacion">
       <span className={ETIQUETA_DATO}>{t.exportacion.titulo}</span>
       <div className="mt-2 space-y-1.5 text-muted-foreground">
         <div className="flex items-baseline justify-between gap-3">
@@ -104,7 +104,7 @@ function ExportacionDetalle({ exportacion, t }: { exportacion: Exportacion; t: T
             <span className="font-mono text-foreground/80">{exportacion.pais_uso}</span>
           </div>
         ) : null}
-        <p className="text-[11px] text-muted-foreground/80">{t.exportacion.sinIgv}</p>
+        <p className="text-etiqueta text-muted-foreground/80">{t.exportacion.sinIgv}</p>
       </div>
     </div>
   );
@@ -113,10 +113,10 @@ function ExportacionDetalle({ exportacion, t }: { exportacion: Exportacion; t: T
 /** Detracción (SPOT): lo que el adquirente deposita en la cuenta del Banco de la Nación del emisor, siempre en soles. */
 function DetraccionDetalle({ detraccion, t, locale }: { detraccion: Detraccion; t: T; locale: Locale }) {
   return (
-    <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="detraccion">
+    <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="detraccion">
       <div className="flex items-center justify-between">
         <span className={ETIQUETA_DATO}>{t.detraccion.titulo}</span>
-        <span className="rounded border border-warning-border bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground">{detraccion.porcentaje}%</span>
+        <span className="rounded border border-warning-border bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground">{detraccion.porcentaje}%</span>
       </div>
       <div className="mt-2 space-y-1.5 text-muted-foreground">
         <div className="flex items-baseline justify-between gap-3">
@@ -129,7 +129,7 @@ function DetraccionDetalle({ detraccion, t, locale }: { detraccion: Detraccion; 
           <span>{t.detraccion.cuenta}</span>
           <span className="font-mono text-foreground/80">{detraccion.cuenta_banco_nacion}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground/80">{interpolar(t.detraccion.deposito, { medio: detraccion.medio_pago })}</p>
+        <p className="text-etiqueta text-muted-foreground/80">{interpolar(t.detraccion.deposito, { medio: detraccion.medio_pago })}</p>
       </div>
     </div>
   );
@@ -171,7 +171,7 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
     return (
       <div className="rounded-lg border border-border bg-muted p-3">
         <span className={cn(ETIQUETA_DATO, "mb-1")}>{t.respuesta.titulo}</span>
-        <p className="font-mono text-xs text-muted-foreground">{t.respuesta.sinRespuesta}</p>
+        <p className="font-mono text-etiqueta text-muted-foreground">{t.respuesta.sinRespuesta}</p>
       </div>
     );
   }
@@ -181,7 +181,7 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
         "rounded-lg border p-3",
         tono === "exito" && "border-success-border bg-success",
         tono === "aviso" && "border-warning-border bg-warning",
-        tono === "error" && "border-destructive-border bg-destructive/10",
+        tono === "error" && "border-destructive-border bg-destructive-suave",
         !tono && "border-border bg-muted",
       )}
     >
@@ -200,7 +200,7 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
             ? interpolar(comprobante.intentos === 1 ? t.respuesta.ultimoErrorUno : t.respuesta.ultimoErrorVarios, { n: comprobante.intentos })
             : t.respuesta.ultimoEstado}
       </span>
-      <p className={cn("font-mono text-xs font-medium", tono === "error" ? "text-destructive" : "text-foreground/90")}>&ldquo;{texto}&rdquo;</p>
+      <p className={cn("font-mono text-etiqueta font-medium", tono === "error" ? "text-destructive" : "text-foreground/90")}>&ldquo;{texto}&rdquo;</p>
     </div>
   );
 }
@@ -208,7 +208,7 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
 /** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
 function Historial({ eventos, t, estados, locale }: { eventos: Comprobante["eventos"]; t: T; estados: Record<string, string>; locale: Locale }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="historial">
+    <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="historial">
       <div className={cn(TITULO_SECCION, "mb-3")}>
         <ClockCounterClockwiseIcon weight={PESO_ICONO} className="size-4" />
         {t.historial.titulo}
@@ -216,21 +216,21 @@ function Historial({ eventos, t, estados, locale }: { eventos: Comprobante["even
       {eventos && eventos.length > 0 ? (
         <ol className="relative ml-1.5 space-y-3 border-l border-border pl-4">
           {eventos.map((e, i) => (
-            <li key={i} className="relative text-xs">
+            <li key={i} className="relative text-etiqueta">
               <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", PUNTOS[e.estado_resultante] ?? "bg-muted-foreground/60")} />
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha, locale)}</span>
+                <span className="font-mono text-etiqueta text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha, locale)}</span>
                 <span className="font-semibold text-foreground">{estados[e.estado_resultante] ?? e.estado_resultante}</span>
                 {e.estado_anterior ? (
-                  <span className="text-[11px] text-muted-foreground/70">{interpolar(t.historial.desde, { estado: estados[e.estado_anterior] ?? e.estado_anterior })}</span>
+                  <span className="text-etiqueta text-muted-foreground/70">{interpolar(t.historial.desde, { estado: estados[e.estado_anterior] ?? e.estado_anterior })}</span>
                 ) : null}
               </div>
-              {e.mensaje ? <p className="mt-0.5 font-mono text-[11px] leading-snug text-foreground/80">{e.mensaje}</p> : null}
+              {e.mensaje ? <p className="mt-0.5 font-mono text-etiqueta leading-snug text-foreground/80">{e.mensaje}</p> : null}
             </li>
           ))}
         </ol>
       ) : (
-        <p className="text-xs text-muted-foreground/70">{t.historial.vacio}</p>
+        <p className="text-etiqueta text-muted-foreground/70">{t.historial.vacio}</p>
       )}
     </section>
   );
@@ -266,15 +266,15 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
   return (
     <div className="mx-auto grid w-full max-w-6xl min-w-0 grid-cols-1 gap-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 text-cuerpo">
           <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
             <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
             {t.volver}
           </Link>
           <span className="text-muted-foreground/40">/</span>
-          <span className="text-xs text-muted-foreground">{t.miga}</span>
+          <span className="text-etiqueta text-muted-foreground">{t.miga}</span>
           <span className="text-muted-foreground/40">/</span>
-          <span className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-xs font-semibold text-foreground">{numero}</span>
+          <span className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-etiqueta font-semibold text-foreground">{numero}</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -313,16 +313,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
       {aviso ? <AvisoBoletaSinInformar aviso={aviso} que={c.tipo === "03" ? "boleta" : "nota"} /> : null}
 
-      <section className="rounded-xl border border-border bg-card p-6 shadow-2xs">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-xs">
         <div className="flex flex-col justify-between gap-4 border-b border-border/60 pb-5 md:flex-row md:items-center">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">{interpolar(t.tipoElectronico, { tipo: tipoLabel })}</h2>
-              <span className="rounded-md border border-accent-border bg-accent px-2.5 py-0.5 font-mono text-sm font-semibold text-accent-foreground">
+              <h2 className="font-heading text-titulo-pagina font-bold tracking-tight text-foreground">{interpolar(t.tipoElectronico, { tipo: tipoLabel })}</h2>
+              <span className="rounded-md border border-accent-border bg-accent px-2.5 py-0.5 font-mono text-cuerpo font-semibold text-accent-foreground">
                 {numero}
               </span>
             </div>
-            <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+            <p className="mt-1 truncate font-mono text-etiqueta text-muted-foreground">
               {t.documentoId} <span className="text-foreground/80">{c.id}</span>
             </p>
           </div>
@@ -337,7 +337,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     ? interpolar(t.cdrDelResumen, { resumen: c.cdr.resumen })
                     : tieneConstanciaCdr(c) ? t.cdrConstancia : t.cdrSinConstancia
                 }
-                className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
+                className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground"
               >
                 {tieneConstanciaCdr(c) ? t.etiquetaCdr : t.etiquetaCodigoSunat}: {c.cdr.codigo}
               </span>
@@ -347,49 +347,49 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
         <div className="grid grid-cols-2 gap-6 pt-5 sm:grid-cols-4">
           <Campo etiqueta={t.fechaEmision}>
-            <span className="font-mono text-xs font-medium text-foreground">{formatearFecha(c.fecha_emision, locale)}</span>
-            {c.fecha_vencimiento ? <span className="block text-[11px] text-muted-foreground">{interpolar(t.vence, { fecha: formatearFecha(c.fecha_vencimiento, locale) })}</span> : null}
+            <span className="font-mono text-etiqueta font-medium text-foreground">{formatearFecha(c.fecha_emision, locale)}</span>
+            {c.fecha_vencimiento ? <span className="block text-etiqueta text-muted-foreground">{interpolar(t.vence, { fecha: formatearFecha(c.fecha_vencimiento, locale) })}</span> : null}
             {c.fecha_limite_envio && seInformaFueraDePlazo(c) ? (
               // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT no la rechaza (puede observarla con la 4443).
-              <span className="block text-[11px] text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
+              <span className="block text-etiqueta text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
                 {interpolar(t.plazoVencidoResumen, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}
               </span>
             ) : c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
-              <span className="block text-[11px] text-warning-foreground">{interpolar(t.enviarHasta, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
+              <span className="block text-etiqueta text-warning-foreground">{interpolar(t.enviarHasta, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
             ) : null}
             {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
-              <span className="block text-[11px] text-destructive">{interpolar(t.plazoVencido, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
+              <span className="block text-etiqueta text-destructive">{interpolar(t.plazoVencido, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
             ) : null}
-            {c.estado_documento === "DESCARTADO" ? <span className="block text-[11px] text-muted-foreground">{t.descartado}</span> : null}
+            {c.estado_documento === "DESCARTADO" ? <span className="block text-etiqueta text-muted-foreground">{t.descartado}</span> : null}
           </Campo>
           <Campo etiqueta={t.moneda}>
-            <span className="text-xs font-semibold text-foreground">{monedas[c.moneda] ?? c.moneda}</span>
+            <span className="text-etiqueta font-semibold text-foreground">{monedas[c.moneda] ?? c.moneda}</span>
           </Campo>
           <Campo etiqueta={t.tipoOperacion}>
             {tipoOperacion ? (
-              <span className="font-mono text-xs font-medium text-foreground">{tipoOperacion}</span>
+              <span className="font-mono text-etiqueta font-medium text-foreground">{tipoOperacion}</span>
             ) : (
-              <span className="text-xs text-muted-foreground/60">—</span>
+              <span className="text-etiqueta text-muted-foreground/60">—</span>
             )}
           </Campo>
           <Campo etiqueta={t.firma}>
             {c.hash ? (
               <div className="flex items-center gap-1">
-                <span className="truncate font-mono text-xs text-foreground/80" title={c.hash}>
+                <span className="truncate font-mono text-etiqueta text-foreground/80" title={c.hash}>
                   {hashCorto}
                 </span>
                 <BotonCopiar texto={c.hash} titulo={t.copiarHash} />
               </div>
             ) : (
-              <span className="text-xs text-muted-foreground/60">{t.sinFirmar}</span>
+              <span className="text-etiqueta text-muted-foreground/60">{t.sinFirmar}</span>
             )}
           </Campo>
         </div>
         {c.leyendas && c.leyendas.length > 0 ? (
           <div className="mt-4 flex flex-col gap-1 border-t border-border/60 pt-4" data-testid="leyendas">
-            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.leyendas}</span>
+            <span className="text-etiqueta font-semibold text-muted-foreground/80">{t.leyendas}</span>
             {c.leyendas.map((l) => (
-              <p key={l.codigo} className="text-xs text-foreground/90">
+              <p key={l.codigo} className="text-etiqueta text-foreground/90">
                 <span className="font-mono text-muted-foreground">{l.codigo}</span> · {l.texto}
               </p>
             ))}
@@ -397,23 +397,23 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5 shadow-2xs">
+      <section className="rounded-xl border border-border bg-card p-5 shadow-xs">
         <div className={cn(TITULO_SECCION, "mb-3")}>
           <IdentificationCardIcon weight={PESO_ICONO} className="size-4" />
           {t.receptor.titulo}
         </div>
         {c.receptor ? (
-          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
             <Campo etiqueta={t.receptor.razonSocial}>
-              <p className="text-sm font-semibold text-foreground">{c.receptor.razon_social}</p>
+              <p className="text-cuerpo font-semibold text-foreground">{c.receptor.razon_social}</p>
             </Campo>
             <Campo etiqueta={t.receptor.documento}>
               {/* #20: una boleta de hasta S/ 700 puede no identificar al comprador («-»): se dice así, sin un «Tipo -» ni un número «-». */}
               {c.receptor.tipo_doc === "-" ? (
-                <p className="text-sm text-foreground">{tipoDoc}</p>
+                <p className="text-cuerpo text-foreground">{tipoDoc}</p>
               ) : (
                 <div className="flex items-center gap-1.5 font-mono">
-                  <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-muted-foreground">
                     {interpolar(t.receptor.tipo, { tipo: c.receptor.tipo_doc })} · {tipoDoc}
                   </span>
                   <span className="font-semibold text-foreground">{c.receptor.num_doc}</span>
@@ -435,7 +435,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             ) : null}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground/60">{t.receptor.vacio}</p>
+          <p className="text-etiqueta text-muted-foreground/60">{t.receptor.vacio}</p>
         )}
       </section>
 
@@ -448,25 +448,25 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
 
       {c.observaciones ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="observaciones">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="observaciones">
           <div className={cn(TITULO_SECCION, "mb-2")}>{t.observaciones}</div>
-          <p className="text-[13px] leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
+          <p className="text-control leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
         </section>
       ) : null}
 
       {c.nota ? (
-        <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-2xs" data-testid="nota">
+        <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-xs" data-testid="nota">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <FileMinusIcon weight={PESO_ICONO} className="size-4" />
             {c.tipo === "07" ? t.nota.creditoSobre : t.nota.debitoSobre}
           </div>
-          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
             <Campo etiqueta={c.nota.tipo_afectado === "03" ? t.nota.boletaModificada : t.nota.facturaModificada}>
-              <span className="font-mono text-sm font-semibold text-foreground">{c.nota.documento_afectado}</span>
+              <span className="font-mono text-cuerpo font-semibold text-foreground">{c.nota.documento_afectado}</span>
             </Campo>
             <Campo etiqueta={t.nota.motivo}>
               <span className="text-foreground">
-                <span className="mr-1.5 rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{c.nota.motivo}</span>
+                <span className="mr-1.5 rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta text-muted-foreground">{c.nota.motivo}</span>
                 {c.nota.motivo_descripcion}
               </span>
             </Campo>
@@ -478,12 +478,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       ) : null}
 
       {c.notas?.length ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="notas">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="notas">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <FileMinusIcon weight={PESO_ICONO} className="size-4" />
             {c.tipo === "03" ? t.notas.sobreBoleta : t.notas.sobreFactura}
           </div>
-          <ul className="divide-y divide-border/60 text-xs">
+          <ul className="divide-y divide-border/60 text-etiqueta">
             {c.notas.map((n) => (
               <li key={n.id} className="flex flex-wrap items-center gap-3 py-2">
                 <Link href={`/comprobantes/${n.id}`} className="font-mono font-semibold text-primary hover:underline">
@@ -492,7 +492,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <span className="text-muted-foreground">{tipos[n.tipo]}</span>
                 <span className="text-muted-foreground">{formatearFecha(n.fecha_emision, locale)}</span>
                 <span className="text-foreground/80">
-                  <span className="mr-1 font-mono text-[11px] text-muted-foreground">{n.motivo}</span>
+                  <span className="mr-1 font-mono text-etiqueta text-muted-foreground">{n.motivo}</span>
                   {n.motivo_descripcion}
                 </span>
                 <span className="ml-auto font-mono tabular-nums text-foreground">{formatearMonto(c.moneda, n.total, locale)}</span>
@@ -504,12 +504,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       ) : null}
 
       {c.referencias ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="referencias">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-xs" data-testid="referencias">
           <div className={cn(TITULO_SECCION, "mb-3")}>
             <LinkIcon weight={PESO_ICONO} className="size-4" />
             {t.referencias.titulo}
           </div>
-          <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
             <Campo etiqueta={t.referencias.ordenCompra}>
               {c.referencias.orden_compra ? <span className="font-mono font-medium text-foreground">{c.referencias.orden_compra}</span> : <span className="text-muted-foreground/60">—</span>}
             </Campo>
@@ -518,7 +518,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <ul className="space-y-0.5">
                   {c.referencias.guias.map((g) => (
                     <li key={`${g.tipo}-${g.numero}`} className="font-mono text-foreground">
-                      {g.numero} <span className="text-[10px] text-muted-foreground">{g.tipo} · {etiquetasGuia(messages)[g.tipo] ?? t.referencias.guia}</span>
+                      {g.numero} <span className="text-etiqueta text-muted-foreground">{g.tipo} · {etiquetasGuia(messages)[g.tipo] ?? t.referencias.guia}</span>
                     </li>
                   ))}
                 </ul>
@@ -531,7 +531,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <ul className="space-y-0.5">
                   {c.referencias.documentos_relacionados.map((d) => (
                     <li key={`${d.tipo}-${d.numero}`} className="font-mono text-foreground">
-                      {d.numero} <span className="text-[10px] text-muted-foreground">{d.tipo} · {etiquetasDocRelacionado(messages)[d.tipo] ?? t.referencias.documento}</span>
+                      {d.numero} <span className="text-etiqueta text-muted-foreground">{d.tipo} · {etiquetasDocRelacionado(messages)[d.tipo] ?? t.referencias.documento}</span>
                     </li>
                   ))}
                 </ul>
@@ -547,20 +547,20 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.agente ? (
         <DocumentosDeAgente agente={c.agente} retencion={c.tipo === "20"} />
       ) : (
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
           <div className={TITULO_SECCION}>
             <RowsIcon weight={PESO_ICONO} className="size-4" />
             {t.items.titulo}
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-etiqueta text-muted-foreground">
             {interpolar(c.items.length === 1 ? t.items.uno : t.items.varios, { n: c.items.length })}
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full border-collapse text-left text-etiqueta">
             <thead>
-              <tr className="border-b border-border/70 bg-muted font-mono text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+              <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta font-medium text-muted-foreground">
                 <th className="w-12 px-4 py-2.5 text-center font-medium">#</th>
                 <th className="w-28 px-3 py-2.5 font-medium">{t.items.codigo}</th>
                 <th className="px-4 py-2.5 font-medium">{t.items.descripcion}</th>
@@ -581,14 +581,14 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                   <td className="px-4 py-3 font-medium text-foreground">
                     {item.descripcion}
                     {item.codigo_sunat || item.gtin ? (
-                      <span className="mt-0.5 block font-mono text-[10px] font-normal text-muted-foreground">
+                      <span className="mt-0.5 block font-mono text-etiqueta font-normal text-muted-foreground">
                         {item.codigo_sunat ? interpolar(t.items.codigoSunat, { codigo: item.codigo_sunat }) : null}
                         {item.codigo_sunat && item.gtin ? " · " : null}
                         {item.gtin ? `${item.gtin.tipo} ${item.gtin.codigo}` : null}
                       </span>
                     ) : null}
                     {item.hidrobiologico ? (
-                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="hidrobiologico">
+                      <span className="mt-1 block text-etiqueta font-normal leading-snug text-muted-foreground" data-testid="hidrobiologico">
                         {interpolar(t.items.hidrobiologico, {
                           nombre: item.hidrobiologico.nombre_embarcacion,
                           matricula: item.hidrobiologico.matricula,
@@ -600,7 +600,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                       </span>
                     ) : null}
                     {item.transporte ? (
-                      <span className="mt-1 block text-[11px] font-normal leading-snug text-muted-foreground" data-testid="transporte">
+                      <span className="mt-1 block text-etiqueta font-normal leading-snug text-muted-foreground" data-testid="transporte">
                         {item.transporte.origen.direccion} ({item.transporte.origen.ubigeo}) → {item.transporte.destino.direccion} ({item.transporte.destino.ubigeo}) · {item.transporte.detalle_viaje}
                         <span className="block font-mono">
                           {interpolar(t.items.valoresReferenciales, {
@@ -617,19 +617,19 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad, locale)}</td>
                   <td className="px-3 py-3 text-center font-mono">
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{item.unidad}</span>
+                    <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta text-muted-foreground">{item.unidad}</span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">
+                    <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-etiqueta font-medium text-foreground/80">
                       {item.tipo_afectacion_igv} · {etiquetasAfectacion(messages)[item.tipo_afectacion_igv] ?? t.items.otraAfectacion}
                     </span>
                     {item.isc ? (
-                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground" title={interpolar(t.items.iscTitulo, { sistema: item.isc.sistema, monto: formatearNumero(item.isc.monto, locale) })}>
+                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground" title={interpolar(t.items.iscTitulo, { sistema: item.isc.sistema, monto: formatearNumero(item.isc.monto, locale) })}>
                         {interpolar(t.items.iscTasa, { tasa: item.isc.tasa })}
                       </span>
                     ) : null}
                     {item.icbper ? (
-                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-[11px] font-medium text-warning-foreground" title={t.items.icbperTitulo}>
+                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground" title={t.items.icbperTitulo}>
                         {interpolar(t.items.icbperMonto, { monto: formatearNumero(item.icbper, locale) })}
                       </span>
                     ) : null}
@@ -639,7 +639,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     {item.descuento ? (
                       <span title={interpolar(t.items.codigoAfecta, { codigo: item.descuento.codigo, afecta: item.descuento.afecta_base_igv ? t.items.afectaBase : t.items.noAfectaBase })}>
                         −{formatearNumero(item.descuento.monto, locale)}
-                        <span className="ml-1 text-[10px] text-muted-foreground">
+                        <span className="ml-1 text-etiqueta text-muted-foreground">
                           {item.descuento.tipo === "PORCENTAJE" ? `${item.descuento.valor}%` : item.descuento.codigo}
                         </span>
                       </span>
@@ -651,7 +651,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     {item.cargos?.length ? (
                       <span title={item.cargos.map((cg) => interpolar(t.items.codigoAfecta, { codigo: cg.codigo, afecta: cg.afecta_base_igv ? t.items.afectaBase : t.items.noAfectaBase })).join(" / ")}>
                         +{formatearNumero(item.cargos.reduce((acc, cg) => acc + Number(cg.monto), 0), locale)}
-                        <span className="ml-1 text-[10px] text-muted-foreground">{item.cargos.map((cg) => cg.codigo).join("+")}</span>
+                        <span className="ml-1 text-etiqueta text-muted-foreground">{item.cargos.map((cg) => cg.codigo).join("+")}</span>
                       </span>
                     ) : (
                       <span className="text-muted-foreground/50">—</span>
@@ -659,7 +659,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-medium text-foreground tabular-nums">
                     {item.gratuita ? (
-                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" title={t.items.gratuitaTitulo}>
+                      <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-muted-foreground" title={t.items.gratuitaTitulo}>
                         {t.items.gratuita}
                       </span>
                     ) : (
@@ -682,13 +682,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <section className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-2xs lg:col-span-7">
+        <section className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-xs lg:col-span-7">
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <span className={TITULO_SECCION}>{t.tecnica.titulo}</span>
-            <span className="font-mono text-[11px] text-muted-foreground/70">{t.tecnica.tabla}</span>
+            <span className="font-mono text-etiqueta text-muted-foreground/70">{t.tecnica.tabla}</span>
           </div>
           <CajaRespuesta comprobante={c} t={t} />
-          <div className="space-y-2 font-mono text-xs">
+          <div className="space-y-2 font-mono text-etiqueta">
             <Tecnico nombre="nombre_archivo">
               <span className="select-all">{c.nombre_archivo ?? "—"}</span>
             </Tecnico>
@@ -696,7 +696,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               {c.cdr && c.cdr.observaciones.length > 0 ? (
                 c.cdr.observaciones.join(" · ")
               ) : (
-                <span className="rounded border border-border bg-card px-2 py-0.5 text-[11px] font-normal text-muted-foreground">{t.tecnica.sinObservaciones}</span>
+                <span className="rounded border border-border bg-card px-2 py-0.5 text-etiqueta font-normal text-muted-foreground">{t.tecnica.sinObservaciones}</span>
               )}
             </Tecnico>
             <Tecnico nombre="intentos">
@@ -706,16 +706,16 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-2xs lg:col-span-5">
+        <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-xs lg:col-span-5">
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <span className={TITULO_SECCION}>{t.importes.titulo}</span>
-            <span className="font-mono text-[11px] text-muted-foreground/70">{monedas[c.moneda] ?? c.moneda}</span>
+            <span className="font-mono text-etiqueta text-muted-foreground/70">{monedas[c.moneda] ?? c.moneda}</span>
           </div>
           {c.agente ? (
             <ImportesDeAgente agente={c.agente} retencion={c.tipo === "20"} />
           ) : (
           <>
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2 text-etiqueta">
             {c.totales.exportacion ? (
               <Importe etiqueta={t.importes.exportacion} moneda={c.moneda} valor={c.totales.exportacion} locale={locale} />
             ) : (
@@ -778,13 +778,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             <div className="my-2 h-px bg-border" />
             <div className="flex items-baseline justify-between pt-1">
               <div>
-                <span className="block text-xs font-semibold tracking-wide text-foreground uppercase">{t.importes.totalAPagar}</span>
-                <span className="text-[11px] text-muted-foreground/80">{t.importes.netoFinal}</span>
+                <span className="block text-etiqueta font-semibold text-foreground">{t.importes.totalAPagar}</span>
+                <span className="text-etiqueta text-muted-foreground/80">{t.importes.netoFinal}</span>
               </div>
-              <span className="font-mono text-xl font-bold tracking-tight text-foreground tabular-nums">{formatearMonto(c.moneda, c.totales.total, locale)}</span>
+              <span className="font-mono text-titulo-pagina font-bold tracking-tight text-foreground tabular-nums">{formatearMonto(c.moneda, c.totales.total, locale)}</span>
             </div>
             {c.tipo_cambio != null && c.total_en_soles != null ? (
-              <p className="mt-1 text-right text-[11px] text-muted-foreground/80" data-testid="equivalente-en-soles">
+              <p className="mt-1 text-right text-etiqueta text-muted-foreground/80" data-testid="equivalente-en-soles">
                 {interpolar(t.importes.equivale, { monto: formatearMonto("PEN", c.total_en_soles, locale), tipoCambio: c.tipo_cambio })}
               </p>
             ) : null}
@@ -795,7 +795,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {c.detraccion ? <DetraccionDetalle detraccion={c.detraccion} t={t} locale={locale} /> : null}
           {c.exportacion ? <ExportacionDetalle exportacion={c.exportacion} t={t} /> : null}
           {c.anticipos?.length ? (
-            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="anticipos">
+            <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="anticipos">
               <span className={ETIQUETA_DATO}>{t.anticipos.titulo}</span>
               <ul className="mt-1 space-y-1">
                 {c.anticipos.map((a) => (
@@ -806,7 +806,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     </span>
                     <span className="font-mono tabular-nums text-foreground/80">
                       −{formatearMonto(c.moneda, a.importe_pagado, locale)}
-                      <span className="text-[11px] text-muted-foreground/80">{interpolar(t.anticipos.sinIgv, { monto: formatearMonto(c.moneda, a.monto, locale) })}</span>
+                      <span className="text-etiqueta text-muted-foreground/80">{interpolar(t.anticipos.sinIgv, { monto: formatearMonto(c.moneda, a.monto, locale) })}</span>
                     </span>
                   </li>
                 ))}
@@ -814,7 +814,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             </div>
           ) : null}
           {c.retencion_igv ? (
-            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="retencion">
+            <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="retencion">
               <div className="flex items-center justify-between">
                 <span className={ETIQUETA_DATO}>{interpolar(t.retencion.titulo, { porcentaje: c.retencion_igv.porcentaje })}</span>
                 <span className="font-mono tabular-nums text-foreground/80">−{formatearMonto(c.moneda, c.retencion_igv.monto, locale)}</span>
@@ -826,7 +826,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
             </div>
           ) : null}
           {c.percepcion ? (
-            <div className="mt-4 border-t border-border/60 pt-3 text-xs" data-testid="percepcion">
+            <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="percepcion">
               <div className="flex items-center justify-between">
                 <span className={ETIQUETA_DATO}>{interpolar(t.percepcion.titulo, { regimen: c.percepcion.regimen, porcentaje: c.percepcion.porcentaje })}</span>
                 <span className="font-mono tabular-nums text-foreground/80">+{formatearMonto("PEN", c.percepcion.monto, locale)}</span>
@@ -835,7 +835,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                 <span>{t.percepcion.total}</span>
                 <span className="font-mono font-semibold text-foreground tabular-nums">{formatearMonto("PEN", c.percepcion.total_con_percepcion, locale)}</span>
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground/80">{c.percepcion.descripcion}</p>
+              <p className="mt-1 text-etiqueta text-muted-foreground/80">{c.percepcion.descripcion}</p>
             </div>
           ) : null}
         </section>

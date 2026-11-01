@@ -335,7 +335,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               ))}
             </select>
           ) : (
-            <p className="text-[12px] leading-relaxed text-destructive">
+            <p className="text-control leading-relaxed text-destructive">
               {interpolar(t.sinSeries, { nota: esNc ? t.notaCredito : t.notaDebito, documentos: t.documentoPlural[claseDocumento] })}{" "}
               <Link href="/series" className="underline">{t.creeUna}</Link>
               {interpolar(t.sinSeriesEjemplo, { ejemplo: `${letraSerie}${esNc ? "C01" : "D01"}` })}
@@ -374,7 +374,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {esParcial && admiteAjustesPropios ? (
         <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
-          <summary className="cursor-pointer text-[13px] font-medium">{t.ajustes.titulo}</summary>
+          <summary className="cursor-pointer text-control font-medium">{t.ajustes.titulo}</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
             <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
@@ -384,7 +384,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       ) : null}
 
       {esTotal ? (
-        <div className={cn("rounded-lg border px-3 py-2 text-[12px] leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
+        <div className={cn("rounded-lg border px-3 py-2 text-control leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
           <p>
             {tr.rich("totalCopia", {
               b: (c) => <strong className="text-foreground">{c}</strong>,
@@ -407,9 +407,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {esParcial ? (
         <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-etiqueta">
             <thead>
-              <tr className="border-b border-border/70 bg-muted font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
+              <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta text-muted-foreground">
                 <th className="px-3 py-2 font-medium">{interpolar(t.thItem, { documento })}</th>
                 <th className="w-24 px-3 py-2 text-right font-medium">{t.thFacturado}</th>
                 <th className="w-32 px-3 py-2 text-right font-medium">{t.thCantidad}</th>
@@ -450,7 +450,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           </p>
           {/* El importe que va a salir, contra lo que SUNAT compara. Antes el formulario no mostraba ninguna cifra
               de la nota y el usuario descubría el 3286 después de emitir. */}
-          <div className={cn("flex flex-wrap items-baseline justify-between gap-2 border-t border-border/60 px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+          <div className={cn("flex flex-wrap items-baseline justify-between gap-2 border-t border-border/60 px-3 py-2 text-control", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
             <span>
               {t.importe}{conAjustesPropios ? t.importeAntesDeAjustes : ""}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
             </span>
@@ -469,13 +469,13 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {esCuotas ? (
         <div className="space-y-2 rounded-lg border border-border p-3">
-          <p className="text-[12px] text-muted-foreground">{t.cuotasAyuda}</p>
+          <p className="text-control text-muted-foreground">{t.cuotasAyuda}</p>
           {cuotas.map((q, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
-              <span className="w-20 font-mono text-[11px] text-muted-foreground">{interpolar(t.cuotaId, { n: String(i + 1).padStart(3, "0") })}</span>
+              <span className="w-20 font-mono text-etiqueta text-muted-foreground">{interpolar(t.cuotaId, { n: String(i + 1).padStart(3, "0") })}</span>
               <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={interpolar(t.montoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
               <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={interpolar(t.vencimientoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "w-40 font-mono")} />
-              <button type="button" aria-label={interpolar(t.quitarCuota, { n: i + 1 })} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-[12px] text-muted-foreground hover:text-destructive">{t.quitar}</button>
+              <button type="button" aria-label={interpolar(t.quitarCuota, { n: i + 1 })} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-control text-muted-foreground hover:text-destructive">{t.quitar}</button>
             </div>
           ))}
           <button type="button" onClick={() => setCuotas((cs) => [...cs, { monto: "", vencimiento: "" }])} className={ACCION_SECUNDARIA}>{t.anadirCuota}</button>
@@ -496,7 +496,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </div>
           </div>
           {esImporte ? (
-            <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-[12px]", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+            <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-control", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
               <span>
                 {t.importe}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
               </span>
@@ -511,7 +511,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       {error ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">{error}</p>
+          <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">{error}</p>
           {/* Si falló UNO de los dos catálogos, la otra pestaña funciona pero la alerta queda pegada: el botón tiene
               que seguir ahí para recargar el que falta, no solo cuando falta el de la pestaña actual. */}
           {!catalogos["07"] || !catalogos["08"] ? (

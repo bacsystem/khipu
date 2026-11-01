@@ -197,8 +197,8 @@ export function AltaAsistidaForm({
           <div className="flex items-center gap-2.5">
             <IconoSeccion icon={UserPlusIcon} className="bg-success text-success-foreground" />
             <div className="min-w-0">
-              <h3 className="text-[13px] font-semibold text-foreground">{r.titulo}</h3>
-              <p className="text-[12px] text-muted-foreground">{r.descripcion}</p>
+              <h3 className="text-cuerpo font-semibold text-foreground">{r.titulo}</h3>
+              <p className="text-control text-muted-foreground">{r.descripcion}</p>
             </div>
           </div>
           <ApiKeyRevelada apiKey={creada.datos.api_key} etiqueta={r.etiquetaApiKey} aviso={<p>{r.avisoApiKey}</p>} />
@@ -276,7 +276,7 @@ export function AltaAsistidaForm({
         {error ? <Alerta tono="error">{error}</Alerta> : null}
       </div>
 
-      <PieDialogo izquierda={<span className="font-mono text-[11px] text-muted-foreground">{t.pasoDe.replace("{n}", String(paso + 1)).replace("{total}", String(PASOS.length))}</span>}>
+      <PieDialogo izquierda={<span className="font-mono text-etiqueta text-muted-foreground">{t.pasoDe.replace("{n}", String(paso + 1)).replace("{total}", String(PASOS.length))}</span>}>
         {paso === 0 ? (
           <button type="button" onClick={alCancelar} disabled={isSubmitting} className={BOTON_SECUNDARIO}>
             {t.cancelar}

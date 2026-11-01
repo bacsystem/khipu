@@ -39,7 +39,7 @@ export default function EntornosPage() {
 
       <Seccion id="pendiente" titulo={titulo("pendiente")}>
         <P>{t.pendienteIntro}</P>
-        <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
+        <ul className="list-disc space-y-2 pl-5 text-control leading-relaxed text-muted-foreground">
           {t.pendientes.map((texto) => (
             <li key={texto}>
               <Rico texto={texto} negrita="text-foreground" />

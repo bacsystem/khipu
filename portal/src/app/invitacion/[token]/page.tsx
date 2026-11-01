@@ -43,7 +43,7 @@ export default async function AceptarInvitacionPage({ params }: { params: Promis
   return (
     <AuthShell title={t.titulo} subtitle={t.subtitulo}>
       <div className="grid gap-4">
-        <div className="grid gap-1 text-[13px]">
+        <div className="grid gap-1 text-control">
           <p data-testid="invitacion-detalle">{interpolar(t.invitado, { cuenta: invitacion.cuenta, rol })}</p>
           <p className="text-muted-foreground">{interpolar(t.email, { email: invitacion.email })}</p>
         </div>

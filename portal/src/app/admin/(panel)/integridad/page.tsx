@@ -22,8 +22,8 @@ export default async function AdminIntegridadPage() {
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <h1 className="font-heading text-2xl">{messages.admin.integridad.titulo}</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">{messages.admin.integridad.descripcion}</p>
+        <h1 className="font-heading text-titulo-pagina">{messages.admin.integridad.titulo}</h1>
+        <p className="max-w-3xl text-cuerpo text-muted-foreground">{messages.admin.integridad.descripcion}</p>
       </div>
       <VerificarIntegridad hoy={hoyLima()} />
     </div>

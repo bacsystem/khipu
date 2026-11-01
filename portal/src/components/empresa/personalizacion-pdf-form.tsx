@@ -130,8 +130,8 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
                 )}
                 data-testid={`plantilla-${p.id}`}
               >
-                <span className="text-[13px] font-semibold text-foreground">{p.nombre}</span>
-                <span className="text-[12px] text-muted-foreground">{p.descripcion}</span>
+                <span className="text-cuerpo font-semibold text-foreground">{p.nombre}</span>
+                <span className="text-control text-muted-foreground">{p.descripcion}</span>
               </button>
             ))}
           </div>
@@ -182,7 +182,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
           <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
 
-        {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+        {error ? <p className="text-cuerpo text-destructive" role="alert">{error}</p> : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={guardando || !colorValido} className={BOTON_PRIMARIO}>
@@ -190,7 +190,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
             {guardando ? messages.empresa.comun.guardando : t.guardar}
           </button>
           {ok ? (
-            <span className="inline-flex items-center gap-1 text-[12px] text-success-foreground" role="status" data-testid="diseno-guardado">
+            <span className="inline-flex items-center gap-1 text-control text-success-foreground" role="status" data-testid="diseno-guardado">
               <CheckIcon weight="bold" className="size-3.5" /> {t.guardado}
             </span>
           ) : null}
@@ -200,7 +200,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
       <div className="flex min-h-[520px] flex-col gap-2 xl:col-span-7">
         <div className="flex items-center justify-between">
           <span className={ETIQUETA_CAMPO}>{t.vistaPrevia}</span>
-          <a href={urlVistaPrevia} target="_blank" rel="noopener" className="text-[12px] text-primary hover:underline">{t.abrirEnPestana}</a>
+          <a href={urlVistaPrevia} target="_blank" rel="noopener" className="text-control text-primary hover:underline">{t.abrirEnPestana}</a>
         </div>
         <iframe key={urlVistaPrevia} src={urlVistaPrevia} title={t.vistaPreviaTitulo} className="min-h-[520px] w-full flex-1 rounded-lg border border-border bg-muted" data-testid="vista-previa" />
       </div>

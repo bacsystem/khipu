@@ -22,10 +22,10 @@ export function CuentaSuspendida() {
 
   return (
     <div className="grid gap-4" data-testid="cuenta-suspendida">
-      <p className="text-[13px] leading-relaxed text-foreground/80" role="alert">
+      <p className="text-control leading-relaxed text-foreground/80" role="alert">
         {t.descripcion}
       </p>
-      <p className="text-[13px] font-medium">{t.soporte}</p>
+      <p className="text-control font-medium">{t.soporte}</p>
       <button type="button" disabled={saliendo} onClick={cerrarSesion} className={BOTON_PRIMARIO}>
         <SignOutIcon className="size-4" />
         {t.cerrarSesion}

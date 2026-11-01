@@ -28,7 +28,7 @@ export function BuscadorDeProductos({ onElegir, deshabilitado }: { onElegir: (p:
       fila={(p) => (
         <>
           <span className="min-w-0 truncate font-medium">{p.descripcion}</span>
-          <span className="shrink-0 font-mono text-[12px] text-muted-foreground tabular-nums">{p.codigo ? `${p.codigo} · ` : ""}{formatearPrecioUnitario(p.precio_unitario, locale)}</span>
+          <span className="shrink-0 font-mono text-control text-muted-foreground tabular-nums">{p.codigo ? `${p.codigo} · ` : ""}{formatearPrecioUnitario(p.precio_unitario, locale)}</span>
         </>
       )}
       sinResultados={t.sinResultados}

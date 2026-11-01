@@ -11,7 +11,7 @@ type Icono = typeof BookOpenIcon;
 export type CampoReferencia = { campo: string; tipo: string; descripcion: string; clave?: boolean };
 
 const ICONO = "flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary";
-const TH = "px-4 py-2 text-left text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
+const TH = "px-4 py-2 text-left text-etiqueta font-semibold text-muted-foreground/80";
 
 /**
  * Modal "Referencia técnica" de una sección del portal: disparador, cabecera, rejilla de dos columnas
@@ -38,7 +38,7 @@ export function ReferenciaTecnicaDialog({
       <DialogTrigger
         className={
           className ??
-          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
         <BookOpenIcon className="size-4" />
@@ -53,8 +53,8 @@ export function ReferenciaTecnicaDialog({
               <BookOpenIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{titulo}</DialogTitle>
+              <DialogDescription className="text-control">{descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -68,7 +68,7 @@ export function ReferenciaTecnicaDialog({
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
+            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
           >
             {t.entendido}
           </button>
@@ -93,14 +93,14 @@ export function SeccionReferencia({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border/80 bg-card shadow-2xs">
+    <section className="rounded-xl border border-border/80 bg-card shadow-xs">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-border/60 px-4 py-3">
         <div className={ICONO}>
           <IconoSeccion className="size-4" />
         </div>
         <div className="flex min-w-0 flex-1 basis-48 flex-col">
-          <h4 className="text-[13px] font-semibold text-foreground">{titulo}</h4>
-          <span className="font-mono text-[11px] text-muted-foreground">{subtitulo}</span>
+          <h4 className="text-cuerpo font-semibold text-foreground">{titulo}</h4>
+          <span className="font-mono text-etiqueta text-muted-foreground">{subtitulo}</span>
         </div>
         {accion}
       </div>
@@ -115,7 +115,7 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px]">
+        <table className="w-full text-control">
           <thead>
             <tr className="border-b border-border/60 bg-muted">
               <th className={TH}>{t.campo}</th>
@@ -133,7 +133,7 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
                   </span>
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap">
-                  <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] font-medium text-primary">{c.tipo}</span>
+                  <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta font-medium text-primary">{c.tipo}</span>
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">{c.descripcion}</td>
               </tr>
@@ -142,7 +142,7 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
         </table>
       </div>
       {nota ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-muted/60 px-4 py-2 font-mono text-[11px] text-muted-foreground">{nota}</div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-muted/60 px-4 py-2 font-mono text-etiqueta text-muted-foreground">{nota}</div>
       ) : null}
     </>
   );
@@ -152,17 +152,17 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
 export function ReglaReferencia({ insignia, titulo, detalle, valor }: { insignia: React.ReactNode; titulo: string; detalle: string; valor: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded bg-accent font-mono text-[11px] font-semibold text-primary">{insignia}</span>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded bg-accent font-mono text-etiqueta font-semibold text-primary">{insignia}</span>
       <div className="flex min-w-0 flex-1 basis-40 flex-col">
-        <span className="text-[13px] font-medium text-foreground">{titulo}</span>
-        <span className="text-[11px] text-muted-foreground">{detalle}</span>
+        <span className="text-control font-medium text-foreground">{titulo}</span>
+        <span className="text-etiqueta text-muted-foreground">{detalle}</span>
       </div>
-      <span className="shrink-0 rounded bg-card px-2 py-0.5 font-mono text-[12px] font-semibold text-foreground shadow-2xs">{valor}</span>
+      <span className="shrink-0 rounded bg-card px-2 py-0.5 font-mono text-control font-semibold text-foreground shadow-xs">{valor}</span>
     </div>
   );
 }
 
 /** Párrafo de cierre de una sección. */
 export function NotaReferencia({ children }: { children: React.ReactNode }) {
-  return <p className="border-t border-border/60 px-4 py-3 text-[12px] leading-relaxed text-muted-foreground">{children}</p>;
+  return <p className="border-t border-border/60 px-4 py-3 text-control leading-relaxed text-muted-foreground">{children}</p>;
 }

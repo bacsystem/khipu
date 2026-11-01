@@ -26,7 +26,7 @@ export function AyudaDeSoporte({ className }: { className?: string }) {
   const t = useMessages().soporte.ayuda;
   if (!url && !email) return null;
   return (
-    <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground", className)}>
+    <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-control text-muted-foreground", className)}>
       <LifebuoyIcon className="size-3.5 shrink-0" aria-hidden />
       <span>{t.pregunta}</span>
       {url ? (

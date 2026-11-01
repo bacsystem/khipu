@@ -40,11 +40,11 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
   if (apiKey) {
     return (
       <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-control text-muted-foreground">
           {t.cargada}
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-[12px]">
+          <code className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-control">
             <span className="truncate">{apiKey}</span>
           </code>
           <Button type="button" variant="outline" size="icon-sm" onClick={copiar}>
@@ -58,8 +58,8 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
 
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-card p-4">
-      {error ? <p role="alert" className="text-[13px] text-destructive">{error}</p> : null}
-      <p className="text-[13px] text-muted-foreground">{t.intro}</p>
+      {error ? <p role="alert" className="text-control text-destructive">{error}</p> : null}
+      <p className="text-control text-muted-foreground">{t.intro}</p>
       <Button type="button" size="sm" className="w-fit" disabled={generando || soloLectura !== null} title={soloLectura ?? undefined} onClick={generar}>
         {generando ? t.generando : t.generar}
       </Button>

@@ -84,8 +84,8 @@ describe("AvisosTabla (#197)", () => {
 
     const etiqueta = (i: number) => filas()[i].querySelector('[data-slot="badge"]')?.className ?? "";
     expect(etiqueta(0)).toContain("bg-warning");
-    expect(etiqueta(1)).toContain("bg-destructive/10");
-    expect(etiqueta(0)).not.toContain("bg-destructive/10");
+    expect(etiqueta(1)).toContain("bg-destructive-suave");
+    expect(etiqueta(0)).not.toContain("bg-destructive-suave");
     expect(within(filas()[1]).getByText("Venció el 29 Set 2026 (hace 5 días)")).toBeTruthy();
   });
 

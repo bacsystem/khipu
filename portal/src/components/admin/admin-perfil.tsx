@@ -40,19 +40,19 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
           )}
         >
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-etiqueta font-bold text-primary-foreground shadow-xs">
               {iniciales(administrador.email)}
             </div>
             <div className="min-w-0 overflow-hidden">
-              <p className="truncate text-[12px] leading-tight font-medium text-foreground">{administrador.email.split("@")[0]}</p>
-              <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground">{administrador.email}</p>
+              <p className="truncate text-control leading-tight font-medium text-foreground">{administrador.email.split("@")[0]}</p>
+              <p className="truncate font-mono text-etiqueta leading-tight text-muted-foreground">{administrador.email}</p>
             </div>
           </div>
           <CaretUpDownIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/70" />
         </MenuTrigger>
 
         <MenuContent side="top" align="start" className="w-(--anchor-width) min-w-0">
-          <div className="px-2 pt-1.5 pb-1 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">{messages.admin.perfil.tema}</div>
+          <div className="px-2 pt-1.5 pb-1 text-etiqueta font-medium text-muted-foreground">{messages.admin.perfil.tema}</div>
           <div className="px-0.5 pb-1.5">
             <ThemeToggle conTexto />
           </div>

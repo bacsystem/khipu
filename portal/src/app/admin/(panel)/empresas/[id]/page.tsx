@@ -37,17 +37,17 @@ export default async function AdminEmpresaPage({ params }: { params: Promise<{ i
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <Link href="/admin/empresas" className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">
+        <Link href="/admin/empresas" className="inline-flex w-fit items-center gap-1 text-etiqueta text-primary hover:underline">
           <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
           {t.volver}
         </Link>
-        <h1 className="font-heading text-2xl">{resultado.empresa?.razon_social ?? messages.admin.empresas.titulo}</h1>
+        <h1 className="font-heading text-titulo-pagina">{resultado.empresa?.razon_social ?? messages.admin.empresas.titulo}</h1>
       </div>
 
       {resultado.empresa ? (
         <EmpresaDetalle empresa={resultado.empresa} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
           <span>{t.error}</span>
           <Link href={hrefDetalleEmpresa(id)} className="font-medium underline">
             {messages.admin.empresas.reintentar}

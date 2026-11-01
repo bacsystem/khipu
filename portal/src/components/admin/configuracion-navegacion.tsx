@@ -27,7 +27,7 @@ export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfigur
 export function ListaDePlantillas({ plantillas, actual }: { plantillas: PlantillaDeCorreo[]; actual: string }) {
   const t = useMessages().admin.configuracion;
   return (
-    <nav aria-label={t.plantillas.lista} className="grid content-start gap-0.5 rounded-xl border border-border bg-card p-1.5 shadow-2xs">
+    <nav aria-label={t.plantillas.lista} className="grid content-start gap-0.5 rounded-xl border border-border bg-card p-1.5 shadow-xs">
       {plantillas.map((p) => (
         <Link
           key={p.tipo}
@@ -36,12 +36,12 @@ export function ListaDePlantillas({ plantillas, actual }: { plantillas: Plantill
           data-testid="plantilla-enlace"
           data-tipo={p.tipo}
           className={cn(
-            "flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors",
+            "flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-control transition-colors",
             actual === p.tipo ? "bg-accent/70 font-medium text-accent-foreground" : "text-foreground/80 hover:bg-muted hover:text-foreground",
           )}
         >
           <span className="min-w-0">{p.etiqueta}</span>
-          {p.personalizada ? <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-foreground/80">{t.plantillas.personalizada}</span> : null}
+          {p.personalizada ? <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-foreground/80">{t.plantillas.personalizada}</span> : null}
         </Link>
       ))}
     </nav>

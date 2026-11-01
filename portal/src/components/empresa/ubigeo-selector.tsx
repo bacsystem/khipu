@@ -73,7 +73,7 @@ export function UbigeoSelector({
   return (
     <>
       {errorCatalogo ? (
-        <p className="text-sm text-destructive sm:col-span-3">
+        <p className="text-cuerpo text-destructive sm:col-span-3">
           {t.errorCatalogo}{" "}
           <button type="button" onClick={() => setIntento((n) => n + 1)} className="font-medium underline">
             {t.reintentar}

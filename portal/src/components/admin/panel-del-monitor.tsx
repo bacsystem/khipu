@@ -74,7 +74,7 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
 
   return (
     <div className="grid min-w-0 gap-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground" role="status" aria-live="polite">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-control text-muted-foreground" role="status" aria-live="polite">
         {monitor ? (
           <span data-testid="monitor-ultima-lectura">{t.ultimaLectura.replace("{hora}", formatearHoraConSegundos(monitor.generado_en))}</span>
         ) : null}
@@ -82,11 +82,11 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
       </div>
 
       {fallo ? (
-        <p data-testid="monitor-error" role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive-border bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+        <p data-testid="monitor-error" role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive-border bg-destructive-suave px-3 py-2.5 text-cuerpo text-destructive-texto">
           <span>{monitor ? t.errorAlActualizar : t.errorInicial}</span>
-          <span className="text-[12px]">{fallo}</span>
+          <span className="text-control">{fallo}</span>
           {sesionTerminada ? null : (
-            <button type="button" onClick={() => void leer()} className="ml-auto text-[13px] font-medium underline">
+            <button type="button" onClick={() => void leer()} className="ml-auto text-control font-medium underline">
               {t.reintentar}
             </button>
           )}
@@ -119,7 +119,7 @@ function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
   const tiempo = duracionEnPalabras(outbox.vencido_hace_segundos ?? 0);
   const texto = outbox.vencidos === 1 ? t.alerta.uno.replace("{tiempo}", tiempo) : t.alerta.varios.replace("{n}", String(outbox.vencidos)).replace("{tiempo}", tiempo);
   return (
-    <div data-testid="monitor-alerta" role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div data-testid="monitor-alerta" role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
       <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alerta.titulo}</p>
@@ -138,12 +138,12 @@ function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) 
     ? t.alertaResumenes.uno.replace("{tiempo}", tiempo).replace("{umbral}", umbral)
     : t.alertaResumenes.varios.replace("{n}", String(resumenes.cantidad)).replace("{umbral}", umbral).replace("{tiempo}", tiempo);
   return (
-    <div data-testid="monitor-alerta-resumenes" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
+    <div data-testid="monitor-alerta-resumenes" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-cuerpo text-warning-foreground">
       <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alertaResumenes.titulo}</p>
         <p>{texto}</p>
-        <p className="text-[12px]">{t.alertaResumenes.ayuda}</p>
+        <p className="text-control">{t.alertaResumenes.ayuda}</p>
       </div>
     </div>
   );
@@ -158,7 +158,7 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
   const fecha = formatearFecha(boletas.mas_antigua_emitida_el ?? "", useLocale());
   const texto = boletas.cantidad === 1 ? t.alertaBoletas.uno.replace("{fecha}", fecha) : t.alertaBoletas.varios.replace("{n}", String(boletas.cantidad)).replace("{fecha}", fecha);
   return (
-    <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
+    <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-cuerpo text-warning-foreground">
       <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alertaBoletas.titulo}</p>
@@ -166,8 +166,8 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
           {texto}
           {boletas.por_vencer_el_plazo === 1 ? ` ${t.alertaBoletas.urgente}` : boletas.por_vencer_el_plazo > 1 ? ` ${t.alertaBoletas.urgentes.replace("{n}", String(boletas.por_vencer_el_plazo))}` : ""}
         </p>
-        <p className="text-[12px]">{t.alertaBoletas.ayuda}</p>
-        <Link href="/admin/errores" className="w-fit text-[12px] font-medium underline underline-offset-2">
+        <p className="text-control">{t.alertaBoletas.ayuda}</p>
+        <Link href="/admin/errores" className="w-fit text-control font-medium underline underline-offset-2">
           {t.alertaBoletas.verLista}
         </Link>
       </div>
@@ -181,12 +181,12 @@ function Hoy({ franja }: { franja: Franja }) {
     <section aria-labelledby="monitor-hoy" className={cn(TARJETA, "grid gap-3 p-4")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
         <div className="grid gap-0.5">
-          <h2 id="monitor-hoy" className="font-heading text-base">
+          <h2 id="monitor-hoy" className="font-heading text-titulo">
             {t.hoy.titulo}
           </h2>
-          <p className="text-[12px] text-muted-foreground">{t.hoy.ayuda}</p>
+          <p className="text-control text-muted-foreground">{t.hoy.ayuda}</p>
         </div>
-        <p className="text-[13px]" title={t.hoy.tasaAyuda}>
+        <p className="text-control" title={t.hoy.tasaAyuda}>
           <span className="text-muted-foreground">{t.hoy.tasa}: </span>
           <span data-testid="monitor-tasa" className="font-medium tabular-nums">
             {formatearTasa(franja.tasa_de_rechazo)}
@@ -206,8 +206,8 @@ function Hoy({ franja }: { franja: Franja }) {
 function Cifra({ testid, etiqueta, ayuda, valor }: { testid: string; etiqueta: string; ayuda?: string; valor: number }) {
   return (
     <div className="grid gap-0.5 rounded-lg border border-border/70 px-3 py-2" title={ayuda}>
-      <dt className="text-[11px] tracking-wider text-muted-foreground uppercase">{etiqueta}</dt>
-      <dd data-testid={testid} className="font-heading text-xl tabular-nums">
+      <dt className="text-etiqueta text-muted-foreground">{etiqueta}</dt>
+      <dd data-testid={testid} className="font-heading text-titulo-pagina tabular-nums">
         {valor}
       </dd>
     </div>
@@ -220,14 +220,14 @@ function Horas({ horas }: { horas: Franja[] }) {
   return (
     <section aria-labelledby="monitor-horas" className={cn(TARJETA, "grid gap-3 p-4")}>
       <div className="grid gap-0.5">
-        <h2 id="monitor-horas" className="font-heading text-base">
+        <h2 id="monitor-horas" className="font-heading text-titulo">
           {t.horas.titulo}
         </h2>
-        <p className="text-[12px] text-muted-foreground">{t.horas.ayuda}</p>
+        <p className="text-control text-muted-foreground">{t.horas.ayuda}</p>
       </div>
 
       {maximo === 0 ? (
-        <p data-testid="monitor-horas-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
+        <p data-testid="monitor-horas-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
           {t.horas.sinDatos}
         </p>
       ) : (
@@ -238,7 +238,7 @@ function Horas({ horas }: { horas: Franja[] }) {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-etiqueta text-muted-foreground">
         {[...CATEGORIAS].reverse().map((c) => (
           <span key={c.clave} className="flex items-center gap-1.5">
             <span className={cn("size-2.5 rounded-sm", c.color)} />
@@ -247,7 +247,7 @@ function Horas({ horas }: { horas: Franja[] }) {
         ))}
       </div>
 
-      <details className="text-[13px]">
+      <details className="text-control">
         <summary className="cursor-pointer text-primary">{t.horas.tabla}</summary>
         <div className="mt-2 overflow-x-auto rounded-lg border border-border/90">
           <Table>
@@ -262,7 +262,7 @@ function Horas({ horas }: { horas: Franja[] }) {
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody className="text-[13px] tabular-nums">
+            <TableBody className="text-control tabular-nums">
               {horas.map((h) => (
                 <TableRow key={h.desde} className="border-b border-border/60">
                   <TableCell className="py-1.5 pl-3">{formatearHoraDeLima(h.desde)}</TableCell>
@@ -298,7 +298,7 @@ function Barra({ franja, alto, conEtiqueta }: { franja: Franja; alto: number; co
           franja[c.clave] === 0 ? null : <div key={c.clave} className={c.color} style={{ height: `${(franja[c.clave] / franja.total) * 100}%` }} />,
         )}
       </div>
-      <span className="h-3 text-[9px] whitespace-nowrap text-muted-foreground tabular-nums">{conEtiqueta ? hora : ""}</span>
+      <span className="h-3 text-etiqueta whitespace-nowrap text-muted-foreground tabular-nums">{conEtiqueta ? hora : ""}</span>
     </div>
   );
 }
@@ -309,21 +309,21 @@ function Cola({ outbox }: { outbox: ColaDeEnvios }) {
   return (
     <section aria-labelledby="monitor-outbox" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
       <div className="grid gap-0.5">
-        <h2 id="monitor-outbox" className="font-heading text-base">
+        <h2 id="monitor-outbox" className="font-heading text-titulo">
           {t.outbox.titulo}
         </h2>
-        <p className="text-[12px] text-muted-foreground">{t.outbox.ayuda}</p>
+        <p className="text-control text-muted-foreground">{t.outbox.ayuda}</p>
       </div>
       <dl className="grid grid-cols-2 gap-3">
         <Cifra testid="monitor-outbox-pendientes" etiqueta={t.outbox.pendientes} valor={outbox.pendientes} />
         <Cifra testid="monitor-outbox-vencidos" etiqueta={t.outbox.vencidos} valor={outbox.vencidos} />
       </dl>
       {outbox.pendientes === 0 ? (
-        <p data-testid="monitor-outbox-vacia" className="text-[13px] text-muted-foreground">
+        <p data-testid="monitor-outbox-vacia" className="text-control text-muted-foreground">
           {t.outbox.vacia}
         </p>
       ) : (
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-control text-muted-foreground">
           {outbox.mas_viejo_desde ? <span data-testid="monitor-outbox-antiguo">{t.outbox.masAntiguo} {formatearFechaHora(outbox.mas_viejo_desde, locale)}. </span> : null}
           {outbox.vencido_hace_segundos !== undefined ? (
             <span data-testid="monitor-outbox-vencido-hace">{t.outbox.vencidoHace.replace("{tiempo}", duracionEnPalabras(outbox.vencido_hace_segundos))}</span>
@@ -339,13 +339,13 @@ function Sunat({ servicios }: { servicios: EstadoDeServicio[] }) {
   return (
     <section aria-labelledby="monitor-sunat" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
       <div className="grid gap-0.5">
-        <h2 id="monitor-sunat" className="font-heading text-base">
+        <h2 id="monitor-sunat" className="font-heading text-titulo">
           {t.sunat.titulo}
         </h2>
-        <p className="text-[12px] text-muted-foreground">{t.sunat.ayuda}</p>
+        <p className="text-control text-muted-foreground">{t.sunat.ayuda}</p>
       </div>
       {servicios.length === 0 ? (
-        <p data-testid="monitor-sunat-vacio" className="text-[13px] text-muted-foreground">
+        <p data-testid="monitor-sunat-vacio" className="text-control text-muted-foreground">
           {t.sunat.sinServicios}
         </p>
       ) : (
@@ -356,12 +356,12 @@ function Sunat({ servicios }: { servicios: EstadoDeServicio[] }) {
               data-testid="monitor-servicio"
               data-servicio={s.servicio}
               data-disponible={s.disponible}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 px-3 py-2 text-[13px]"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 px-3 py-2 text-control"
             >
               {s.disponible ? <CheckCircleIcon className="size-4 shrink-0 text-success-foreground" /> : <XCircleIcon className="size-4 shrink-0 text-destructive" />}
               <span className="font-medium">{t.sunat.servicios[s.servicio]}</span>
               <Etiqueta tono={s.disponible ? "ok" : "error"}>{s.disponible ? t.sunat.disponible : t.sunat.noDisponible}</Etiqueta>
-              <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">
+              <span className="ml-auto text-control text-muted-foreground tabular-nums">
                 {s.disponible && s.milisegundos !== undefined ? t.sunat.milisegundos.replace("{ms}", String(s.milisegundos)) : (s.detalle ?? "")}
               </span>
             </li>

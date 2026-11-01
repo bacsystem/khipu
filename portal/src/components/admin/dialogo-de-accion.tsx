@@ -130,18 +130,18 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
       <DialogContent className="gap-0 p-0" data-testid={`${p.testId}-dialogo`} showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
-            <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", tono === "peligro" ? "bg-destructive/10 text-destructive" : "bg-muted text-foreground")}>
+            <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", tono === "peligro" ? "bg-destructive-suave text-destructive-texto" : "bg-muted text-foreground")}>
               <Icono className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{p.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{p.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{p.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{p.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="grid gap-4 px-5 py-4">
-          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[12px] leading-relaxed text-foreground", tono === "peligro" ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/50")}>
+          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", tono === "peligro" ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/50")}>
             {p.advertencia ? <WarningIcon className={cn("mt-0.5 size-4 shrink-0", tono === "peligro" ? "text-destructive" : "text-warning-foreground")} /> : null}
             <ul className="grid list-disc gap-1 pl-4">
               {p.efectos.map((efecto) => (
@@ -151,7 +151,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
           </div>
           {p.children}
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}

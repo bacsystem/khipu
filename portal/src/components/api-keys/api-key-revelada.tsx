@@ -33,7 +33,7 @@ export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; et
           {/* La caja mide lo mismo que el botón de al lado (h-10, la de un campo): el texto se recorta dentro de un span porque `truncate` no corta en un flex. */}
           <code
             data-testid="api-key-nueva"
-            className="flex h-control min-w-0 flex-1 items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-semibold text-foreground select-all"
+            className="flex h-control min-w-0 flex-1 items-center rounded-lg border border-border bg-muted px-3 font-mono text-cuerpo font-semibold text-foreground select-all"
           >
             <span className="truncate">{apiKey}</span>
           </code>
@@ -47,7 +47,7 @@ export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; et
           </button>
         </div>
       </div>
-      <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-[12px] leading-relaxed text-warning-foreground">
+      <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-control leading-relaxed text-warning-foreground">
         <WarningIcon className="mt-0.5 size-4 shrink-0" />
         {aviso ?? <p>{tr.rich("aviso", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}</p>}
       </div>

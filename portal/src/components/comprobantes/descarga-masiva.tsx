@@ -42,18 +42,18 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
         onClick={alternar}
         aria-expanded={abierto}
         aria-controls="descarga-masiva-panel"
-        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
+        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}
       >
         <DownloadSimpleIcon className="size-4" />
         {t.boton}
       </button>
       {abierto ? (
         <div id="descarga-masiva-panel" className="absolute right-0 z-20 mt-2 grid w-72 gap-3 rounded-xl border border-border bg-card p-3 shadow-lg" data-testid="descarga-masiva">
-          <p className="text-[12px] text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(locale === "en" ? "en-US" : "es-PE") })}</p>
+          <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(locale === "en" ? "en-US" : "es-PE") })}</p>
           <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-[12px] font-medium">{t.archivosLegend}</legend>
+            <legend className="mb-1 text-control font-medium">{t.archivosLegend}</legend>
             {ARCHIVOS.map((a) => (
-              <label key={a} className="flex items-center gap-2 text-[13px]">
+              <label key={a} className="flex items-center gap-2 text-control">
                 <input
                   type="checkbox"
                   checked={elegidos.includes(a)}
@@ -65,16 +65,16 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
             ))}
           </fieldset>
           {motivo ? (
-            <p role="status" className="text-[12px] text-warning-foreground" data-testid="descarga-motivo">
+            <p role="status" className="text-control text-warning-foreground" data-testid="descarga-motivo">
               {motivo}
             </p>
           ) : null}
           {href && !motivo ? (
-            <a href={href} download onClick={cerrar} className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground" data-testid="descarga-enlace">
+            <a href={href} download onClick={cerrar} className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-control font-medium text-primary-foreground" data-testid="descarga-enlace">
               {t.descargar}
             </a>
           ) : (
-            <span className="inline-flex h-control cursor-not-allowed items-center justify-center rounded-lg bg-muted px-3 text-[13px] font-medium text-muted-foreground" aria-disabled="true">
+            <span className="inline-flex h-control cursor-not-allowed items-center justify-center rounded-lg bg-muted px-3 text-control font-medium text-muted-foreground" aria-disabled="true">
               {href ? t.descargar : t.elegirArchivo}
             </span>
           )}

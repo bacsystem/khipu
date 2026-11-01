@@ -32,7 +32,7 @@ export default async function NuevaGuiaPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.pagina.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.pagina.configurarEmpresa}
@@ -53,13 +53,13 @@ export default async function NuevaGuiaPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-[1100px] min-w-0 grid-cols-1 gap-4">
-      <Link href="/guias" className="flex w-fit items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground">
+      <Link href="/guias" className="flex w-fit items-center gap-1.5 text-control text-muted-foreground hover:text-foreground">
         <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
         {t.form.volver}
       </Link>
       <AvisoExperimental />
       {seriesDeGuia.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-testid="guias-sin-serie">
+        <p className="text-cuerpo text-muted-foreground" data-testid="guias-sin-serie">
           {t.pagina.sinSerie}{" "}
           <Link href="/series" className="text-primary hover:underline">
             {t.pagina.crearSerie}

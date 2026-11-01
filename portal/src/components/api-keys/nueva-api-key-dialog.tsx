@@ -63,8 +63,8 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
               <KeyIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -74,10 +74,10 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
             <ApiKeyRevelada apiKey={apiKey} />
           ) : (
             <>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
+              <p className="text-control leading-relaxed text-muted-foreground">
                 {t.explicacion}
               </p>
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
             </>
           )}
         </div>

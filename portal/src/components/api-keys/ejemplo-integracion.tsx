@@ -108,7 +108,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
         className={
           className ??
-          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
         <TerminalWindowIcon className="size-4" />
@@ -122,8 +122,8 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
               <TerminalWindowIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -132,8 +132,8 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
           <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-12">
             <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-7")}>
               <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted px-4 py-2">
-                <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary-foreground uppercase">{"POST"}</span>
-                <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">{`${baseUrl}/v1/facturas`}</code>
+                <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-etiqueta font-bold text-primary-foreground">{"POST"}</span>
+                <code className="min-w-0 flex-1 truncate font-mono text-control text-foreground">{`${baseUrl}/v1/facturas`}</code>
                 <div className={cn(SEGMENTADO, "shrink-0")}>
                   {TABS.map((t) => (
                     <button key={t.id} type="button" onClick={() => setLenguaje(t.id)} data-active={lenguaje === t.id ? "" : undefined} className={SEGMENTO}>
@@ -144,26 +144,26 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
                 <BotonCopiar texto={codigo} etiqueta className={ACCION_SECUNDARIA} />
               </div>
 
-              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-[12px] leading-relaxed text-code-foreground">
+              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-control leading-relaxed text-code-foreground">
                 <code>{codigo}</code>
               </pre>
 
-              <div className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
+              <div className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
                 {tr.rich("notaCodigo", { code: (texto) => <code className="font-mono text-foreground">{texto}</code> })}
               </div>
             </div>
 
             <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-5")}>
               <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
-                <h4 className="text-[13px] font-semibold text-foreground">{t.respuesta}</h4>
-                <span className="rounded border border-success-border bg-success px-2 py-0.5 font-mono text-[11px] font-semibold text-success-foreground">
+                <h4 className="text-cuerpo font-semibold text-foreground">{t.respuesta}</h4>
+                <span className="rounded border border-success-border bg-success px-2 py-0.5 font-mono text-etiqueta font-semibold text-success-foreground">
                   {"201 Created"}
                 </span>
               </div>
-              <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-[11.5px] leading-relaxed text-foreground">
+              <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-etiqueta leading-relaxed text-foreground">
                 <code>{RESPUESTA}</code>
               </pre>
-              <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
+              <p className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
                 {tr.rich("notaRespuesta", {
                   code: (texto) => <code className="font-mono text-foreground">{texto}</code>,
                   estado: (texto) => <code className="font-mono">{texto}</code>,
@@ -174,14 +174,14 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
-          <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
+          <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-control font-medium text-primary hover:underline">
             <BookOpenIcon className="size-3.5" />
             {t.referencia}
           </Link>
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
+            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
           >
             {t.entendido}
           </button>

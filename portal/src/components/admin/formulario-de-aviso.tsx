@@ -87,20 +87,20 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
   return (
     <section className={cn(TARJETA, "grid gap-4 p-5")} aria-labelledby="aviso-titulo">
       <div className="grid gap-1">
-        <h2 id="aviso-titulo" className="font-heading text-lg">
+        <h2 id="aviso-titulo" className="font-heading text-titulo">
           {t.titulo}
         </h2>
-        <p className="max-w-3xl text-[13px] text-muted-foreground">{t.ayuda}</p>
+        <p className="max-w-3xl text-control text-muted-foreground">{t.ayuda}</p>
       </div>
 
-      <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px]" data-testid="aviso-actual">
+      <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control" data-testid="aviso-actual">
         {banner && estado ? (
           <>
             <p data-testid="aviso-estado" data-estado={estado} className="font-medium">
               {t.estado[estado]}
             </p>
             <p data-testid="aviso-publicado-texto">{banner.texto}</p>
-            <p className="text-[12px] text-muted-foreground">{t.vigencia.replace("{desde}", formatearFechaHora(banner.desde, locale)).replace("{hasta}", formatearFechaHora(banner.hasta, locale))}</p>
+            <p className="text-control text-muted-foreground">{t.vigencia.replace("{desde}", formatearFechaHora(banner.desde, locale)).replace("{hasta}", formatearFechaHora(banner.hasta, locale))}</p>
           </>
         ) : (
           <p data-testid="aviso-ninguno" className="text-muted-foreground">
@@ -126,7 +126,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
             className={CAMPO}
           />
           {errores.texto ? (
-            <span id="aviso-texto-error" className="text-[12px] text-destructive">
+            <span id="aviso-texto-error" className="text-control text-destructive">
               {errores.texto}
             </span>
           ) : (
@@ -149,7 +149,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
               className={CAMPO}
             />
             {errores.desde ? (
-              <span id="aviso-desde-error" className="text-[12px] text-destructive">
+              <span id="aviso-desde-error" className="text-control text-destructive">
                 {errores.desde}
               </span>
             ) : null}
@@ -169,7 +169,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
               className={CAMPO}
             />
             {errores.hasta ? (
-              <span id="aviso-hasta-error" className="text-[12px] text-destructive">
+              <span id="aviso-hasta-error" className="text-control text-destructive">
                 {errores.hasta}
               </span>
             ) : (
@@ -181,7 +181,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
 
       {valores.texto.trim() !== "" && hasta ? (
         <div className="grid gap-1.5" data-testid="aviso-vista-previa">
-          <h3 className="text-[12px] font-semibold text-foreground">{t.vistaPrevia}</h3>
+          <h3 className="text-control font-semibold text-foreground">{t.vistaPrevia}</h3>
           <div className="overflow-hidden rounded-lg border border-border">
             <BannerDeMantenimiento texto={valores.texto.trim()} hasta={hasta} />
           </div>
@@ -189,7 +189,7 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       ) : null}
 
       {error ? (
-        <p ref={alertaRef} tabIndex={-1} data-testid="aviso-error" className="text-sm text-destructive outline-none" role="alert">
+        <p ref={alertaRef} tabIndex={-1} data-testid="aviso-error" className="text-cuerpo text-destructive outline-none" role="alert">
           {error}
         </p>
       ) : null}

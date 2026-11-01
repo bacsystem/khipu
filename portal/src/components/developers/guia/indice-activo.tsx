@@ -14,7 +14,7 @@ export function IndiceActivo({ items }: { items: Array<{ id: string; label: stri
 
   return (
     <nav aria-label={t.aria} className="sticky top-16 hidden max-h-[calc(100vh-5rem)] overflow-y-auto lg:block">
-      <span className="mb-2 block text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.enEstaPagina}</span>
+      <span className="mb-2 block text-etiqueta font-semibold text-muted-foreground/80">{t.enEstaPagina}</span>
       <ul className="space-y-1 border-l border-border/60">
         {items.map((i) => {
           const esActivo = i.id === activo;
@@ -24,7 +24,7 @@ export function IndiceActivo({ items }: { items: Array<{ id: string; label: stri
                 href={`#${i.id}`}
                 aria-current={esActivo ? "location" : undefined}
                 className={cn(
-                  "-ml-px block border-l py-1 pl-3 text-[12px] transition-colors",
+                  "-ml-px block border-l py-1 pl-3 text-control transition-colors",
                   esActivo
                     ? "border-primary font-medium text-foreground"
                     : "border-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground",

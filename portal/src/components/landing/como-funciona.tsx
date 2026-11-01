@@ -33,7 +33,7 @@ export function ComoFunciona() {
   let n = 0;
   return (
     <section className="mx-auto max-w-6xl px-6 py-24">
-      <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+      <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-control font-medium text-foreground/80">
         <span className="size-1.5 rounded-full bg-acento" aria-hidden />
         {t.etiqueta}
       </p>
@@ -48,13 +48,13 @@ export function ComoFunciona() {
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  "rounded-full px-3 py-1 text-[12px] font-medium",
+                  "rounded-full px-3 py-1 text-control font-medium",
                   e === 0 ? "bg-muted text-muted-foreground" : "bg-acento-suave text-foreground/80 ring-1 ring-acento-borde",
                 )}
               >
                 {t[etapa.clave].cuando}
               </span>
-              <span className="text-[12px] text-muted-foreground">{t[etapa.clave].nota}</span>
+              <span className="text-control text-muted-foreground">{t[etapa.clave].nota}</span>
             </div>
 
             <ol className="mt-5 grid gap-4 sm:grid-cols-2">

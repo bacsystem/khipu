@@ -32,7 +32,7 @@ export default async function SeriesPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.configurarEmpresa}
@@ -65,7 +65,7 @@ export default async function SeriesPage() {
           }
         >
           {activas}
-          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.configuradas, { total: series.length })}</span>
+          <span className="text-control font-normal text-muted-foreground">{interpolar(t.configuradas, { total: series.length })}</span>
         </Metrica>
 
         <Metrica
@@ -105,7 +105,7 @@ export default async function SeriesPage() {
           }
         >
           {cubiertos.length}
-          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.tipos, { total: TIPOS_SOPORTADOS.length })}</span>
+          <span className="text-control font-normal text-muted-foreground">{interpolar(t.tipos, { total: TIPOS_SOPORTADOS.length })}</span>
         </Metrica>
 
         <Metrica

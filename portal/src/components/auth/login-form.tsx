@@ -66,7 +66,7 @@ export function LoginForm() {
       />
       {error ? <Alerta tono="error">{error}</Alerta> : null}
       <div className="-mt-2 flex justify-end">
-        <Link href="/recuperar" className="text-[12px] text-muted-foreground hover:text-foreground">
+        <Link href="/recuperar" className="text-control text-muted-foreground hover:text-foreground">
           {messages.auth.login.olvidaste}
         </Link>
       </div>

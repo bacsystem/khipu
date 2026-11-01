@@ -35,8 +35,8 @@ export function ReferenciaEmpresaDialog({ className }: { className?: string }) {
         <div className="grid grid-cols-1 gap-2.5 p-4">
           {REGLAS.map((id) => (
             <div key={id} className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5">
-              <p className="text-[13px] font-medium text-foreground">{t.reglas[id].titulo}</p>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{t.reglas[id].texto}</p>
+              <p className="text-control font-medium text-foreground">{t.reglas[id].titulo}</p>
+              <p className="mt-0.5 text-control leading-relaxed text-muted-foreground">{t.reglas[id].texto}</p>
             </div>
           ))}
         </div>

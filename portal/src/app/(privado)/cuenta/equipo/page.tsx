@@ -28,7 +28,7 @@ export default async function EquipoPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <p className="text-sm text-muted-foreground">{messages.equipo.descripcion}</p>
+      <p className="text-cuerpo text-muted-foreground">{messages.equipo.descripcion}</p>
       <EquipoView miembros={cargado.miembros} invitaciones={cargado.invitaciones} />
     </div>
   );

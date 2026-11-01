@@ -20,7 +20,7 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
   return (
     <div className="min-w-0">
       <dt className={ETIQUETA_DATO}>{etiqueta}</dt>
-      <dd className="mt-0.5 text-[13px] break-words text-foreground">{children}</dd>
+      <dd className="mt-0.5 text-control break-words text-foreground">{children}</dd>
     </div>
   );
 }
@@ -55,7 +55,7 @@ function Fiscales({ e }: { e: EmpresaDetalleAdmin }) {
           {e.domicilio ? (
             <>
               <span data-testid="domicilio">{direccion(e.domicilio)}</span>
-              <span className="block font-mono text-[11px] text-muted-foreground">
+              <span className="block font-mono text-etiqueta text-muted-foreground">
                 {f.ubigeo} {e.domicilio.ubigeo}
                 {e.domicilio.codigo_establecimiento ? ` · ${e.domicilio.codigo_establecimiento}` : ""}
               </span>
@@ -85,7 +85,7 @@ function Conexion({ e }: { e: EmpresaDetalleAdmin }) {
             <Etiqueta tono={e.tiene_credenciales_sol ? "ok" : "neutro"}>{e.tiene_credenciales_sol ? c.solCargadas : c.solSinCargar}</Etiqueta>
           </Dato>
         </dl>
-        <p className="text-xs text-muted-foreground">{c.nota}</p>
+        <p className="text-etiqueta text-muted-foreground">{c.nota}</p>
         <ProbarConexion empresaId={e.id} tieneSol={e.tiene_credenciales_sol} />
       </div>
     </Seccion>
@@ -108,18 +108,18 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{s.columnas.establecimiento}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {series.map((x) => (
             <TableRow key={`${x.tipo}-${x.codigo}`} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.codigo}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px]" title={x.tipo}>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.codigo}</TableCell>
+              <TableCell className="px-3 py-2 text-control" title={x.tipo}>
                 {(messages.documentos.tipos as Record<string, string>)[x.tipo] ?? x.tipo}
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.ultimo_numero}</TableCell>
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? s.activa : s.inactiva}</Etiqueta>
               </TableCell>
-              <TableCell className="py-2 pr-4 pl-3 font-mono text-[12px]">{x.establecimiento}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 font-mono text-control">{x.establecimiento}</TableCell>
             </TableRow>
           ))}
           {series.length === 0 ? <Vacio columnas={5} texto={s.vacio} /> : null}
@@ -143,12 +143,12 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{s.columnas.estado}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {establecimientos.map((x) => (
             <TableRow key={x.codigo} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.codigo}</TableCell>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.codigo}</TableCell>
               <TableCell className="px-3 py-2">{x.nombre}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{direccion(x.domicilio)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{direccion(x.domicilio)}</TableCell>
               <TableCell className="py-2 pr-4 pl-3">
                 <Etiqueta tono={x.activo ? "ok" : "neutro"}>{x.activo ? s.activo : s.inactivo}</Etiqueta>
               </TableCell>
@@ -177,15 +177,15 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
             <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{k.columnas.acciones}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {keys.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.prefijo}…</TableCell>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.prefijo}…</TableCell>
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activa ? "ok" : "neutro"}>{x.activa ? k.activa : k.revocada}</Etiqueta>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.creada_en, locale)}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en, locale) : <SinDato />}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFechaHora(x.creada_en, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{x.revocada_en ? formatearFechaHora(x.revocada_en, locale) : <SinDato />}</TableCell>
               <TableCell className="py-2 pr-4 pl-3 text-right">
                 {x.activa ? <RevocarApiKey empresaId={empresaId} apiKeyId={x.id} prefijo={x.prefijo} razonSocial={razonSocial} /> : null}
               </TableCell>
@@ -194,7 +194,7 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
           {keys.length === 0 ? <Vacio columnas={5} texto={k.vacio} /> : null}
         </TableBody>
       </Table>
-      <p className="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">{k.nota}</p>
+      <p className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">{k.nota}</p>
     </Seccion>
   );
 }
@@ -245,21 +245,21 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{c.columnas.cdr}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {comprobantes.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60 align-top">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">
                 <Link href={hrefDetalleComprobante(x.id)} className="text-primary hover:underline" data-testid="comprobante-enlace">
                   {numero(x.serie, x.numero)}
                 </Link>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
               <TableCell className="px-3 py-2">
                 <EstadoBadge estado={x.estado} />
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total, locale)}</TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.intentos}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px]">
+              <TableCell className="py-2 pr-4 pl-3 text-control">
                 {x.cdr ? (
                   <div data-testid="cdr" className="grid gap-0.5">
                     <span>
@@ -309,15 +309,15 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{v.columnas.cuando}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {eventos.map((x, i) => (
             <TableRow key={`${x.comprobante}-${x.ocurrido_en}-${i}`} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.comprobante}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px]">
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.comprobante}</TableCell>
+              <TableCell className="px-3 py-2 text-control">
                 {x.estado_anterior ? etiquetaEstado(x.estado_anterior, messages) : v.inicio} → <span className="font-medium">{etiquetaEstado(x.estado_nuevo, messages)}</span>
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{x.detalle ?? <SinDato />}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{x.detalle ?? <SinDato />}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-control text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
             </TableRow>
           ))}
           {eventos.length === 0 ? <Vacio columnas={4} texto={v.vacio} /> : null}
@@ -342,22 +342,22 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{o.columnas.error}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {outbox.proximas.map((x) => (
             <TableRow key={`${x.agregado_id}-${x.accion}`} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 text-[12px]">
+              <TableCell className="py-2 pr-3 pl-4 text-control">
                 <span className="font-medium">{x.accion}</span> <span className="text-muted-foreground">{x.agregado}</span>
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{x.intentos}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.siguiente_intento, locale)}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-destructive">{x.ultimo_error ?? <SinDato />}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFechaHora(x.siguiente_intento, locale)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-control text-destructive">{x.ultimo_error ?? <SinDato />}</TableCell>
             </TableRow>
           ))}
           {outbox.proximas.length === 0 ? <Vacio columnas={4} texto={o.vacio} /> : null}
         </TableBody>
       </Table>
       {outbox.total > 0 ? (
-        <p data-testid="outbox-total" className="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+        <p data-testid="outbox-total" className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
           {outbox.total === 1 ? o.unaTarea : o.total.replace("{n}", String(outbox.total))}
         </p>
       ) : null}
@@ -387,7 +387,7 @@ export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
   return (
     <div className="grid min-w-0 gap-6" data-testid="empresa-detalle">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-cuerpo">
           <Dato etiqueta={t.fiscales.ruc}>
             <span className="font-mono">{empresa.ruc}</span>
           </Dato>

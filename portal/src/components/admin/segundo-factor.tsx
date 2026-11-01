@@ -46,8 +46,8 @@ function CampoCodigo({ id, recuperacion, valor, onChange, error }: { id: string;
 function CabeceraPaso({ titulo, descripcion }: { titulo: string; descripcion: string }) {
   return (
     <div className="grid gap-1">
-      <h3 className="text-[15px] font-semibold tracking-tight">{titulo}</h3>
-      <p className="text-[13px] text-muted-foreground">{descripcion}</p>
+      <h3 className="text-titulo font-semibold tracking-tight">{titulo}</h3>
+      <p className="text-control text-muted-foreground">{descripcion}</p>
     </div>
   );
 }
@@ -87,15 +87,15 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
   return (
     <form className="grid gap-4" onSubmit={onSubmit} noValidate data-testid="configurar-segundo-factor">
       <CabeceraPaso titulo={t.configurarTitulo} descripcion={t.configurarDescripcion} />
-      <p className="text-[13px]">1. {t.configurarPaso1}</p>
+      <p className="text-control">1. {t.configurarPaso1}</p>
       {configuracion ? (
         <div className="grid justify-items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- PNG en data URI generado por el backend: no hay nada que optimizar */}
           <img src={`data:image/png;base64,${configuracion.qr_png}`} alt={t.configurarQrAlt} width={220} height={220} className="rounded-lg border border-border bg-white" />
           <div className="grid w-full gap-1.5">
-            <span className="text-[12px] font-medium text-foreground">{t.configurarSecreto}</span>
+            <span className="text-control font-medium text-foreground">{t.configurarSecreto}</span>
             <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-              <code className="font-mono text-[12px] break-all" data-testid="secreto">
+              <code className="font-mono text-control break-all" data-testid="secreto">
                 {enGrupos(configuracion.secreto)}
               </code>
               <BotonCopiar texto={configuracion.secreto} />
@@ -103,11 +103,11 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
           </div>
         </div>
       ) : (
-        <p className="text-[13px] text-muted-foreground" role="status">
+        <p className="text-control text-muted-foreground" role="status">
           {t.cargandoQr}
         </p>
       )}
-      <p className="text-[13px]">2. {t.configurarPaso2}</p>
+      <p className="text-control">2. {t.configurarPaso2}</p>
       <CampoCodigo id="codigo" recuperacion={false} valor={codigo} onChange={setCodigo} error={error} />
       <BotonAsync type="submit" pendiente={enviando} textoPendiente={t.activando} disabled={!configuracion || codigo.length !== 6} className={cn(BOTON_PRIMARIO, "w-full")}>
         {t.activar}
@@ -146,7 +146,7 @@ export function VerificarSegundoFactor({ alEntrar, alFallar }: { alEntrar: () =>
       </BotonAsync>
       <button
         type="button"
-        className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        className="text-control text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         onClick={() => {
           setRecuperacion(!recuperacion);
           setCodigo("");
@@ -165,12 +165,12 @@ export function CodigosRecuperacion({ codigos, alContinuar }: { codigos: string[
   return (
     <div className="grid gap-4" data-testid="codigos-recuperacion">
       <CabeceraPaso titulo={t.codigosTitulo} descripcion={t.codigosDescripcion} />
-      <ul className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3 font-mono text-[13px]" aria-label={t.codigosTitulo}>
+      <ul className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3 font-mono text-control" aria-label={t.codigosTitulo}>
         {codigos.map((c) => (
           <li key={c}>{c}</li>
         ))}
       </ul>
-      <BotonCopiar texto={codigos.join("\n")} titulo={t.codigosCopiar} etiqueta className="justify-self-start px-2 py-1 text-[12px]" />
+      <BotonCopiar texto={codigos.join("\n")} titulo={t.codigosCopiar} etiqueta className="justify-self-start px-2 py-1 text-control" />
       <button type="button" onClick={alContinuar} className={cn(BOTON_PRIMARIO, "w-full")}>
         {t.codigosContinuar}
       </button>

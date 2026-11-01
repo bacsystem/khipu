@@ -25,10 +25,10 @@ function Dato({ etiqueta, children, testId, ayuda }: { etiqueta: string; childre
   return (
     <div className="min-w-0">
       <dt className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</dt>
-      <dd className="text-[13px] break-words text-foreground" data-testid={testId}>
+      <dd className="text-control break-words text-foreground" data-testid={testId}>
         {children}
       </dd>
-      {ayuda ? <p className="mt-0.5 text-[11px] text-muted-foreground">{ayuda}</p> : null}
+      {ayuda ? <p className="mt-0.5 text-etiqueta text-muted-foreground">{ayuda}</p> : null}
     </div>
   );
 }
@@ -50,7 +50,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
           <Dato etiqueta={t.empresa}>
             {c.razon_social} <span className="font-mono text-muted-foreground">{interpolar(t.rucDe, { ruc: c.ruc })}</span>
             <br />
-            <Link href={hrefDetalleEmpresa(c.empresa_id)} className="text-[12px] text-primary hover:underline">
+            <Link href={hrefDetalleEmpresa(c.empresa_id)} className="text-control text-primary hover:underline">
               {t.verEmpresa}
             </Link>
           </Dato>
@@ -81,7 +81,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
             )}
           </Dato>
           <Dato etiqueta={t.ultimoError} testId="comprobante-ultimo-error">
-            {c.ultimo_error ? <span className="font-mono text-[12px]">{c.ultimo_error}</span> : <span className="text-muted-foreground">{t.sinError}</span>}
+            {c.ultimo_error ? <span className="font-mono text-control">{c.ultimo_error}</span> : <span className="text-muted-foreground">{t.sinError}</span>}
           </Dato>
           <Dato etiqueta={t.archivos}>
             <ul className="grid gap-1">
@@ -92,7 +92,7 @@ function Ficha({ c }: { c: ComprobanteAdmin }) {
                 {t.cdr}: <span className={c.tiene_cdr ? "text-success-foreground" : "text-muted-foreground"}>{c.tiene_cdr ? t.guardado : t.noGuardado}</span>
               </li>
             </ul>
-            <p className="mt-2 text-[12px] text-muted-foreground">{t.ayudaArchivos}</p>
+            <p className="mt-2 text-control text-muted-foreground">{t.ayudaArchivos}</p>
           </Dato>
         </dl>
       </section>
@@ -125,17 +125,17 @@ export default async function AdminComprobantePage({ params }: { params: Promise
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <Link href="/admin/errores" className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">
+        <Link href="/admin/errores" className="inline-flex w-fit items-center gap-1 text-etiqueta text-primary hover:underline">
           <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
           {t.volver}
         </Link>
-        <h1 className="font-heading text-2xl">{t.titulo}</h1>
+        <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
       </div>
 
       {resultado.comprobante ? (
         <Ficha c={resultado.comprobante} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
           <span>{t.error}</span>
           <Link href={hrefDetalleComprobante(id)} className="font-medium underline">
             {t.reintentar}

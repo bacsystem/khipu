@@ -5,7 +5,7 @@ import { observacionesDeSunat, type ResultadoConsultaRuc } from "@/lib/api/consu
 import { AYUDA_CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
-const ACCION = "text-[12px] font-medium text-primary hover:underline";
+const ACCION = "text-control font-medium text-primary hover:underline";
 
 /**
  * Qué dijo el padrón de SUNAT del RUC digitado (#379), debajo de los campos del cliente. En ningún caso bloquea: el nombre y la dirección se pueden digitar
@@ -49,7 +49,7 @@ export function EstadoConsultaRuc({
             {interpolar(t.encontrado, { estado: c.estado, condicion: c.condicion })}
           </p>
           {otroNombre ? (
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-control text-muted-foreground">
               {t.registraComo} <strong className="font-medium text-foreground">{c.razon_social}</strong>.{" "}
               <button type="button" className={ACCION} onClick={() => onUsarNombre(c.razon_social)}>
                 {t.usarNombre}

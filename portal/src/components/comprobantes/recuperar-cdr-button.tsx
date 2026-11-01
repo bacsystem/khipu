@@ -57,7 +57,7 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
         {consultando ? messages.comprobantes.acciones.consultandoSunat : t.boton}
       </Button>
       {mensaje ? (
-        <p role={mensaje.tono === "error" ? "alert" : "status"} className={mensaje.tono === "error" ? "max-w-md text-right text-sm text-destructive" : "max-w-md text-right text-sm text-muted-foreground"} data-testid="recuperar-cdr-mensaje">
+        <p role={mensaje.tono === "error" ? "alert" : "status"} className={mensaje.tono === "error" ? "max-w-md text-right text-cuerpo text-destructive" : "max-w-md text-right text-cuerpo text-muted-foreground"} data-testid="recuperar-cdr-mensaje">
           {mensaje.texto}
         </p>
       ) : null}

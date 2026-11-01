@@ -9,7 +9,7 @@ import { useMessages } from "next-intl";
 export function AvisoExperimental() {
   const t = useMessages().guias.pagina;
   return (
-    <aside role="note" className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning px-4 py-3 text-[13px] text-warning-foreground">
+    <aside role="note" className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning px-4 py-3 text-control text-warning-foreground">
       <FlaskIcon weight={PESO_ICONO} aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       <div className="flex flex-col gap-0.5">
         <strong className="font-semibold">{t.experimentalTitulo}</strong>

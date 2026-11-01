@@ -87,26 +87,26 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
               <Icono className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{textos.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{textos.descripcion.replace("{correo}", correo)}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{textos.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{textos.descripcion.replace("{correo}", correo)}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="grid gap-4 px-5 py-4">
           {enviadoA ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-success-foreground outline-none" role="status" data-testid="acceso-hecho">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-success-foreground outline-none" role="status" data-testid="acceso-hecho">
               {textos.hecho.replace("{correo}", enviadoA)}
             </p>
           ) : (
-            <ul className="grid list-disc gap-1 rounded-lg border border-border bg-muted/50 py-2.5 pr-3 pl-7 text-[12px] leading-relaxed text-foreground">
+            <ul className="grid list-disc gap-1 rounded-lg border border-border bg-muted/50 py-2.5 pr-3 pl-7 text-control leading-relaxed text-foreground">
               {textos.efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>
               ))}
             </ul>
           )}
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}

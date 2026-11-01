@@ -27,7 +27,7 @@ export function DevelopersNav() {
             href={s.href}
             aria-current={activa ? "page" : undefined}
             className={cn(
-              "rounded-md px-2.5 py-1 text-[12px] font-medium whitespace-nowrap transition-colors",
+              "rounded-md px-2.5 py-1 text-control font-medium whitespace-nowrap transition-colors",
               activa ? "bg-accent/70 text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >

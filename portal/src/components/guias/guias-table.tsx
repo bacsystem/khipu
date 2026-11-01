@@ -100,7 +100,7 @@ export function GuiasTable({
             defaultValue={filtros.serie ?? ""}
             placeholder={t.filtros.seriePlaceholder}
             maxLength={4}
-            className={cn(CAMPO_FILTRO, "w-24 font-mono uppercase")}
+            className={cn(CAMPO_FILTRO, "w-24 font-mono")}
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -115,7 +115,7 @@ export function GuiasTable({
           {t.filtros.aplicar}
         </button>
         {hayFiltros ? (
-          <Link href="/guias" className="flex h-control items-center text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+          <Link href="/guias" className="flex h-control items-center text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
             {t.filtros.limpiar}
           </Link>
         ) : null}
@@ -132,7 +132,7 @@ export function GuiasTable({
               <TableHead className={cn(CABECERA_TABLA, "pr-4")}>{t.tabla.cabeceras.estado}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {datos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5}>
@@ -156,24 +156,24 @@ export function GuiasTable({
                           href={`/guias/${g.id}`}
                           aria-label={interpolar(t.tabla.verGuia, { numero })}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-fit rounded font-mono text-[13px] font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                          className="w-fit rounded font-mono text-cuerpo font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {numero}
                         </Link>
-                        <span className="text-[11px] text-muted-foreground/80">{t.tipos[g.tipo]}</span>
+                        <span className="text-etiqueta text-muted-foreground/80">{t.tipos[g.tipo]}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-2 font-mono text-[12px] text-muted-foreground">{formatearFecha(g.fecha_emision, locale)}</TableCell>
+                    <TableCell className="px-3 py-2 font-mono text-control text-muted-foreground">{formatearFecha(g.fecha_emision, locale)}</TableCell>
                     <TableCell className="max-w-xs px-3 py-2">
                       <div className="flex flex-col overflow-hidden">
                         <span className="truncate leading-snug font-medium text-foreground">{g.destinatario.nombre}</span>
-                        <span className="truncate font-mono text-[11px] text-muted-foreground/80">{g.destinatario.num_doc}</span>
+                        <span className="truncate font-mono text-etiqueta text-muted-foreground/80">{g.destinatario.num_doc}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-2 text-[12px] text-muted-foreground">
+                    <TableCell className="px-3 py-2 text-control text-muted-foreground">
                       <div className="flex flex-col">
                         <span>{interpolar(t.tabla.inicio, { fecha: formatearFecha(g.traslado.fecha_inicio, locale) })}</span>
-                        <span className="font-mono text-[11px]">
+                        <span className="font-mono text-etiqueta">
                           {interpolar(t.tabla.peso, { peso: formatearPrecioUnitario(g.traslado.peso_bruto, locale), unidad: g.traslado.unidad_peso })}
                         </span>
                       </div>

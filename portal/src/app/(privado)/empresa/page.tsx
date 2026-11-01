@@ -55,11 +55,11 @@ function Dato({ etiqueta, children, pendiente }: { etiqueta: string; children?: 
       <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
       {pendiente ? (
         // Lo que falta se dice a la vista, no con un «—» y la explicación escondida en un tooltip (C6).
-        <span className="inline-flex h-control w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-[13px] text-muted-foreground">
+        <span className="inline-flex h-control w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-control text-muted-foreground">
           {pendiente}
         </span>
       ) : (
-        <span className="inline-flex h-control w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-medium text-foreground">
+        <span className="inline-flex h-control w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-control font-medium text-foreground">
           {children}
         </span>
       )}
@@ -71,10 +71,10 @@ function Pill({ tono, children }: { tono: "ok" | "aviso" | "error" | "neutro"; c
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium whitespace-nowrap",
         tono === "ok" && "border-success-border bg-success text-success-foreground",
         tono === "aviso" && "border-warning-border bg-warning text-warning-foreground",
-        tono === "error" && "border-destructive/30 bg-destructive/10 text-destructive",
+        tono === "error" && "border-destructive/30 bg-destructive-suave text-destructive-texto",
         tono === "neutro" && "border-border bg-secondary text-muted-foreground",
       )}
     >
@@ -156,7 +156,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           >
             {estadoCert.texto.toUpperCase()}
           </span>
-          <span className="text-[12px] font-normal text-muted-foreground">{tm.pkcs12}</span>
+          <span className="text-control font-normal text-muted-foreground">{tm.pkcs12}</span>
         </Metrica>
 
         <Metrica
@@ -191,7 +191,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           }
         >
           <span className={beta ? "text-warning-foreground" : "text-foreground"}>{beta ? tm.beta : tm.produccion}</span>
-          <span className="text-[12px] font-normal text-muted-foreground">{beta ? tm.homologacion : tm.validezTributaria}</span>
+          <span className="text-control font-normal text-muted-foreground">{beta ? tm.homologacion : tm.validezTributaria}</span>
         </Metrica>
 
         <Metrica
@@ -204,7 +204,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           }
         >
           {empresas.length}
-          <span className="text-[12px] font-normal text-muted-foreground">{empresas.length === 1 ? tm.registrada : tm.registradas}</span>
+          <span className="text-control font-normal text-muted-foreground">{empresas.length === 1 ? tm.registrada : tm.registradas}</span>
         </Metrica>
       </section>
 
@@ -248,7 +248,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </div>
             </div>
             <div className="mt-4 border-t border-border/60 pt-4">
-              <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+              <p className="mb-3 text-control leading-relaxed text-muted-foreground">
                 {t.datos.ayuda}
               </p>
               <FormulariosDeEscritura permiso="configurar">
@@ -260,7 +260,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               />
               </FormulariosDeEscritura>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-etiqueta text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <CloudIcon weight={PESO_ICONO} className="size-3.5" />
                 {t.datos.envioDirecto}
@@ -295,7 +295,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
             ) : null}
             <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-accent-border bg-accent/60 p-3">
               <ShieldWarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
-              <p className="text-[12px] leading-relaxed text-accent-foreground">
+              <p className="text-control leading-relaxed text-accent-foreground">
                 {t.sol.secundarioAntes} <strong className="font-semibold">{t.sol.secundario}</strong> {t.sol.secundarioDespues}
               </p>
             </div>
@@ -314,7 +314,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </div>
               <Pill tono={empresa.tiene_credenciales_api_sunat ? "ok" : "neutro"}>{empresa.tiene_credenciales_api_sunat ? t.sol.configuradas : t.api.opcionales}</Pill>
             </div>
-            <p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="mt-4 text-control leading-relaxed text-muted-foreground">
               {t.api.texto}
             </p>
             <div className="mt-4">
@@ -332,11 +332,11 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                 <BuildingsIcon weight={PESO_ICONO} className="size-4" />
                 {t.empresas.titulo}
               </div>
-              <span className="font-mono text-[11px] text-muted-foreground">
+              <span className="font-mono text-etiqueta text-muted-foreground">
                 {interpolar(empresas.length === 1 ? t.empresas.uno : t.empresas.varios, { n: empresas.length })}
               </span>
             </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-control leading-relaxed text-muted-foreground">
               {t.empresas.texto}
             </p>
             <ul className="mt-3 divide-y divide-border/60 overflow-hidden rounded-lg border border-border/80">
@@ -346,15 +346,15 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                   <li key={e.id} className={cn("flex items-center gap-3 px-3 py-2.5", activa && "bg-accent/40")}>
                     <div
                       className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-md font-mono text-[11px] font-semibold",
+                        "flex size-8 shrink-0 items-center justify-center rounded-md font-mono text-etiqueta font-semibold",
                         activa ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
                       )}
                     >
                       {e.razon_social.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-foreground">{e.razon_social}</p>
-                      <p className="font-mono text-[11px] text-muted-foreground">
+                      <p className="truncate text-control font-medium text-foreground">{e.razon_social}</p>
+                      <p className="font-mono text-etiqueta text-muted-foreground">
                         {interpolar(tm.rucNumero, { ruc: e.ruc })} · {e.entorno === "BETA" ? t.empresas.beta : t.empresas.produccion}
                       </p>
                     </div>
@@ -366,7 +366,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                         <KeyIcon weight={PESO_ICONO} className={cn("size-4", e.tiene_credenciales_sol ? "text-success-solid" : "text-muted-foreground/40")} />
                       </span>
                       {activa ? (
-                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary">
+                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-etiqueta font-medium text-primary">
                           <CheckIcon weight="bold" className="size-3" /> {t.empresas.activa}
                         </span>
                       ) : null}
@@ -393,7 +393,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </div>
               <Punto tono={estadoCert.tono} />
             </div>
-            <dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg border border-border/80 bg-muted p-3.5 font-mono text-[12px]">
+            <dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg border border-border/80 bg-muted p-3.5 font-mono text-control">
               <div className="flex items-center justify-between gap-3" title={t.certificado.archivoAyuda}>
                 <dt className="text-muted-foreground">{t.certificado.archivoCargado}</dt>
                 <dd className={empresa.tiene_certificado ? "text-foreground" : "text-muted-foreground"}>{empresa.tiene_certificado ? t.certificado.siCifrado : t.certificado.no}</dd>
@@ -414,7 +414,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
 
           <section className={cn(TARJETA, "p-5 lg:col-span-5")}>
             <div className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>{t.recursos.titulo}</div>
-            <ul className="mt-3 grid grid-cols-1 gap-2 text-[12px]">
+            <ul className="mt-3 grid grid-cols-1 gap-2 text-control">
               <li>
                 <a
                   href="https://cpe.sunat.gob.pe/"
@@ -450,7 +450,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
             <PaletteIcon weight={PESO_ICONO} className="size-4" />
             {t.pdf.titulo}
           </div>
-          <span className="text-[12px] text-muted-foreground">{t.pdf.ayuda}</span>
+          <span className="text-control text-muted-foreground">{t.pdf.ayuda}</span>
         </div>
         <div className="mt-4">
           <FormulariosDeEscritura permiso="configurar">

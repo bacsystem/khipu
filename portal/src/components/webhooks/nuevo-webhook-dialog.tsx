@@ -93,8 +93,8 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
               <WebhooksLogoIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -105,15 +105,15 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
           ) : (
             <>
               <Campo id="webhook-url" etiqueta={t.url} ayuda={t.urlAyuda} error={intento ? errorUrl : null}>
-                <input id="webhook-url" type="url" inputMode="url" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mi-sistema.pe/khipu/webhook" className={cn(CAMPO, "font-mono text-[13px]")} />
+                <input id="webhook-url" type="url" inputMode="url" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mi-sistema.pe/khipu/webhook" className={cn(CAMPO, "font-mono text-control")} />
               </Campo>
               <Campo id="webhook-descripcion" etiqueta={t.descripcionCampo} opcional>
                 <input id="webhook-descripcion" maxLength={100} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={t.descripcionEjemplo} className={CAMPO} />
               </Campo>
               <fieldset className="grid gap-1.5">
-                <legend className="mb-1 text-[12px] font-medium text-foreground">{t.eventos}</legend>
+                <legend className="mb-1 text-control font-medium text-foreground">{t.eventos}</legend>
                 {EVENTOS_WEBHOOK.map((e) => (
-                  <label key={e.evento} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-[13px] hover:bg-muted/60">
+                  <label key={e.evento} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-control hover:bg-muted/60">
                     <input type="checkbox" checked={eventos.includes(e.evento)} onChange={() => alternar(e.evento)} className="mt-0.5 size-3.5 accent-primary" />
                     <span>
                       <span className="font-medium text-foreground">{messages.webhooks.eventos[e.clave].etiqueta}</span>
@@ -122,13 +122,13 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
                   </label>
                 ))}
                 {intento && sinEventos ? (
-                  <p role="alert" className="text-[12px] text-destructive">
+                  <p role="alert" className="text-control text-destructive">
                     {t.sinEventos}
                   </p>
                 ) : null}
               </fieldset>
               {error ? (
-                <p role="alert" className="text-sm text-destructive">
+                <p role="alert" className="text-cuerpo text-destructive">
                   {error}
                 </p>
               ) : null}

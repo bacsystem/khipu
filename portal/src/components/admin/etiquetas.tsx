@@ -13,13 +13,13 @@ export type Tono = "ok" | "aviso" | "error" | "neutro";
 const TONOS: Record<Tono, string> = {
   ok: "bg-success text-success-foreground border-success-border",
   aviso: "bg-warning text-warning-foreground border-warning-border",
-  error: "bg-destructive/10 text-destructive border-destructive-border",
+  error: "bg-destructive-suave text-destructive-texto border-destructive-border",
   neutro: "bg-secondary text-muted-foreground border-border",
 };
 
 /** Una etiqueta de estado del backoffice: el tono dice de un vistazo si la cosa está bien, pide atención o está mal. */
 export function Etiqueta({ tono, children }: { tono: Tono; children: ReactNode }) {
-  return <Badge className={cn("border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap", TONOS[tono])}>{children}</Badge>;
+  return <Badge className={cn("border px-2.5 py-1 text-etiqueta font-medium whitespace-nowrap", TONOS[tono])}>{children}</Badge>;
 }
 
 /** El texto y el tono del certificado de una empresa: el administrador ve de un vistazo cuáles piden atención. */

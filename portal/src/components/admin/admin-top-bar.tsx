@@ -40,7 +40,7 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
         </div>
 
         {miga ? (
-          <nav aria-label={t.ubicacion} className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap">
+          <nav aria-label={t.ubicacion} className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-control whitespace-nowrap">
             <span className="text-muted-foreground/80">{miga.seccion}</span>
             <span aria-hidden="true" className="text-muted-foreground/40">
               /

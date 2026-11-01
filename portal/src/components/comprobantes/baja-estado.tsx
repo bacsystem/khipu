@@ -57,7 +57,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   return (
     <section
       className={cn(
-        "rounded-xl border p-5 shadow-2xs",
+        "rounded-xl border p-5 shadow-xs",
         baja.estado === "ACEPTADA" && !alta ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card",
       )}
       data-testid="baja"
@@ -75,35 +75,35 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           </button>
         ) : null}
       </div>
-      <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.estado}</span>
+          <span className="text-etiqueta text-muted-foreground">{t.estado}</span>
           <span className="font-semibold text-foreground" role="status">{etiqueta}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.motivo}</span>
+          <span className="text-etiqueta text-muted-foreground">{t.motivo}</span>
           <p className="leading-snug text-foreground/80">{baja.motivo}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{t.ticket}</span>
+          <span className="text-etiqueta text-muted-foreground">{t.ticket}</span>
           <span className="font-mono text-foreground/80">{baja.ticket ?? "—"}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento}</span>
+          <span className="text-etiqueta text-muted-foreground">{vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento}</span>
           <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? interpolar(t.intentos, { n: baja.intentos }) : ""}</span>
         </div>
       </div>
       {alta && baja.fuera_de_plazo ? (
-        <p className="mt-3 text-[12px] text-warning-foreground" data-testid="aviso-fuera-de-plazo">
+        <p className="mt-3 text-control text-warning-foreground" data-testid="aviso-fuera-de-plazo">
           {avisoAltaFueraDePlazo(messages)}
         </p>
       ) : null}
       {pendiente ? (
-        <p className="mt-3 text-[12px] text-muted-foreground">
+        <p className="mt-3 text-control text-muted-foreground">
           {alta ? interpolar(t.pendienteAlta, { que: t.que[que] }) : t.pendiente}
         </p>
       ) : null}
-      {error ? <p className="mt-2 text-sm text-destructive" role="alert">{error}</p> : null}
+      {error ? <p className="mt-2 text-cuerpo text-destructive" role="alert">{error}</p> : null}
     </section>
   );
 }

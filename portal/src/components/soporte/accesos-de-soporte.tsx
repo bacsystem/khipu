@@ -22,7 +22,7 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
   const locale = useLocale();
   const t = messages.soporte.accesos;
   return (
-    <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs" data-testid="accesos-de-soporte">
+    <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs" data-testid="accesos-de-soporte">
       <Table>
         <TableHeader>
           <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -31,12 +31,12 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.duracion}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {accesos.map((a, i) => (
             <TableRow key={`${a.ocurrido_en}-${i}`} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4">{formatearFechaHora(a.ocurrido_en, locale)}</TableCell>
-              <TableCell className="px-3 py-2 font-mono text-[12px]">{a.usuario ?? <span className="font-sans text-muted-foreground">{t.sinDetalle}</span>}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-foreground/80">
+              <TableCell className="px-3 py-2 font-mono text-control">{a.usuario ?? <span className="font-sans text-muted-foreground">{t.sinDetalle}</span>}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-control text-foreground/80">
                 {a.duracion_segundos === undefined ? <span className="text-muted-foreground">{t.sinDetalle}</span> : duracionEnPalabras(a.duracion_segundos, messages)}
               </TableCell>
             </TableRow>
@@ -46,7 +46,7 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
               <TableCell colSpan={3} className="py-14 text-center">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <EyeIcon weight={PESO_ICONO} className="size-6" />
-                  <p className="text-sm">{t.vacio}</p>
+                  <p className="text-cuerpo">{t.vacio}</p>
                 </div>
               </TableCell>
             </TableRow>

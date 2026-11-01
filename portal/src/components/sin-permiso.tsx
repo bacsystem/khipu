@@ -18,7 +18,7 @@ export function SinPermisoDePagina() {
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
         <LockIcon weight={PESO_ICONO} className="size-4" />
       </div>
-      <p className="text-sm text-muted-foreground">{messages.roles.sinPermiso.pagina}</p>
+      <p className="text-cuerpo text-muted-foreground">{messages.roles.sinPermiso.pagina}</p>
     </div>
   );
 }

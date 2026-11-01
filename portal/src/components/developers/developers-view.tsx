@@ -34,10 +34,10 @@ export function DevelopersView({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-10 md:px-6">
         <header className="flex flex-col gap-1.5">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{t.titulo}</h1>
-          <p className="max-w-2xl text-[14px] leading-relaxed text-muted-foreground">
+          <p className="max-w-2xl text-cuerpo leading-relaxed text-muted-foreground">
             <Rico texto={t.intro} />
           </p>
-          <nav aria-label={t.masDocumentacion} className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[12px]">
+          <nav aria-label={t.masDocumentacion} className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-control">
             {OTRAS_SECCIONES(messages).map((s) => (
               <Link key={s.href} href={s.href} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
                 {s.etiqueta}

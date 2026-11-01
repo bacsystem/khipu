@@ -127,9 +127,9 @@ function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEsta
   const aEstablecimiento = () => alCambiar({ ...punto, modo: "establecimiento", establecimiento: opciones.some((o) => o.valor === punto.establecimiento) ? punto.establecimiento : opciones[0].valor });
   return (
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
-      <legend className="px-1 text-[12px] font-semibold text-foreground">{titulo}</legend>
+      <legend className="px-1 text-control font-semibold text-foreground">{titulo}</legend>
       {conEstablecimientos ? (
-        <div className="flex flex-wrap gap-4 text-[13px]">
+        <div className="flex flex-wrap gap-4 text-control">
           <label className="flex items-center gap-2">
             <input type="radio" name={`${prefijo}-modo`} checked={modo === "establecimiento"} onChange={aEstablecimiento} className="accent-primary" />
             {t.puntoEstablecimiento}
@@ -308,7 +308,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           <fieldset className="flex flex-col gap-2">
             <legend className={ETIQUETA_CAMPO}>{t.modalidad}</legend>
             {(["02", "01"] as const).map((m) => (
-              <label key={m} className="flex items-center gap-2 text-[13px]">
+              <label key={m} className="flex items-center gap-2 text-control">
                 <input type="radio" name="guia-modalidad" checked={f.modalidad === m} onChange={() => cambiar({ modalidad: m })} className="accent-primary" />
                 {t.modalidades[m]}
               </label>
@@ -350,7 +350,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           <legend className={ETIQUETA_CAMPO}>{t.indicadores}</legend>
           <p className={AYUDA_CAMPO}>{t.indicadoresAyuda}</p>
           {indicadoresOfrecidos.map((i) => (
-            <label key={i} className="flex items-center gap-2 text-[13px]">
+            <label key={i} className="flex items-center gap-2 text-control">
               <input
                 type="checkbox"
                 checked={f.indicadores.includes(i)}
@@ -369,7 +369,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             {f.vehiculos.map((placa, i) => (
               <div key={i} className="flex items-end gap-2">
                 <Campo id={`guia-placa-${i}`} etiqueta={`${t.placa} ${i + 1}`} className="max-w-xs flex-1">
-                  <input id={`guia-placa-${i}`} value={placa} onChange={(e) => cambiar({ vehiculos: reemplazar(f.vehiculos, i, e.target.value) })} maxLength={8} className={cn(CAMPO, "font-mono uppercase")} />
+                  <input id={`guia-placa-${i}`} value={placa} onChange={(e) => cambiar({ vehiculos: reemplazar(f.vehiculos, i, e.target.value) })} maxLength={8} className={cn(CAMPO, "font-mono")} />
                 </Campo>
                 {i > 0 ? (
                   <button type="button" onClick={() => cambiar({ vehiculos: f.vehiculos.filter((_, n) => n !== i) })} aria-label={`${t.quitar} ${t.placa} ${i + 1}`} className={BOTON_SECUNDARIO}>
@@ -434,7 +434,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         <Campo id="guia-observaciones" etiqueta={t.observaciones} ayuda={t.observacionesAyuda}>
           <input id="guia-observaciones" value={f.observaciones} onChange={(e) => cambiar({ observaciones: e.target.value })} maxLength={MAX_OBSERVACIONES} className={CAMPO} />
         </Campo>
-        <label className="flex items-start gap-2 text-[13px]">
+        <label className="flex items-start gap-2 text-control">
           <input type="checkbox" checked={f.enviar_automatico} onChange={(e) => cambiar({ enviar_automatico: e.target.checked })} className="mt-0.5 size-3.5 accent-primary" />
           <span className="flex flex-col gap-1">
             <span className="font-medium">{t.enviarAhora}</span>
@@ -444,12 +444,12 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
       </Seccion>
 
       {error ? (
-        <p role="alert" className="text-sm text-destructive" data-testid="guia-error">
+        <p role="alert" className="text-cuerpo text-destructive" data-testid="guia-error">
           {error}
         </p>
       ) : null}
       {valida ? (
-        <p role="status" className="text-sm text-success-foreground" data-testid="guia-valida">
+        <p role="status" className="text-cuerpo text-success-foreground" data-testid="guia-valida">
           {t.validaOk}
         </p>
       ) : null}
@@ -486,7 +486,7 @@ function ConductorFila({ i, conductor, tipos, alCambiar, alQuitar }: { i: number
         <input id={`${id}-num`} value={conductor.num_doc} onChange={(e) => alCambiar({ ...conductor, num_doc: e.target.value })} maxLength={15} className={cn(CAMPO, "font-mono")} />
       </Campo>
       <Campo id={`${id}-licencia`} etiqueta={t.licencia} className="sm:col-span-2">
-        <input id={`${id}-licencia`} value={conductor.licencia} onChange={(e) => alCambiar({ ...conductor, licencia: e.target.value })} maxLength={10} className={cn(CAMPO, "font-mono uppercase")} />
+        <input id={`${id}-licencia`} value={conductor.licencia} onChange={(e) => alCambiar({ ...conductor, licencia: e.target.value })} maxLength={10} className={cn(CAMPO, "font-mono")} />
       </Campo>
       <Campo id={`${id}-nombres`} etiqueta={t.conductorNombres} className="sm:col-span-3">
         <input id={`${id}-nombres`} value={conductor.nombres} onChange={(e) => alCambiar({ ...conductor, nombres: e.target.value })} maxLength={250} className={CAMPO} />
@@ -516,7 +516,7 @@ function ItemFila({ i, item, alCambiar, alQuitar }: { i: number; item: ItemForm;
         <input id={`${id}-cantidad`} inputMode="decimal" value={item.cantidad} onChange={(e) => alCambiar({ ...item, cantidad: e.target.value })} className={cn(CAMPO, "font-mono")} />
       </Campo>
       <Campo id={`${id}-unidad`} etiqueta={t.unidad} ayuda={i === 0 ? t.unidadAyuda : undefined} className="sm:col-span-2">
-        <input id={`${id}-unidad`} value={item.unidad} onChange={(e) => alCambiar({ ...item, unidad: e.target.value.toUpperCase() })} maxLength={3} className={cn(CAMPO, "font-mono uppercase")} />
+        <input id={`${id}-unidad`} value={item.unidad} onChange={(e) => alCambiar({ ...item, unidad: e.target.value.toUpperCase() })} maxLength={3} className={cn(CAMPO, "font-mono")} />
       </Campo>
       <Campo id={`${id}-codigo`} etiqueta={t.codigoOpcional} className="sm:col-span-1">
         <input id={`${id}-codigo`} value={item.codigo} onChange={(e) => alCambiar({ ...item, codigo: e.target.value })} maxLength={30} className={cn(CAMPO, "font-mono")} />

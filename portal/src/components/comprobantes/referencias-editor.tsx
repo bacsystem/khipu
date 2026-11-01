@@ -8,7 +8,7 @@ import { errorDeReferencias, MAX_DOCUMENTO, MAX_OBSERVACIONES, MAX_ORDEN_COMPRA,
 import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Datos adicionales (#300): orden de compra (solo factura), guías de remisión, otros documentos relacionados y observaciones. Ninguno cambia importes; el primer motivo por el
@@ -29,7 +29,7 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
       )}
 
       <fieldset className="grid gap-2">
-        <legend className="mb-1 text-[13px] font-medium">{t.guias}</legend>
+        <legend className="mb-1 text-control font-medium">{t.guias}</legend>
         {valor.guias.map((g, i) => (
           <div key={i} className="flex items-start gap-2">
             <select aria-label={interpolar(t.tipoGuia, { n: i + 1 })} value={g.tipo} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO_DENSO, "w-[230px] shrink-0")}>
@@ -50,7 +50,7 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
       </fieldset>
 
       <fieldset className="grid gap-2">
-        <legend className="mb-1 text-[13px] font-medium">{t.documentos}</legend>
+        <legend className="mb-1 text-control font-medium">{t.documentos}</legend>
         {valor.documentos.map((d, i) => (
           <div key={i} className="flex items-start gap-2">
             <select aria-label={interpolar(t.tipoDocumento, { n: i + 1 })} value={d.tipo} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO_DENSO, "w-[230px] shrink-0")}>

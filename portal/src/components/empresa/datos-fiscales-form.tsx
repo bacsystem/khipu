@@ -167,8 +167,8 @@ export function DatosFiscalesForm({
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">{t.actualizados}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
+      {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizados}</p> : null}
 
       <div className="flex justify-end border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>

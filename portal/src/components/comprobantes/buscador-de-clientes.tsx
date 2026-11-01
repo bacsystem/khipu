@@ -26,7 +26,7 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
       fila={(c) => (
         <>
           <span className="min-w-0 truncate font-medium">{c.razon_social}</span>
-          <span className="shrink-0 font-mono text-[12px] text-muted-foreground tabular-nums">{c.num_doc}</span>
+          <span className="shrink-0 font-mono text-control text-muted-foreground tabular-nums">{c.num_doc}</span>
         </>
       )}
       sinResultados={t.sinResultados}

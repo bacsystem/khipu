@@ -27,7 +27,7 @@ export default async function ApiKeysPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.configurarEmpresa}
@@ -94,7 +94,7 @@ export default async function ApiKeysPage() {
           }
         >
           {activas.length}
-          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.creadas, { total: apiKeys.length })}</span>
+          <span className="text-control font-normal text-muted-foreground">{interpolar(t.creadas, { total: apiKeys.length })}</span>
         </Metrica>
 
         <Metrica etiqueta={t.ultima} ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia}>

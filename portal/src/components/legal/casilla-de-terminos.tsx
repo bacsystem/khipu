@@ -22,7 +22,7 @@ export function CasillaDeTerminos({
   const describe = [error ? `${id}-error` : null, revisado ? null : `${id}-borrador`].filter(Boolean).join(" ") || undefined;
   return (
     <div className="grid gap-1.5">
-      <div className="flex items-start gap-2.5 text-[13px]">
+      <div className="flex items-start gap-2.5 text-control">
         <input
           id={id}
           type="checkbox"
@@ -43,12 +43,12 @@ export function CasillaDeTerminos({
         </label>
       </div>
       {revisado ? null : (
-        <p id={`${id}-borrador`} data-testid="borrador-legal-casilla" className="pl-6.5 text-xs text-muted-foreground">
+        <p id={`${id}-borrador`} data-testid="borrador-legal-casilla" className="pl-6.5 text-etiqueta text-muted-foreground">
           {messages.legal.borradorBreve}
         </p>
       )}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-[12px] text-destructive">
+        <p id={`${id}-error`} role="alert" className="text-control text-destructive">
           {error}
         </p>
       ) : null}

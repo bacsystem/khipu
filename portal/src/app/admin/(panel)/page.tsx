@@ -19,8 +19,8 @@ export default async function AdminInicioPage() {
   return (
     <div className="grid gap-4">
       <div className="grid gap-1">
-        <h1 className="font-heading text-2xl">{t.titulo}</h1>
-        <p className="text-sm text-muted-foreground">{t.descripcion}</p>
+        <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
+        <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {seccionesAdmin(messages).map((seccion) => (
@@ -36,8 +36,8 @@ export default async function AdminInicioPage() {
                       <Icono weight={PESO_ICONO} className="size-4" />
                     </span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className="text-[13px] font-medium text-foreground">{etiqueta}</span>
-                      <span className="text-[12px] text-muted-foreground">{resumen}</span>
+                      <span className="text-control font-medium text-foreground">{etiqueta}</span>
+                      <span className="text-control text-muted-foreground">{resumen}</span>
                     </span>
                     <CaretRightIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
                   </Link>

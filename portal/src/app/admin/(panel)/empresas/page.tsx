@@ -37,14 +37,14 @@ export default async function AdminEmpresasPage({
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <h1 className="font-heading text-2xl">{t.titulo}</h1>
-        <p className="text-sm text-muted-foreground">{t.descripcion}</p>
+        <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
+        <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
       </div>
 
       {resultado.pagina ? (
         <EmpresasTabla datos={resultado.pagina.datos} total={resultado.pagina.total} params={params} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
           <span>{t.error}</span>
           <Link href={hrefEmpresas(params)} className="font-medium underline">
             {t.reintentar}

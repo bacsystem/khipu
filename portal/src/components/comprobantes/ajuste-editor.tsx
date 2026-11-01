@@ -7,7 +7,7 @@ import { errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Descuento o cargo (#310): modo (% o monto), valor y si afecta la base del IGV. Sirve de línea o global: en un cargo global ofrece además el recargo al consumo
@@ -39,7 +39,7 @@ export function AjusteEditor({
   const textoAfecta = clase === "descuento" ? t.reduceBase : t.pagaIgv;
   return (
     <fieldset className="grid content-start gap-1.5">
-      <legend className="mb-1 text-[12px] font-medium text-foreground">{etiqueta}</legend>
+      <legend className="mb-1 text-control font-medium text-foreground">{etiqueta}</legend>
       <div className="grid grid-cols-[110px_1fr] gap-2">
         <Campo id={`${id}-modo`} etiqueta={interpolar(t.tipo, { etiqueta })} className="[&>label]:sr-only">
           <select id={`${id}-modo`} value={valor.modo} onChange={(e) => set({ modo: e.target.value as AjusteForm["modo"] })} className={CAMPO_DENSO}>
@@ -60,13 +60,13 @@ export function AjusteEditor({
         </Campo>
       </div>
       {valor.valor.trim() !== "" && !valor.recargoConsumo && !sinOpcionDeBase ? (
-        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <label className="flex items-center gap-2 text-control text-muted-foreground">
           <input type="checkbox" checked={valor.afectaBase} onChange={(e) => set({ afectaBase: e.target.checked })} className="size-3.5 accent-primary" />
           {textoAfecta}
         </label>
       ) : null}
       {ofreceRecargoConsumo ? (
-        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <label className="flex items-center gap-2 text-control text-muted-foreground">
           <input type="checkbox" checked={valor.recargoConsumo === true} onChange={(e) => set({ recargoConsumo: e.target.checked })} className="size-3.5 accent-primary" />
           {t.recargoConsumo}
         </label>
