@@ -496,6 +496,9 @@ public class AppConfig {
         return RelojDeLaAplicacion.proteger(new EmitirComprobanteService(c, se, t, s, ubl, xsd, signer, enviar, u, clock, emisor, bajas, idempotencia, tope, comprador), t, p.desplazamientoDelReloj());
     }
     @Bean TopeDeDocumentosRepository topeDeDocumentosRepository(JdbcTemplate jdbc) { return new JdbcTopeDeDocumentosRepository(jdbc); }
+    // #498: el cupo de API keys, usuarios y RUCs del plan, con su propio candado por cuenta y recurso.
+    @Bean CupoDeCuentaRepository cupoDeCuentaRepository(JdbcTemplate jdbc) { return new JdbcCupoDeCuentaRepository(jdbc); }
+    @Bean CupoDelPlan cupoDelPlan(CambiarPlanDeCuentaUseCase planes, CupoDeCuentaRepository ocupados, Clock clock) { return new CupoDelPlanService(planes, ocupados, clock); }
     @Bean TopeDelPlan topeDelPlan(TenantRepository t, CambiarPlanDeCuentaUseCase planes, TopeDeDocumentosRepository ocupados, Clock clock) { return new TopeDelPlanService(t, planes, ocupados, clock); }
     @Bean IdempotenciaRepository idempotenciaRepository(JdbcTemplate jdbc) { return new JdbcIdempotenciaRepository(jdbc); }
     @Bean LimpiarIdempotenciaUseCase limpiarIdempotencia(IdempotenciaRepository i, Clock clock) { return new LimpiarIdempotenciaService(i, clock); }
@@ -510,8 +513,8 @@ public class AppConfig {
         return new CompartirComprobanteService(consultar, t, correo);
     }
     @Bean AdministrarTenantUseCase administrarTenant(TenantRepository t, SerieRepository s, ApiKeyRepository k, UnitOfWork u, AppProperties p, Clock clock, EstablecimientoRepository est,
-                                                    AuditoriaAdminRepository auditoria, RechazoDeSolRepository rechazos) {
-        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est, auditoria, rechazos);
+                                                    AuditoriaAdminRepository auditoria, RechazoDeSolRepository rechazos, CupoDelPlan cupo) {
+        return new AdministrarTenantService(t, s, k, u, p.apiKeyPepper(), clock, est, auditoria, rechazos, cupo);
     }
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
@@ -572,11 +575,11 @@ public class AppConfig {
     @Bean EquipoRepository equipoRepository(JdbcTemplate jdbc) { return new JdbcEquipoRepository(jdbc); }
     @Bean InvitacionRepository invitacionRepository(JdbcTemplate jdbc) { return new JdbcInvitacionRepository(jdbc); }
     @Bean EquipoService equipoService(EquipoRepository e, UsuarioRepository us, CuentaRepository cu, InvitacionRepository i, SesionRepository se, PasswordHasher h,
-                                      CorreoSender co, PlantillasDeCorreo plantillas, UnitOfWork u, Clock clock) {
-        return new EquipoService(e, us, cu, i, se, h, co, plantillas, u, clock);
+                                      CorreoSender co, PlantillasDeCorreo plantillas, UnitOfWork u, Clock clock, CupoDelPlan cupo) {
+        return new EquipoService(e, us, cu, i, se, h, co, plantillas, u, clock, cupo);
     }
-    @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u) {
-        return new GestionarEmpresasService(t, cu, u);
+    @Bean GestionarEmpresasUseCase gestionarEmpresas(TenantRepository t, CuentaRepository cu, UnitOfWork u, CupoDelPlan cupo) {
+        return new GestionarEmpresasService(t, cu, u, cupo);
     }
 
     @Bean AutenticarAdministradorUseCase autenticarAdministrador(AdministradorRepository a, PasswordHasher h, AdministradorTokenEmisor te,
@@ -627,8 +630,8 @@ public class AppConfig {
         return new ImpersonarUsuarioService(usuarios, tokens, auditoria, u, clock);
     }
     @Bean AccesosDeSoporteUseCase accesosDeSoporte(AccesosDeSoporteRepository registros) { return new AccesosDeSoporteService(registros); }
-    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo) {
-        return new ConsultarMiCuentaService(cuentas, planes, consumo);
+    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo, CupoDeCuentaRepository ocupados, Clock clock) {
+        return new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, clock);
     }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
                                                  UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock, PlantillasDeCorreo plantillas) {

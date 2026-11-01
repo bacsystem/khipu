@@ -1736,6 +1736,7 @@
     "INTERNO": "Internal error. Try again in a few minutes.",
     "CERTIFICADO_INVALIDO": "The digital certificate is not valid.",
     "SERIE_INVALIDA": "The series provided is not valid.",
+    "CUPO_DEL_PLAN": "Your plan does not include more of this. Free up a spot or ask for a plan change.",
     "LIMITE_PLAN": "You reached your plan limit.",
     "PLAN_VENCIDO": "Your plan expired: renew it to issue again.",
     "EMPRESA_AJENA": "That company does not belong to your account.",
@@ -4820,6 +4821,10 @@
           "The account reached its plan’s monthly document cap (invoices, receipts and notes of all its companies). Nothing is issued and no number is used.",
           "Issue again next month or ask for a plan change; the voiding communication does not count."
         ],
+        "CUPO_DEL_PLAN": [
+          "The account’s plan no longer allows one more active API key, user (pending invitations count) or company. The message says how much the plan includes and how much the account has; whatever already exceeded the cap is left alone.",
+          "Revoke an API key, deactivate a user or revoke an invitation to free a spot, or ask for a plan change."
+        ],
         "PLAN_VENCIDO": [
           "The account’s plan expired and its grace days have passed (during grace, issuing continues). It applies to invoices, receipts and notes; nothing is issued and no number is used.",
           "Renew the plan to issue again; querying what was already issued and the voiding communication keep working."
@@ -5888,6 +5893,17 @@
       "limites": "Plan limits",
       "programado": "Starting {fecha} you move to the <b>{plan}</b> plan.",
       "consumoDe": "Usage for {mes}",
+      "usoTitulo": "What you use of your plan",
+      "usoNota": "API keys count only the active ones, across all your companies. Users include pending invitations: they hold their seat until they are accepted, expire or you revoke them.",
+      "retencionNota": "The retention years are a reference for your plan: khipu does not delete your XML or CDR files today when they run out.",
+      "usoSinTope": "{n} · no limit",
+      "usoDe": { "apiKeys": "API keys", "usuarios": "users", "rucs": "companies" },
+      "uso": { "apiKeys": "Active API keys", "usuarios": "Users", "rucs": "Companies (RUC)" },
+      "usoAvisos": {
+        "cerca": "You are close to your plan's limit of {recurso}.",
+        "lleno": "You reached your plan's limit of {recurso}: to add more, free up a spot or ask for a plan change.",
+        "excedido": "You have more {recurso} than your plan includes. Nothing was removed, but you cannot add more."
+      },
       "consumoTope": "Usage of the monthly cap",
       "nota": "Counts what SUNAT accepted this month across all your companies, even if it’s voided later, by issue date (Lima time)."
     }

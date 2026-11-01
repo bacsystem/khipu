@@ -92,7 +92,7 @@ export function OnboardingEmpresaForm() {
     if (!res) return;
     if (res.estado !== "exito" || !res.datos) {
       // El 409 de una empresa ya registrada no es «ya existe una cuenta con ese correo»: es este RUC.
-      setError(res.codigo === "DUPLICADO" ? interpolar(t.duplicado, { ruc: values.ruc }) : mensajeError(res.codigo));
+      setError(res.codigo === "DUPLICADO" ? interpolar(t.duplicado, { ruc: values.ruc }) : mensajeError(res.codigo, res.mensaje));
       return;
     }
     const sesion = await enviar("/api/session/empresa", { method: "POST", body: { empresaId: res.datos.id } });

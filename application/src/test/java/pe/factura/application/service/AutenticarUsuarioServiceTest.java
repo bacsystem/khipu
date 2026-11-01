@@ -602,7 +602,7 @@ class AutenticarUsuarioServiceTest {
     @Test void empresasDeLaCuenta() {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         Fakes.Tenants tenants = new Fakes.Tenants();
-        GestionarEmpresasService empresas = new GestionarEmpresasService(tenants, cuentas, Fakes.UOW);
+        GestionarEmpresasService empresas = new GestionarEmpresasService(tenants, cuentas, Fakes.UOW, (cuenta, recurso) -> {});
         Tenant e = empresas.crear(t.usuario().cuentaId(), "20100066603", "EMPRESA SAC", Entorno.BETA);
         assertThat(empresas.listar(t.usuario().cuentaId())).extracting(Tenant::id).containsExactly(e.id());
         assertThatCode(() -> empresas.exigirPertenencia(t.usuario().cuentaId(), e.id())).doesNotThrowAnyException();

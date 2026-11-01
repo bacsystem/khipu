@@ -8,13 +8,20 @@ import pe.factura.domain.plan.Limite;
 public record MiCuentaResponse(
         @Schema(example = "Ferretería Torres") String nombre,
         @Schema(description = "El plan de hoy, su estado de pago y una bajada programada, si la hay (la misma forma que ve el backoffice)") PlanDeCuentaResponse plan,
-        ConsumoDelMesResponse consumo) {
+        ConsumoDelMesResponse consumo,
+        @Schema(description = "Lo que la cuenta ocupa de los límites de su plan que no son documentos: API keys activas, usuarios (con las invitaciones pendientes) y empresas") UsoDeRecursosResponse uso) {
 
     public static MiCuentaResponse de(MiCuenta m) {
         Limite tope = m.plan().plan().limites().documentosAlMes();
         return new MiCuentaResponse(m.nombre(), PlanDeCuentaResponse.de(m.plan()),
-                new ConsumoDelMesResponse(m.consumo().mes().toString(), m.consumo().documentos(), tope.ilimitado() ? null : tope.maximo()));
+                new ConsumoDelMesResponse(m.consumo().mes().toString(), m.consumo().documentos(), tope.ilimitado() ? null : tope.maximo()),
+                new UsoDeRecursosResponse(m.uso().apiKeys(), m.uso().usuarios(), m.uso().rucs()));
     }
+
+    public record UsoDeRecursosResponse(
+            @Schema(example = "1", description = "API keys activas de todas las empresas de la cuenta") long apiKeys,
+            @Schema(example = "2", description = "Usuarios activos más invitaciones pendientes que no vencieron") long usuarios,
+            @Schema(example = "1", description = "Empresas (RUC) de la cuenta") long rucs) {}
 
     public record ConsumoDelMesResponse(
             @Schema(example = "2026-10", description = "El mes calendario en curso (America/Lima)") String mes,

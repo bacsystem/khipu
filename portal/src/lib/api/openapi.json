@@ -16506,8 +16506,35 @@
           },
           "consumo": {
             "$ref": "#/components/schemas/ConsumoDelMesResponse"
+          },
+          "uso": {
+            "$ref": "#/components/schemas/UsoDeRecursosResponse"
           }
         }
+      },
+      "UsoDeRecursosResponse": {
+        "type": "object",
+        "properties": {
+          "api_keys": {
+            "type": "integer",
+            "description": "API keys activas de todas las empresas de la cuenta",
+            "format": "int64",
+            "example": 1
+          },
+          "usuarios": {
+            "type": "integer",
+            "description": "Usuarios activos más invitaciones pendientes que no vencieron",
+            "format": "int64",
+            "example": 2
+          },
+          "rucs": {
+            "type": "integer",
+            "description": "Empresas (RUC) de la cuenta",
+            "format": "int64",
+            "example": 1
+          }
+        },
+        "description": "Lo que la cuenta ocupa de los límites de su plan que no son documentos: API keys activas, usuarios (con las invitaciones pendientes) y empresas"
       },
       "ApiResponseListMiembroDelEquipo": {
         "type": "object",

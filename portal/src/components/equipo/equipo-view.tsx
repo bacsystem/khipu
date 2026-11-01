@@ -33,7 +33,7 @@ function useAccion() {
     startTransition(async () => {
       const res = await apiRequest<T>(ruta, init);
       if (res.estado !== "exito") {
-        setError(mensajeError(res.codigo));
+        setError(mensajeError(res.codigo, res.mensaje));
         return;
       }
       setAviso(alTerminar?.(res.datos) ?? null);

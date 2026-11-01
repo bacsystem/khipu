@@ -9178,6 +9178,28 @@ export interface components {
             nombre?: string;
             plan?: components["schemas"]["PlanDeCuentaResponse"];
             consumo?: components["schemas"]["ConsumoDelMesResponse"];
+            uso?: components["schemas"]["UsoDeRecursosResponse"];
+        };
+        /** @description Lo que la cuenta ocupa de los límites de su plan que no son documentos: API keys activas, usuarios (con las invitaciones pendientes) y empresas */
+        UsoDeRecursosResponse: {
+            /**
+             * Format: int64
+             * @description API keys activas de todas las empresas de la cuenta
+             * @example 1
+             */
+            api_keys?: number;
+            /**
+             * Format: int64
+             * @description Usuarios activos más invitaciones pendientes que no vencieron
+             * @example 2
+             */
+            usuarios?: number;
+            /**
+             * Format: int64
+             * @description Empresas (RUC) de la cuenta
+             * @example 1
+             */
+            rucs?: number;
         };
         ApiResponseListMiembroDelEquipo: {
             /**

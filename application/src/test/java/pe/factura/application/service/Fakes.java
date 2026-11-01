@@ -307,6 +307,21 @@ final class Fakes {
         }
     }
 
+    /** El cupo del plan (#498): hay lugar salvo que se marque {@code lleno}. Anota qué recurso se pidió y si el control corrió dentro de la transacción. */
+    static final class Cupo implements pe.factura.application.service.CupoDelPlan {
+        boolean lleno;
+        UowTransaccional uow;
+        final List<pe.factura.domain.plan.RecursoDelPlan> pedidos = new ArrayList<>();
+        final List<UUID> cuentas = new ArrayList<>();
+        final List<Boolean> controladoDentro = new ArrayList<>();
+        public void exigirLugar(UUID cuentaId, pe.factura.domain.plan.RecursoDelPlan recurso) {
+            pedidos.add(recurso);
+            cuentas.add(cuentaId);
+            controladoDentro.add(uow != null && uow.dentro);
+            if (lleno) throw new DomainException("CUPO_DEL_PLAN", "Tu plan ya no incluye más " + recurso);
+        }
+    }
+
     /** Claves de idempotencia en memoria (#115). Registra si cada llamada corrió dentro de la transacción. */
     static class Idempotencias implements IdempotenciaRepository {
         final Map<String, Registro> filas = new HashMap<>();

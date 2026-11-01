@@ -60,6 +60,8 @@ class EquipoE2ETest {
     @BeforeEach void preparar() {
         CORREOS.clear();
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, token_verificacion, sesion, usuario, cuenta, intento_de_acceso CASCADE");
+        // #498: aquí se prueban los roles y las invitaciones, no el tope de usuarios del plan Gratis (1): eso lo prueba CupoDelPlanE2ETest.
+        jdbc.update("UPDATE plan SET usuarios = NULL WHERE nombre = 'Gratis'");
         admin = registrarVerificado("ana@torres.pe");
         ResponseEntity<Map> creada = http.postForEntity("/v1/empresas",
                 new HttpEntity<>("{\"ruc\":\"20100066603\",\"razon_social\":\"FERRETERIA TORRES S.A.C.\",\"entorno\":\"BETA\"}", jwt(admin, null)), Map.class);

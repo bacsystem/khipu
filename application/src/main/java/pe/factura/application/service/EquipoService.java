@@ -9,6 +9,7 @@ import pe.factura.domain.cuenta.Equipo;
 import pe.factura.domain.cuenta.Invitacion;
 import pe.factura.domain.cuenta.Rol;
 import pe.factura.domain.cuenta.Usuario;
+import pe.factura.domain.plan.RecursoDelPlan;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -47,6 +48,7 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
     private final PlantillasDeCorreo plantillas;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final CupoDelPlan cupo;
 
     // --- Usuarios -------------------------------------------------------------------------------------------------------------------
 
@@ -74,7 +76,12 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
 
     @Override
     public Usuario reactivar(UUID cuentaId, UUID actorId, UUID usuarioId) {
-        return cambiar(cuentaId, e -> e.reactivar(actorId, usuarioId));
+        return cambiar(cuentaId, e -> {
+            Usuario u = e.reactivar(actorId, usuarioId);
+            // #498: volver a activar a alguien ocupa un lugar del plan (el que ya estaba activo no pide otro).
+            if (!e.miembro(usuarioId).activo()) cupo.exigirLugar(cuentaId, RecursoDelPlan.USUARIOS);
+            return u;
+        });
     }
 
     private Usuario cambiar(UUID cuentaId, Function<Equipo, Usuario> cambio) {
@@ -121,6 +128,8 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
                 throw new DomainException("INVITACION_PENDIENTE", "Ya hay una invitación pendiente para ese correo: reenvíala en vez de crear otra");
             if (pendientes.size() >= MAX_PENDIENTES)
                 throw new DomainException("DEMASIADAS_INVITACIONES", "Tu cuenta tiene " + MAX_PENDIENTES + " invitaciones pendientes. Revoca las que ya no hagan falta antes de invitar a alguien más");
+            // #498: la invitación aparta un lugar del plan desde que se manda, no cuando se acepta: si no, se podrían mandar más invitaciones que lugares. Antes de limitar los correos, que no se gasten en un rechazo.
+            cupo.exigirLugar(cuentaId, RecursoDelPlan.USUARIOS);
             limitarEnvios(cuentaId, i.email());
             invitaciones.crear(i);
             invitaciones.registrarEnvio(cuentaId, i.email(), clock.instant());
@@ -135,7 +144,10 @@ public class EquipoService implements GestionarEquipoUseCase, AceptarInvitacionU
         Invitacion reenviada = uow.ejecutar(() -> {
             // Bloqueado como al invitar: dos reenvíos a la vez no pasan los dos por debajo del tope de envíos.
             equipos.deLaCuentaParaCambiar(cuentaId).exigirAdministrador(actorId);
-            Invitacion r = invitacionDe(cuentaId, invitacionId).reenviada(TokenOpaco.hash(token), clock.instant(), VIDA_INVITACION);
+            Invitacion previa = invitacionDe(cuentaId, invitacionId);
+            Invitacion r = previa.reenviada(TokenOpaco.hash(token), clock.instant(), VIDA_INVITACION);
+            // #498: una invitación vencida ya soltó su lugar; reenviarla lo vuelve a pedir. La que sigue vigente conserva el suyo.
+            if (!previa.aceptable(clock.instant())) cupo.exigirLugar(cuentaId, RecursoDelPlan.USUARIOS);
             limitarEnvios(cuentaId, r.email());
             guardarPendiente(r);
             invitaciones.registrarEnvio(cuentaId, r.email(), clock.instant());

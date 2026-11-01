@@ -12,4 +12,13 @@ public record Limites(Limite documentosAlMes, int rucs, Limite usuarios, Limite 
         if (rucs <= 0) throw new DomainException("LIMITE_INVALIDO", "Un plan debe permitir al menos un RUC: " + rucs);
         if (retencionAnios <= 0) throw new DomainException("RETENCION_INVALIDA", "La retención debe ser de al menos un año: " + retencionAnios);
     }
+
+    /** El tope de un recurso del plan (#498); los RUC siempre son finitos. */
+    public Limite de(RecursoDelPlan recurso) {
+        return switch (recurso) {
+            case API_KEYS -> apiKeys;
+            case USUARIOS -> usuarios;
+            case RUCS -> Limite.de(rucs);
+        };
+    }
 }

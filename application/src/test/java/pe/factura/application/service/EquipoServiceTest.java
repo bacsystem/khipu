@@ -1,5 +1,6 @@
 package pe.factura.application.service;
 
+import pe.factura.domain.plan.RecursoDelPlan;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.AceptarInvitacionUseCase;
 import pe.factura.application.port.in.GestionarEquipoUseCase.Enviada;
@@ -20,6 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** #21: el equipo de una cuenta y sus invitaciones. */
@@ -106,10 +108,11 @@ class EquipoServiceTest {
         public void enviar(String para, String asunto, String cuerpo, List<Adjunto> adjuntos) { enviar(para, asunto, cuerpo); }
     };
 
+    final Fakes.Cupo cupo = new Fakes.Cupo();
     EquipoService service = servicio(clock);
 
     EquipoService servicio(Clock c) {
-        return new EquipoService(equipos, usuarios, cuentas, invitaciones, sesiones, hasher, correo, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), Fakes.UOW, c);
+        return new EquipoService(equipos, usuarios, cuentas, invitaciones, sesiones, hasher, correo, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), Fakes.UOW, c, cupo);
     }
 
     final Cuenta cuenta = new Cuenta(UUID.randomUUID(), "Ferretería Torres", "ana@torres.pe");
@@ -462,11 +465,89 @@ class EquipoServiceTest {
             public void cambiarActivo(UUID id, boolean activo) { escrito.add("activo"); }
         };
         EquipoService s = new EquipoService(equipos, soloColumnas, cuentas, invitaciones, sesiones, hasher, correo,
-                new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), Fakes.UOW, clock);
+                new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), Fakes.UOW, clock, cupo);
 
         s.cambiarRol(cuenta.id(), ana.id(), beto.id(), Rol.LECTURA);
         s.desactivar(cuenta.id(), ana.id(), beto.id());
 
         assertThat(escrito).containsExactly("rol", "activo");
+    }
+
+    // --- #498: el tope de usuarios del plan ------------------------------------------------------------------------------------------
+
+    @Test void invitarApartaUnLugarDelPlanAntesDeGastarEnvios() {
+        service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+
+        assertThat(cupo.pedidos).containsExactly(RecursoDelPlan.USUARIOS);
+        assertThat(cupo.cuentas).containsExactly(cuenta.id());
+    }
+
+    @Test void sinLugarEnElPlanNoSeGuardaNiSeMandaLaInvitacion() {
+        cupo.lleno = true;
+
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL), "CUPO_DEL_PLAN");
+
+        assertThat(invitacionesMap).isEmpty();
+        assertThat(correos).isEmpty();
+        assertThat(envios).as("un rechazo no gasta el tope de correos de las 24 horas").isEmpty();
+    }
+
+    /** Lo que ya está mal dicho (un correo que ya es de la cuenta) se contesta antes que el plan. */
+    @Test void unCorreoQueYaEsMiembroSeRechazaPorSerloNoPorElPlan() {
+        cupo.lleno = true;
+        falla(() -> service.invitar(cuenta.id(), ana.id(), "beto@torres.pe", Rol.EMISOR, PORTAL), "YA_ES_MIEMBRO");
+    }
+
+    @Test void reactivarAUnUsuarioInactivoOcupaUnLugar() {
+        service.desactivar(cuenta.id(), ana.id(), beto.id());
+
+        service.reactivar(cuenta.id(), ana.id(), beto.id());
+
+        assertThat(cupo.pedidos).containsExactly(RecursoDelPlan.USUARIOS);
+    }
+
+    @Test void sinLugarNoSeReactiva() {
+        service.desactivar(cuenta.id(), ana.id(), beto.id());
+        cupo.lleno = true;
+
+        falla(() -> service.reactivar(cuenta.id(), ana.id(), beto.id()), "CUPO_DEL_PLAN");
+
+        assertThat(usuariosMap.get(beto.id()).activo()).as("sigue inactivo").isFalse();
+    }
+
+    /** «Reactivar» a quien ya está activo no cambia nada: no pide un lugar que ya ocupa. */
+    @Test void reactivarAQuienYaEstaActivoNoPideLugar() {
+        cupo.lleno = true;
+
+        assertThatCode(() -> service.reactivar(cuenta.id(), ana.id(), beto.id())).doesNotThrowAnyException();
+
+        assertThat(cupo.pedidos).isEmpty();
+    }
+
+    /** La invitación vigente ya tiene su lugar apartado: reenviarla no pide otro. */
+    @Test void reenviarUnaInvitacionVigenteNoPideOtroLugar() {
+        service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+        UUID id = invitacionesMap.keySet().iterator().next();
+        cupo.pedidos.clear();
+        cupo.lleno = true;
+
+        assertThatCode(() -> service.reenviar(cuenta.id(), ana.id(), id, PORTAL)).doesNotThrowAnyException();
+
+        assertThat(cupo.pedidos).isEmpty();
+    }
+
+    /** La vencida soltó su lugar (no cuenta como ocupada): reenviarla, que la revive por 7 días más, lo vuelve a pedir. */
+    @Test void reenviarUnaInvitacionVencidaVuelveAPedirSuLugar() {
+        service.invitar(cuenta.id(), ana.id(), "caro@torres.pe", Rol.EMISOR, PORTAL);
+        UUID id = invitacionesMap.keySet().iterator().next();
+        cupo.pedidos.clear();
+        EquipoService despues = servicio(Clock.offset(clock, EquipoService.VIDA_INVITACION.plusDays(1)));
+
+        despues.reenviar(cuenta.id(), ana.id(), id, PORTAL);
+        assertThat(cupo.pedidos).containsExactly(RecursoDelPlan.USUARIOS);
+
+        cupo.lleno = true;
+        invitacionesMap.put(id, invitacionesMap.get(id).reenviada("otro-hash", ahora.minus(Duration.ofDays(30)), Duration.ofDays(7)));
+        falla(() -> despues.reenviar(cuenta.id(), ana.id(), id, PORTAL), "CUPO_DEL_PLAN");
     }
 }
