@@ -213,11 +213,13 @@ class AdministrarTenantServiceTest {
 
     private static final String CLAVE_P12 = "secreto";
 
-    /** Genera un PKCS#12 autofirmado con el RUC en el OU y una ventana de vigencia exacta. `keytool` viene con el JDK. */
+    /** Genera un PKCS#12 autofirmado con el RUC en el OU y una ventana de vigencia exacta en hora de Lima (como la lee el servicio). `keytool` viene con el JDK. */
     private static byte[] p12(Path dir, String nombre, String desde, int dias) throws Exception {
         Path archivo = dir.resolve(nombre + ".p12");
         Process p = new ProcessBuilder(
                 Path.of(System.getProperty("java.home"), "bin", "keytool").toString(),
+                // -startdate se lee en la zona del proceso: sin fijarla, en un runner UTC el certificado vence un día antes en hora de Lima.
+                "-J-Duser.timezone=America/Lima",
                 "-genkeypair", "-alias", nombre, "-keyalg", "RSA", "-keysize", "2048",
                 "-dname", "CN=TEST,OU=20100066603,O=Khipu,C=PE",
                 "-keystore", archivo.toString(), "-storetype", "PKCS12",
