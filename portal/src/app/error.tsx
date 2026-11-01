@@ -15,8 +15,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-      <h1 className="font-heading text-2xl">{t.titulo}</h1>
-      <p className="max-w-sm text-sm text-muted-foreground">{messages.errores.generico}</p>
+      <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
+      <p className="max-w-sm text-cuerpo text-muted-foreground">{messages.errores.generico}</p>
       <div className="flex gap-3">
         <Button onClick={reset}>{t.reintentar}</Button>
         <Button render={<Link href="/" />} nativeButton={false} variant="outline">

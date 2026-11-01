@@ -25,7 +25,7 @@ export function BuscarEnLaDocumentacion({ entradas }: { entradas: readonly Entra
       fila={(e) => (
         <span className="flex min-w-0 flex-col">
           <span className="truncate font-medium">{e.titulo}</span>
-          <span className="truncate text-[11px] text-muted-foreground">{e.seccion}</span>
+          <span className="truncate text-etiqueta text-muted-foreground">{e.seccion}</span>
         </span>
       )}
       sinResultados={t.sinResultados}

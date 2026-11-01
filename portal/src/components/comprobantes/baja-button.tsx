@@ -110,14 +110,14 @@ export function BajaButton({
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive-suave text-destructive-texto">
               <ProhibitIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">
+              <DialogTitle className="text-titulo font-semibold tracking-tight">
                 {t.darDeBaja} <span className="font-mono">{numero}</span>
               </DialogTitle>
-              <DialogDescription className="text-[13px]">
+              <DialogDescription className="text-control">
                 {reversion ? (
                   t.reversion
                 ) : (
@@ -132,7 +132,7 @@ export function BajaButton({
         </DialogHeader>
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
+          <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-control leading-relaxed text-foreground">
             <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
             <p>
               {tr.rich("efecto", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}
@@ -141,7 +141,7 @@ export function BajaButton({
           </div>
           {boleta ? (
             // #362 H8: la baja de una boleta (o de una nota B) es un RC con la línea en estado 3; SUNAT solo la admite si lo emitido no llegó al adquirente.
-            <p className="text-[12px] leading-relaxed text-muted-foreground" data-testid="baja-boleta-condicion">
+            <p className="text-control leading-relaxed text-muted-foreground" data-testid="baja-boleta-condicion">
               {t.condicionBoleta}
             </p>
           ) : null}
@@ -162,7 +162,7 @@ export function BajaButton({
               {motivo.length >= 100 ? t.motivoMaximo : ""}
             </span>
           </div>
-          {error ? <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">{error}</p> : null}
+          {error ? <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">{error}</p> : null}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border/60 px-5 py-3">

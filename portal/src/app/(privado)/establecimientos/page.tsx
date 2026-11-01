@@ -19,7 +19,7 @@ export default async function EstablecimientosPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.configurarEmpresa}
@@ -54,11 +54,11 @@ export default async function EstablecimientosPage() {
         </Metrica>
         <Metrica etiqueta={t.anexosActivos} ayuda={anexos.length - activos > 0 ? interpolar(t.dadosDeBaja, { cantidad: anexos.length - activos }) : t.anexosAyuda}>
           {activos}
-          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.registrados, { total: anexos.length })}</span>
+          <span className="text-control font-normal text-muted-foreground">{interpolar(t.registrados, { total: anexos.length })}</span>
         </Metrica>
         <Metrica etiqueta={t.seriesEnAnexos} ayuda={seriesEnAnexos > 0 ? t.seriesEnAnexosAyuda : t.seriesEnFiscal}>
           {seriesEnAnexos}
-          <span className="text-[12px] font-normal text-muted-foreground">{interpolar(t.activas, { total: series.filter((s) => s.activa).length })}</span>
+          <span className="text-control font-normal text-muted-foreground">{interpolar(t.activas, { total: series.filter((s) => s.activa).length })}</span>
         </Metrica>
         <Metrica etiqueta={t.enElXml} ayuda={t.enElXmlAyuda}>
           {/* eslint-disable-next-line khipu/no-literal-de-ui -- nombre del elemento UBL, no se traduce */}

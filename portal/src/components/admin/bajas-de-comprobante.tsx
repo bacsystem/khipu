@@ -10,7 +10,7 @@ function Dato({ etiqueta, children, testId }: { etiqueta: string; children: Reac
   return (
     <div className="min-w-0">
       <dt className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</dt>
-      <dd className="text-[13px] break-words text-foreground" data-testid={testId}>
+      <dd className="text-control break-words text-foreground" data-testid={testId}>
         {children}
       </dd>
     </div>
@@ -33,7 +33,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
       <h2 id="titulo-bajas" className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>
         {t.titulo}
       </h2>
-      <p className="pt-3 text-[12px] text-muted-foreground">{t.ayuda}</p>
+      <p className="pt-3 text-control text-muted-foreground">{t.ayuda}</p>
       <div className="grid gap-4 pt-4">
         {bajas.map((b) => {
           const resumenDiario = b.identificador.startsWith("RC-");
@@ -41,7 +41,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
           const vencida = bajaVencida(b);
           return (
             <article key={b.id} className="rounded-lg border border-border/60 p-4" data-testid={`comprobante-baja-${b.identificador}`}>
-              <h3 className="mb-3 text-[13px] font-semibold text-foreground">
+              <h3 className="mb-3 text-cuerpo font-semibold text-foreground">
                 {resumenDiario ? t.resumenDiario : t.comunicacionDeBaja} <span className="font-mono">{b.identificador}</span>
                 {alta ? ` ${t.alta}` : null}
               </h3>
@@ -55,7 +55,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
                 <Dato etiqueta={t.motivo} testId="baja-motivo">
                   {b.motivo}
                   {/* El RC no lleva el motivo de una anulación: queda en khipu. El de un alta lo escribe khipu y tampoco viaja, pero no es de nadie que lo pidiera. */}
-                  {resumenDiario && !alta ? <span className="mt-1 block text-[12px] text-muted-foreground">{t.motivoSoloKhipu}</span> : null}
+                  {resumenDiario && !alta ? <span className="mt-1 block text-control text-muted-foreground">{t.motivoSoloKhipu}</span> : null}
                 </Dato>
                 <Dato etiqueta={t.generada} testId="baja-generada">
                   {formatearFecha(b.fecha_generacion, locale)}
@@ -70,7 +70,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
                       {b.cdr.descripcion ? ` — ${b.cdr.descripcion}` : null}
                     </>
                   ) : (
-                    <span className="font-mono text-[12px]">
+                    <span className="font-mono text-control">
                       {b.ultimo_error ?? t.sinDato}
                       {b.intentos > 1 ? interpolar(t.intentos, { n: b.intentos }) : ""}
                     </span>
@@ -78,7 +78,7 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
                 </Dato>
               </dl>
               {alta && b.fuera_de_plazo ? (
-                <p className="mt-3 text-[12px] text-warning-foreground" data-testid="baja-fuera-de-plazo">
+                <p className="mt-3 text-control text-warning-foreground" data-testid="baja-fuera-de-plazo">
                   {avisoAltaFueraDePlazo(messages)}
                 </p>
               ) : null}

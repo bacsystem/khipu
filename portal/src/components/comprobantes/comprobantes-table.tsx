@@ -56,7 +56,7 @@ const TODOS_LOS_ESTADOS = "todos";
 const TODOS_LOS_TIPOS = "todos";
 
 const TODAS_LAS_SERIES = "todas";
-const ACCION = "flex h-control items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
+const ACCION = "flex h-control items-center justify-center rounded-lg border border-border font-mono text-etiqueta font-semibold shadow-xs transition-colors";
 
 async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number, errorListar: string): Promise<PaginaComprobantes> {
   const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
@@ -242,7 +242,7 @@ export function ComprobantesTable({
               value={desde ?? ""}
               max={hasta}
               onChange={(e) => cambiarFiltro("desde", e.target.value)}
-              className="bg-transparent text-[12px] text-foreground outline-none"
+              className="bg-transparent text-control text-foreground outline-none"
             />
             <span className="text-muted-foreground/70">–</span>
             <label className="sr-only" htmlFor="filtro-hasta">{t.hasta}</label>
@@ -252,7 +252,7 @@ export function ComprobantesTable({
               value={hasta ?? ""}
               min={desde}
               onChange={(e) => cambiarFiltro("hasta", e.target.value)}
-              className="bg-transparent text-[12px] text-foreground outline-none"
+              className="bg-transparent text-control text-foreground outline-none"
             />
           </div>
 
@@ -273,22 +273,22 @@ export function ComprobantesTable({
 
       <div
         className={cn(
-          "min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs transition-opacity",
+          "min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity",
           isFetching && "opacity-60",
         )}
       >
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto py-2 pr-3 pl-4 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.comprobante}</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.cliente}</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.fecha}</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.importe}</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.estado}</TableHead>
-              <TableHead className="h-auto py-2 pr-4 pl-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">{t.columnas.acciones}</TableHead>
+              <TableHead className="h-auto py-2 pr-3 pl-4 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.comprobante}</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.cliente}</TableHead>
+              <TableHead className="h-auto px-3 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.fecha}</TableHead>
+              <TableHead className="h-auto px-4 py-2 text-right text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.importe}</TableHead>
+              <TableHead className="h-auto px-4 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.estado}</TableHead>
+              <TableHead className="h-auto py-2 pr-4 pl-2 text-right text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {data.map((c) => {
               const numeroCompleto = `${c.serie}-${String(c.numero).padStart(8, "0")}`;
               return (
@@ -307,18 +307,18 @@ export function ComprobantesTable({
                           href={`/comprobantes/${c.id}`}
                           aria-label={interpolar(t.verComprobante, { numero: numeroCompleto, estado: ETIQUETAS_ESTADO[c.estado_documento] })}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded font-mono text-[13px] font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                          className="rounded font-mono text-cuerpo font-semibold tracking-tight text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {numeroCompleto}
                         </Link>
                         <BotonCopiar texto={numeroCompleto} titulo={t.copiarNumero} className="opacity-0 group-hover:opacity-100" />
                         {c.moneda !== "PEN" ? (
-                          <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 font-mono text-[10px] font-medium text-warning-foreground uppercase">
+                          <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 font-mono text-etiqueta font-medium text-warning-foreground">
                             {c.moneda}
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/80">
+                      <div className="mt-0.5 flex items-center gap-1 text-etiqueta text-muted-foreground/80">
                         <span className="size-1.5 rounded-full bg-border" />
                         {interpolar(t.tipoElectronico, { tipo: ETIQUETAS_TIPO[c.tipo] ?? c.tipo })}
                       </div>
@@ -328,22 +328,22 @@ export function ComprobantesTable({
                     {c.receptor ? (
                       <div className="flex flex-col overflow-hidden">
                         <span className="truncate leading-snug font-medium text-foreground">{c.receptor.razon_social}</span>
-                        <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">
+                        <span className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80">
                           {c.receptor.tipo_doc === "-" ? ETIQUETAS_TIPO_DOC["-"] : `${ETIQUETAS_TIPO_DOC[c.receptor.tipo_doc] ?? t.docGenerico} ${c.receptor.num_doc}`}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-[12px] text-muted-foreground/60">—</span>
+                      <span className="text-control text-muted-foreground/60">—</span>
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-2 whitespace-nowrap">
                     <div className="leading-snug font-medium text-foreground/90">{formatearFecha(c.fecha_emision, locale)}</div>
                   </TableCell>
                   <TableCell className="px-4 py-2 text-right whitespace-nowrap">
-                    <div className="font-mono text-[13px] font-semibold tracking-tight text-foreground tabular-nums">
+                    <div className="font-mono text-cuerpo font-semibold tracking-tight text-foreground tabular-nums">
                       {formatearMonto(c.moneda, c.totales.total, locale)}
                     </div>
-                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80 tabular-nums">
+                    <div className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80 tabular-nums">
                       {interpolar(t.igv, { monto: formatearMonto(c.moneda, c.totales.igv, locale) })}
                     </div>
                   </TableCell>
@@ -394,11 +394,11 @@ export function ComprobantesTable({
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">
+                    <p className="text-cuerpo">
                       {hayFiltros ? t.vacioConFiltros : t.vacio}
                     </p>
                     {hayFiltros ? (
-                      <Link href="/comprobantes" className="text-xs text-primary hover:underline">
+                      <Link href="/comprobantes" className="text-etiqueta text-primary hover:underline">
                         {t.quitarFiltros}
                       </Link>
                     ) : null}

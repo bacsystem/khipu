@@ -145,8 +145,8 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               <MoneyIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -264,7 +264,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
           </Campo>
 
           <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
-            <label className="flex items-start gap-2 text-[13px] font-medium text-foreground">
+            <label className="flex items-start gap-2 text-control font-medium text-foreground">
               <input
                 type="checkbox"
                 data-testid="registrar-pago-extender"
@@ -275,13 +275,13 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               />
               <span>{t.extender}</span>
             </label>
-            <p data-testid="registrar-pago-extender-nota" className="pl-6 text-[12px] text-muted-foreground">
+            <p data-testid="registrar-pago-extender-nota" className="pl-6 text-control text-muted-foreground">
               {notaDeExtension}
             </p>
           </div>
 
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}
@@ -309,7 +309,7 @@ function Campo({ id, etiqueta, error, ayuda, children }: { id: string; etiqueta:
         {etiqueta}
       </label>
       {children}
-      {error ? <span className="text-[12px] text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
+      {error ? <span className="text-control text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { formatearMonto, sumarDias } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Factura al crédito (#309): el neto pendiente y el calendario de cuotas. «Repartir» arma N cuotas iguales cada 30 días desde la emisión; se pueden editar o agregar a
@@ -88,7 +88,7 @@ export function CreditoEditor({
         <button
           type="button"
           onClick={() => onCambio({ ...credito, cuotas: [...credito.cuotas, { monto: "", vencimiento: sumarDias(credito.cuotas.at(-1)?.vencimiento ?? emision, 30) }] })}
-          className="inline-flex items-center gap-1 justify-self-start text-[12px] font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-1 justify-self-start text-control font-medium text-primary hover:underline"
         >
           <PlusIcon weight="bold" className="size-3.5" />
           {t.agregarCuota}

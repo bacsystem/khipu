@@ -58,15 +58,15 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
               <KeyIcon weight="duotone" className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="grid gap-3 px-5 py-4">
           {estado === "enviado" ? (
-            <div role="status" className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-[13px] leading-relaxed text-success-foreground">
+            <div role="status" className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-control leading-relaxed text-success-foreground">
               <EnvelopeSimpleOpenIcon weight="duotone" className="mt-0.5 size-4 shrink-0" />
               <p>
                 {t.enviadoA} <strong className="font-semibold">{email}</strong>
@@ -75,13 +75,13 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
             </div>
           ) : (
             <>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
+              <p className="text-control leading-relaxed text-muted-foreground">
                 {t.enviaremosA} <strong className="font-medium text-foreground">{email}</strong>
                 {t.enviaremosDetalle}
               </p>
               {/* #105: sin `role="alert"` el fallo era mudo: un lector de pantalla no lo anunciaba y el e2e solo veía que «Enlace enviado» no llegaba, sin el motivo. */}
               {error ? (
-                <p role="alert" className="text-[12px] text-destructive">
+                <p role="alert" className="text-control text-destructive">
                   {error}
                 </p>
               ) : null}

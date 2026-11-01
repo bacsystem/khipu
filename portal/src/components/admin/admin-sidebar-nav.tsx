@@ -9,7 +9,7 @@ import { seccionesAdmin } from "@/lib/admin-secciones";
 import { cn } from "@/lib/utils";
 
 const ITEM_BASE =
-  "flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md border border-transparent px-2.5 py-1.5 text-[13px]";
+  "flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md border border-transparent px-2.5 py-1.5 text-control";
 
 function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; etiqueta: string; icono: IconoComponente; activo: boolean }) {
   return (
@@ -45,7 +45,7 @@ export function AdminSidebarNav() {
       <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HouseIcon} activo={pathname === "/admin"} />
       {seccionesAdmin(messages).map((seccion) => (
         <div key={seccion.titulo} role="group" aria-label={seccion.titulo} className="grid w-full grid-cols-1 gap-0.5">
-          <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">{seccion.titulo}</span>
+          <span className="truncate px-2.5 py-1 text-etiqueta font-medium text-muted-foreground/80">{seccion.titulo}</span>
           {seccion.items.map((item) => (
             <ItemDelMenu key={item.href} href={item.href} etiqueta={item.etiqueta} icono={item.icono} activo={activo(item.href)} />
           ))}

@@ -94,7 +94,7 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
         />
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
 
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
         {onCancelar ? (

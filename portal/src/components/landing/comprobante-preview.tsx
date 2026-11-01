@@ -80,7 +80,7 @@ export function ComprobantePreview() {
     };
   }, []);
 
-  const trans = animando ? "transition-[opacity,fill,stroke-dashoffset] duration-500 ease-out" : "";
+  const trans = animando ? "transition-[opacity,fill,stroke-dashoffset] duration-500 ease-salida" : "";
   const completado = paso >= PASOS.length;
 
   return (
@@ -89,7 +89,7 @@ export function ComprobantePreview() {
         aria-hidden
         className="h-3 w-full rounded-t-xl bg-[radial-gradient(circle_at_center,var(--sidebar)_2.5px,transparent_2.6px)] [background-size:14px_14px] [background-position:7px_0]"
       />
-      <div className="rounded-b-xl bg-sidebar px-6 py-6 text-sidebar-foreground shadow-xl">
+      <div className="rounded-b-xl bg-sidebar px-6 py-6 text-sidebar-foreground shadow-lg">
         <p className="text-xs text-sidebar-foreground/60">{t.titulo}</p>
 
         <svg
@@ -197,7 +197,7 @@ export function ComprobantePreview() {
                     )}
                   </svg>
                 </g>
-                <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-[13px]" fill="var(--sidebar-foreground)">
+                <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-control" fill="var(--sidebar-foreground)">
                   {textos.titulo}
                 </text>
                 {destacado ? (
@@ -208,7 +208,7 @@ export function ComprobantePreview() {
                       y={cy}
                       dominantBaseline="middle"
                       textAnchor="middle"
-                      className="font-sans text-[11px] font-medium"
+                      className="font-sans text-etiqueta font-medium"
                       fill="var(--success-foreground)"
                     >
                       {t.aceptado}
@@ -234,7 +234,7 @@ export function ComprobantePreview() {
 
         {/* El comprobante emitido: aparece cuando el recorrido terminó, que es lo que el panel viene a contar. */}
         <div
-          className={`mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm ${animando ? "transition-opacity duration-500 ease-out" : ""}`}
+          className={`mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm ${animando ? "transition-opacity duration-500 ease-salida" : ""}`}
           style={{ opacity: completado ? 1 : 0.25 }}
         >
           {/* eslint-disable-next-line khipu/no-literal-de-ui -- número de ejemplo del panel: un identificador, igual en todos los idiomas */}

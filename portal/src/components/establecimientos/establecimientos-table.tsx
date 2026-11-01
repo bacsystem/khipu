@@ -18,24 +18,24 @@ import { EstablecimientoDialog } from "./establecimiento-dialog";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 function Estado({ activo, principal }: { activo: boolean; principal: boolean }) {
   const t = useMessages().establecimientos.tabla.estado;
   if (principal)
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-primary">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-primary">
         <span className="size-1.5 rounded-full bg-primary" />
         {t.domicilioFiscal}
       </span>
     );
   return activo ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
       <span className="size-1.5 rounded-full bg-success-solid" />
       {t.activo}
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
       {t.dadoDeBaja}
     </span>
@@ -59,7 +59,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
         {t.editarEnEmpresa}
       </Link>
     );
-  if (!establecimiento.activo) return <span className="text-[11px] text-muted-foreground/60">—</span>;
+  if (!establecimiento.activo) return <span className="text-etiqueta text-muted-foreground/60">—</span>;
 
   function darDeBaja() {
     setError(null);
@@ -79,7 +79,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
       <div className="flex items-center justify-end gap-1">
         {confirmando ? (
           <>
-            <span className="mr-1 text-[11px] text-muted-foreground">{interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}</span>
+            <span className="mr-1 text-etiqueta text-muted-foreground">{interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}</span>
             <button type="button" disabled={bajando} onClick={darDeBaja} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
               {bajando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
               {t.siDarDeBaja}
@@ -98,7 +98,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
               // H4 (#21): dar de baja es configuración; sin ese permiso (emisor, solo lectura, modo soporte) se ve deshabilitado, como «Editar».
               disabled={sinPermiso !== null || seriesActivas.length > 0}
               title={sinPermiso ?? (seriesActivas.length > 0 ? interpolar(t.tieneSeriesActivas, { series: seriesActivas.join(", ") }) : undefined)}
-              className={cn(ACCION, "text-destructive hover:bg-destructive/10")}
+              className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}
               data-testid={`baja-establecimiento-${establecimiento.codigo}`}
             >
               <ProhibitIcon className="size-3.5" />
@@ -108,7 +108,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
         )}
       </div>
       {error ? (
-        <span className="text-[11px] text-destructive" role="alert">
+        <span className="text-etiqueta text-destructive" role="alert">
           {error}
         </span>
       ) : null}
@@ -130,8 +130,8 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
             <StorefrontIcon className="size-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{t.subtitulo}</p>
+            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
+            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -147,7 +147,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity", refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -160,24 +160,24 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
               <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {establecimientos.map((e) => {
               const activas = seriesDe(e.codigo);
               return (
                 <TableRow key={e.codigo} className={cn("border-b border-border/60 hover:bg-muted/80", !e.activo && "opacity-70")} data-testid={`establecimiento-${e.codigo}`}>
                   <TableCell className="py-2 pr-3 pl-4">
-                    <span className={cn("rounded px-2 py-0.5 font-mono text-[13px] font-semibold tracking-tight", e.activo ? "bg-secondary text-primary" : "bg-muted text-muted-foreground")}>{e.codigo}</span>
+                    <span className={cn("rounded px-2 py-0.5 font-mono text-cuerpo font-semibold tracking-tight", e.activo ? "bg-secondary text-primary" : "bg-muted text-muted-foreground")}>{e.codigo}</span>
                   </TableCell>
                   <TableCell className="px-3 py-2 font-medium text-foreground">{e.nombre}</TableCell>
                   <TableCell className="px-3 py-2 text-foreground/90">
                     {e.domicilio.direccion}
                     {e.domicilio.urbanizacion ? <span className="text-muted-foreground">, {e.domicilio.urbanizacion}</span> : null}
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-etiqueta text-muted-foreground">
                       {[e.domicilio.distrito, e.domicilio.provincia, e.domicilio.departamento].filter(Boolean).join(" · ")}
                     </div>
                   </TableCell>
-                  <TableCell className="px-3 py-2 font-mono text-[12px] text-muted-foreground tabular-nums">{e.domicilio.ubigeo}</TableCell>
-                  <TableCell className="px-3 py-2 font-mono text-[12px] text-foreground/90">{activas.length > 0 ? activas.join(", ") : <span className="text-muted-foreground/60">—</span>}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono text-control text-muted-foreground tabular-nums">{e.domicilio.ubigeo}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono text-control text-foreground/90">{activas.length > 0 ? activas.join(", ") : <span className="text-muted-foreground/60">—</span>}</TableCell>
                   <TableCell className="px-4 py-2 whitespace-nowrap">
                     <Estado activo={e.activo} principal={e.principal} />
                   </TableCell>
@@ -192,7 +192,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
                 <TableCell colSpan={7} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <StorefrontIcon className="size-6" />
-                    <p className="text-sm">
+                    <p className="text-cuerpo">
                       {t.vacioAntes}{" "}
                       <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">
                         {t.vacioEnlace}

@@ -28,14 +28,14 @@ export function AvisoBoletaSinInformar({ aviso, que }: { aviso: AvisoDePlazo; qu
       data-fase={aviso.fase}
       data-urgente={urgente}
       className={cn(
-        "flex items-start gap-3 rounded-xl border p-4 text-sm",
+        "flex items-start gap-3 rounded-xl border p-4 text-cuerpo",
         urgente ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-warning-border bg-warning text-warning-foreground",
       )}
     >
       <WarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0" />
       <div className="space-y-1">
         <p className="font-semibold">{interpolar(t.titulo, { que: messages.comprobantes.estadoBaja.que[que] })}</p>
-        <p className="text-[13px] leading-relaxed">
+        <p className="text-control leading-relaxed">
           {aviso.fase === "ultimo-dia-individual" ? interpolar(t.ultimoDiaIndividual, { limite }) : null}
           {aviso.fase === "solo-resumen" ? interpolar(t.soloResumen, { limite, queda: cuantoQueda(aviso.diasRestantes, t) }) : null}
           {aviso.fase === "ultimo-dia-resumen" ? interpolar(t.ultimoDiaResumen, { limite }) : null}

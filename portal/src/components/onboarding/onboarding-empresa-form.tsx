@@ -102,7 +102,7 @@ export function OnboardingEmpresaForm() {
     router.refresh();
   }
 
-  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-sm text-muted-foreground" role="status">{t.cargando}</div>;
+  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-cuerpo text-muted-foreground" role="status">{t.cargando}</div>;
 
   return (
     <div className="mx-auto w-full max-w-lg">
@@ -143,14 +143,14 @@ export function OnboardingEmpresaForm() {
           </select>
           {/* El entorno no se puede cambiar después (no hay endpoint que lo edite): quien onboardea en Beta por descuido
               necesita intervención manual para emitir de verdad. */}
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-control text-muted-foreground">
             {tr.rich("entornoAyuda", { b: (texto) => <strong className="font-medium">{texto}</strong> })}
           </p>
         </div>
         <BotonAsync type="submit" pendiente={empresaForm.formState.isSubmitting} className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.continuar}
         </BotonAsync>
-        <p className="text-center text-[12px] text-muted-foreground">
+        <p className="text-center text-control text-muted-foreground">
           {t.despues}
         </p>
       </form>

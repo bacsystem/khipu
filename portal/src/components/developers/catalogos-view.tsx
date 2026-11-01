@@ -46,7 +46,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
             onChange={(e) => setFiltro(e.target.value)}
             placeholder={t.buscarPlaceholder}
             aria-label={t.buscarAria}
-            className="h-control w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
+            className="h-control w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-control text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
           />
         </div>
         {/*
@@ -62,7 +62,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
                   href={`#cat-${c.id}`}
                   aria-current={esActivo ? "location" : undefined}
                   className={cn(
-                    "flex items-baseline gap-2 rounded px-2 py-1 text-[12px] transition-colors",
+                    "flex items-baseline gap-2 rounded px-2 py-1 text-control transition-colors",
                     esActivo ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
                 >
@@ -78,31 +78,31 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
       <div className="min-w-0 space-y-8">
         <header className="space-y-2">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{t.titulo}</h1>
-          <p className="text-[14px] leading-relaxed text-muted-foreground">
+          <p className="text-cuerpo leading-relaxed text-muted-foreground">
             <Rico texto={t.intro} />
           </p>
         </header>
-        {visibles.length === 0 ? <p className="text-[13px] text-muted-foreground">{interpolar(t.sinCoincidencias, { filtro })}</p> : null}
+        {visibles.length === 0 ? <p className="text-control text-muted-foreground">{interpolar(t.sinCoincidencias, { filtro })}</p> : null}
         {visibles.map((c) => (
-          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16 overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <div className="border-b border-border/60 px-4 py-3">
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">{interpolar(t.catalogo, { id: c.id })}</span>
-                <h2 className="text-[15px] font-semibold text-foreground">{c.nombre}</h2>
-                <span className="font-mono text-[11px] text-muted-foreground">{interpolar(t.codigos, { n: c.entradas.length })}</span>
+                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta font-semibold text-primary">{interpolar(t.catalogo, { id: c.id })}</span>
+                <h2 className="text-base font-semibold text-foreground">{c.nombre}</h2>
+                <span className="font-mono text-etiqueta text-muted-foreground">{interpolar(t.codigos, { n: c.entradas.length })}</span>
               </div>
               {uso(messages, c.id) ? (
-                <p className="mt-1 text-[12px] text-muted-foreground">
+                <p className="mt-1 text-control text-muted-foreground">
                   <Rico texto={uso(messages, c.id) ?? ""} />
                 </p>
               ) : null}
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-control">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted">
                     {c.columnas.map((col) => (
-                      <th key={col} className="px-4 py-2 text-left text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">
+                      <th key={col} className="px-4 py-2 text-left text-etiqueta font-semibold text-muted-foreground/80">
                         {col}
                       </th>
                     ))}
@@ -114,7 +114,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
                       <td className="px-4 py-1.5 font-mono font-semibold whitespace-nowrap text-foreground">{e.codigo}</td>
                       <td className={cn("px-4 py-1.5 text-muted-foreground", c.columnas.length === 2 && "w-full")}>{e.descripcion}</td>
                       {c.columnas.slice(2).map((col) => (
-                        <td key={col} className="px-4 py-1.5 font-mono text-[12px] whitespace-nowrap text-muted-foreground">
+                        <td key={col} className="px-4 py-1.5 font-mono text-control whitespace-nowrap text-muted-foreground">
                           {e.extra[col] ?? "—"}
                         </td>
                       ))}

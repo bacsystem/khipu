@@ -28,8 +28,8 @@ export function NuevaEmpresaDialog({ className, etiqueta }: { className?: string
               <BuildingsIcon className="size-5" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">
                 {t.descripcion}
               </DialogDescription>
             </div>

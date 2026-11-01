@@ -32,8 +32,8 @@ export function ProductoDialog({ existente, trigger, className }: { existente?: 
               <PackageIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{existente ? t.tituloEditar : t.tituloNuevo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{existente ? t.descripcionEditar : t.descripcionNuevo}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{existente ? t.tituloEditar : t.tituloNuevo}</DialogTitle>
+              <DialogDescription className="text-control">{existente ? t.descripcionEditar : t.descripcionNuevo}</DialogDescription>
             </div>
           </div>
         </DialogHeader>

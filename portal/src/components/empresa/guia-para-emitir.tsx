@@ -22,7 +22,7 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
         <h2 id="guia-emitir-titulo" className={TITULO_SECCION}>
           {t.titulo}
         </h2>
-        <span className="font-mono text-[11px] text-muted-foreground" data-testid="guia-emitir-avance">
+        <span className="font-mono text-etiqueta text-muted-foreground" data-testid="guia-emitir-avance">
           {interpolar(t.avance, { listos, total: pasos.length })}
         </span>
       </div>
@@ -35,12 +35,12 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
               <CircleIcon weight={PESO_ICONO} className="size-4 shrink-0 text-muted-foreground/50" aria-hidden />
             )}
             <div className="min-w-0 flex-1 basis-56">
-              <p className="text-[13px] font-medium text-foreground">
+              <p className="text-control font-medium text-foreground">
                 {paso.titulo}
                 <span className="sr-only">{paso.listo ? t.listo : t.pendiente}</span>
-                {paso.recomendado && !paso.listo ? <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">{t.recomendado}</span> : null}
+                {paso.recomendado && !paso.listo ? <span className="ml-2 font-mono text-etiqueta font-normal text-muted-foreground">{t.recomendado}</span> : null}
               </p>
-              <p className="text-[12px] leading-relaxed text-muted-foreground">{paso.detalle}</p>
+              <p className="text-control leading-relaxed text-muted-foreground">{paso.detalle}</p>
             </div>
             {paso.listo ? null : (
               <Link href={paso.enlace} className={ACCION_SECUNDARIA}>

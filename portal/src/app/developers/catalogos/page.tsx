@@ -20,7 +20,7 @@ export default async function CatalogosPage() {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{t.titulo}</h1>
-        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-control leading-relaxed text-muted-foreground">
           {t.noDisponible}
         </p>
       </div>

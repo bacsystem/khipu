@@ -47,7 +47,7 @@ export function ConfiguracionDeLaPlataforma({ contenido, ahora }: { contenido: C
         <FormularioDeAviso key={contenido.banner?.actualizado_en ?? "ninguno"} banner={contenido.banner} ahora={ahora} alResultado={alResultado} />
       ) : null}
       {resultado && resultado.clave === clave ? (
-        <p data-testid={`${PREFIJO[contenido.seccion]}-resultado`} role="status" className="text-sm text-foreground">
+        <p data-testid={`${PREFIJO[contenido.seccion]}-resultado`} role="status" className="text-cuerpo text-foreground">
           {resultado.mensaje}
         </p>
       ) : null}

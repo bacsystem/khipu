@@ -127,9 +127,9 @@ describe("ColaDeErroresTabla (#196)", () => {
 
     const etiqueta = (i: number) => filas()[i].querySelector('[data-slot="badge"]')?.className ?? "";
     expect(etiqueta(0)).toContain("bg-warning");
-    expect(etiqueta(1)).toContain("bg-destructive/10");
-    expect(etiqueta(2)).toContain("bg-destructive/10");
-    expect(etiqueta(0)).not.toContain("bg-destructive/10");
+    expect(etiqueta(1)).toContain("bg-destructive-suave");
+    expect(etiqueta(2)).toContain("bg-destructive-suave");
+    expect(etiqueta(0)).not.toContain("bg-destructive-suave");
   });
 
   it("un error de envío sin reintento programado lo dice; uno terminal no dice nada del reintento", () => {

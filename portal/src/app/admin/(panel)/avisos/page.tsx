@@ -38,10 +38,10 @@ export default async function AdminAvisosPage({ searchParams }: { searchParams: 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <h1 className="font-heading text-2xl">{messages.admin.avisos.titulo}</h1>
-        <p className="max-w-4xl text-sm text-muted-foreground">{messages.admin.avisos.descripcion}</p>
+        <h1 className="font-heading text-titulo-pagina">{messages.admin.avisos.titulo}</h1>
+        <p className="max-w-4xl text-cuerpo text-muted-foreground">{messages.admin.avisos.descripcion}</p>
         {/* H21: una empresa que nunca cargó certificado tampoco puede emitir, y no tiene nada que vencer: no sale en estas listas. */}
-        <p className="max-w-4xl text-sm text-muted-foreground">
+        <p className="max-w-4xl text-cuerpo text-muted-foreground">
           {messages.admin.avisos.sinCertificado}{" "}
           <Link href={hrefEmpresas({ certificado: "SIN_CERTIFICADO", pagina: 1, porPagina: POR_PAGINA_DEFECTO })} className="font-medium text-primary hover:underline">
             {messages.admin.avisos.verSinCertificado}
@@ -52,7 +52,7 @@ export default async function AdminAvisosPage({ searchParams }: { searchParams: 
       {resultado.r ? (
         <AvisosTabla params={params} certificados={resultado.r.certificados} sol={resultado.r.sol} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
           <span>{messages.admin.avisos.error}</span>
           <Link href={hrefAvisos(params)} className="font-medium underline">
             {messages.admin.avisos.volverACargar}

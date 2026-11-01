@@ -9,7 +9,7 @@ import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import type { AnticiposDisponibles } from "./use-anticipos-disponibles";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Descontar anticipos (#312): las facturas o boletas aceptadas del mismo cliente y moneda, cada una con lo que queda por descontar. Al marcar una se propone descontar todo
@@ -53,7 +53,7 @@ export function AnticiposEditor({
             const elegido = i >= 0 ? elegidos[i] : null;
             return (
               <li key={c.etiqueta} className="grid gap-2 rounded-lg border border-border px-3 py-2">
-                <label className="flex items-center gap-2 text-[13px]">
+                <label className="flex items-center gap-2 text-control">
                   <input
                     type="checkbox"
                     checked={elegido !== null}

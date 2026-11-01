@@ -72,17 +72,17 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
   return (
     <section className={cn(TARJETA, "grid gap-4 p-5")} aria-labelledby="correo-titulo">
       <div className="grid gap-1">
-        <h2 id="correo-titulo" className="font-heading text-lg">
+        <h2 id="correo-titulo" className="font-heading text-titulo">
           {t.titulo}
         </h2>
-        <p className="max-w-3xl text-[13px] text-muted-foreground">{t.ayuda}</p>
+        <p className="max-w-3xl text-control text-muted-foreground">{t.ayuda}</p>
       </div>
 
-      <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px]">
+      <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control">
         <p data-testid="correo-vigente" className="font-medium">
           {t.vigente.replace("{remitente}", direccionEnPalabras(remitente.vigente))}
         </p>
-        <p data-testid="correo-origen" className="text-[12px] text-muted-foreground">
+        <p data-testid="correo-origen" className="text-control text-muted-foreground">
           {remitente.personalizado && remitente.actualizado_en ? t.personalizado.replace("{quien}", remitente.actualizado_por ?? messages.admin.unAdministrador).replace("{fecha}", formatearFechaHora(remitente.actualizado_en, locale)) : t.delServidor}
         </p>
       </div>
@@ -120,7 +120,7 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
       </div>
 
       {error ? (
-        <p ref={alertaRef} tabIndex={-1} data-testid="correo-error" className="text-sm text-destructive outline-none" role="alert">
+        <p ref={alertaRef} tabIndex={-1} data-testid="correo-error" className="text-cuerpo text-destructive outline-none" role="alert">
           {error}
         </p>
       ) : null}

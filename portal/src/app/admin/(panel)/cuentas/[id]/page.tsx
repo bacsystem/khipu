@@ -62,12 +62,12 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
-        <Link href="/admin/cuentas" className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">
+        <Link href="/admin/cuentas" className="inline-flex w-fit items-center gap-1 text-etiqueta text-primary hover:underline">
           <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
           {t.volver}
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-heading text-2xl">{resultado.cuenta?.nombre ?? messages.admin.cuentas.titulo}</h1>
+          <h1 className="font-heading text-titulo-pagina">{resultado.cuenta?.nombre ?? messages.admin.cuentas.titulo}</h1>
           {/* #250: el correo a soporte ya dice de qué cuenta se trata; solo nombre e id, nada sensible. */}
           {resultado.cuenta && soporte.email ? (
             <a href={correoDeSoporte(soporte.email, interpolar(t.asuntoSoporte, { nombre: resultado.cuenta.nombre, id }))} className={ACCION_SECUNDARIA}>
@@ -87,7 +87,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
               {plan ? (
                 <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
                   <span>{messages.admin.planDeCuenta.error}</span>
                   <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
                     {messages.admin.planDeCuenta.reintentar}
@@ -97,7 +97,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
               {pagos ? (
                 <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
                   <span>{messages.admin.pagos.error}</span>
                   <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
                     {messages.admin.pagos.reintentar}
@@ -108,7 +108,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
           }
         />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
           <span>{t.error}</span>
           <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
             {messages.admin.cuentas.reintentar}

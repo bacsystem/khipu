@@ -13,7 +13,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /** Alta (`POST`) o edición (`PUT`) de un producto guardado. Las reglas son las de una línea de comprobante: el backend las valida igual y lo guardado siempre se puede emitir. */
 export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?: ProductoGuardado | null; onGuardado?: (p: ProductoGuardado) => void; onCancelar?: () => void }) {
@@ -123,7 +123,7 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
       </Campo>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-cuerpo text-destructive" role="alert">
           {error}
         </p>
       ) : null}

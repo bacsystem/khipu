@@ -14,11 +14,11 @@ const ESTILOS: Record<EstadoDocumento, string> = {
   ENVIADO: "bg-secondary text-secondary-foreground border-border",
   ACEPTADO: "bg-success text-success-foreground border-success-border",
   ACEPTADO_CON_OBS: "bg-warning text-warning-foreground border-warning-border",
-  ERROR_ENVIO: "bg-destructive/10 text-destructive border-destructive-border",
-  INVALIDO: "bg-destructive/10 text-destructive border-destructive-border",
-  RECHAZADO: "bg-destructive/10 text-destructive border-destructive-border",
+  ERROR_ENVIO: "bg-destructive-suave text-destructive-texto border-destructive-border",
+  INVALIDO: "bg-destructive-suave text-destructive-texto border-destructive-border",
+  RECHAZADO: "bg-destructive-suave text-destructive-texto border-destructive-border",
   ANULADO: "bg-secondary text-muted-foreground border-border",
-  FUERA_DE_PLAZO: "bg-destructive/10 text-destructive border-destructive-border",
+  FUERA_DE_PLAZO: "bg-destructive-suave text-destructive-texto border-destructive-border",
   DESCARTADO: "bg-secondary text-muted-foreground border-border",
 };
 
@@ -40,7 +40,7 @@ export const PUNTOS: Record<EstadoDocumento, string> = {
 export function EstadoBadge({ estado, etiqueta }: { estado: EstadoDocumento; etiqueta?: string }) {
   const messages = useMessages();
   return (
-    <Badge className={cn("gap-1.5 border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap", ESTILOS[estado])}>
+    <Badge className={cn("gap-1.5 border px-2.5 py-1 text-etiqueta font-medium whitespace-nowrap", ESTILOS[estado])}>
       <span className={cn("size-1.5 shrink-0 rounded-full", PUNTOS[estado])} />
       {etiqueta ?? etiquetasEstado(messages)[estado]}
     </Badge>

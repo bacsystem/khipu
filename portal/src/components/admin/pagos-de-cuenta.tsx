@@ -21,7 +21,7 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
     <Seccion titulo={t.titulo} id="detalle-pagos">
       <div data-testid="pagos-de-cuenta" className="grid gap-3 p-4 pb-0">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <p className="max-w-2xl text-[13px] text-muted-foreground">{t.descripcion}</p>
+          <p className="max-w-2xl text-control text-muted-foreground">{t.descripcion}</p>
           <RegistrarPago cuentaId={cuentaId} cuentaNombre={cuentaNombre} plan={plan} hoy={hoy} />
         </div>
       </div>
@@ -36,7 +36,7 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{columnas.vencimiento}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {pagos.datos.map((p) => (
             <TableRow key={p.id} data-testid="pago-fila" data-extendio={p.extendio_hasta ? "true" : "false"} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4 whitespace-nowrap">{fecha(p.fecha_de_pago)}</TableCell>
@@ -45,11 +45,11 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
               </TableCell>
               <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto("PEN", p.monto, locale)}</TableCell>
               <TableCell className="px-3 py-2">{t.medios[p.medio]}</TableCell>
-              <TableCell className="px-3 py-2 font-mono text-[12px]">
+              <TableCell className="px-3 py-2 font-mono text-control">
                 {p.referencia ?? <span className="text-muted-foreground">{t.sinReferencia}</span>}
-                {p.nota ? <span className="block font-sans text-[11px] text-muted-foreground">{p.nota}</span> : null}
+                {p.nota ? <span className="block font-sans text-etiqueta text-muted-foreground">{p.nota}</span> : null}
               </TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px]">
+              <TableCell className="py-2 pr-4 pl-3 text-control">
                 {p.extendio_hasta ? t.extendio.replace("{fecha}", fecha(ultimoDiaCubierto(p.extendio_hasta))) : <span className="text-muted-foreground">{t.noExtendio}</span>}
               </TableCell>
             </TableRow>
@@ -58,7 +58,7 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
         </TableBody>
       </Table>
       {pagos.total > pagos.datos.length ? (
-        <p data-testid="pagos-recortados" className="border-t border-border/60 px-4 py-2 text-[12px] text-muted-foreground">
+        <p data-testid="pagos-recortados" className="border-t border-border/60 px-4 py-2 text-control text-muted-foreground">
           {t.muestra.replace("{n}", String(pagos.datos.length)).replace("{total}", String(pagos.total))}
         </p>
       ) : null}

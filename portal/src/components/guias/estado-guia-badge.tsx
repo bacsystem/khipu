@@ -11,8 +11,8 @@ const ESTILOS: Record<EstadoDeGuia, string> = {
   ENVIADO_PENDIENTE_TICKET: "bg-secondary text-secondary-foreground border-border",
   ACEPTADO: "bg-success text-success-foreground border-success-border",
   ACEPTADO_CON_OBS: "bg-warning text-warning-foreground border-warning-border",
-  ERROR_ENVIO: "bg-destructive/10 text-destructive border-destructive-border",
-  RECHAZADO: "bg-destructive/10 text-destructive border-destructive-border",
+  ERROR_ENVIO: "bg-destructive-suave text-destructive-texto border-destructive-border",
+  RECHAZADO: "bg-destructive-suave text-destructive-texto border-destructive-border",
 };
 
 const PUNTOS: Record<EstadoDeGuia, string> = {
@@ -29,7 +29,7 @@ const PUNTOS: Record<EstadoDeGuia, string> = {
 export function EstadoGuiaBadge({ estado }: { estado: EstadoDeGuia }) {
   const messages = useMessages();
   return (
-    <Badge className={cn("gap-1.5 border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap", ESTILOS[estado])}>
+    <Badge className={cn("gap-1.5 border px-2.5 py-1 text-etiqueta font-medium whitespace-nowrap", ESTILOS[estado])}>
       <span className={cn("size-1.5 shrink-0 rounded-full", PUNTOS[estado])} />
       {messages.guias.estados[estado]}
     </Badge>

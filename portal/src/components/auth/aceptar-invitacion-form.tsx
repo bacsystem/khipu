@@ -46,7 +46,7 @@ export function AceptarInvitacionForm({ token, email }: { token: string; email: 
     return (
       <div className="grid gap-4">
         <Alerta tono="ok">{t.exito}</Alerta>
-        <p className="text-[13px] text-muted-foreground">{interpolar(t.email, { email })}</p>
+        <p className="text-control text-muted-foreground">{interpolar(t.email, { email })}</p>
         <Link href="/login" className={cn(BOTON_PRIMARIO, "w-full")}>
           {t.irALogin}
         </Link>

@@ -90,7 +90,7 @@ function archivosTsx(dir: string): string[] {
 
 describe("alturas de los controles", () => {
   it("detecta una altura puesta encima de una receta", () => {
-    expect(sobrescrituras(`cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")`)).toHaveLength(1);
+    expect(sobrescrituras(`cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-control")`)).toHaveLength(1);
     expect(sobrescrituras(`cn(BOTON_SECUNDARIO, "h-control px-3.5")`)).toHaveLength(1);
     expect(sobrescrituras(`cn(abierto ? BOTON_PRIMARIO : BOTON_SECUNDARIO, "h-8 text-xs")`)).toHaveLength(1);
     expect(sobrescrituras("className={`${CAMPO} h-9 w-64`}")).toHaveLength(1);

@@ -111,8 +111,8 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">{t[ok]}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
+      {ok ? <p className="text-cuerpo text-success-foreground">{t[ok]}</p> : null}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         {configuradas ? (

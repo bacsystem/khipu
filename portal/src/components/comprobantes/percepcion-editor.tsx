@@ -8,7 +8,7 @@ import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Percepción del IGV (#297): el régimen (catálogo 53) y, si no es el importe total, la base. La tasa la fija el régimen y el monto lo calcula el backend; se muestra en el

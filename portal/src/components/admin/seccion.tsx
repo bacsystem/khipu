@@ -10,10 +10,10 @@ export const CABECERA_FILA = "border-b border-border/80 bg-muted hover:bg-muted"
 export function Seccion({ titulo, id, children }: { titulo: string; id: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="grid min-w-0 gap-2">
-      <h2 id={id} className="font-heading text-base">
+      <h2 id={id} className="font-heading text-titulo">
         {titulo}
       </h2>
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">{children}</div>
+      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">{children}</div>
     </section>
   );
 }
@@ -25,7 +25,7 @@ export function Vacio({ columnas, texto }: { columnas: number; texto: string }) 
       <TableCell colSpan={columnas} className="py-10 text-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <TrayIcon weight={PESO_ICONO} className="size-5" />
-          <p className="text-sm">{texto}</p>
+          <p className="text-cuerpo">{texto}</p>
         </div>
       </TableCell>
     </TableRow>

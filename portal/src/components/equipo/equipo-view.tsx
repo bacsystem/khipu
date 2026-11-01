@@ -17,8 +17,8 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 
 const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
-const PASTILLA = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium";
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+const PASTILLA = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium";
 
 /** Una acción de fila que llama a la API y refresca: el error queda debajo de la fila. */
 function useAccion() {
@@ -79,8 +79,8 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
       <Dialog open={degradandome !== null} onOpenChange={(v) => (v ? null : setDegradandome(null))}>
         <DialogContent className="gap-0 p-0">
           <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <DialogTitle className="text-base font-semibold tracking-tight">{t.degradarme.titulo}</DialogTitle>
-            <DialogDescription className="text-[13px]">
+            <DialogTitle className="text-titulo font-semibold tracking-tight">{t.degradarme.titulo}</DialogTitle>
+            <DialogDescription className="text-control">
               {t.degradarme.descripcion.replace("{rol}", degradandome ? etiquetas[degradandome] : "")}
             </DialogDescription>
           </DialogHeader>
@@ -104,7 +104,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
       </Dialog>
       <TableCell className="py-2 pr-3 pl-4">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[12px] text-foreground">{m.email}</span>
+          <span className="font-mono text-control text-foreground">{m.email}</span>
           {m.es_usted ? <span className={cn(PASTILLA, "border-primary/20 bg-accent text-accent-foreground")}>{t.usted}</span> : null}
         </div>
       </TableCell>
@@ -133,7 +133,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
       <TableCell className="py-2 pr-4 pl-2 text-right">
         <div className="flex flex-col items-end gap-1">
           {m.es_usted ? (
-            <span className="text-[11px] text-muted-foreground/60">—</span>
+            <span className="text-etiqueta text-muted-foreground/60">—</span>
           ) : !m.activo ? (
             <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/reactivar`, { method: "POST" })}
               className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
@@ -143,7 +143,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
           ) : confirmando ? (
             <div className="flex flex-col items-end gap-1">
               <div className="flex items-center gap-1">
-                <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarDesactivar}</span>
+                <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarDesactivar}</span>
                 <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/desactivar`, { method: "POST" }); }}
                   className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
                   <ProhibitIcon className="size-3.5" />
@@ -155,7 +155,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
               </div>
               {/* Las API keys son de la empresa, no de quien las creó: desactivarlo no las revoca. Se dice antes de confirmar, con el camino para hacerlo. */}
               {m.rol === "ADMIN" ? (
-                <p className="max-w-xs text-right text-[11px] text-muted-foreground" data-testid="aviso-api-keys">
+                <p className="max-w-xs text-right text-etiqueta text-muted-foreground" data-testid="aviso-api-keys">
                   {t.avisoApiKeys}{" "}
                   <Link href="/api-keys" className="text-primary hover:underline">
                     {t.irAApiKeys}
@@ -164,12 +164,12 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
               ) : null}
             </div>
           ) : (
-            <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+            <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
               <ProhibitIcon className="size-3.5" />
               {t.desactivar}
             </button>
           )}
-          {error ? <span role="alert" className="text-[11px] text-destructive">{error}</span> : null}
+          {error ? <span role="alert" className="text-etiqueta text-destructive">{error}</span> : null}
         </div>
       </TableCell>
     </TableRow>
@@ -188,21 +188,21 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
 
   return (
     <TableRow className="border-b border-border/60 hover:bg-muted/80" data-testid={`invitacion-${i.email}`}>
-      <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px] text-foreground">{i.email}</TableCell>
-      <TableCell className="px-3 py-2 text-[12px]">{etiquetas[i.rol] ?? i.rol}</TableCell>
+      <TableCell className="py-2 pr-3 pl-4 font-mono text-control text-foreground">{i.email}</TableCell>
+      <TableCell className="px-3 py-2 text-control">{etiquetas[i.rol] ?? i.rol}</TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">
         {i.vencida ? (
           <span className={cn(PASTILLA, "border-warning-border bg-warning text-warning-foreground")}>{t.vencida}</span>
         ) : (
-          <span className="font-mono text-[12px] text-muted-foreground tabular-nums">{t.venceEl.replace("{fecha}", formatearFechaHora(i.expira_en, locale))}</span>
+          <span className="font-mono text-control text-muted-foreground tabular-nums">{t.venceEl.replace("{fecha}", formatearFechaHora(i.expira_en, locale))}</span>
         )}
-        <div className="font-mono text-[11px] text-muted-foreground/80">{t.envios.replace("{n}", String(i.envios))}</div>
+        <div className="font-mono text-etiqueta text-muted-foreground/80">{t.envios.replace("{n}", String(i.envios))}</div>
       </TableCell>
       <TableCell className="py-2 pr-4 pl-2 text-right">
         <div className="flex flex-col items-end gap-1">
           {confirmando ? (
             <div className="flex items-center gap-1">
-              <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarRevocar}</span>
+              <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarRevocar}</span>
               <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/invitaciones/${i.id}`, { method: "DELETE" }); }}
                 className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
                 <ProhibitIcon className="size-3.5" />
@@ -221,14 +221,14 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
                 {pendiente ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <PaperPlaneTiltIcon className="size-3.5" />}
                 {t.reenviar}
               </button>
-              <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+              <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
                 <ProhibitIcon className="size-3.5" />
                 {t.revocar}
               </button>
             </div>
           )}
-          {error ? <span role="alert" className="text-[11px] text-destructive">{error}</span> : null}
-          {aviso ? <span role="status" className="text-[11px] text-muted-foreground">{aviso}</span> : null}
+          {error ? <span role="alert" className="text-etiqueta text-destructive">{error}</span> : null}
+          {aviso ? <span role="status" className="text-etiqueta text-muted-foreground">{aviso}</span> : null}
         </div>
       </TableCell>
     </TableRow>
@@ -242,8 +242,8 @@ function Encabezado({ icono: Icono, titulo, detalle }: { icono: typeof UsersIcon
         <Icono className="size-4" />
       </div>
       <div className="min-w-0">
-        <h2 className="text-[13px] font-semibold text-foreground">{titulo}</h2>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">{detalle}</p>
+        <h2 className="text-cuerpo font-semibold text-foreground">{titulo}</h2>
+        <p className="truncate font-mono text-etiqueta text-muted-foreground">{detalle}</p>
       </div>
     </div>
   );
@@ -257,7 +257,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.usuarios}>
         <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} />
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -267,7 +267,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
                 <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="text-[13px]">
+            <TableBody className="text-control">
               {miembros.map((m) => (
                 <FilaMiembro key={m.id} m={m} />
               ))}
@@ -278,7 +278,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
         <Encabezado icono={EnvelopeSimpleIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -288,13 +288,13 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
                 <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="text-[13px]">
+            <TableBody className="text-control">
               {invitaciones.map((i) => (
                 <FilaInvitacion key={i.id} i={i} />
               ))}
               {invitaciones.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={4} className="py-10 text-center text-cuerpo text-muted-foreground">
                     {t.sinInvitaciones}
                   </TableCell>
                 </TableRow>

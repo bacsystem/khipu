@@ -113,7 +113,7 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-cuerpo text-destructive" role="alert">
           {error}
         </p>
       ) : null}

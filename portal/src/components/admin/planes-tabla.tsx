@@ -19,7 +19,7 @@ function CambioProgramado({ plan }: { plan: PlanAdmin }) {
   const cambios = cambiosDeLimites(plan.limites, programado.limites, messages);
   if (cambios.length === 0) return null;
   return (
-    <p data-testid={`plan-programado-${plan.id}`} title={t.programadoAyuda} className="mt-1 text-[11px] leading-relaxed text-warning-foreground">
+    <p data-testid={`plan-programado-${plan.id}`} title={t.programadoAyuda} className="mt-1 text-etiqueta leading-relaxed text-warning-foreground">
       <span className="font-medium">{t.programado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}</span>
       {": "}
       {cambios.map((c) => `${t.cambiosDe[c.campo]}: ${c.de} → ${c.a}`).join(" · ")}
@@ -39,7 +39,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
   const columnas = t.columnas;
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -54,7 +54,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
               <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {planes.map((p) => (
               <TableRow
                 key={p.id}
@@ -97,7 +97,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
                 <TableCell colSpan={9} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon weight={PESO_ICONO} className="size-6" />
-                    <p className="text-sm">{t.vacio}</p>
+                    <p className="text-cuerpo">{t.vacio}</p>
                   </div>
                 </TableCell>
               </TableRow>

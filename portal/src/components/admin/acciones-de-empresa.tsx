@@ -99,24 +99,24 @@ export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tie
           <PlugsConnectedIcon className="size-4" />
           {probando ? t.conexion.probando : t.conexion.boton}
         </button>
-        {tieneSol ? null : <span className="text-xs text-muted-foreground">{t.conexion.sinSol}</span>}
+        {tieneSol ? null : <span className="text-etiqueta text-muted-foreground">{t.conexion.sinSol}</span>}
       </div>
-      <p className="text-xs text-muted-foreground">{t.conexion.nota}</p>
+      <p className="text-etiqueta text-muted-foreground">{t.conexion.nota}</p>
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-cuerpo text-destructive">
           {error}
         </p>
       ) : null}
       {resultado ? (
-        <div role="status" data-testid="resultado-conexion" data-resultado={resultado.resultado} className="grid gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-[13px]">
+        <div role="status" data-testid="resultado-conexion" data-resultado={resultado.resultado} className="grid gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-control">
           <div className="flex flex-wrap items-center gap-2">
             <Etiqueta tono={TONO_DEL_RESULTADO[resultado.resultado]}>{t.conexion.resultados[resultado.resultado]}</Etiqueta>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-etiqueta text-muted-foreground">
               {t.conexion.entornoProbado}: {resultado.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
             </span>
           </div>
           {resultado.codigo ? (
-            <dl className="grid gap-0.5 text-[12px]">
+            <dl className="grid gap-0.5 text-control">
               <div className="flex gap-2">
                 <dt className="text-muted-foreground">{t.conexion.codigo}:</dt>
                 <dd className="font-mono">{resultado.codigo}</dd>

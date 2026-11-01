@@ -74,8 +74,8 @@ export function InvitarDialog({ className }: { className?: string }) {
               <EnvelopeSimpleIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.subtitulo}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.subtitulo}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -113,8 +113,8 @@ export function InvitarDialog({ className }: { className?: string }) {
             <span className={AYUDA_CAMPO}>{roles.descripciones[rol]}</span>
           </div>
 
-          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-          {aviso ? <p role="status" className="text-sm text-warning-foreground">{aviso}</p> : null}
+          {error ? <p role="alert" className="text-cuerpo text-destructive">{error}</p> : null}
+          {aviso ? <p role="status" className="text-cuerpo text-warning-foreground">{aviso}</p> : null}
 
           <div className="mt-1 flex items-center justify-end gap-2 border-t border-border/60 pt-4">
             <button type="button" onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>

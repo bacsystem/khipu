@@ -23,14 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
 const ESTADO = {
   VIGENTE: "border-success-border bg-success text-success-foreground",
   EN_GRACIA: "border-warning-border bg-warning text-warning-foreground",
-  VENCIDA: "border-destructive/40 bg-destructive/10 text-destructive",
+  VENCIDA: "border-destructive/40 bg-destructive-suave text-destructive-texto",
 } as const;
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
       <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
-      <p className="text-[13px] text-foreground">{children}</p>
+      <p className="text-control text-foreground">{children}</p>
     </div>
   );
 }
@@ -79,7 +79,7 @@ export default async function PlanPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <p className="text-sm text-muted-foreground">{t.descripcion}</p>
+      <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
       {/* #250: «comunícate» tiene que decir por dónde. */}
       <AyudaDeSoporte />
 
@@ -105,7 +105,7 @@ export default async function PlanPage() {
             <h2 id="titulo-plan" className={TITULO_SECCION}>
               {interpolar(messages.nav.plan.etiqueta, { plan: plan.plan.nombre })}
             </h2>
-            <span className={cn("rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium", estado.clase)}>{estado.texto}</span>
+            <span className={cn("rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium", estado.clase)}>{estado.texto}</span>
           </div>
           <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
             <Dato etiqueta={t.precio}>{plan.plan.precio_mensual === 0 ? t.gratis : interpolar(t.alMes, { precio: precioEnSoles(plan.plan.precio_mensual, messages, locale) })}</Dato>
@@ -114,11 +114,11 @@ export default async function PlanPage() {
             {cubreHasta ? <Dato etiqueta={t.seSirveHasta}>{interpolar(t.graciaIncluida, { fecha: cubreHasta })}</Dato> : null}
             <div className="sm:col-span-2">
               <Dato etiqueta={t.limites}>{limitesEnPalabras(plan.plan.limites, messages)}</Dato>
-              <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">{t.retencionNota}</p>
+              <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t.retencionNota}</p>
             </div>
           </div>
           {plan.programado ? (
-            <p className="mt-4 rounded-lg border border-border/80 bg-muted p-3 text-[12px] text-muted-foreground">
+            <p className="mt-4 rounded-lg border border-border/80 bg-muted p-3 text-control text-muted-foreground">
               {tr.rich("programado", {
                 fecha: formatearFechaDeLima(plan.programado.aplica_desde, locale),
                 plan: plan.programado.plan.nombre,
@@ -133,7 +133,7 @@ export default async function PlanPage() {
             <h2 id="titulo-consumo" className={TITULO_SECCION}>
               {interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}
             </h2>
-            <span className="font-mono text-[13px] font-semibold text-foreground" data-testid="consumo-del-mes">
+            <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="consumo-del-mes">
               {r.consumo}
             </span>
           </div>
@@ -145,7 +145,7 @@ export default async function PlanPage() {
               />
             </div>
           ) : null}
-          <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">{t.nota}</p>
+          <p className="mt-3 text-control leading-relaxed text-muted-foreground">{t.nota}</p>
         </section>
 
         <section className={cn(TARJETA, "p-5", "lg:col-span-2")} aria-labelledby="titulo-uso">
@@ -157,7 +157,7 @@ export default async function PlanPage() {
               <li key={u.clave} data-testid={`uso-${u.clave}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className={ETIQUETA_DATO}>{t.uso[u.clave]}</span>
-                  <span className="font-mono text-[13px] font-semibold text-foreground">{u.texto}</span>
+                  <span className="font-mono text-cuerpo font-semibold text-foreground">{u.texto}</span>
                 </div>
                 {u.porcentaje !== null ? (
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={u.porcentaje} aria-label={t.uso[u.clave]}>
@@ -167,11 +167,11 @@ export default async function PlanPage() {
                     />
                   </div>
                 ) : null}
-                {u.aviso ? <p className={cn("mt-2 text-[12px] leading-relaxed", u.tono === "error" ? "text-destructive" : "text-muted-foreground")}>{u.aviso}</p> : null}
+                {u.aviso ? <p className={cn("mt-2 text-control leading-relaxed", u.tono === "error" ? "text-destructive" : "text-muted-foreground")}>{u.aviso}</p> : null}
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">{t.usoNota}</p>
+          <p className="mt-4 text-control leading-relaxed text-muted-foreground">{t.usoNota}</p>
         </section>
       </div>
     </div>

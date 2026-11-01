@@ -22,20 +22,20 @@ export function DocumentosDeAgente({ agente, retencion }: { agente: ComprobanteD
   const t = messages.comprobantes.agente;
   const c = t.columnas;
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs" data-testid="documentos-de-agente">
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-xs" data-testid="documentos-de-agente">
       <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
         <div className={TITULO_SECCION}>
           <RowsIcon weight={PESO_ICONO} className="size-4" />
           {retencion ? t.documentosPagados : t.documentosCobrados}
         </div>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="font-mono text-etiqueta text-muted-foreground">
           {interpolar(t.regimen, { regimen: agente.regimen, descripcion: agente.descripcion_regimen, tasa: formatearNumero(agente.tasa, locale) })}
         </span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs">
+        <table className="w-full border-collapse text-left text-etiqueta">
           <thead>
-            <tr className="border-b border-border/70 bg-muted font-mono text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta font-medium text-muted-foreground">
               <th className="px-4 py-2.5 font-medium">{c.documento}</th>
               <th className="px-3 py-2.5 font-medium">{c.emision}</th>
               <th className="px-3 py-2.5 text-right font-medium">{c.importeTotal}</th>
@@ -75,7 +75,7 @@ export function ImportesDeAgente({ agente, retencion }: { agente: ComprobanteDeA
   const t = useMessages().comprobantes.agente;
   const locale = useLocale();
   return (
-    <div className="space-y-2 text-xs" data-testid="importes-de-agente">
+    <div className="space-y-2 text-etiqueta" data-testid="importes-de-agente">
       <div className="flex justify-between py-1 text-muted-foreground">
         <span>{retencion ? t.totalRetenido : t.totalPercibido}</span>
         <span className="font-mono font-medium text-foreground tabular-nums">{formatearMonto("PEN", agente.importe_total, locale)}</span>
@@ -89,7 +89,7 @@ export function ImportesDeAgente({ agente, retencion }: { agente: ComprobanteDeA
       <div className="my-2 h-px bg-border" />
       <div className="flex items-baseline justify-between pt-1">
         <span className={ETIQUETA_DATO}>{retencion ? t.totalPagado : t.totalCobrado}</span>
-        <span className="font-mono text-xl font-bold tracking-tight text-foreground tabular-nums">{formatearMonto("PEN", agente.importe_neto, locale)}</span>
+        <span className="font-mono text-titulo-pagina font-bold tracking-tight text-foreground tabular-nums">{formatearMonto("PEN", agente.importe_neto, locale)}</span>
       </div>
     </div>
   );

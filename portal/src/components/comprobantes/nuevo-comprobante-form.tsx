@@ -63,7 +63,7 @@ type Linea = { codigo?: string; codigoSunat?: string; descripcion: string; canti
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10", descuento: AJUSTE_VACIO, cargo: AJUSTE_VACIO, isc: ISC_VACIO, icbper: false };
 
@@ -636,7 +636,7 @@ export function NuevoComprobanteForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
           {sinDocumento ? null : (
-            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground">
+            <label className="flex cursor-pointer items-center gap-1.5 text-control text-muted-foreground">
               <input type="checkbox" checked={guardarCliente} onChange={(e) => setGuardarCliente(e.target.checked)} className="size-3.5 accent-primary" />
               {t.guardarCliente}
             </label>
@@ -644,7 +644,7 @@ export function NuevoComprobanteForm({
         </div>
         <BuscadorDeClientes onElegir={elegirClienteGuardado} />
         {avisoCliente ? (
-          <p role="status" className="text-[12px] text-warning-foreground" data-testid="aviso-cliente-guardado">
+          <p role="status" className="text-control text-warning-foreground" data-testid="aviso-cliente-guardado">
             {avisoCliente}
           </p>
         ) : null}
@@ -848,7 +848,7 @@ export function NuevoComprobanteForm({
         {/* #288: detracción, #297: percepción. Solo en una venta interna (factura o boleta); se excluyen entre sí porque cada una fija su tipo de operación. */}
         {operacion !== "0101" ? null : (
           <div className="grid gap-3">
-            <label className="flex items-center gap-2 text-[13px] font-medium">
+            <label className="flex items-center gap-2 text-control font-medium">
               <input
                 type="checkbox"
                 checked={detraccion.activa}
@@ -872,7 +872,7 @@ export function NuevoComprobanteForm({
             ) : null}
             {detraccion.activa ? null : (
               <>
-                <label className="flex items-center gap-2 text-[13px] font-medium">
+                <label className="flex items-center gap-2 text-control font-medium">
                   <input
                     type="checkbox"
                     checked={percepcion.activa}
@@ -889,7 +889,7 @@ export function NuevoComprobanteForm({
                 ) : null}
                 {boleta || percepcion.activa ? null : (
                   <>
-                    <label className="flex items-center gap-2 text-[13px] font-medium">
+                    <label className="flex items-center gap-2 text-control font-medium">
                       <input type="checkbox" checked={retencion.activa} onChange={(e) => setRetencion((r) => ({ ...r, activa: e.target.checked }))} className="size-3.5 accent-primary" />
                       {t.retencionCheck}
                     </label>
@@ -920,7 +920,7 @@ export function NuevoComprobanteForm({
             onClick={() => setLineas((p) => [...p, { ...LINEA_VACIA }])}
             disabled={lineas.length >= MAX_LINEAS}
             title={lineas.length >= MAX_LINEAS ? interpolar(t.maxItemsTitulo, { max: MAX_LINEAS }) : undefined}
-            className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+            className="inline-flex items-center gap-1 text-control font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
           >
             <PlusIcon weight="bold" className="size-3.5" />
             {t.agregarItem}
@@ -928,7 +928,7 @@ export function NuevoComprobanteForm({
         </div>
         <BuscadorDeProductos onElegir={agregarProducto} />
         {avisoProducto ? (
-          <p role="status" className="text-[12px] text-warning-foreground" data-testid="aviso-producto-guardado">
+          <p role="status" className="text-control text-warning-foreground" data-testid="aviso-producto-guardado">
             {avisoProducto}
           </p>
         ) : null}
@@ -1025,7 +1025,7 @@ export function NuevoComprobanteForm({
                   </Campo>
                   {/* #298: ISC (catálogo 08) y bolsas de plástico (ICBPER). El precio que se escribe ya los incluye; el importe de cada tributo lo calcula el backend. */}
                   <fieldset className="grid content-start gap-1.5">
-                    <legend className="mb-1 text-[12px] font-medium text-foreground">{t.iscItem}</legend>
+                    <legend className="mb-1 text-control font-medium text-foreground">{t.iscItem}</legend>
                     <Campo id={`nc-isc-sistema-${i}`} etiqueta={t.sistemaIsc} className="[&>label]:sr-only">
                       <select
                         id={`nc-isc-sistema-${i}`}
@@ -1055,7 +1055,7 @@ export function NuevoComprobanteForm({
                         ) : null}
                       </>
                     ) : null}
-                    <label className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <label className="mt-1 flex items-center gap-2 text-control text-muted-foreground">
                       <input
                         type="checkbox"
                         checked={linea.icbper}
@@ -1079,7 +1079,7 @@ export function NuevoComprobanteForm({
 
         {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== ""}>
-          <summary className="cursor-pointer text-[13px] font-medium">{t.masOpciones}</summary>
+          <summary className="cursor-pointer text-control font-medium">{t.masOpciones}</summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
               <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
@@ -1103,9 +1103,9 @@ export function NuevoComprobanteForm({
 
         {/* #312: anticipos. Una factura de anticipo es común; la final descuenta los del mismo cliente. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-[13px] font-medium">{t.anticipos}</summary>
+          <summary className="cursor-pointer text-control font-medium">{t.anticipos}</summary>
           <div className="mt-3 grid gap-3">
-            <label className="flex items-center gap-2 text-[13px] font-medium">
+            <label className="flex items-center gap-2 text-control font-medium">
               <input
                 type="checkbox"
                 checked={esAnticipo}
@@ -1135,7 +1135,7 @@ export function NuevoComprobanteForm({
 
         {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
         <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={datosAbiertos} onToggle={(e) => setDatosAbiertos((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-[13px] font-medium">{t.datosAdicionales}</summary>
+          <summary className="cursor-pointer text-control font-medium">{t.datosAdicionales}</summary>
           <div className="mt-3">
             <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
           </div>
@@ -1226,7 +1226,7 @@ export function NuevoComprobanteForm({
           ) : null}
           <div className="flex items-baseline gap-2">
             <span className={cn(ETIQUETA_CAMPO, "text-muted-foreground")}>{t.totalAPagar}</span>
-            <span className="font-mono text-lg font-semibold tabular-nums" data-testid="total-a-pagar">
+            <span className="font-mono text-titulo font-semibold tabular-nums" data-testid="total-a-pagar">
               {sinImporteLocal ? "—" : formatearMonto(moneda, mostrados.total, locale)}
             </span>
             {sinImporteLocal ? (

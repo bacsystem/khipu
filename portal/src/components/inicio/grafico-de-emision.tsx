@@ -66,22 +66,22 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
         <h2 id="grafico-emision-titulo" className={TITULO_SECCION}>
           {titulo}
         </h2>
-        {serie && maximo > 0 ? <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{t.subtitulo}</span> : null}
+        {serie && maximo > 0 ? <span className="hidden font-mono text-etiqueta text-muted-foreground sm:inline">{t.subtitulo}</span> : null}
       </div>
 
       {serie === null ? (
-        <p data-testid="grafico-emision-error" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
+        <p data-testid="grafico-emision-error" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
           {t.error}
         </p>
       ) : maximo === 0 ? (
-        <p data-testid="grafico-emision-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px] text-muted-foreground">
+        <p data-testid="grafico-emision-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
           {t.vacio}
         </p>
       ) : (
         <>
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2">
             {/* El eje de valores: solo el máximo y el cero, en tinta apagada; la cuadrícula es una línea punteada a media altura. */}
-            <div className="flex h-40 flex-col justify-between text-right font-mono text-[10px] text-muted-foreground tabular-nums" aria-hidden>
+            <div className="flex h-40 flex-col justify-between text-right font-mono text-etiqueta text-muted-foreground tabular-nums" aria-hidden>
               <span data-testid="grafico-emision-maximo">{maximo}</span>
               <span>0</span>
             </div>
@@ -110,7 +110,7 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
               })}
             </svg>
             <span aria-hidden />
-            <div className="flex font-mono text-[10px] text-muted-foreground tabular-nums" aria-hidden>
+            <div className="flex font-mono text-etiqueta text-muted-foreground tabular-nums" aria-hidden>
               {serie.map((p, i) => (
                 <span key={p.fecha} className="min-w-0 flex-1 text-center">
                   {conRotulo(i, serie.length, p.fecha) ? dia(p.fecha) : ""}
@@ -119,8 +119,8 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
             </div>
           </div>
 
-          <details className="text-[13px]">
-            <summary className="cursor-pointer text-[12px] text-primary">{t.verTabla}</summary>
+          <details className="text-control">
+            <summary className="cursor-pointer text-control text-primary">{t.verTabla}</summary>
             <div className="mt-2 overflow-x-auto rounded-lg border border-border/90">
               <Table data-testid="grafico-emision-tabla">
                 <TableHeader>
@@ -134,7 +134,7 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
                     ))}
                   </TableRow>
                 </TableHeader>
-                <TableBody className="text-[13px] tabular-nums">
+                <TableBody className="text-control tabular-nums">
                   {serie.map((p) => (
                     <TableRow key={p.fecha} className="border-b border-border/60">
                       <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha, locale)}</TableCell>

@@ -60,7 +60,7 @@ export default async function Home() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 overflow-x-clip px-6 py-20 md:grid-cols-[1.05fr_1fr] md:py-28">
           {/* Una sola entrada orquestada, escalonada, y solo si el visitante no pidió menos movimiento. */}
           <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-control font-medium text-foreground/80">
               <span className="size-1.5 rounded-full bg-acento" aria-hidden />
               {t.hero.etiqueta}
             </p>
@@ -99,7 +99,7 @@ export default async function Home() {
         </section>
 
         <section className="border-y border-border bg-card">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-y-3 px-6 py-7 text-center text-[13px] tracking-[0.01em] text-muted-foreground sm:divide-x sm:divide-border">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-y-3 px-6 py-7 text-center text-control tracking-[0.01em] text-muted-foreground sm:divide-x sm:divide-border">
             {t.confianza.map((item) => (
               <span key={item} className="px-6 first:pl-0 last:pr-0">
                 {item}
@@ -112,7 +112,7 @@ export default async function Home() {
 
         <section className="bg-card">
           <div className="mx-auto max-w-6xl px-6 py-24">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-control font-medium text-foreground/80">
               <span className="size-1.5 rounded-full bg-acento" aria-hidden />
               {t.beneficios.etiqueta}
             </p>

@@ -72,7 +72,7 @@ export function BusquedaDelListado({
         placeholder={placeholder}
         maxLength={maxLength}
         autoComplete="off"
-        className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground/60"
+        className="min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground/60"
       />
     </div>
   );

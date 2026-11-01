@@ -64,7 +64,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
 
         <form onSubmit={buscar} role="search" className="flex items-end gap-2">
           <div className="grid gap-1">
-            <label htmlFor="errores-q" className="text-[11px] font-medium text-muted-foreground">
+            <label htmlFor="errores-q" className="text-etiqueta font-medium text-muted-foreground">
               {t.buscar}
             </label>
             <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO, "w-64")} />
@@ -76,7 +76,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
         </form>
 
         {params.empresa ? (
-          <span data-testid="errores-empresa-filtrada" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px]">
+          <span data-testid="errores-empresa-filtrada" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-control">
             {t.soloUnaEmpresa}
             <Link href={hrefErrores({ ...params, empresa: undefined, pagina: 1 })} className="font-medium text-primary hover:underline">
               {t.verTodas}
@@ -85,21 +85,21 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
         ) : null}
 
         {conFiltros ? (
-          <Link href={hrefErrores({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-[13px] text-primary hover:underline">
+          <Link href={hrefErrores({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-control text-primary hover:underline">
             {t.quitarFiltros}
           </Link>
         ) : null}
       </div>
 
-      {params.clase ? <p className="text-[12px] text-muted-foreground">{t.ayudaClase[params.clase]}</p> : null}
+      {params.clase ? <p className="text-control text-muted-foreground">{t.ayudaClase[params.clase]}</p> : null}
 
       {resultado ? (
-        <p data-testid="errores-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px]">
+        <p data-testid="errores-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control">
           {resultado}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -111,7 +111,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {errores.map((e) => (
               <TableRow key={e.comprobante_id} data-testid="errores-fila" data-clase={e.clase} data-comprobante={e.nombre_archivo} className="border-b border-border/60 align-top hover:bg-muted/80">
                 <TableCell className="py-2 pr-3 pl-4">
@@ -119,13 +119,13 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                     <Link href={hrefDetalleEmpresa(e.empresa_id)} className="font-medium text-foreground hover:text-primary hover:underline">
                       {e.razon_social}
                     </Link>
-                    <span className="font-mono text-[11px] text-muted-foreground">{e.ruc}</span>
-                    {e.cuenta_nombre ? <span className="text-[11px] text-muted-foreground">{e.cuenta_nombre}</span> : null}
+                    <span className="font-mono text-etiqueta text-muted-foreground">{e.ruc}</span>
+                    {e.cuenta_nombre ? <span className="text-etiqueta text-muted-foreground">{e.cuenta_nombre}</span> : null}
                     {params.empresa === e.empresa_id ? null : (
                       <Link
                         href={hrefErrores({ ...params, empresa: e.empresa_id, pagina: 1 })}
                         data-testid="errores-filtrar-empresa"
-                        className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                        className="mt-0.5 inline-flex items-center gap-1 text-etiqueta text-primary hover:underline"
                       >
                         <FunnelIcon className="size-3" />
                         {t.soloUnaEmpresa}
@@ -136,10 +136,10 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                 <TableCell className="px-3 py-2">
                   <div className="flex flex-col">
                     {/* #251: cada fila lleva a la ficha del comprobante. */}
-                    <Link href={hrefDetalleComprobante(e.comprobante_id)} className="font-mono text-[12px] whitespace-nowrap text-foreground hover:text-primary hover:underline">
+                    <Link href={hrefDetalleComprobante(e.comprobante_id)} className="font-mono text-control whitespace-nowrap text-foreground hover:text-primary hover:underline">
                       {e.nombre_archivo}
                     </Link>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-etiqueta text-muted-foreground">
                       {tipos[e.tipo] ?? e.tipo} · {formatearFecha(e.fecha_emision, locale)}
                     </span>
                   </div>
@@ -147,10 +147,10 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                 <TableCell className="px-3 py-2">
                   <div className="grid justify-items-start gap-1">
                     <Etiqueta tono={TONO_DE_CLASE[e.clase]}>{t.filtros[e.clase]}</Etiqueta>
-                    <span className="text-[11px] text-muted-foreground">{estados[e.estado] ?? e.estado}</span>
+                    <span className="text-etiqueta text-muted-foreground">{estados[e.estado] ?? e.estado}</span>
                   </div>
                 </TableCell>
-                <TableCell className="max-w-xs px-3 py-2 font-mono text-[11px] break-words text-muted-foreground" data-testid="errores-fault">
+                <TableCell className="max-w-xs px-3 py-2 font-mono text-etiqueta break-words text-muted-foreground" data-testid="errores-fault">
                   {faultEnPalabras(e.fault) || t.sinFault}
                 </TableCell>
                 <TableCell className="px-3 py-2">
@@ -159,9 +159,9 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                       {e.intentos}
                     </span>
                     {e.proximo_intento ? (
-                      <span className="text-[11px] whitespace-nowrap text-muted-foreground">{t.proximoIntento.replace("{fecha}", formatearFechaHora(e.proximo_intento, locale))}</span>
+                      <span className="text-etiqueta whitespace-nowrap text-muted-foreground">{t.proximoIntento.replace("{fecha}", formatearFechaHora(e.proximo_intento, locale))}</span>
                     ) : e.accionable ? (
-                      <span className="text-[11px] text-muted-foreground">{t.sinReintento}</span>
+                      <span className="text-etiqueta text-muted-foreground">{t.sinReintento}</span>
                     ) : null}
                   </div>
                 </TableCell>
@@ -172,7 +172,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                       <DescartarComprobante comprobante={e} alResultado={setResultado} />
                     </div>
                   ) : (
-                    <span className="text-[11px] text-muted-foreground">{e.clase === "BOLETA_SIN_ENVIAR" ? t.decisionDelCliente : t.terminal}</span>
+                    <span className="text-etiqueta text-muted-foreground">{e.clase === "BOLETA_SIN_ENVIAR" ? t.decisionDelCliente : t.terminal}</span>
                   )}
                 </TableCell>
               </TableRow>
@@ -182,7 +182,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div data-testid="errores-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">{params.q || params.empresa ? t.vacioConBusqueda : t.vacio[params.clase ?? "TODAS"]}</p>
+                    <p className="text-cuerpo">{params.q || params.empresa ? t.vacioConBusqueda : t.vacio[params.clase ?? "TODAS"]}</p>
                   </div>
                 </TableCell>
               </TableRow>

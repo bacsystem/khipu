@@ -78,7 +78,7 @@ export function ValidezButton({ datos }: { datos: DatosDeValidez }) {
       {resultado ? (
         <p
           role={resultado.tono === "error" ? "alert" : "status"}
-          className={resultado.tono === "error" ? "max-w-md text-right text-sm text-destructive" : resultado.tono === "ok" ? "max-w-md text-right text-sm text-success-foreground" : "max-w-md text-right text-sm text-warning-foreground"}
+          className={resultado.tono === "error" ? "max-w-md text-right text-cuerpo text-destructive" : resultado.tono === "ok" ? "max-w-md text-right text-cuerpo text-success-foreground" : "max-w-md text-right text-cuerpo text-warning-foreground"}
           data-testid="validez-resultado"
         >
           {resultado.texto}

@@ -50,18 +50,18 @@ export function CorreoButton({ id, numero, correoDelCliente = null }: { id: stri
           <EnvelopeSimpleIcon className="size-4 text-muted-foreground" />
           {t.boton}
         </button>
-        {enviadoA ? <span className="text-xs text-success-foreground" role="status" data-testid="correo-enviado">{interpolar(t.enviadoA, { email: enviadoA })}</span> : null}
+        {enviadoA ? <span className="text-etiqueta text-success-foreground" role="status" data-testid="correo-enviado">{interpolar(t.enviadoA, { email: enviadoA })}</span> : null}
       </div>
     );
   }
   return (
-    <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs shadow-2xs md:w-auto md:min-w-96" role="dialog" aria-label={interpolar(t.dialogo, { numero })} data-testid="correo-form">
+    <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-etiqueta shadow-xs md:w-auto md:min-w-96" role="dialog" aria-label={interpolar(t.dialogo, { numero })} data-testid="correo-form">
       <p className="leading-relaxed text-foreground">
         {tr.rich("seEnviara", { numero, n: (texto) => <span className="font-mono font-semibold">{texto}</span> })}
       </p>
-      <label htmlFor="correo-email" className="text-[12px] font-medium text-foreground">{t.correoCliente}</label>
+      <label htmlFor="correo-email" className="text-control font-medium text-foreground">{t.correoCliente}</label>
       <input id="correo-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="compras@cliente.pe" className={CAMPO} autoFocus />
-      <label htmlFor="correo-mensaje" className="text-[12px] font-medium text-foreground">{t.mensaje}</label>
+      <label htmlFor="correo-mensaje" className="text-control font-medium text-foreground">{t.mensaje}</label>
       <textarea id="correo-mensaje" value={mensaje} onChange={(e) => setMensaje(e.target.value)} maxLength={1000} rows={2} placeholder={t.mensajePlaceholder} className={cn(CAMPO, "h-auto py-2")} />
       {error ? <p className="text-destructive" role="alert">{error}</p> : null}
       <div className="flex flex-wrap gap-2">

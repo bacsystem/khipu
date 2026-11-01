@@ -32,11 +32,11 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
             <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{u.columnas.acciones}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {usuarios.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">{x.email}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px]">{x.rol}</TableCell>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.email}</TableCell>
+              <TableCell className="px-3 py-2 text-control">{x.rol}</TableCell>
               <TableCell className="px-3 py-2">
                 <Etiqueta tono={x.activo ? "ok" : "neutro"}>{x.activo ? u.activo : u.inactivo}</Etiqueta>
               </TableCell>
@@ -49,7 +49,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
                   <Etiqueta tono="aviso">{u.sinVerificar}</Etiqueta>
                 )}
               </TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">
+              <TableCell className="px-3 py-2 text-control text-foreground/80">
                 {x.ultimo_acceso ? formatearFechaHora(x.ultimo_acceso, locale) : <span className="text-muted-foreground">{u.nunca}</span>}
               </TableCell>
               <TableCell className="py-2 pr-4 pl-3">
@@ -78,13 +78,13 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{e.columnas.sol}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {empresas.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60">
               <TableCell className="py-2 pr-3 pl-4">
                 <div className="flex flex-col">
                   <span className="font-medium text-foreground">{x.razon_social}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">{x.ruc}</span>
+                  <span className="font-mono text-etiqueta text-muted-foreground">{x.ruc}</span>
                 </div>
               </TableCell>
               <TableCell className="px-3 py-2">
@@ -122,14 +122,14 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
             <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{c.columnas.total}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {comprobantes.map((x) => (
             <TableRow key={x.id} className="border-b border-border/60">
-              <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px]">
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">
                 {x.serie}-{String(x.numero).padStart(8, "0")}
               </TableCell>
-              <TableCell className="px-3 py-2 font-mono text-[12px] text-foreground/80">{x.ruc}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
+              <TableCell className="px-3 py-2 font-mono text-control text-foreground/80">{x.ruc}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
               <TableCell className="px-3 py-2">
                 <EstadoBadge estado={x.estado} />
               </TableCell>
@@ -166,14 +166,14 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{e.columnas.detalle}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]">
+        <TableBody className="text-control">
           {eventos.map((x, i) => (
             <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
               {/* Una acción que este portal todavía no conoce se muestra con su código, no se esconde. */}
               <TableCell className="py-2 pr-3 pl-4">{acciones[x.accion] ?? x.accion}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px]">{quien(x, t)}</TableCell>
-              <TableCell className="px-3 py-2 text-[12px] text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
-              <TableCell className="py-2 pr-4 pl-3 text-[12px] text-muted-foreground">{detalleLegible(x.detalle, messages, locale) || "—"}</TableCell>
+              <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-control text-muted-foreground">{detalleLegible(x.detalle, messages, locale) || "—"}</TableCell>
             </TableRow>
           ))}
           {eventos.length === 0 ? <Vacio columnas={4} texto={e.vacio} /> : null}
@@ -201,15 +201,15 @@ function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
             <TableHead className={`${CABECERA_TABLA} pr-4`}>{h.columnas.motivo}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="text-[13px]" data-testid="historial-estado">
+        <TableBody className="text-control" data-testid="historial-estado">
           {historial.map((x, i) => {
             const motivo = motivoDe(x.detalle);
             return (
               <TableRow key={`${x.ocurrido_en}-${i}`} className="border-b border-border/60">
-                <TableCell className="py-2 pr-3 pl-4 text-[12px] whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+                <TableCell className="py-2 pr-3 pl-4 text-control whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2">{acciones[x.accion] ?? x.accion}</TableCell>
-                <TableCell className="px-3 py-2 text-[12px]">{quien(x, t)}</TableCell>
-                <TableCell className="py-2 pr-4 pl-3 text-[12px]">{motivo ?? <span className="text-muted-foreground">{h.sinMotivo}</span>}</TableCell>
+                <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>
+                <TableCell className="py-2 pr-4 pl-3 text-control">{motivo ?? <span className="text-muted-foreground">{h.sinMotivo}</span>}</TableCell>
               </TableRow>
             );
           })}
@@ -251,44 +251,44 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
   return (
     <div className="grid min-w-0 gap-6" data-testid="cuenta-detalle">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-cuerpo">
           <div>
-            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.estado}</dt>
-            <dd className="text-[13px]">
+            <dt className="text-etiqueta text-muted-foreground">{t.estado}</dt>
+            <dd className="text-control">
               <EstadoCuentaEtiqueta estado={cuenta.estado} />
               {cuenta.suspendida_en ? (
-                <span data-testid="suspendida-desde" className="mt-1 block text-[11px] text-muted-foreground">
+                <span data-testid="suspendida-desde" className="mt-1 block text-etiqueta text-muted-foreground">
                   {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en, locale))}
                 </span>
               ) : null}
               {motivoSuspension ? (
-                <span data-testid="motivo-suspension" className="block max-w-sm text-[11px] text-foreground/80">
+                <span data-testid="motivo-suspension" className="block max-w-sm text-etiqueta text-foreground/80">
                   {t.motivo.replace("{motivo}", motivoSuspension)}
                 </span>
               ) : null}
               {cuenta.baja_en ? (
-                <span data-testid="baja-desde" className="mt-1 block text-[11px] text-muted-foreground">
+                <span data-testid="baja-desde" className="mt-1 block text-etiqueta text-muted-foreground">
                   {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en, locale))}
                 </span>
               ) : null}
               {motivoBaja ? (
-                <span data-testid="motivo-baja" className="block max-w-sm text-[11px] text-foreground/80">
+                <span data-testid="motivo-baja" className="block max-w-sm text-etiqueta text-foreground/80">
                   {t.motivo.replace("{motivo}", motivoBaja)}
                 </span>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.correo}</dt>
-            <dd className="font-mono text-[13px]">{cuenta.email}</dd>
+            <dt className="text-etiqueta text-muted-foreground">{t.correo}</dt>
+            <dd className="font-mono text-control">{cuenta.email}</dd>
           </div>
           <div>
-            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.telefono}</dt>
-            <dd className="font-mono text-[13px]">{cuenta.telefono ?? "—"}</dd>
+            <dt className="text-etiqueta text-muted-foreground">{t.telefono}</dt>
+            <dd className="font-mono text-control">{cuenta.telefono ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{t.alta}</dt>
-            <dd className="text-[13px]">{formatearFechaHora(cuenta.creada_en, locale)}</dd>
+            <dt className="text-etiqueta text-muted-foreground">{t.alta}</dt>
+            <dd className="text-control">{formatearFechaHora(cuenta.creada_en, locale)}</dd>
           </div>
         </dl>
         <div className="flex flex-wrap items-center gap-2">

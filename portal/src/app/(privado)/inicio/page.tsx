@@ -47,7 +47,7 @@ export default async function InicioPage() {
   const t = messages.inicio;
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.configurarEmpresa}
@@ -81,7 +81,7 @@ export default async function InicioPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4" data-testid="panel-de-inicio">
-      <p className="text-[13px] text-muted-foreground" data-testid="panel-periodo">
+      <p className="text-control text-muted-foreground" data-testid="panel-periodo">
         {mesEnPalabras(hoy, messages)}
         {empresa ? <span className="text-muted-foreground/80"> · {empresa.razon_social}</span> : null}
       </p>

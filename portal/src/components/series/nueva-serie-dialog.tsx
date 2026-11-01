@@ -32,8 +32,8 @@ export function NuevaSerieDialog({ className }: { className?: string }) {
               <PlusCircleIcon className="size-5" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>

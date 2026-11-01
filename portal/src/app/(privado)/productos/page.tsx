@@ -15,7 +15,7 @@ export default async function ProductosPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-cuerpo text-muted-foreground">
         {t.sinEmpresa}{" "}
         <Link href="/onboarding" className="text-primary hover:underline">
           {t.configurarEmpresa}

@@ -89,7 +89,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
               <FileLockIcon className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-mono text-[13px] font-medium text-foreground">{archivo.name}</p>
+              <p className="truncate font-mono text-control font-medium text-foreground">{archivo.name}</p>
               <p className={AYUDA_CAMPO}>{interpolar(t.listoParaSubir, { tamano: tamano(archivo.size) })}</p>
             </div>
             <button
@@ -116,7 +116,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
             )}
           >
             <CloudArrowUpIcon className="size-6 text-primary" />
-            <span className="text-[13px] font-medium text-foreground">{t.arrastra}</span>
+            <span className="text-control font-medium text-foreground">{t.arrastra}</span>
             <span className={AYUDA_CAMPO}>{t.examinar}</span>
           </label>
         )}
@@ -159,8 +159,8 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
         <span className={AYUDA_CAMPO}>{t.ayudaOu}</span>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">{t.actualizado}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
+      {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizado}</p> : null}
 
       <button
         type="submit"

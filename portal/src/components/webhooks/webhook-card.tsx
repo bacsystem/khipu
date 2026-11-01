@@ -18,14 +18,14 @@ import { EntregasWebhook } from "./entregas-webhook";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
 
 const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
-const ACCION_NEUTRA = cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted");
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+const ACCION_NEUTRA = cn(ACCION, "border border-border bg-card text-foreground/80 shadow-xs hover:bg-muted");
 
 function EstadoBadge({ webhook }: { webhook: Webhook }) {
   const t = useMessages().webhooks.tarjeta;
   if (webhook.activo)
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
         <span className="size-1.5 rounded-full bg-success-solid" />
         {t.activo}
       </span>
@@ -34,7 +34,7 @@ function EstadoBadge({ webhook }: { webhook: Webhook }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium",
         pausadoPorKhipu ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-muted-foreground",
       )}
     >
@@ -103,15 +103,15 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
   const bloqueado = soloLectura !== null || trabajando !== null;
 
   return (
-    <article data-testid="webhook" aria-label={interpolar(t.aria, { url: webhook.url })} className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
+    <article data-testid="webhook" aria-label={interpolar(t.aria, { url: webhook.url })} className="min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
       <div className="grid gap-3 px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[13px] font-semibold break-all text-foreground">{webhook.url}</span>
+              <span className="font-mono text-cuerpo font-semibold break-all text-foreground">{webhook.url}</span>
               <EstadoBadge webhook={webhook} />
             </div>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">
+            <p className="mt-0.5 text-control text-muted-foreground">
               {webhook.descripcion ? <>{webhook.descripcion} · </> : null}
               {interpolar(t.creado, { eventos: resumenDeEventos(webhook.eventos, messages), fecha: formatearFechaHora(webhook.creado_en, locale) })}
             </p>
@@ -119,14 +119,14 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
         </div>
 
         {webhook.pausado_motivo ? (
-          <div role="status" className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning px-3 py-2 text-[12px] leading-relaxed text-warning-foreground">
+          <div role="status" className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning px-3 py-2 text-control leading-relaxed text-warning-foreground">
             <ProhibitIcon className="mt-0.5 size-4 shrink-0" />
             <p>
               {interpolar(t.pausa, { motivo: webhook.pausado_motivo, n: PAUSA_TRAS_FALLOS })}
             </p>
           </div>
         ) : webhook.activo && webhook.fallos_consecutivos > 0 ? (
-          <p className="text-[12px] text-warning-foreground">
+          <p className="text-control text-warning-foreground">
             {interpolar(webhook.fallos_consecutivos === 1 ? t.falloUno : t.fallosVarios, { n: webhook.fallos_consecutivos, max: PAUSA_TRAS_FALLOS })}
           </p>
         ) : null}
@@ -142,7 +142,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
           </button>
           {confirmando === "rotar" ? (
             <>
-              <span className="text-[11px] text-muted-foreground">{t.confirmarRotar}</span>
+              <span className="text-etiqueta text-muted-foreground">{t.confirmarRotar}</span>
               <button type="button" disabled={bloqueado} onClick={rotar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
                 {t.siRotar}
               </button>
@@ -158,7 +158,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
           )}
           {confirmando === "eliminar" ? (
             <>
-              <span className="text-[11px] text-muted-foreground">{t.confirmarEliminar}</span>
+              <span className="text-etiqueta text-muted-foreground">{t.confirmarEliminar}</span>
               <button type="button" disabled={bloqueado} onClick={eliminar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
                 {t.siEliminar}
               </button>
@@ -167,7 +167,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
               </button>
             </>
           ) : (
-            <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("eliminar")} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
+            <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("eliminar")} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
               <TrashIcon className="size-3.5" />
               {t.eliminar}
             </button>
@@ -179,12 +179,12 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
         </div>
 
         {aviso ? (
-          <p role="status" className="text-[12px] text-success-foreground">
+          <p role="status" className="text-control text-success-foreground">
             {aviso}
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="text-[12px] text-destructive">
+          <p role="alert" className="text-control text-destructive">
             {error}
           </p>
         ) : null}
@@ -195,8 +195,8 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
       <Dialog open={secretoNuevo !== null} onOpenChange={(abierto) => !abierto && setSecretoNuevo(null)}>
         <DialogContent className="gap-0 p-0">
           <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <DialogTitle className="text-base font-semibold tracking-tight">{t.nuevoSecreto}</DialogTitle>
-            <DialogDescription className="text-[13px]">{t.nuevoSecretoDescripcion}</DialogDescription>
+            <DialogTitle className="text-titulo font-semibold tracking-tight">{t.nuevoSecreto}</DialogTitle>
+            <DialogDescription className="text-control">{t.nuevoSecretoDescripcion}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 px-5 py-4">{secretoNuevo ? <SecretoWebhookRevelado secreto={secretoNuevo} /> : null}</div>
           <div className="flex justify-end border-t border-border/60 px-5 py-3">

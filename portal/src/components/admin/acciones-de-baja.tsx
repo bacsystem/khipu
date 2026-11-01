@@ -88,14 +88,14 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
               <Icono className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{textos.titulo}</DialogTitle>
-              <DialogDescription className="text-[13px]">{textos.descripcion.replace("{nombre}", nombre)}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{textos.titulo}</DialogTitle>
+              <DialogDescription className="text-control">{textos.descripcion.replace("{nombre}", nombre)}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
+          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
             {deBaja ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />}
             <ul className="grid list-disc gap-1 pl-4">
               {textos.efectos.map((efecto) => (
@@ -125,7 +125,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
             </div>
           )}
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}

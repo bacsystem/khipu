@@ -39,7 +39,7 @@ export function ReferenciaApiKeysDialog({ className }: { className?: string }) {
       descripcion={t.descripcion}
       className={className}
       pie={
-        <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
+        <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-control font-medium text-primary hover:underline">
           <BookOpenIcon className="size-3.5" />
           {t.documentacion}
         </Link>

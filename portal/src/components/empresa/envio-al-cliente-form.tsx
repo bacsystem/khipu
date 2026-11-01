@@ -53,7 +53,7 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
           {t.sinCorreoTexto}
         </Alerta>
       ) : null}
-      <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+      <label className="flex cursor-pointer items-start gap-2.5 text-control text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
         <input
           type="checkbox"
           checked={activado}
@@ -72,9 +72,9 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
         </span>
       </label>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
       {ok ? (
-        <p className="text-sm text-success-foreground" role="status">
+        <p className="text-cuerpo text-success-foreground" role="status">
           {guardado ? t.activado : t.desactivado}
         </p>
       ) : null}

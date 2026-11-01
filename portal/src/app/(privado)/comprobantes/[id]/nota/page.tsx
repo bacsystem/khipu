@@ -50,16 +50,16 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <Link href={`/comprobantes/${id}`} className={cn(BOTON_SECUNDARIO, "h-auto px-2.5 py-1.5 text-xs")}>
+      <div className="flex flex-wrap items-center gap-3 text-cuerpo">
+        <Link href={`/comprobantes/${id}`} className={cn(BOTON_SECUNDARIO, "h-auto px-2.5 py-1.5 text-etiqueta")}>
           <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
           {boleta ? t.volverABoleta : t.volverAFactura}
         </Link>
       </div>
       <section className={cn(TARJETA, "p-6")}>
         {/* El h1 de la página lo pone el top bar (la miga); este es el título de la tarjeta. */}
-        <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">{interpolar(t.emitirSobre, { numero: `${factura.serie}-${factura.numero}` })}</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground" data-testid="nota-comprador">
+        <h2 className="font-heading text-titulo-pagina font-bold tracking-tight text-foreground">{interpolar(t.emitirSobre, { numero: `${factura.serie}-${factura.numero}` })}</h2>
+        <p className="mt-1 text-control text-muted-foreground" data-testid="nota-comprador">
           {comprador} · {formatearMonto(factura.moneda, factura.totales.total, locale)} · {boleta ? t.tomaDeBoleta : t.tomaDeFactura}
         </p>
         <div className="mt-6">

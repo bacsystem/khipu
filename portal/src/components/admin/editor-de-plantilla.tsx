@@ -121,13 +121,13 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
   return (
     <section className={cn(TARJETA, "grid gap-4 p-5")} aria-labelledby="plantilla-titulo" data-testid="plantilla-editor" data-tipo={plantilla.tipo}>
       <div className="grid gap-1">
-        <h2 id="plantilla-titulo" className="font-heading text-lg">
+        <h2 id="plantilla-titulo" className="font-heading text-titulo">
           {plantilla.etiqueta}
         </h2>
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-control text-muted-foreground">
           <span className="font-medium text-foreground">{t.cuandoSeManda}:</span> {plantilla.cuando_se_manda}
         </p>
-        <p data-testid="plantilla-origen" className="text-[12px] text-muted-foreground">
+        <p data-testid="plantilla-origen" className="text-control text-muted-foreground">
           {plantilla.personalizada && plantilla.actualizada_en ? t.actualizada.replace("{quien}", plantilla.actualizada_por ?? messages.admin.unAdministrador).replace("{fecha}", formatearFechaHora(plantilla.actualizada_en, locale)) : t.deFabrica}
         </p>
       </div>
@@ -169,13 +169,13 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                 setCuerpo(e.target.value);
                 editado();
               }}
-              className={cn(CAMPO, "h-auto min-h-48 py-2 font-mono text-[13px] leading-relaxed")}
+              className={cn(CAMPO, "h-auto min-h-48 py-2 font-mono text-control leading-relaxed")}
             />
           </div>
         </div>
 
         <aside className="grid content-start gap-2" aria-label={t.variables}>
-          <h3 className="text-[12px] font-semibold text-foreground">{t.variables}</h3>
+          <h3 className="text-control font-semibold text-foreground">{t.variables}</h3>
           <p className={AYUDA_CAMPO}>{t.variablesAyuda}</p>
           <ul className="grid gap-1.5">
             {plantilla.variables.map((v) => (
@@ -185,15 +185,15 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                   data-testid={`plantilla-variable-${v.nombre}`}
                   onClick={() => insertar(`{${v.nombre}}`)}
                   title={t.insertar.replace("{variable}", `{${v.nombre}}`)}
-                  className="w-fit rounded-md bg-card px-1.5 py-0.5 font-mono text-[12px] font-medium text-foreground shadow-2xs transition-colors hover:bg-secondary"
+                  className="w-fit rounded-md bg-card px-1.5 py-0.5 font-mono text-control font-medium text-foreground shadow-xs transition-colors hover:bg-secondary"
                 >
                   {`{${v.nombre}}`}
                 </button>
-                <span className="text-[12px] text-foreground/80">
+                <span className="text-control text-foreground/80">
                   {v.descripcion}
                   {v.indispensable ? <strong className="ml-1 font-semibold text-foreground">({t.indispensable})</strong> : null}
                 </span>
-                <span className="break-all font-mono text-[11px] text-muted-foreground">{t.ejemplo.replace("{ejemplo}", v.ejemplo)}</span>
+                <span className="break-all font-mono text-etiqueta text-muted-foreground">{t.ejemplo.replace("{ejemplo}", v.ejemplo)}</span>
               </li>
             ))}
           </ul>
@@ -202,18 +202,18 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
 
       {vistaPrevia ? (
         <div data-testid="plantilla-vista-previa" className="grid gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
-          <h3 className="text-[12px] font-semibold text-foreground">{t.vistaPreviaTitulo}</h3>
-          <p className="text-[13px]">
+          <h3 className="text-control font-semibold text-foreground">{t.vistaPreviaTitulo}</h3>
+          <p className="text-control">
             <span className="font-medium">{t.vistaPreviaAsunto}:</span> <span data-testid="plantilla-vista-previa-asunto">{vistaPrevia.asunto}</span>
           </p>
-          <pre data-testid="plantilla-vista-previa-cuerpo" className="font-sans text-[13px] leading-relaxed break-words whitespace-pre-wrap">
+          <pre data-testid="plantilla-vista-previa-cuerpo" className="font-sans text-control leading-relaxed break-words whitespace-pre-wrap">
             {vistaPrevia.cuerpo}
           </pre>
         </div>
       ) : null}
 
       {error ? (
-        <p ref={alertaRef} tabIndex={-1} data-testid="plantilla-error" className="text-sm text-destructive outline-none" role="alert">
+        <p ref={alertaRef} tabIndex={-1} data-testid="plantilla-error" className="text-cuerpo text-destructive outline-none" role="alert">
           {error}
         </p>
       ) : null}
@@ -242,7 +242,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
             metodo="DELETE"
           />
         ) : null}
-        <span data-testid="plantilla-estado" className="ml-auto text-[12px] text-muted-foreground">
+        <span data-testid="plantilla-estado" className="ml-auto text-control text-muted-foreground">
           {hayCambios ? t.conCambios : t.sinCambios}
         </span>
       </div>

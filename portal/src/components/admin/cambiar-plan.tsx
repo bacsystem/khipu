@@ -128,8 +128,8 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
               <ArrowsLeftRightIcon className="size-4" />
             </div>
             <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
-              <DialogDescription className="text-[13px]">{t.descripcion}</DialogDescription>
+              <DialogTitle className="text-titulo font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
+              <DialogDescription className="text-control">{t.descripcion}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -154,7 +154,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 </option>
               ))}
             </select>
-            {errores.planId ? <span className="text-[12px] text-destructive">{errores.planId}</span> : null}
+            {errores.planId ? <span className="text-control text-destructive">{errores.planId}</span> : null}
           </div>
 
           {previa.estado === "ninguna" ? null : <Efecto previa={previa} />}
@@ -176,7 +176,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 aria-invalid={errores.pagadoHasta ? true : undefined}
                 className={CAMPO}
               />
-              {errores.pagadoHasta ? <span className="text-[12px] text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
+              {errores.pagadoHasta ? <span className="text-control text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="cambiar-plan-gracia" className={ETIQUETA_CAMPO}>
@@ -195,12 +195,12 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 aria-invalid={errores.gracia ? true : undefined}
                 className={CAMPO}
               />
-              {errores.gracia ? <span className="text-[12px] text-destructive">{errores.gracia}</span> : <span className={AYUDA_CAMPO}>{t.graciaAyuda}</span>}
+              {errores.gracia ? <span className="text-control text-destructive">{errores.gracia}</span> : <span className={AYUDA_CAMPO}>{t.graciaAyuda}</span>}
             </div>
           </div>
 
           {error ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert">
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
               {error}
             </p>
           ) : null}
@@ -233,13 +233,13 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
   const t = messages.admin.planDeCuenta.dialogo;
   if (previa.estado === "calculando")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] text-muted-foreground">
+      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
         {t.calculando}
       </p>
     );
   if (previa.estado === "error")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive">
+      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-control text-destructive">
         {previa.mensaje || t.errorPrevia}
       </p>
     );
@@ -253,7 +253,7 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
     .replace("{plan}", d.plan_nuevo.nombre)
     .replace("{limite}", limiteEnPalabras(limite, messages));
   return (
-    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status" className="grid gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
+    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status" className="grid gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
       <p className="font-medium">{t.direcciones[d.direccion]}</p>
       <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde, locale)).replace("{actual}", d.plan_actual.nombre)}</p>
       <p>{consumo}</p>

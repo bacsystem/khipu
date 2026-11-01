@@ -27,7 +27,7 @@ export default async function DevelopersPage() {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">{t.titulo}</h1>
-        <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-2xl text-cuerpo leading-relaxed text-muted-foreground">
           <Rico texto={t.texto} enlace="underline" />
         </p>
       </div>

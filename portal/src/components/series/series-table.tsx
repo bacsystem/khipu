@@ -118,7 +118,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs transition-opacity", refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -130,14 +130,14 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {data.map((s) => (
               <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group border-b border-border/60 hover:bg-muted/80", !s.activa && "opacity-80")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-2">
                     <div
                       className={cn(
-                        "flex size-7 shrink-0 items-center justify-center rounded font-mono text-[11px] font-semibold",
+                        "flex size-7 shrink-0 items-center justify-center rounded font-mono text-etiqueta font-semibold",
                         s.activa ? "bg-accent text-primary" : "bg-secondary text-muted-foreground",
                       )}
                     >
@@ -145,7 +145,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                     </div>
                     <div className="flex flex-col">
                       <span className="leading-snug font-semibold text-foreground">{interpolar(t.tipoElectronico, { tipo: ETIQUETAS_TIPO[s.tipo] ?? s.tipo })}</span>
-                      <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">{subtitulos[s.tipo] ?? t.comprobanteSunat}</span>
+                      <span className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80">{subtitulos[s.tipo] ?? t.comprobanteSunat}</span>
                     </div>
                   </div>
                 </TableCell>
@@ -153,7 +153,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
-                        "rounded px-2 py-0.5 font-mono text-[13px] font-semibold tracking-tight",
+                        "rounded px-2 py-0.5 font-mono text-cuerpo font-semibold tracking-tight",
                         s.activa ? "bg-secondary text-primary" : "bg-muted text-muted-foreground",
                       )}
                     >
@@ -163,19 +163,19 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 text-right whitespace-nowrap">
-                  <div className={cn("font-mono text-[13px] font-semibold tracking-tight tabular-nums", s.ultimo_numero === 0 ? "text-muted-foreground" : "text-foreground")}>
+                  <div className={cn("font-mono text-cuerpo font-semibold tracking-tight tabular-nums", s.ultimo_numero === 0 ? "text-muted-foreground" : "text-foreground")}>
                     {numero(s.ultimo_numero)}
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80 tabular-nums">
+                  <div className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80 tabular-nums">
                     {s.ultimo_numero === 0 ? t.sinEmisionesPrevias : interpolar(t.siguiente, { numero: numero(s.ultimo_numero + 1) })}
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
+                <TableCell className="px-3 py-2 font-mono text-control whitespace-nowrap">
                   <span className={cn("rounded px-1.5 py-0.5 font-medium", (s.establecimiento ?? "0000") === "0000" ? "bg-muted text-muted-foreground" : "bg-secondary text-primary")}>
                     {s.establecimiento ?? "0000"}
                   </span>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+                <TableCell className="px-3 py-2 font-mono text-etiqueta whitespace-nowrap text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">{mascara(s.serie)}</span>
                     <span>{interpolar(t.caracteres, { cantidad: s.serie.length })}</span>
@@ -183,12 +183,12 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
                   {s.activa ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
                       <span className="size-1.5 rounded-full bg-success-solid" />
                       {t.activa}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
                       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
                       {t.inactiva}
                     </span>
@@ -201,7 +201,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">
+                    <p className="text-cuerpo">
                       {series.length === 0 ? t.vacio : t.sinCoincidencias}
                     </p>
                   </div>

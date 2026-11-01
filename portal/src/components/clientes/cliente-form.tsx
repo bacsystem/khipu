@@ -13,7 +13,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
 
-const CAMPO_DENSO = cn(CAMPO, "text-[13px]");
+const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /** Alta (`POST`) o edición (`PUT`) de un cliente guardado. El documento se valida con las mismas reglas que el comprador de una boleta, así que lo guardado siempre se puede usar al emitir. */
 export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?: ClienteGuardado | null; onGuardado?: (c: ClienteGuardado) => void; onCancelar?: () => void }) {
@@ -116,7 +116,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
       </Campo>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-cuerpo text-destructive" role="alert">
           {error}
         </p>
       ) : null}

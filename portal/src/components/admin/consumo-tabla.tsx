@@ -77,7 +77,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
         </nav>
 
         <div className="grid gap-1">
-          <label htmlFor="consumo-mes" className="text-[11px] font-medium text-muted-foreground">
+          <label htmlFor="consumo-mes" className="text-etiqueta font-medium text-muted-foreground">
             {t.mes}
           </label>
           <input
@@ -90,7 +90,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
         </div>
 
         <div className="grid gap-1">
-          <label htmlFor="consumo-orden" className="text-[11px] font-medium text-muted-foreground">
+          <label htmlFor="consumo-orden" className="text-etiqueta font-medium text-muted-foreground">
             {t.orden}
           </label>
           <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO, "w-auto")}>
@@ -103,12 +103,12 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
         </div>
       </div>
 
-      <ul className="grid gap-0.5 text-[12px] text-muted-foreground">
+      <ul className="grid gap-0.5 text-control text-muted-foreground">
         <li>{t.ayudaPlanDeHoy}</li>
         <li>{t.ayudaAlerta.replace("{umbral}", String(datos.umbral_de_alerta))}</li>
       </ul>
 
-      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -120,7 +120,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{columnas.estadoDelPlan}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {datos.cuentas.map((c) => (
               <TableRow key={c.cuenta_id} data-alerta={c.en_alerta} className={cn("border-b border-border/60 hover:bg-muted/80", c.en_alerta && "bg-warning/40 hover:bg-warning/60")}>
                 <TableCell className="py-2 pr-3 pl-4">
@@ -128,7 +128,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
                     <Link href={hrefDetalleCuenta(c.cuenta_id)} className="font-medium text-foreground hover:text-primary hover:underline">
                       {c.nombre}
                     </Link>
-                    <span className="font-mono text-[11px] text-muted-foreground">{c.email}</span>
+                    <span className="font-mono text-etiqueta text-muted-foreground">{c.email}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2">{c.plan}</TableCell>
@@ -152,7 +152,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
                     <span data-estado={c.estado_del_plan}>
                       <Etiqueta tono={TONO_DEL_PLAN[c.estado_del_plan]}>{messages.admin.planDeCuenta.estados[c.estado_del_plan]}</Etiqueta>
                     </span>
-                    {c.pagado_hasta ? <span className="text-[11px] text-muted-foreground">{t.pagadoHasta.replace("{fecha}", formatearFecha(ultimoDiaCubierto(c.pagado_hasta), locale))}</span> : null}
+                    {c.pagado_hasta ? <span className="text-etiqueta text-muted-foreground">{t.pagadoHasta.replace("{fecha}", formatearFecha(ultimoDiaCubierto(c.pagado_hasta), locale))}</span> : null}
                   </div>
                 </TableCell>
               </TableRow>
@@ -162,7 +162,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">{t.vacio[params.filtro]}</p>
+                    <p className="text-cuerpo">{t.vacio[params.filtro]}</p>
                   </div>
                 </TableCell>
               </TableRow>

@@ -34,7 +34,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
 
   return (
     <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
-      <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-[12px] font-medium text-foreground/80">
+      <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-acento-borde bg-acento-suave px-3 py-1 text-control font-medium text-foreground/80">
         <span className="size-1.5 rounded-full bg-acento" aria-hidden />
         {messages.landing.acciones.precios}
       </p>
@@ -61,7 +61,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               )}
             >
               {op.etiqueta}
-              {op.valor ? <span className={cn("ml-1.5 text-[11px]", anual ? "text-primary-foreground/80" : "text-acento")}>{t.ahorroAnual}</span> : null}
+              {op.valor ? <span className={cn("ml-1.5 text-etiqueta", anual ? "text-primary-foreground/80" : "text-acento")}>{t.ahorroAnual}</span> : null}
             </button>
           ))}
         </div>
@@ -84,7 +84,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">{p.nombre}</h3>
-                  <p className="mt-0.5 text-[13px] text-muted-foreground">{p.para}</p>
+                  <p className="mt-0.5 text-control text-muted-foreground">{p.para}</p>
                 </div>
                 {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-[#1b1206]">{t.masUsado}</Badge> : null}
               </div>
@@ -96,7 +96,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                 <span className="text-sm text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
               </p>
               {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo. */}
-              <p className="mt-1 min-h-[1.25rem] text-[12px] text-acento">
+              <p className="mt-1 min-h-[1.25rem] text-control text-acento">
                 {anual && p.mensual > 0 ? interpolar(t.alAno, { monto: soles(alAno) }) : ""}
               </p>
 

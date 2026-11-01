@@ -58,7 +58,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
               placeholder="MODDATOS"
               autoComplete="off"
               required
-              className={cn(CAMPO, "pl-9 font-mono uppercase")}
+              className={cn(CAMPO, "pl-9 font-mono")}
             />
           </div>
           <span className={AYUDA_CAMPO}>{t.usuarioAyuda}</span>
@@ -93,8 +93,8 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">{t.actualizadas}</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
+      {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizadas}</p> : null}
 
       {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">

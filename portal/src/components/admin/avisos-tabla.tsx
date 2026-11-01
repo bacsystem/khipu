@@ -56,7 +56,7 @@ function deCertificado(c: CertificadoEnRiesgo, messages: Mensajes, locale: Local
     situacion: (
       <div className="grid justify-items-start gap-1">
         <Etiqueta tono={TONO_DEL_CERTIFICADO[c.motivo]}>{t.motivos[c.motivo]}</Etiqueta>
-        <span className="text-[12px] text-muted-foreground">{certificadoEnPalabras(c, messages, locale)}</span>
+        <span className="text-control text-muted-foreground">{certificadoEnPalabras(c, messages, locale)}</span>
       </div>
     ),
     ultimoAviso: c.ultimo_aviso,
@@ -77,8 +77,8 @@ function deSol(s: SolFallando, messages: Mensajes, locale: Locale): Fila {
     situacion: (
       <div className="grid justify-items-start gap-1">
         <Etiqueta tono="error">{atascadosEnPalabras(s.comprobantes_afectados, messages)}</Etiqueta>
-        <span className="text-[12px] text-muted-foreground">{t.sol.ultimoFallo.replace("{fecha}", formatearFechaHora(s.ultimo_fallo, locale))}</span>
-        <span className="font-mono text-[11px] break-words text-muted-foreground" data-testid="avisos-sunat">
+        <span className="text-control text-muted-foreground">{t.sol.ultimoFallo.replace("{fecha}", formatearFechaHora(s.ultimo_fallo, locale))}</span>
+        <span className="font-mono text-etiqueta break-words text-muted-foreground" data-testid="avisos-sunat">
           {t.sol.dijoSunat.replace("{error}", s.ultimo_error)}
         </span>
       </div>
@@ -122,15 +122,15 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
         ))}
       </nav>
 
-      <p className="text-[12px] text-muted-foreground">{t.ayuda[params.vista]}</p>
+      <p className="text-control text-muted-foreground">{t.ayuda[params.vista]}</p>
 
       {resultado ? (
-        <p data-testid="avisos-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13px]">
+        <p data-testid="avisos-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control">
           {resultado}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
+      <div className="overflow-x-auto rounded-xl border border-border/90 bg-card shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
@@ -140,7 +140,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
               <TableHead className={`${CABECERA_TABLA} pr-4`}>{t.columnas.accion}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {filas.map((f) => (
               <TableRow key={`${f.empresaId}-${f.motivo}`} data-testid="avisos-fila" data-empresa={f.ruc} data-motivo={f.motivo} className="border-b border-border/60 align-top hover:bg-muted/80">
                 <TableCell className="py-2 pr-3 pl-4">
@@ -148,27 +148,27 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
                     <Link href={hrefDetalleEmpresa(f.empresaId)} className="font-medium text-foreground hover:text-primary hover:underline">
                       {f.razonSocial}
                     </Link>
-                    <span className="font-mono text-[11px] text-muted-foreground">{f.ruc}</span>
+                    <span className="font-mono text-etiqueta text-muted-foreground">{f.ruc}</span>
                     {f.cuenta ? (
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-etiqueta text-muted-foreground">
                         {f.cuenta.nombre} · {f.cuenta.email}
                       </span>
                     ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2">{f.situacion}</TableCell>
-                <TableCell className="px-3 py-2 text-[12px] text-muted-foreground" data-testid="avisos-ultimo">
+                <TableCell className="px-3 py-2 text-control text-muted-foreground" data-testid="avisos-ultimo">
                   {ultimoAvisoEnPalabras(f.ultimoAviso, messages, locale)}
                 </TableCell>
                 <TableCell className="py-2 pr-4 pl-3">
                   {!f.cuenta ? (
-                    <span data-testid="avisos-sin-cuenta" className="text-[11px] text-muted-foreground">
+                    <span data-testid="avisos-sin-cuenta" className="text-etiqueta text-muted-foreground">
                       {t.sinCuenta}
                     </span>
                   ) : f.puedeAvisar ? (
                     <AvisarAlCliente empresaId={f.empresaId} razonSocial={f.razonSocial} correo={f.cuenta.email} tipo={f.tipo} motivo={f.motivo} alResultado={setResultado} />
                   ) : (
-                    <span data-testid="avisos-espera" className="text-[11px] text-muted-foreground">
+                    <span data-testid="avisos-espera" className="text-etiqueta text-muted-foreground">
                       {f.avisarDesde ? t.puedeRepetirDesde.replace("{fecha}", formatearFechaHora(f.avisarDesde, locale)) : null}
                     </span>
                   )}
@@ -180,7 +180,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
                 <TableCell colSpan={4} className="py-14 text-center">
                   <div data-testid="avisos-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
                     <TrayIcon className="size-6" />
-                    <p className="text-sm">{t.vacio[params.vista]}</p>
+                    <p className="text-cuerpo">{t.vacio[params.vista]}</p>
                   </div>
                 </TableCell>
               </TableRow>

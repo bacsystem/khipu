@@ -53,7 +53,7 @@ export function ReenviarButton({ id, etiqueta, enCurso }: { id: string; etiqueta
         {enviando ? (enCurso ?? t.enCurso) : (etiqueta ?? t.etiqueta)}
       </Button>
       {error ? (
-        <p role="alert" className="max-w-md text-right text-sm text-destructive">
+        <p role="alert" className="max-w-md text-right text-cuerpo text-destructive">
           {error}
         </p>
       ) : null}

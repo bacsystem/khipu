@@ -145,20 +145,20 @@ export function BuscadorConLista<T extends { id: string }>({
         onFocus={() => hayTexto && resultados && setAbierto(true)}
         onKeyDown={teclas}
         placeholder={placeholder}
-        className={cn(CAMPO, "pl-9 text-[13px]")}
+        className={cn(CAMPO, "pl-9 text-control")}
       />
       <p role="status" className="sr-only">
         {listaVisible ? (resultados.length === 0 ? sinResultados : `${resultados.length} ${resultados.length === 1 ? encontrados[0] : encontrados[1]}`) : ""}
       </p>
       {error ? (
-        <p role="status" className="mt-1 text-[12px] text-muted-foreground">
+        <p role="status" className="mt-1 text-control text-muted-foreground">
           {error}
         </p>
       ) : null}
       {listaVisible ? (
         <ul id={idLista} role="listbox" className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-popover py-1 shadow-md">
           {resultados.length === 0 ? (
-            <li role="option" aria-selected={false} aria-disabled className="px-3 py-2 text-[13px] text-muted-foreground">
+            <li role="option" aria-selected={false} aria-disabled className="px-3 py-2 text-control text-muted-foreground">
               {sinResultados}
             </li>
           ) : (
@@ -173,7 +173,7 @@ export function BuscadorConLista<T extends { id: string }>({
                   e.preventDefault();
                   elegir(item);
                 }}
-                className={cn("flex cursor-pointer items-baseline justify-between gap-3 px-3 py-2 text-[13px]", i === activo && "bg-muted")}
+                className={cn("flex cursor-pointer items-baseline justify-between gap-3 px-3 py-2 text-control", i === activo && "bg-muted")}
               >
                 {fila(item)}
               </li>

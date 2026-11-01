@@ -20,12 +20,12 @@ import { etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
 const ESTILO_ESTADO: Record<EstadoEntrega, string> = {
   EXITOSA: "border-success-border bg-success text-success-foreground",
   PENDIENTE: "border-warning-border bg-warning text-warning-foreground",
-  FALLIDA: "border-destructive/30 bg-destructive/10 text-destructive",
+  FALLIDA: "border-destructive/30 bg-destructive-suave text-destructive-texto",
 };
 
 function EstadoEntregaBadge({ estado }: { estado: EstadoEntrega }) {
   const etiquetas = useMessages().webhooks.estadoEntrega;
-  return <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium", ESTILO_ESTADO[estado])}>{etiquetas[estado]}</span>;
+  return <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium", ESTILO_ESTADO[estado])}>{etiquetas[estado]}</span>;
 }
 
 /**
@@ -90,7 +90,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
   return (
     <div className="grid gap-3 border-t border-border/70 px-4 py-3" data-testid="entregas-webhook">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[12px] font-semibold text-foreground">{t.titulo}</h3>
+        <h3 className="text-control font-semibold text-foreground">{t.titulo}</h3>
         <div className="flex items-center gap-2">
           <select
             aria-label={t.filtrar}
@@ -113,7 +113,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
       </div>
 
       {error ? (
-        <p role="alert" className="text-[12px] text-destructive">
+        <p role="alert" className="text-control text-destructive">
           {error}
         </p>
       ) : null}
@@ -130,29 +130,29 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
               <TableHead className={cn(CABECERA_TABLA, "pr-4 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {(entregas ?? []).map((e) => (
               <TableRow key={e.id} data-testid="entrega" className="border-b border-border/60 hover:bg-muted/80">
-                <TableCell className="py-2 pr-3 pl-4 font-mono text-[12px] whitespace-nowrap tabular-nums">{formatearFechaHora(e.creada_en, locale)}</TableCell>
+                <TableCell className="py-2 pr-3 pl-4 font-mono text-control whitespace-nowrap tabular-nums">{formatearFechaHora(e.creada_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2">{etiquetaDeEvento(e.evento, messages)}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <EstadoEntregaBadge estado={e.estado} />
                   {e.estado === "PENDIENTE" && e.siguiente_intento ? (
-                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{e.intentos > 0 ? interpolar(t.reintenta, { fecha: formatearFechaHora(e.siguiente_intento, locale) }) : t.enCola}</div>
+                    <div className="mt-0.5 font-mono text-etiqueta text-muted-foreground">{e.intentos > 0 ? interpolar(t.reintenta, { fecha: formatearFechaHora(e.siguiente_intento, locale) }) : t.enCola}</div>
                   ) : null}
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{e.intentos}</TableCell>
-                <TableCell className="max-w-72 px-3 py-2 font-mono text-[12px] break-words text-muted-foreground">{resultadoDelIntento(e.ultimo_http, e.ultimo_error)}</TableCell>
+                <TableCell className="max-w-72 px-3 py-2 font-mono text-control break-words text-muted-foreground">{resultadoDelIntento(e.ultimo_http, e.ultimo_error)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-2 text-right">
                   {e.estado === "PENDIENTE" ? (
-                    <span className="text-[11px] text-muted-foreground/60">—</span>
+                    <span className="text-etiqueta text-muted-foreground/60">—</span>
                   ) : (
                     <button
                       type="button"
                       disabled={soloLectura !== null || reenviando === e.id}
                       title={soloLectura ?? undefined}
                       onClick={() => reenviar(e.id)}
-                      className="inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
                       {t.reenviar}
@@ -163,14 +163,14 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             ))}
             {entregas !== null && entregas.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-8 text-center text-[13px] text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-control text-muted-foreground">
                   {estado ? t.sinResultados : t.vacia}
                 </TableCell>
               </TableRow>
             ) : null}
             {entregas === null && !error ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-8 text-center text-[13px] text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-control text-muted-foreground">
                   {t.cargando}
                 </TableCell>
               </TableRow>

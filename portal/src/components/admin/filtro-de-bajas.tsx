@@ -14,7 +14,7 @@ export function FiltroDeBajas({ valor, onCambio }: { valor?: VisibilidadDeBajasA
   const TEXTO: Record<VisibilidadDeBajasAdmin, string> = { INCLUIDAS: t.incluidas, SOLO: t.solo };
   return (
     <div className="grid gap-1">
-      <label htmlFor="filtro-bajas" className="text-[11px] font-medium text-muted-foreground">
+      <label htmlFor="filtro-bajas" className="text-etiqueta font-medium text-muted-foreground">
         {t.etiqueta}
       </label>
       <select id="filtro-bajas" value={valor ?? ""} onChange={(e) => onCambio(bajasDesdeUrl(e.target.value))} className={cn(CAMPO, "w-auto")}>

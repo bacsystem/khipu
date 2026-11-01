@@ -85,28 +85,28 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
         onClick={alternar}
         aria-expanded={abierto}
         aria-controls="exportar-panel"
-        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
+        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}
       >
         <FileXlsIcon className="size-4" />
         {t.boton}
       </button>
       {abierto ? (
         <div id="exportar-panel" className="absolute right-0 z-20 mt-2 grid w-72 gap-3 rounded-xl border border-border bg-card p-3 shadow-lg" data-testid="exportar-comprobantes">
-          <p className="text-[12px] text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
+          <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
           <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-[12px] font-medium">{t.formato}</legend>
+            <legend className="mb-1 text-control font-medium">{t.formato}</legend>
             {FORMATOS.map((f) => (
-              <label key={f} className="flex items-start gap-2 text-[13px]">
+              <label key={f} className="flex items-start gap-2 text-control">
                 <input type="radio" name="formato-exportacion" checked={formato === f} onChange={() => setFormato(f)} className="mt-0.5 size-3.5 accent-primary" />
                 <span>
                   {t.formatos[f].etiqueta}
-                  <span className="block text-[11px] text-muted-foreground">{t.formatos[f].ayuda}</span>
+                  <span className="block text-etiqueta text-muted-foreground">{t.formatos[f].ayuda}</span>
                 </span>
               </label>
             ))}
           </fieldset>
           {formato === "csv" ? (
-            <label className="grid gap-1 text-[12px] font-medium">
+            <label className="grid gap-1 text-control font-medium">
               {t.separador}
               <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(CONTROL_FILTRO, "px-2 font-normal")}>
                 <option value="coma">{t.coma}</option>
@@ -115,12 +115,12 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
             </label>
           ) : null}
           {motivo ? (
-            <p role="status" className="text-[12px] text-warning-foreground" data-testid="exportar-motivo">
+            <p role="status" className="text-control text-warning-foreground" data-testid="exportar-motivo">
               {motivo}
             </p>
           ) : null}
           {error ? (
-            <p role="alert" className="text-[12px] text-destructive" data-testid="exportar-error">
+            <p role="alert" className="text-control text-destructive" data-testid="exportar-error">
               {error}
             </p>
           ) : null}
@@ -128,7 +128,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
             type="button"
             onClick={exportar}
             disabled={exportando || motivo !== null}
-            className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+            className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-control font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             data-testid="exportar-descargar"
           >
             {exportando ? t.exportando : t.descargar}
