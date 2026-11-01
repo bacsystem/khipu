@@ -1,6 +1,6 @@
 # Pruebas de carga (k6)
 
-Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en CI" (ya no corren en CI, ver «Fuera de CI»). Escenarios:
+Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en CI" (ya no corren en cada PR, ver «Fuera de CI»). Escenarios:
 
 | Script | Umbral del spec | Resultado (laptop local) |
 |---|---|---|
@@ -39,8 +39,10 @@ La fecha de emisión de los scripts es la de **Lima** (UTC-5): con la fecha UTC,
 
 ## Fuera de CI
 
-Las pruebas de carga **no corren en GitHub Actions**: se lanzan a mano, con los comandos de arriba, contra un backend local o un entorno de pruebas. Un runner compartido mide
-mucho más lento que una laptop (allí ~25 ms de p95) y con ruido de una corrida a otra, así que como check daba poca señal y mucho tiempo de cola.
+Las pruebas de carga **no corren solas en GitHub Actions**: se lanzan a mano, con los comandos de arriba, contra un backend local o un entorno de pruebas, o desde
+Actions → «Carga (k6)» → *Run workflow* (`.github/workflows/k6.yml`, solo `workflow_dispatch`: levanta Postgres y el backend, corre los tres escenarios y la comprobación de
+numeración, con p95 < 1 500 ms porque el runner es más lento). Un runner compartido mide mucho más lento que una laptop (allí ~25 ms de p95) y con ruido de una corrida
+a otra, así que como check de cada PR daba poca señal.
 
 Qué mirar después de una corrida:
 

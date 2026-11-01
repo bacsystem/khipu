@@ -165,8 +165,8 @@ sin ellos usa el certificado de prueba del repo.
 
 ## Despliegue
 Producción corre en Railway las imágenes que CI publica en Docker Hub (`cbaciliod/khipu-backend`, `khipu-portal`, `khipu-respaldo`).
-`.github/workflows/imagenes.yml` corre la suite en cada push a `develop`/`main` y solo con todo en verde publica las imágenes; un
-merge a `main` además redespliega producción, y un tag `vX.Y.Z` reetiqueta la imagen ya probada. El diagrama del flujo, los
+Solo un release las publica: el tag `vX.Y.Z` sobre `main` hace que `.github/workflows/imagenes.yml` corra la suite completa y, con
+todo en verde, publique las imágenes y redespliegue producción. Un merge a `develop` o `main` no publica ni despliega. El diagrama del flujo, los
 secretos que necesita y cómo volver a una versión anterior están en
 [`deploy/README.md`, «Cómo llega un cambio a producción»](deploy/README.md#cómo-llega-un-cambio-a-producción).
 

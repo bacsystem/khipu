@@ -67,7 +67,7 @@ docker run --rm -p 3200:3000 \
 2. **Settings → Service Name**: `portal` (es el nombre que usa el job `desplegar` de CI; si es otro, definir la variable `RAILWAY_SERVICIO_PORTAL` en GitHub).
 3. **Variables**: las de la tabla de arriba (en fase 0 alcanza con `REGISTRO_ABIERTO=false` y `CONTACTO_URL`).
 4. **Settings → Networking → Generate Domain** (o dominio propio + CNAME al que da Railway).
-5. **Deploy**. No hay build en Railway: baja la imagen y la levanta. Los siguientes despliegues los dispara CI en cada merge a `main`.
+5. **Deploy**. No hay build en Railway: baja la imagen y la levanta. Los siguientes despliegues los dispara CI en cada release (tag `vX.Y.Z` sobre `main`).
 6. Verificar con el checklist de abajo.
 
 ## 5. Verificación después del deploy

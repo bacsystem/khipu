@@ -12,8 +12,8 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 
 ### Cómo llega un cambio a producción
 
-Solo un merge a `main` llega a producción, y solo con la suite en verde. El tag de versión no reconstruye nada: le pone nombre
-a la imagen que ya pasó las pruebas, y esa es la que se fija en Railway para volver atrás.
+Solo un release llega a producción, y solo con la suite en verde. El release es el tag `vX.Y.Z` sobre `main`: un merge a
+`develop` o a `main` no publica ni despliega nada (sus pruebas ya corrieron en la PR).
 
 ```mermaid
 flowchart TB
@@ -23,60 +23,54 @@ flowchart TB
         pr_ev -.->|"solo si toca un Dockerfile"| pr_b["Build de prueba<br/>sin push"]
     end
 
-    subgraph DEV["Merge a develop"]
+    subgraph MERGE["Merge a develop o main"]
         direction LR
-        dv_ev["push a develop"] --> dv_t["Pruebas<br/>suite completa"]
-        dv_t -->|"si pasa"| dv_b["Build + push<br/>backend · portal · respaldo"]
-        dv_b --> dv_h[":develop<br/>:sha-abc1234"]
-        dv_h -.-> dv_r["No despliega"]
+        mg_ev["push a la rama"] -.-> mg_r["No publica<br/>ni despliega"]
     end
 
-    subgraph MAIN["Merge a main (release o hotfix)"]
+    subgraph TAG["Release: tag vX.Y.Z sobre main"]
         direction LR
-        mn_ev["push a main"] --> mn_t["Pruebas<br/>suite completa"]
-        mn_t -->|"si pasa"| mn_b["Build + push<br/>backend · portal · respaldo"]
-        mn_b --> mn_h[":latest · :main<br/>:sha-def5678"]
-        mn_h -->|"railway redeploy"| mn_r["Producción en Railway<br/>backend, luego portal"]
-        mn_t -->|"si falla"| mn_x["No publica<br/>ni despliega"]
+        tg_ev["push del tag"] --> tg_v["¿vX.Y.Z y<br/>commit en main?"]
+        tg_v -->|"sí"| tg_t["Pruebas<br/>suite completa"]
+        tg_t -->|"si pasa"| tg_b["Build + push<br/>backend · portal · respaldo"]
+        tg_b --> tg_h[":X.Y.Z · :X.Y · :latest<br/>:sha-def5678"]
+        tg_h -->|"railway redeploy"| tg_r["Producción en Railway<br/>backend, luego portal"]
+        tg_t -->|"si falla"| tg_x["No publica<br/>ni despliega"]
+        tg_v -->|"no"| tg_x
     end
 
-    subgraph TAG["Tag vX.Y.Z sobre el commit de main"]
-        direction LR
-        tg_ev["push del tag"] -->|"sin pruebas ni build"| tg_h[":sha-def5678<br/>se reetiqueta :X.Y.Z y :X.Y"]
-        tg_h -.->|"rollback a mano"| tg_r["Railway: fuente<br/>:X.Y.Z"]
-    end
-
-    PR ~~~ DEV ~~~ MAIN ~~~ TAG
+    PR ~~~ MERGE ~~~ TAG
 
     classDef prod stroke:#2457d6,stroke-width:3px
     classDef stop stroke:#c0392b,stroke-width:2px
     classDef off stroke-dasharray:5 5
-    class mn_r prod
-    class mn_x stop
-    class pr_b,dv_r,tg_r off
+    class tg_r prod
+    class tg_x stop
+    class pr_b,mg_r off
 ```
 
 Paso a paso:
 
-1. Merge a `main` (el release desde `develop`, o un `hotfix/*`).
-2. `imagenes.yml` corre la suite completa (`pruebas.yml`); solo con todo en verde construye y publica `:latest`, `:main` y
-   `:sha-<commit>` de las tres imágenes.
+1. Merge a `main` (el release desde `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push
+   <remoto> vX.Y.Z`).
+2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, corre la suite completa (`pruebas.yml`) y,
+   solo con todo en verde, construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
 3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
    Railway baja la `:latest` nueva y la levanta cuando pasa su healthcheck. El `respaldo` no se redespliega solo; toma la imagen
    nueva cuando se actualiza su servicio en Railway (botón de actualizar o auto-update programado).
-4. Al poner el tag `vX.Y.Z` sobre ese commit, `imagenes.yml` reetiqueta la misma imagen como `:X.Y.Z` y `:X.Y`, sin
-   reconstruirla. Para volver a una versión anterior: cambiar la fuente del servicio a `cbaciliod/khipu-backend:X.Y.Z` (o
-   `:sha-<commit>`) y redesplegar; al volver a `:latest`, el próximo merge a `main` lo retoma.
+4. Para volver a una versión anterior: cambiar la fuente del servicio a `cbaciliod/khipu-backend:X.Y.Z` y redesplegar; al
+   volver a `:latest`, el próximo release lo retoma.
 
-Un push a `develop` publica `:develop` (para un entorno de pruebas), pero no despliega nada.
+Si un release falla a medias (la suite, Docker Hub o Railway), se repite desde Actions → «Imágenes y despliegue» → *Run
+workflow* eligiendo el tag, o con *Re-run failed jobs*; no hace falta un tag nuevo. Sobre una rama, ese botón solo construye.
 
-**Antes del primer push a `develop` o `main`, crear en Docker Hub `khipu-backend`, `khipu-portal` y `khipu-respaldo` como
-repositorios privados.** Docker Hub crea públicos los que no existen al recibir la primera imagen, y la del backend lleva el
-jar completo (la del portal, el código compilado): cualquiera podría bajarlos con `docker pull`. Un repositorio privado exige
-que Railway tenga el plan Pro y las credenciales del registro (usuario y un access token de solo lectura) en cada servicio.
+**Antes del primer tag, crear en Docker Hub `khipu-backend`, `khipu-portal` y `khipu-respaldo` como repositorios privados.**
+Docker Hub crea públicos los que no existen al recibir la primera imagen, y la del backend lleva el jar completo (la del
+portal, el código compilado): cualquiera podría bajarlos con `docker pull`. Un repositorio privado exige que Railway tenga el
+plan Pro y las credenciales del registro (usuario y un access token de solo lectura) en cada servicio.
 
-Lo que necesita GitHub, también antes del primer push (sin `DOCKERHUB_TOKEN` el login falla y el run de `develop` queda en
-rojo): el secreto `DOCKERHUB_TOKEN` (access token de Docker Hub, Read & Write) y, en el environment `produccion` (Settings →
+Lo que necesita GitHub, también antes del primer tag (sin `DOCKERHUB_TOKEN` el login falla y el release queda en rojo): el
+secreto `DOCKERHUB_TOKEN` (access token de Docker Hub, Read & Write) y, en el environment `produccion` (Settings →
 Environments; ahí también se puede exigir aprobación manual antes de cada despliegue), el secreto `RAILWAY_TOKEN`, un
 *project token* del entorno de producción de Railway (Project Settings → Tokens). Si los servicios no se llaman `backend` y
 `portal`, las variables `RAILWAY_SERVICIO_BACKEND` y `RAILWAY_SERVICIO_PORTAL` dicen cómo.
@@ -382,7 +376,7 @@ Railway no tiene copia propia.
    mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
    `deploy/respaldo/Dockerfile` a esa versión.
 1. **New → Docker Image** → `cbaciliod/khipu-respaldo:latest` (la publica CI desde `deploy/respaldo/Dockerfile`). Si cambias el `FROM` del paso 0,
-   la imagen nueva sale con el próximo merge a `main`; en Railway hay que actualizar el servicio para que la tome.
+   la imagen nueva sale con el próximo release; en Railway hay que actualizar el servicio para que la tome.
 2. **Settings → Cron Schedule**: `0 8 * * *` (todos los días a las 3:00 de Lima, que es UTC-5). Railway arranca el contenedor a esa hora, corre
    `respaldar.sh` y lo apaga.
 3. Variables:
