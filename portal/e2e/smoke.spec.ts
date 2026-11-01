@@ -11,6 +11,12 @@ test("en un teléfono el encabezado lleva al login", async ({ page }) => {
   await page.goto("/");
   const enlace = page.getByRole("banner").getByRole("link", { name: "Iniciar sesión" });
   await expect(enlace).toBeVisible();
+  // #525: todo en una línea y el logo entero (en 390 px el enlace se partía en dos y el nombre quedaba en «k…»).
+  const alto = await enlace.evaluate((el) => el.getBoundingClientRect().height);
+  const linea = await enlace.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect(alto).toBeLessThan(linea * 1.5);
+  const nombre = page.getByRole("banner").getByText("khipu", { exact: true });
+  expect(await nombre.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await enlace.click();
   await expect(page).toHaveURL(/\/login$/);
 });

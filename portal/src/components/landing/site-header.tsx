@@ -11,7 +11,7 @@ export function SiteHeader() {
   const t = useMessages().landing.acciones;
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <LogoMarca href="/" />
         <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
           <a href="#precios" className="transition-colors hover:text-foreground">
@@ -25,17 +25,19 @@ export function SiteHeader() {
           </Link>
         </nav>
         {abierto || contacto ? (
-          <div className="flex items-center gap-4">
-            {/* En el teléfono el menú de arriba se oculta: sin este enlace, el único camino al login era el pie de la página. */}
-            <Link href="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground md:hidden">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+            {/* En el teléfono el menú de arriba se oculta: sin este enlace, el único camino al login era el pie de la página. En una línea, y el botón con su
+                texto corto, para que en 390 px entren el logo entero, el enlace y el botón (#525). */}
+            <Link href="/login" className="text-sm whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground md:hidden">
               {t.iniciarSesion}
             </Link>
             {abierto ? (
-              <Button render={<Link href="/registro" />} nativeButton={false} className="h-control px-4">
-                {t.crearCuentaGratis}
+              <Button render={<Link href="/registro" />} nativeButton={false} className="h-control px-4 whitespace-nowrap">
+                <span className="sm:hidden">{t.crearCuenta}</span>
+                <span className="hidden sm:inline">{t.crearCuentaGratis}</span>
               </Button>
             ) : (
-              <Button render={<a href={contacto ?? undefined} />} nativeButton={false} className="h-control px-4">
+              <Button render={<a href={contacto ?? undefined} />} nativeButton={false} className="h-control px-4 whitespace-nowrap">
                 {t.solicitarAcceso}
               </Button>
             )}
