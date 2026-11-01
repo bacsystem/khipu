@@ -12,8 +12,11 @@ test("en un teléfono el encabezado lleva al login", async ({ page }) => {
   const enlace = page.getByRole("banner").getByRole("link", { name: "Iniciar sesión" });
   await expect(enlace).toBeVisible();
   // #525: en el teléfono la marca es solo el ícono (con el nombre, el enlace se partía en dos líneas y el nombre quedaba en «k…»), y el enlace ocupa una línea.
-  await expect(page.getByRole("banner").getByRole("link", { name: "khipu.pe" })).toBeVisible();
-  await expect(page.getByRole("banner").getByText("khipu", { exact: true })).toBeHidden();
+  // Un solo enlace a la portada a la vista, y es el ícono: el logo con nombre no se pinta (cortado a ancho cero seguiría contando como «oculto»).
+  const marcas = page.getByRole("banner").locator('a[href="/"]:visible');
+  await expect(marcas).toHaveCount(1);
+  await expect(marcas).toHaveAccessibleName("khipu.pe");
+  await expect(marcas).not.toContainText("khipu");
   const alto = await enlace.evaluate((el) => el.getBoundingClientRect().height);
   const linea = await enlace.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect(alto).toBeLessThan(linea * 1.5);
