@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDownIcon, PaletteIcon, SignOutIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, CaretUpDownIcon, PaletteIcon, SignOutIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "khipu-d
 import { PanelApariencia } from "khipu-design-system/nav/panel-apariencia";
 import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
 import type { Administrador } from "@/lib/api/admin-auth";
+import { ROTULO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 function iniciales(email: string): string {
@@ -35,30 +36,32 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
         <MenuTrigger
           aria-label={messages.admin.perfil.menu}
           className={cn(
-            "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg border border-border/60 bg-muted/80 p-2 text-left transition-colors outline-none select-none",
+            "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-xl bg-secondary p-2 text-left transition-colors outline-none select-none",
             "hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-secondary",
           )}
         >
           <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-etiqueta font-bold text-primary-foreground shadow-xs">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-acento text-etiqueta font-bold text-acento-texto shadow-xs">
               {iniciales(administrador.email)}
             </div>
             <div className="min-w-0 overflow-hidden">
               <p className="truncate text-control leading-tight font-medium text-foreground">{administrador.email.split("@")[0]}</p>
-              <p className="truncate font-mono text-etiqueta leading-tight text-muted-foreground">{administrador.email}</p>
+              <p className="truncate text-etiqueta leading-tight text-muted-foreground">{administrador.email}</p>
             </div>
           </div>
           <CaretUpDownIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/70" />
         </MenuTrigger>
 
         <MenuContent side="top" align="start" className="w-(--anchor-width) min-w-0">
-          <div className="px-2 pt-1.5 pb-1 text-etiqueta font-medium text-muted-foreground">{messages.admin.perfil.tema}</div>
-          <div className="px-0.5 pb-1.5">
-            <ThemeToggle conTexto />
+          {/* Tema en línea, solo con íconos, como el menú del design system. */}
+          <div className="flex items-center justify-between gap-3 px-2 py-1.5">
+            <span className={ROTULO}>{messages.admin.perfil.tema}</span>
+            <ThemeToggle />
           </div>
           <MenuItem onClick={() => setApariencia(true)}>
             <PaletteIcon />
-            {messages.admin.perfil.apariencia}
+            <span className="flex-1">{messages.admin.perfil.apariencia}</span>
+            <CaretRightIcon weight="bold" className="size-3.5 text-texto-terciario" />
           </MenuItem>
           <MenuSeparator />
           <MenuItem variant="destructive" disabled={saliendo} onClick={salir}>

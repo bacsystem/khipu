@@ -26,7 +26,10 @@ export function AdminMobileNav({ administrador }: { administrador: Administrador
         <span className="sr-only">{messages.admin.topbar.abrirMenu}</span>
       </SheetTrigger>
       <SheetContent side="left" showCloseButton={false} className="w-60 bg-sidebar p-0 text-sidebar-foreground">
-        <AdminSidebar administrador={administrador} />
+        {/* El cajón no se desplaza por sí solo (su contenido es `h-full overflow-hidden`): sin este contenedor el menú de usuario queda fuera en una pantalla baja. */}
+        <div className="h-full overflow-y-auto [&>div]:h-auto [&>div]:min-h-full [&>div]:overflow-visible">
+          <AdminSidebar administrador={administrador} />
+        </div>
       </SheetContent>
     </Sheet>
   );

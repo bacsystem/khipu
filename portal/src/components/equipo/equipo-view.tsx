@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, ProhibitIcon, UsersIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, ProhibitIcon, UsersIcon, WarningIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
 import { useState, useTransition } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
@@ -15,6 +15,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -78,13 +79,8 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
     <TableRow className={cn("border-b border-border/60 hover:bg-muted/80", !m.activo && "opacity-80")} data-testid={`miembro-${m.email}`}>
       <Dialog open={degradandome !== null} onOpenChange={(v) => (v ? null : setDegradandome(null))}>
         <DialogContent className="gap-0 p-0">
-          <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <DialogTitle className="text-titulo font-semibold tracking-tight">{t.degradarme.titulo}</DialogTitle>
-            <DialogDescription className="text-control">
-              {t.degradarme.descripcion.replace("{rol}", degradandome ? etiquetas[degradandome] : "")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-end gap-2 px-5 py-3">
+          <CabeceraDialogo icon={WarningIcon} tono="aviso" titulo={t.degradarme.titulo} descripcion={t.degradarme.descripcion.replace("{rol}", degradandome ? etiquetas[degradandome] : "")} />
+          <PieDialogo>
             <button type="button" onClick={() => setDegradandome(null)} className={BOTON_SECUNDARIO}>
               {t.cancelar}
             </button>
@@ -99,7 +95,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
             >
               {t.degradarme.confirmar}
             </button>
-          </div>
+          </PieDialogo>
         </DialogContent>
       </Dialog>
       <TableCell className="py-2 pr-3 pl-4">
