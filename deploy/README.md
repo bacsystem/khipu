@@ -12,6 +12,52 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 
 ### Cómo llega un cambio a producción
 
+Solo un merge a `main` llega a producción, y solo con la suite en verde. El tag de versión no reconstruye nada: le pone nombre
+a la imagen que ya pasó las pruebas, y esa es la que se fija en Railway para volver atrás.
+
+```mermaid
+flowchart TB
+    subgraph PR["Pull request (a develop o main)"]
+        direction LR
+        pr_ev["PR abierta"] --> pr_t["Pruebas<br/>backend + portal"]
+        pr_ev -.->|"solo si toca un Dockerfile"| pr_b["Build de prueba<br/>sin push"]
+    end
+
+    subgraph DEV["Merge a develop"]
+        direction LR
+        dv_ev["push a develop"] --> dv_t["Pruebas<br/>suite completa"]
+        dv_t -->|"si pasa"| dv_b["Build + push<br/>backend · portal · respaldo"]
+        dv_b --> dv_h[":develop<br/>:sha-abc1234"]
+        dv_h -.-> dv_r["No despliega"]
+    end
+
+    subgraph MAIN["Merge a main (release o hotfix)"]
+        direction LR
+        mn_ev["push a main"] --> mn_t["Pruebas<br/>suite completa"]
+        mn_t -->|"si pasa"| mn_b["Build + push<br/>backend · portal · respaldo"]
+        mn_b --> mn_h[":latest · :main<br/>:sha-def5678"]
+        mn_h -->|"railway redeploy"| mn_r["Producción en Railway<br/>backend, luego portal"]
+        mn_t -->|"si falla"| mn_x["No publica<br/>ni despliega"]
+    end
+
+    subgraph TAG["Tag vX.Y.Z sobre el commit de main"]
+        direction LR
+        tg_ev["push del tag"] -->|"sin pruebas ni build"| tg_h[":sha-def5678<br/>se reetiqueta :X.Y.Z y :X.Y"]
+        tg_h -.->|"rollback a mano"| tg_r["Railway: fuente<br/>:X.Y.Z"]
+    end
+
+    PR ~~~ DEV ~~~ MAIN ~~~ TAG
+
+    classDef prod stroke:#2457d6,stroke-width:3px
+    classDef stop stroke:#c0392b,stroke-width:2px
+    classDef off stroke-dasharray:5 5
+    class mn_r prod
+    class mn_x stop
+    class pr_b,dv_r,tg_r off
+```
+
+Paso a paso:
+
 1. Merge a `main` (el release desde `develop`, o un `hotfix/*`).
 2. `imagenes.yml` corre la suite completa (`pruebas.yml`); solo con todo en verde construye y publica `:latest`, `:main` y
    `:sha-<commit>` de las tres imágenes.

@@ -163,6 +163,13 @@ Variables opcionales: `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT` / `HOMOLOGACION_CE
 el RUC), `HOMOLOGACION_SERIE`. En Actions se toman de los secretos `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT_B64` y `HOMOLOGACION_CERT_CLAVE`;
 sin ellos usa el certificado de prueba del repo.
 
+## Despliegue
+Producción corre en Railway las imágenes que CI publica en Docker Hub (`cbaciliod/khipu-backend`, `khipu-portal`, `khipu-respaldo`).
+`.github/workflows/imagenes.yml` corre la suite en cada push a `develop`/`main` y solo con todo en verde publica las imágenes; un
+merge a `main` además redespliega producción, y un tag `vX.Y.Z` reetiqueta la imagen ya probada. El diagrama del flujo, los
+secretos que necesita y cómo volver a una versión anterior están en
+[`deploy/README.md`, «Cómo llega un cambio a producción»](deploy/README.md#cómo-llega-un-cambio-a-producción).
+
 ## Naming y modelo de envío (decisiones)
 
 **Nombre (#10, 2026-10-31).** La marca es **khipu**: el repo (`bacsystem/khipu`), el portal, el remitente de los correos y la cookie de idioma ya se llaman así.
