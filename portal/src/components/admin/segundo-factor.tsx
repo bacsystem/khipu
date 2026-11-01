@@ -20,7 +20,7 @@ function enGrupos(secreto: string) {
   return secreto.match(/.{1,4}/g)?.join(" ") ?? secreto;
 }
 
-/** El `Campo` y la `Entrada` del panel (#12), como el resto del login: etiqueta de 12 px, control de h-9 y el error anunciado y atado al input. */
+/** El `Campo` y la `Entrada` del panel (#12), como el resto del login: etiqueta de 12 px, control de h-control y el error anunciado y atado al input. */
 function CampoCodigo({ id, recuperacion, valor, onChange, error }: { id: string; recuperacion: boolean; valor: string; onChange: (v: string) => void; error: string | null }) {
   const t = useMessages().admin.login.segundoFactor;
   return (

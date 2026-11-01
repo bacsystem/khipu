@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fechaElegida } from "@/test/fecha-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
@@ -400,7 +401,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     expect(screen.getByLabelText("Razón social")).toHaveValue("CLIENTE SAC");
     expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
-    expect(screen.getByLabelText("Fecha de emisión")).toHaveValue(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
+    expect(await fechaElegida("Fecha de emisión")).toBe(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
   });
 
   it("duplicar una boleta abre la pestaña Boleta, y abrir a mano después empieza de cero", async () => {

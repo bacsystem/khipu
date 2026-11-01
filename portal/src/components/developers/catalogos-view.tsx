@@ -46,7 +46,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
             onChange={(e) => setFiltro(e.target.value)}
             placeholder={t.buscarPlaceholder}
             aria-label={t.buscarAria}
-            className="h-9 w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
+            className="h-control w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
           />
         </div>
         {/*

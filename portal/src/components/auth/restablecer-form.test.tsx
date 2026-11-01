@@ -93,8 +93,8 @@ describe("RestablecerForm", () => {
 
     const alerta = await screen.findByRole("alert");
     expect(alerta.textContent).toContain("El enlace de recuperación es inválido o venció");
-    // La `Alerta` de tono error del panel: banda con borde e icono.
-    expect(alerta.className).toContain("border-destructive-border");
+    // La `Alerta` de tono error del panel: banda teñida de rojo con icono (desde el DS v0.5.0 los avisos no llevan borde).
+    expect(alerta.className).toContain("bg-destructive");
     expect(alerta.querySelector("svg")).not.toBeNull();
   });
 

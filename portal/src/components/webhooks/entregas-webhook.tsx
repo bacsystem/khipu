@@ -106,7 +106,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             <option value="EXITOSA">{t.filtro.entregadas}</option>
             <option value="FALLIDA">{t.filtro.fallidas}</option>
           </select>
-          <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground hover:text-foreground")}>
+          <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground hover:text-foreground")}>
             <RefreshCwIcon className={cn("size-4", leyendo && "animate-spin")} />
           </button>
         </div>
@@ -152,7 +152,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
                       disabled={soloLectura !== null || reenviando === e.id}
                       title={soloLectura ?? undefined}
                       onClick={() => reenviar(e.id)}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCwIcon className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
                       {t.reenviar}

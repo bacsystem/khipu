@@ -89,11 +89,12 @@ export default async function PlanPage() {
         </Alerta>
       ) : null}
 
-      {/* #498: lo que ya llegó o pasó el tope de API keys, usuarios o RUCs, con qué hacer; el 80 % lo dice la barra de abajo sin gritar. */}
+      {/* #498: solo lo que se pasó del tope (una cuenta a la que le bajaron el plan) sube a una alerta. Estar justo en el tope (1 de 1 en el plan Gratis) es el estado normal de
+          casi toda cuenta nueva: lo dicen la barra y la línea de abajo, no tres banners amarillos en cada visita. */}
       {avisosDeUso
-        .filter((u) => u.tono === "error" || u.maximo === u.usados)
+        .filter((u) => u.tono === "error")
         .map((u) => (
-          <Alerta key={u.clave} tono={u.tono === "error" ? "error" : "aviso"} titulo={t.uso[u.clave]}>
+          <Alerta key={u.clave} tono="error" titulo={t.uso[u.clave]}>
             {u.aviso}
           </Alerta>
         ))}
@@ -166,6 +167,7 @@ export default async function PlanPage() {
                     />
                   </div>
                 ) : null}
+                {u.aviso ? <p className={cn("mt-2 text-[12px] leading-relaxed", u.tono === "error" ? "text-destructive" : "text-muted-foreground")}>{u.aviso}</p> : null}
               </li>
             ))}
           </ul>

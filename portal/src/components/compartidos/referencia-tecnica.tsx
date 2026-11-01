@@ -38,7 +38,7 @@ export function ReferenciaTecnicaDialog({
       <DialogTrigger
         className={
           className ??
-          "inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
         <BookOpenIcon className="size-4" />
@@ -68,7 +68,7 @@ export function ReferenciaTecnicaDialog({
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="inline-flex h-9 items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
+            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
           >
             {t.entendido}
           </button>

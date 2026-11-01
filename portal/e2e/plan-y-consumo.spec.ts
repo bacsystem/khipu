@@ -54,10 +54,13 @@ test("la página del plan muestra lo que se usa de API keys, usuarios y RUC cont
 
   for (const [clave, etiqueta] of [["apiKeys", "API keys activas"], ["usuarios", "Usuarios"], ["rucs", "Empresas (RUC)"]] as const) {
     const fila = page.getByTestId(`uso-${clave}`);
-    await expect(fila.getByText(etiqueta)).toBeVisible();
+    await expect(fila.getByText(etiqueta, { exact: true })).toBeVisible();
     await expect(fila.getByRole("meter")).toBeVisible();
     await expect(fila).toContainText(" / 1");
   }
   await expect(page.getByText(/Los años de retención son una referencia de tu plan/)).toBeVisible();
+  // Estar justo en el tope (1 / 1) es lo normal en el plan Gratis: se dice bajo su barra, sin un banner de alerta por recurso.
+  await expect(page.getByTestId("uso-usuarios")).toContainText("Llegaste al tope de usuarios de tu plan");
+  await expect(page.getByRole("alert").filter({ hasText: "Llegaste al tope" })).toHaveCount(0);
 });
 

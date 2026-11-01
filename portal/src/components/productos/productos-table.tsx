@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { alCambiarLosProductos, avisarQueCambiaronLosProductos } from "./eventos";
 import { ProductoDialog } from "./producto-dialog";
 
-const ACCION = "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** La lista de productos guardados (#320): búsqueda por código o descripción, páginas y las acciones de cambiar y eliminar. */
 export function ProductosTable() {

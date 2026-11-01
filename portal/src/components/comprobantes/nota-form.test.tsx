@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
 import { hoyLima, sumarDias } from "@/lib/formato";
@@ -293,26 +294,28 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     const hoy = hoyLima();
     // Una factura de ayer: el mínimo es su fecha (2885), más estricto que el plazo de envío de la nota.
     const fetch = await parcial(documento("01", { fecha_emision: sumarDias(hoy, -1) }));
-    const fecha = screen.getByLabelText("Fecha de emisión") as HTMLInputElement;
-    expect(fecha.max).toBe(hoy);
-    expect(fecha.min).toBe(sumarDias(hoy, -1));
-    expect(fecha.value).toBe(hoy);
-    fireEvent.change(fecha, { target: { value: sumarDias(hoy, -1) } });
+    // Desde el DS v0.5.0 la fecha es un calendario: el rango (`min`/`max`) se ve en qué días se pueden elegir.
+    expect(await fechaElegida("Fecha de emisión")).toBe(hoy);
+    expect(await fechaEsElegible("Fecha de emisión", hoy)).toBe(true);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, 1))).toBe(false);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -1))).toBe(true);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -2))).toBe(false);
+    await elegirFecha("Fecha de emisión", sumarDias(hoy, -1));
     fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
     await waitFor(() => expect(notasEnviadas(fetch)).toHaveLength(1));
     expect(notasEnviadas(fetch)[0].fecha_emision).toBe(sumarDias(hoy, -1));
   });
 
-  it("una fecha anterior a la de la factura (2885) o futura no deja emitir", async () => {
+  /** Con el calendario del DS, una fecha anterior a la de la factura (2885) o futura ya no se puede elegir: su día está deshabilitado y la fecha sigue siendo la válida. */
+  it("una fecha anterior a la de la factura (2885) o futura no se puede elegir", async () => {
     const hoy = hoyLima();
     const fetch = await parcial(documento("01", { fecha_emision: sumarDias(hoy, -1) }));
     const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
     expect(emitir).toBeEnabled();
-    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -2) } });
-    expect(emitir).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, 1) } });
-    expect(emitir).toBeDisabled();
-    fireEvent.click(emitir);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -2))).toBe(false);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, 1))).toBe(false);
+    expect(await fechaElegida("Fecha de emisión")).toBe(hoy);
+    expect(emitir).toBeEnabled();
     expect(notasEnviadas(fetch)).toHaveLength(0);
   });
 
@@ -357,20 +360,20 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     stubApi();
     render(<NotaForm factura={documento("03", { fecha_emision: sumarDias(hoy, -7) })} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    const fecha = () => screen.getByLabelText("Fecha de emisión") as HTMLInputElement;
+    const emisible = (dias: number) => fechaEsElegible("Fecha de emisión", sumarDias(hoy, dias));
 
     fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "10" } });
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Otros conceptos" } });
     fireEvent.change(screen.getByLabelText("Concepto"), { target: { value: "Ajuste comercial" } });
     fireEvent.change(screen.getByLabelText(/Importe/), { target: { value: "5" } });
-    expect(fecha().min).toBe(sumarDias(hoy, -5));
-    fireEvent.change(fecha(), { target: { value: sumarDias(hoy, -6) } });
-    expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
-    fireEvent.change(fecha(), { target: { value: sumarDias(hoy, -5) } });
+    expect(await emisible(-5)).toBe(true);
+    expect(await emisible(-6)).toBe(false);
+    await elegirFecha("Fecha de emisión", sumarDias(hoy, -5));
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 
     fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
-    expect(fecha().min).toBe(sumarDias(hoy, -7));
+    expect(await emisible(-7)).toBe(true);
+    expect(await emisible(-8)).toBe(false);
   });
 
   /** H2: el backend rechaza el descuento y el cargo globales sin líneas gravadas o con otros tributos (9999); no se ofrecen. */

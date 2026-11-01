@@ -66,11 +66,11 @@ function Dato({ etiqueta, children, pendiente }: { etiqueta: string; children?: 
       <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
       {pendiente ? (
         // Lo que falta se dice a la vista, no con un «—» y la explicación escondida en un tooltip (C6).
-        <span className="inline-flex h-9 w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-[13px] text-muted-foreground">
+        <span className="inline-flex h-control w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-[13px] text-muted-foreground">
           {pendiente}
         </span>
       ) : (
-        <span className="inline-flex h-9 w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-medium text-foreground">
+        <span className="inline-flex h-control w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-[13px] font-medium text-foreground">
           {children}
         </span>
       )}

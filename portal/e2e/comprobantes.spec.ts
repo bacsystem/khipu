@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fechaElegida } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 test.beforeEach(async ({ page }) => {
@@ -194,8 +195,8 @@ test("una nota parcial lleva su fecha, descuento global, cargo y observaciones, 
   await form.getByLabel("Cargo global de la nota: tipo").selectOption("monto");
   await form.getByLabel("Cargo global de la nota: valor").fill("0.5");
   await form.getByLabel(/Observaciones/).fill("Devolución recibida en tienda.");
-  const fecha = form.getByLabel("Fecha de emisión");
-  await expect(fecha).toHaveAttribute("max", /^\d{4}-\d{2}-\d{2}$/);
+  // Desde el DS v0.5.0 la fecha es un calendario: arranca en un día elegido (hoy), no en un input con `max`.
+  expect(await fechaElegida(form.getByLabel("Fecha de emisión"))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
   const cuerpo = (await peticion).postDataJSON();
@@ -249,7 +250,7 @@ test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la mone
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
   await expect(dialogo.getByLabel(/Precio unit\./)).toHaveValue(/236/);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
-  await expect(dialogo.getByLabel("Fecha de emisión")).toHaveValue(hoy);
+  expect(await fechaElegida(dialogo.getByLabel("Fecha de emisión"))).toBe(hoy);
 
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();

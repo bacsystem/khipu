@@ -17,7 +17,7 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 
 const ACCION =
-  "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 const PASTILLA = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium";
 
 /** Una acción de fila que llama a la API y refresca: el error queda debajo de la fila. */
