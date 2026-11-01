@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const ruta = vi.hoisted(() => ({ actual: "/comprobantes" }));
 vi.mock("next/navigation", () => ({ usePathname: () => ruta.actual }));
 // Solo importa qué acción ofrece cada página: los diálogos se reemplazan por su botón.
-vi.mock("./mobile-nav", () => ({ MobileNav: () => null }));
+vi.mock("./sidebar-content", () => ({ SidebarContent: () => null }));
+vi.mock("khipu-design-system/nav/mobile-nav", () => ({ MobileNav: () => null }));
 vi.mock("@/components/comprobantes/nuevo-comprobante-dialog", () => ({ NuevoComprobanteDialog: () => <button>Nuevo comprobante</button> }));
 vi.mock("@/components/establecimientos/establecimiento-dialog", () => ({ EstablecimientoDialog: () => <button>Nuevo establecimiento</button> }));
 vi.mock("@/components/guias/nueva-guia-enlace", () => ({ NuevaGuiaEnlace: () => <button>Nueva guía</button> }));

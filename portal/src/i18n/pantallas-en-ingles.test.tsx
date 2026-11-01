@@ -11,13 +11,16 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/api/banner", () => ({ obtenerBannerVigente: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/acceso", () => ({ registroAbierto: () => true }));
+// La barra superior arrastra el menú del teléfono, que usa la server action de cambiar de empresa.
+vi.mock("@/app/actions", () => ({ seleccionarEmpresa: vi.fn() }));
 
 import LoginPage from "@/app/login/page";
 import { RegistroForm } from "@/components/auth/registro-form";
 import { AlertasDelPanel } from "@/components/inicio/alertas-del-panel";
 import { KpisDelMes } from "@/components/inicio/kpis-del-mes";
-import { SidebarNav } from "@/components/nav/sidebar-nav";
+import { gruposDeNavegacion } from "@/components/nav/grupos-de-navegacion";
 import { TopBar } from "@/components/nav/top-bar";
+import { SidebarNav } from "khipu-design-system/nav/sidebar-nav";
 
 afterEach(cleanup);
 
@@ -60,14 +63,15 @@ describe("pantallas migradas en inglés (#25)", () => {
     fijarLocaleDePrueba("en");
     const { container } = render(
       <>
-        <SidebarNav rol="ADMIN" />
+        <SidebarNav grupos={gruposDeNavegacion(en.nav, "ADMIN")} />
         <TopBar entorno="BETA" usuario={{ id: "u-1", email: "demo@example.com", rol: "ADMIN" } as never} cuenta={null} empresas={[]} apiBaseUrl="http://localhost:8001" />
       </>,
     );
 
-    expect(screen.getByRole("navigation", { name: en.nav.principal })).toBeTruthy();
+    // Los nombres de los landmarks (navegación principal, ubicación y «Abrir menú») los fija el design system en castellano: se pidieron como propiedades. Lo que se ve, no.
     for (const etiqueta of Object.values(en.nav.items)) expect(screen.getAllByText(etiqueta).length).toBeGreaterThan(0);
-    expect(screen.getByRole("navigation", { name: en.nav.ubicacion }).textContent).toContain(en.nav.migas.secciones.panel);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(en.nav.items.inicio);
+    expect(screen.getByRole("heading", { level: 1 }).parentElement?.textContent).toContain(en.nav.migas.secciones.panel);
     expect(screen.getByTitle(en.nav.entorno.betaAyuda).textContent).toContain(en.nav.entorno.betaSunat);
     sinCastellano(container, [es.nav.grupos.emision, es.nav.items.series, es.nav.items.plan, es.nav.entorno.betaSunat]);
   });

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Shell } from "khipu-design-system/nav/shell";
 import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
@@ -58,26 +59,20 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
         {/* H10: en una sesión de soporte cada acción que escribe se ve deshabilitada, en vez de dejar llenar un formulario que el backend va a rechazar. */}
         {/* #21: el rol del usuario también acota lo que puede hacer; el backend lo vuelve a decidir en cada petición. */}
         <SoloLectura activa={Boolean(usuario.soporte_hasta)} rol={usuario.rol}>
-        <div className="flex min-w-0 flex-1">
-        <aside className="hidden w-60 shrink-0 overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:block md:h-screen md:overflow-y-auto">
-          <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activa?.id} />
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar entorno={activa.entorno} usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiPublicUrl()} />
-          <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6">
-            {/* Con el correo sin verificar (#22) el backend rechaza toda escritura: se dice antes de que algo falle sin explicación. */}
-            {usuario.correo_verificado ? null : (
-              <div className="mb-4">
-                <RevisaTuCorreo email={usuario.email} />
-              </div>
-            )}
-            {children}
-          </main>
+        <Shell
+          sidebar={<SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activa?.id} />}
+          topBar={<TopBar entorno={activa.entorno} usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activa?.id} apiBaseUrl={apiPublicUrl()} />}
+        >
+          {/* Con el correo sin verificar (#22) el backend rechaza toda escritura: se dice antes de que algo falle sin explicación. */}
+          {usuario.correo_verificado ? null : (
+            <div className="mb-3">
+              <RevisaTuCorreo email={usuario.email} />
+            </div>
+          )}
+          {children}
           {/* #250: a dónde escribir si algo no sale. Sin SUPPORT_URL ni SUPPORT_EMAIL no se muestra. */}
-          <AyudaDeSoporte className="border-t border-border px-4 py-3 md:px-6" />
-        </div>
-        </div>
+          <AyudaDeSoporte className="mt-4 px-1 pb-1" />
+        </Shell>
         </SoloLectura>
       </div>
     </TextosDeCliente>

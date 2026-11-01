@@ -15,7 +15,7 @@ export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
   const t = messages.nav.plan;
   if (!cuenta) {
     return (
-      <Link href="/cuenta/plan" className="rounded-lg border border-border/60 bg-muted/90 p-2.5 text-[11px] text-muted-foreground hover:bg-secondary">
+      <Link href="/cuenta/plan" className="rounded-lg border border-border/60 bg-muted/90 p-2.5 text-etiqueta text-muted-foreground hover:bg-secondary">
         {t.sinPlan}
       </Link>
     );
@@ -32,9 +32,9 @@ export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
         r.tono === "error" && "border-destructive/40",
       )}
     >
-      <div className="flex items-center justify-between gap-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2 text-etiqueta">
         <span className="truncate font-medium text-foreground/80">{interpolar(t.etiqueta, { plan: r.plan })}</span>
-        <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-muted-foreground">{r.consumo}</span>
+        <span className="shrink-0 font-mono text-etiqueta whitespace-nowrap text-muted-foreground">{r.consumo}</span>
       </div>
       {r.porcentaje !== null ? (
         <div className="h-1 w-full overflow-hidden rounded-full bg-border">
@@ -45,7 +45,7 @@ export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
         </div>
       ) : null}
       {r.aviso ? (
-        <span className={cn("text-[10px] leading-snug", r.tono === "aviso" ? "text-warning-foreground" : "text-destructive")}>{r.aviso}</span>
+        <span className={cn("text-etiqueta leading-snug", r.tono === "aviso" ? "text-warning-foreground" : "text-destructive")}>{r.aviso}</span>
       ) : null}
     </Link>
   );
