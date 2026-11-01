@@ -130,7 +130,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
       <FilaMetricas>
         <Metrica
-          etiqueta={tm.estadoCertificado} icono={CertificateIcon} tono={estadoCert.tono}
+          etiqueta={tm.estadoCertificado} icono={CertificateIcon} tono={estadoCert.tono} texto
           ayuda={
             vigencia ? (
               <>
@@ -155,13 +155,13 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               estadoCert.tono === "neutro" && "text-muted-foreground/60",
             )}
           >
-            {estadoCert.texto.toUpperCase()}
+            {estadoCert.texto}
           </span>
           <span className="text-control font-normal text-muted-foreground">{tm.pkcs12}</span>
         </Metrica>
 
         <Metrica
-          etiqueta={tm.credencialesSol} icono={KeyIcon} tono={rechazoSol ? "error" : empresa.tiene_credenciales_sol ? "ok" : "aviso"}
+          etiqueta={tm.credencialesSol} icono={KeyIcon} tono={rechazoSol ? "error" : empresa.tiene_credenciales_sol ? "ok" : "aviso"} texto
           ayuda={
             rechazoSol ? (
               <span className="flex items-center gap-1 text-destructive">
@@ -182,7 +182,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
         </Metrica>
 
         <Metrica
-          etiqueta={messages.empresa.comun.entornoSunat} icono={CloudIcon} tono={beta ? "aviso" : "ok"}
+          etiqueta={messages.empresa.comun.entornoSunat} icono={CloudIcon} tono={beta ? "aviso" : "ok"} texto
           ayuda={
             <>
               <span className="truncate">{interpolar(tm.rucNumero, { ruc: empresa.ruc })}</span>

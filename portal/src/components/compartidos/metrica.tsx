@@ -17,6 +17,7 @@ export function Metrica({
   visual,
   destacada,
   pendiente = false,
+  texto = false,
 }: {
   etiqueta: string;
   children?: ReactNode;
@@ -28,10 +29,12 @@ export function Metrica({
   visual?: VisualMetrica;
   destacada?: boolean;
   pendiente?: boolean;
+  /** El valor es una palabra (un estado, un entorno, un código) y no un número: va a 18 px en vez de 22. */
+  texto?: boolean;
 }) {
   return (
     <div data-metrica={etiqueta} className={cn("min-w-0 [&>*]:h-full", pendiente && "opacity-60")}>
-      <MetricaDelDiseno etiqueta={etiqueta} sufijo={sufijo} ayuda={ayuda} icono={icono} tono={tono} visual={visual} destacada={destacada}>
+      <MetricaDelDiseno etiqueta={etiqueta} sufijo={sufijo} ayuda={ayuda} icono={icono} tono={tono} visual={visual} destacada={destacada} texto={texto}>
         {children ?? "—"}
       </MetricaDelDiseno>
     </div>

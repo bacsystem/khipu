@@ -62,7 +62,7 @@ export default async function EstablecimientosPage() {
           {seriesEnAnexos}
           <span className="text-control font-normal text-muted-foreground">{interpolar(t.activas, { total: series.filter((s) => s.activa).length })}</span>
         </Metrica>
-        <Metrica etiqueta={t.enElXml} icono={ReceiptIcon} tono="neutro" ayuda={t.enElXmlAyuda}>
+        <Metrica etiqueta={t.enElXml} icono={ReceiptIcon} tono="neutro" ayuda={t.enElXmlAyuda} texto>
           {/* eslint-disable-next-line khipu/no-literal-de-ui -- nombre del elemento UBL, no se traduce */}
           <span className="text-primary">AddressTypeCode</span>
         </Metrica>
