@@ -99,7 +99,7 @@ export default async function ApiKeysPage() {
           <span className="text-control font-normal text-muted-foreground">{interpolar(t.creadas, { total: apiKeys.length })}</span>
         </Metrica>
 
-        <Metrica etiqueta={t.ultima} icono={ClockCounterClockwiseIcon} tono="neutro" ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia}>
+        <Metrica etiqueta={t.ultima} icono={ClockCounterClockwiseIcon} tono="neutro" ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia} texto>
           {ultima ? <span className={cn(!ultima.activa && "text-muted-foreground line-through")}>{ultima.prefijo}</span> : <span className="text-muted-foreground/60">—</span>}
         </Metrica>
 
@@ -111,7 +111,7 @@ export default async function ApiKeysPage() {
         </Metrica>
 
         <Metrica
-          etiqueta={t.autenticacion} icono={LockIcon} tono="acento"
+          etiqueta={t.autenticacion} icono={LockIcon} tono="acento" texto
           ayuda={
             <>
               <span className="truncate">{t.autenticacionAyuda}</span>
