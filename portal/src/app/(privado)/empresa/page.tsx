@@ -1,17 +1,6 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import {
-  BadgeCheckIcon,
-  Building2Icon,
-  CheckIcon,
-  CloudIcon,
-  ExternalLinkIcon,
-  FileKey2Icon,
-  HelpCircleIcon,
-  KeyRoundIcon,
-  MailIcon,
-  PaletteIcon,
-  ShieldAlertIcon,
-} from "lucide-react";
+import { ArrowSquareOutIcon, BuildingsIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getLocale, getMessages } from "next-intl/server";
@@ -231,7 +220,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <Building2Icon className="size-4" />
+                <BuildingsIcon weight={PESO_ICONO} className="size-4" />
                 {t.datos.titulo}
               </div>
             </div>
@@ -239,7 +228,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               <div className="sm:col-span-2">
                 <Dato etiqueta={t.datos.rucRegistrado}>
                   {empresa.ruc}
-                  <BadgeCheckIcon className="ml-auto size-4 text-success-solid" aria-label={t.datos.rucValidado} />
+                  <SealCheckIcon weight={PESO_ICONO} className="ml-auto size-4 text-success-solid" aria-label={t.datos.rucValidado} />
                 </Dato>
               </div>
               <div className="sm:col-span-2">
@@ -273,7 +262,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <CloudIcon className="size-3.5" />
+                <CloudIcon weight={PESO_ICONO} className="size-3.5" />
                 {t.datos.envioDirecto}
               </span>
               <span title={t.datos.codigoLocalAyuda}>
@@ -287,7 +276,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <KeyRoundIcon className="size-4" />
+                <KeyIcon weight={PESO_ICONO} className="size-4" />
                 {t.sol.titulo}
               </div>
               {rechazoSol ? (
@@ -305,7 +294,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               </div>
             ) : null}
             <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-accent-border bg-accent/60 p-3">
-              <ShieldAlertIcon className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
+              <ShieldWarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
               <p className="text-[12px] leading-relaxed text-accent-foreground">
                 {t.sol.secundarioAntes} <strong className="font-semibold">{t.sol.secundario}</strong> {t.sol.secundarioDespues}
               </p>
@@ -320,7 +309,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="credenciales-api-sunat">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <KeyRoundIcon className="size-4" />
+                <KeyIcon weight={PESO_ICONO} className="size-4" />
                 {t.api.titulo}
               </div>
               <Pill tono={empresa.tiene_credenciales_api_sunat ? "ok" : "neutro"}>{empresa.tiene_credenciales_api_sunat ? t.sol.configuradas : t.api.opcionales}</Pill>
@@ -340,7 +329,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <Building2Icon className="size-4" />
+                <BuildingsIcon weight={PESO_ICONO} className="size-4" />
                 {t.empresas.titulo}
               </div>
               <span className="font-mono text-[11px] text-muted-foreground">
@@ -371,14 +360,14 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <span title={e.tiene_certificado ? t.empresas.certificadoCargado : t.empresas.sinCertificado}>
-                        <FileKey2Icon className={cn("size-4", e.tiene_certificado ? "text-success-solid" : "text-muted-foreground/40")} />
+                        <FileLockIcon weight={PESO_ICONO} className={cn("size-4", e.tiene_certificado ? "text-success-solid" : "text-muted-foreground/40")} />
                       </span>
                       <span title={e.tiene_credenciales_sol ? t.empresas.solConfiguradas : t.empresas.sinSol}>
-                        <KeyRoundIcon className={cn("size-4", e.tiene_credenciales_sol ? "text-success-solid" : "text-muted-foreground/40")} />
+                        <KeyIcon weight={PESO_ICONO} className={cn("size-4", e.tiene_credenciales_sol ? "text-success-solid" : "text-muted-foreground/40")} />
                       </span>
                       {activa ? (
                         <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary">
-                          <CheckIcon className="size-3" /> {t.empresas.activa}
+                          <CheckIcon weight="bold" className="size-3" /> {t.empresas.activa}
                         </span>
                       ) : null}
                     </div>
@@ -399,7 +388,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5 lg:col-span-7")}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <FileKey2Icon className="size-4" />
+                <FileLockIcon weight={PESO_ICONO} className="size-4" />
                 {t.certificado.titulo}
               </div>
               <Punto tono={estadoCert.tono} />
@@ -433,9 +422,9 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                   rel="noreferrer"
                   className="flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2 text-foreground/90 transition-colors hover:bg-muted"
                 >
-                  <HelpCircleIcon className="size-4 shrink-0 text-primary" />
+                  <QuestionIcon weight={PESO_ICONO} className="size-4 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">{t.recursos.portalCpe}</span>
-                  <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <ArrowSquareOutIcon weight={PESO_ICONO} className="size-3.5 shrink-0 text-muted-foreground" />
                 </a>
               </li>
               <li>
@@ -445,9 +434,9 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                   rel="noreferrer"
                   className="flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2 text-foreground/90 transition-colors hover:bg-muted"
                 >
-                  <BadgeCheckIcon className="size-4 shrink-0 text-primary" />
+                  <SealCheckIcon weight={PESO_ICONO} className="size-4 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">{t.recursos.indecopi}</span>
-                  <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <ArrowSquareOutIcon weight={PESO_ICONO} className="size-3.5 shrink-0 text-muted-foreground" />
                 </a>
               </li>
             </ul>
@@ -458,7 +447,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
       <section className={cn(TARJETA, "p-5")} id="personalizacion">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
           <div className={TITULO_SECCION}>
-            <PaletteIcon className="size-4" />
+            <PaletteIcon weight={PESO_ICONO} className="size-4" />
             {t.pdf.titulo}
           </div>
           <span className="text-[12px] text-muted-foreground">{t.pdf.ayuda}</span>
@@ -474,7 +463,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="seccion-envio-al-cliente">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className={TITULO_SECCION}>
-                <MailIcon className="size-4" />
+                <EnvelopeSimpleIcon weight={PESO_ICONO} className="size-4" />
                 {t.correo.titulo}
               </div>
               {envioAlCliente ? (

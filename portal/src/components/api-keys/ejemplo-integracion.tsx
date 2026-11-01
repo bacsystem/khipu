@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, TerminalSquareIcon } from "lucide-react";
+import { BookOpenIcon, TerminalWindowIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
@@ -111,7 +111,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
           "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
-        <TerminalSquareIcon className="size-4" />
+        <TerminalWindowIcon className="size-4" />
         {t.boton}
       </DialogTrigger>
 
@@ -119,7 +119,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <TerminalSquareIcon className="size-4" />
+              <TerminalWindowIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>

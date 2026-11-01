@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSpreadsheetIcon } from "lucide-react";
+import { FileXlsIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
@@ -87,7 +87,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
         aria-controls="exportar-panel"
         className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-[12px] font-medium")}
       >
-        <FileSpreadsheetIcon className="size-4" />
+        <FileXlsIcon className="size-4" />
         {t.boton}
       </button>
       {abierto ? (

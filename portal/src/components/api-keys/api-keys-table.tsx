@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, KeyRoundIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon, KeyIcon, ProhibitIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
@@ -71,7 +71,7 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
           <>
             <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarRevocar}</span>
             <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-              {revocando ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <BanIcon className="size-3.5" />}
+              {revocando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
               {t.siRevocar}
             </button>
             <button
@@ -86,7 +86,7 @@ function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
         ) : (
           // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
           <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-            <BanIcon className="size-3.5" />
+            <ProhibitIcon className="size-3.5" />
             {t.revocar}
           </button>
         )}
@@ -129,7 +129,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <KeyRoundIcon className="size-4" />
+            <KeyIcon className="size-4" />
           </div>
           <div className="min-w-0">
             <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
@@ -164,7 +164,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -216,7 +216,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <KeyRoundIcon className="size-6" />
+                    <KeyIcon className="size-6" />
                     <p className="text-sm">
                       {apiKeys.length === 0 ? t.vacia : t.sinResultados}
                     </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, SaveIcon } from "lucide-react";
+import { CaretDownIcon, FloppyDiskIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
@@ -103,7 +103,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
               </option>
             ))}
           </select>
-          <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
         <span className={AYUDA_CAMPO}>{t.catalogo}</span>
       </div>
@@ -165,7 +165,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
                 </option>
               ))}
           </select>
-          <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
         <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
       </div>
@@ -190,7 +190,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
           disabled={enviando}
           className={BOTON_PRIMARIO}
         >
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? t.guardando : t.guardar}
         </button>
       </div>

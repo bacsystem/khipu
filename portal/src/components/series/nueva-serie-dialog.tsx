@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusCircleIcon, PlusIcon } from "lucide-react";
+import { PlusCircleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { NuevaSerieForm } from "@/components/series/nueva-serie-form";
@@ -22,7 +22,7 @@ export function NuevaSerieDialog({ className }: { className?: string }) {
           cn(ACCION_PRINCIPAL, "self-start md:self-auto")
         }
       >
-        <PlusIcon className="size-4" />
+        <PlusIcon weight="bold" className="size-4" />
         {t.nueva}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, KeyRoundIcon, MailCheckIcon } from "lucide-react";
+import { EnvelopeSimpleOpenIcon, EyeIcon, KeyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 type Tipo = "restablecer" | "verificar";
 
 const RUTA: Record<Tipo, string> = { restablecer: "restablecimiento", verificar: "verificacion" };
-const ICONO = { restablecer: KeyRoundIcon, verificar: MailCheckIcon } as const;
+const ICONO = { restablecer: KeyIcon, verificar: EnvelopeSimpleOpenIcon } as const;
 
 /**
  * Un correo de acceso para un usuario (#183): restablecer su contraseña o reenviarle la verificación. Pide confirmación en un modal que dice

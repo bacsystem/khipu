@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
@@ -81,7 +81,7 @@ export function CreditoEditor({
               onClick={() => onCambio({ ...credito, cuotas: credito.cuotas.filter((_, j) => j !== i) })}
               className="mb-1 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
             >
-              <Trash2Icon className="size-4" />
+              <TrashIcon className="size-4" />
             </button>
           </div>
         ))}
@@ -90,7 +90,7 @@ export function CreditoEditor({
           onClick={() => onCambio({ ...credito, cuotas: [...credito.cuotas, { monto: "", vencimiento: sumarDias(credito.cuotas.at(-1)?.vencimiento ?? emision, 30) }] })}
           className="inline-flex items-center gap-1 justify-self-start text-[12px] font-medium text-primary hover:underline"
         >
-          <PlusIcon className="size-3.5" />
+          <PlusIcon weight="bold" className="size-3.5" />
           {t.agregarCuota}
         </button>
       </div>

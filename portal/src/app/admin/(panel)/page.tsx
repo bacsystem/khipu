@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
-import { ChevronRightIcon } from "lucide-react";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { seccionesAdmin } from "@/lib/admin-secciones";
 import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
@@ -32,13 +33,13 @@ export default async function AdminInicioPage() {
                 <li key={href}>
                   <Link href={href} className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                      <Icono className="size-4" />
+                      <Icono weight={PESO_ICONO} className="size-4" />
                     </span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
                       <span className="text-[13px] font-medium text-foreground">{etiqueta}</span>
                       <span className="text-[12px] text-muted-foreground">{resumen}</span>
                     </span>
-                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
+                    <CaretRightIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
                   </Link>
                 </li>
               ))}

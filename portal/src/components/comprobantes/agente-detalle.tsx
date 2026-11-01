@@ -3,7 +3,8 @@ import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
 import { ETIQUETA_DATO, TITULO_SECCION } from "@/lib/estilos";
 import type { ComprobanteDeAgente } from "@/lib/api/facturas";
-import { Rows3Icon } from "lucide-react";
+import { RowsIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 
 /** Los documentos que paga una retención o cobra una percepción: factura, boleta, nota de débito o ticket; otro código se muestra tal cual. */
 function tipoDeDocumento(tipo: string, messages: Mensajes): string {
@@ -24,7 +25,7 @@ export function DocumentosDeAgente({ agente, retencion }: { agente: ComprobanteD
     <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs" data-testid="documentos-de-agente">
       <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
         <div className={TITULO_SECCION}>
-          <Rows3Icon className="size-4" />
+          <RowsIcon weight={PESO_ICONO} className="size-4" />
           {retencion ? t.documentosPagados : t.documentosCobrados}
         </div>
         <span className="font-mono text-xs text-muted-foreground">

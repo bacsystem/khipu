@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOutIcon } from "lucide-react";
+import { SignOutIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
@@ -62,7 +62,7 @@ export function AceptarTerminos() {
         {enviando ? t.aceptando : t.aceptar}
       </button>
       <button type="button" disabled={enviando || saliendo} onClick={cerrarSesion} className={BOTON_SECUNDARIO}>
-        <LogOutIcon className="size-4" />
+        <SignOutIcon className="size-4" />
         {t.cerrarSesion}
       </button>
     </form>

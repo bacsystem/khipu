@@ -1,4 +1,5 @@
-import { InboxIcon } from "lucide-react";
+import { TrayIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { ReactNode } from "react";
 import { TableCell, TableRow } from "khipu-design-system/ui/table";
 
@@ -23,7 +24,7 @@ export function Vacio({ columnas, texto }: { columnas: number; texto: string }) 
     <TableRow className="hover:bg-transparent">
       <TableCell colSpan={columnas} className="py-10 text-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <InboxIcon className="size-5" />
+          <TrayIcon weight={PESO_ICONO} className="size-5" />
           <p className="text-sm">{texto}</p>
         </div>
       </TableCell>

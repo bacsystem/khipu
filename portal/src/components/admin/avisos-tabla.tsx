@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon } from "lucide-react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -179,7 +179,7 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={4} className="py-14 text-center">
                   <div data-testid="avisos-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">{t.vacio[params.vista]}</p>
                   </div>
                 </TableCell>

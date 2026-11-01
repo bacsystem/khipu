@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon, TrayIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -113,7 +113,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -200,7 +200,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">
                       {series.length === 0 ? t.vacio : t.sinCoincidencias}
                     </p>

@@ -1,4 +1,5 @@
-import { LockIcon } from "lucide-react";
+import { LockIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { ApiError } from "@/lib/api/types";
 import { useMessages } from "next-intl";
 import { TARJETA } from "@/lib/estilos";
@@ -15,7 +16,7 @@ export function SinPermisoDePagina() {
   return (
     <div className={cn(TARJETA, "mx-auto flex w-full max-w-xl items-start gap-3 p-5")} role="status">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-        <LockIcon className="size-4" />
+        <LockIcon weight={PESO_ICONO} className="size-4" />
       </div>
       <p className="text-sm text-muted-foreground">{messages.roles.sinPermiso.pagina}</p>
     </div>

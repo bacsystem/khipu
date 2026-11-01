@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, EyeOffIcon, KeyRoundIcon, LockIcon, SaveIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, EyeSlashIcon, FloppyDiskIcon, KeyIcon, LockIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -67,7 +67,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
             {t.clientId}
           </label>
           <div className="relative">
-            <KeyRoundIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+            <KeyIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
             <input
               id="api-sunat-client-id"
               value={clientId}
@@ -104,7 +104,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
               title={verSecreto ? tc.ocultarClave : tc.mostrarClave}
               className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             >
-              {verSecreto ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+              {verSecreto ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
           <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
@@ -117,12 +117,12 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         {configuradas ? (
           <button type="button" onClick={quitar} disabled={enviando !== null} className={BOTON_SECUNDARIO}>
-            <Trash2Icon className="size-4" />
+            <TrashIcon className="size-4" />
             {enviando === "quitar" ? t.quitando : t.quitar}
           </button>
         ) : null}
         <button type="submit" disabled={enviando !== null} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando === "guardar" ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>
       </div>

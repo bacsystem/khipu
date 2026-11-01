@@ -1,6 +1,7 @@
 "use client";
 
-import { HomeIcon, type LucideIcon } from "lucide-react";
+import { HouseIcon } from "@phosphor-icons/react";
+import { PESO_ICONO, type IconoComponente } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { usePathname } from "next/navigation";
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
 const ITEM_BASE =
   "flex w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-md border border-transparent px-2.5 py-1.5 text-[13px]";
 
-function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; etiqueta: string; icono: LucideIcon; activo: boolean }) {
+function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; etiqueta: string; icono: IconoComponente; activo: boolean }) {
   return (
     <Link
       href={href}
@@ -23,7 +24,7 @@ function ItemDelMenu({ href, etiqueta, icono: Icono, activo }: { href: string; e
           : "font-normal text-sidebar-foreground hover:bg-muted hover:text-foreground",
       )}
     >
-      <Icono className={cn("size-[18px] shrink-0", activo ? "text-primary" : "text-muted-foreground/70")} />
+      <Icono weight={PESO_ICONO} className={cn("size-[18px] shrink-0", activo ? "text-primary" : "text-muted-foreground/70")} />
       <span className="min-w-0 flex-1 truncate">{etiqueta}</span>
       {activo ? <span className="size-1.5 shrink-0 rounded-full bg-primary" /> : null}
     </Link>
@@ -41,7 +42,7 @@ export function AdminSidebarNav() {
 
   return (
     <nav aria-label={messages.admin.nav.menu} className="grid w-full grid-cols-1 gap-3 px-2 pt-2">
-      <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HomeIcon} activo={pathname === "/admin"} />
+      <ItemDelMenu href="/admin" etiqueta={messages.admin.nav.inicio} icono={HouseIcon} activo={pathname === "/admin"} />
       {seccionesAdmin(messages).map((seccion) => (
         <div key={seccion.titulo} role="group" aria-label={seccion.titulo} className="grid w-full grid-cols-1 gap-0.5">
           <span className="truncate px-2.5 py-1 text-[10px] font-medium tracking-wider text-muted-foreground/80 uppercase">{seccion.titulo}</span>

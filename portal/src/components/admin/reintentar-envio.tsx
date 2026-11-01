@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { ErrorDeEmision, ResultadoDeReintento } from "@/lib/api/admin-errores";
@@ -20,7 +20,7 @@ export function ReintentarEnvio({ comprobante, alResultado }: { comprobante: Err
     <DialogoDeAccion
       testId="errores-reintentar"
       boton={t.boton}
-      icono={RotateCwIcon}
+      icono={ArrowClockwiseIcon}
       chico
       titulo={t.titulo}
       descripcion={t.descripcion.replace("{comprobante}", comprobante.nombre_archivo)}

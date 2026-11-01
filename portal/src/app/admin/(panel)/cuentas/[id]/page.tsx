@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
-import { ArrowLeftIcon, MailIcon } from "lucide-react";
+import { ArrowLeftIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CuentaDetalle } from "@/components/admin/cuenta-detalle";
@@ -62,7 +63,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
         <Link href="/admin/cuentas" className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">
-          <ArrowLeftIcon className="size-3" />
+          <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
           {t.volver}
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -70,7 +71,7 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
           {/* #250: el correo a soporte ya dice de qué cuenta se trata; solo nombre e id, nada sensible. */}
           {resultado.cuenta && soporte.email ? (
             <a href={correoDeSoporte(soporte.email, interpolar(t.asuntoSoporte, { nombre: resultado.cuenta.nombre, id }))} className={ACCION_SECUNDARIA}>
-              <MailIcon className="size-4" aria-hidden />
+              <EnvelopeSimpleIcon weight={PESO_ICONO} className="size-4" aria-hidden />
               {t.escribirASoporte}
             </a>
           ) : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ImageIcon, PaletteIcon, RefreshCcwIcon, Trash2Icon, UploadCloudIcon } from "lucide-react";
+import { ArrowsClockwiseIcon, CheckIcon, CloudArrowUpIcon, ImageIcon, PaletteIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
@@ -156,13 +156,13 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
                 <span className="flex size-control items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
               )}
               <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "cursor-pointer")}>
-                <UploadCloudIcon className="size-3.5" />
+                <CloudArrowUpIcon className="size-3.5" />
                 {subiendoLogo ? messages.empresa.comun.subiendo : tieneLogo ? t.cambiar : t.subir}
               </label>
               <input id={logoInputId} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => subirLogo(e.target.files?.[0])} disabled={subiendoLogo} />
               {tieneLogo ? (
                 <button type="button" onClick={quitarLogo} className={cn(BOTON_SECUNDARIO, "text-destructive hover:text-destructive")} title={t.quitarLogo}>
-                  <Trash2Icon className="size-3.5" />
+                  <TrashIcon className="size-3.5" />
                 </button>
               ) : null}
             </div>
@@ -186,12 +186,12 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={guardando || !colorValido} className={BOTON_PRIMARIO}>
-            {guardando ? <RefreshCcwIcon className="size-4 animate-spin" /> : <PaletteIcon className="size-4" />}
+            {guardando ? <ArrowsClockwiseIcon className="size-4 animate-spin" /> : <PaletteIcon className="size-4" />}
             {guardando ? messages.empresa.comun.guardando : t.guardar}
           </button>
           {ok ? (
             <span className="inline-flex items-center gap-1 text-[12px] text-success-foreground" role="status" data-testid="diseno-guardado">
-              <CheckIcon className="size-3.5" /> {t.guardado}
+              <CheckIcon weight="bold" className="size-3.5" /> {t.guardado}
             </span>
           ) : null}
         </div>

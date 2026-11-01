@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BajasDeComprobante } from "@/components/admin/bajas-de-comprobante";
@@ -125,7 +126,7 @@ export default async function AdminComprobantePage({ params }: { params: Promise
     <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
       <div className="grid gap-1">
         <Link href="/admin/errores" className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline">
-          <ArrowLeftIcon className="size-3" />
+          <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
           {t.volver}
         </Link>
         <h1 className="font-heading text-2xl">{t.titulo}</h1>

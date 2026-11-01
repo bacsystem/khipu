@@ -1,4 +1,5 @@
-import { InboxIcon } from "lucide-react";
+import { TrayIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useLocale, useMessages } from "next-intl";
 import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
@@ -95,7 +96,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={9} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon weight={PESO_ICONO} className="size-6" />
                     <p className="text-sm">{t.vacio}</p>
                   </div>
                 </TableCell>

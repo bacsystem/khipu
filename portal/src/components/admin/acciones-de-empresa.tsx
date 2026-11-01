@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeftIcon, KeyRoundIcon, PlugZapIcon } from "lucide-react";
+import { ArrowsLeftRightIcon, KeyIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
@@ -24,7 +24,7 @@ export function CambiarEntorno({ empresaId, razonSocial, entorno }: { empresaId:
     <DialogoDeAccion
       testId="cambiar-entorno"
       boton={t.entorno.boton}
-      icono={ArrowRightLeftIcon}
+      icono={ArrowsLeftRightIcon}
       tono={hacia === "PRODUCCION" ? "peligro" : "secundario"}
       titulo={textos.titulo}
       descripcion={textos.descripcion.replace("{empresa}", razonSocial)}
@@ -47,7 +47,7 @@ export function RevocarApiKey({ empresaId, apiKeyId, prefijo, razonSocial }: { e
     <DialogoDeAccion
       testId={`revocar-api-key-${apiKeyId}`}
       boton={t.apiKey.boton}
-      icono={KeyRoundIcon}
+      icono={KeyIcon}
       tono="peligro"
       chico
       titulo={t.apiKey.titulo}
@@ -96,7 +96,7 @@ export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tie
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={probar} disabled={probando || !tieneSol} data-testid="probar-conexion" className={ACCION_SECUNDARIA}>
-          <PlugZapIcon className="size-4" />
+          <PlugsConnectedIcon className="size-4" />
           {probando ? t.conexion.probando : t.conexion.boton}
         </button>
         {tieneSol ? null : <span className="text-xs text-muted-foreground">{t.conexion.sinSol}</span>}

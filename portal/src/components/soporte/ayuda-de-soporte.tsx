@@ -1,6 +1,6 @@
 "use client";
 
-import { LifeBuoyIcon } from "lucide-react";
+import { LifebuoyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { createContext, type ReactNode, useContext } from "react";
 import { correoDeSoporte, SIN_SOPORTE, type Soporte } from "@/lib/soporte";
@@ -27,7 +27,7 @@ export function AyudaDeSoporte({ className }: { className?: string }) {
   if (!url && !email) return null;
   return (
     <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground", className)}>
-      <LifeBuoyIcon className="size-3.5 shrink-0" aria-hidden />
+      <LifebuoyIcon className="size-3.5 shrink-0" aria-hidden />
       <span>{t.pregunta}</span>
       {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">

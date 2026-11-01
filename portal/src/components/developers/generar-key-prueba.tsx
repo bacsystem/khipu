@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Button } from "khipu-design-system/ui/button";
@@ -48,7 +48,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
             <span className="truncate">{apiKey}</span>
           </code>
           <Button type="button" variant="outline" size="icon-sm" onClick={copiar}>
-            {copiada ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copiada ? <CheckIcon weight="bold" className="size-4" /> : <CopyIcon weight="bold" className="size-4" />}
             <span className="sr-only">{t.copiar}</span>
           </Button>
         </div>

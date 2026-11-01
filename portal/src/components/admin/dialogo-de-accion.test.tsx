@@ -1,4 +1,4 @@
-import { KeyRoundIcon } from "lucide-react";
+import { KeyIcon } from "@phosphor-icons/react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiEnvelope } from "@/lib/api/types";
@@ -23,7 +23,7 @@ function montar(extra: Partial<DialogoDeAccionProps> = {}) {
     <DialogoDeAccion
       testId="accion"
       boton="Hacer algo"
-      icono={KeyRoundIcon}
+      icono={KeyIcon}
       titulo="Hacer algo importante"
       descripcion="Esto hace algo."
       efectos={["Hace una cosa.", "No hace la otra."]}
@@ -255,13 +255,13 @@ describe("DialogoDeAccion", () => {
 
   it("con tono de peligro el botón de confirmar es el destructivo, y sin él el primario", () => {
     const { unmount } = render(
-      <DialogoDeAccion testId="a" boton="b" icono={KeyRoundIcon} titulo="t" descripcion="d" efectos={["e"]} confirmar="c" enviando="e" cancelar="x" ruta="/r" tono="peligro" />,
+      <DialogoDeAccion testId="a" boton="b" icono={KeyIcon} titulo="t" descripcion="d" efectos={["e"]} confirmar="c" enviando="e" cancelar="x" ruta="/r" tono="peligro" />,
     );
     fireEvent.click(screen.getByTestId("a"));
     const peligro = screen.getByTestId("a-confirmar").className;
     unmount();
     cleanup();
-    render(<DialogoDeAccion testId="a" boton="b" icono={KeyRoundIcon} titulo="t" descripcion="d" efectos={["e"]} confirmar="c" enviando="e" cancelar="x" ruta="/r" />);
+    render(<DialogoDeAccion testId="a" boton="b" icono={KeyIcon} titulo="t" descripcion="d" efectos={["e"]} confirmar="c" enviando="e" cancelar="x" ruta="/r" />);
     fireEvent.click(screen.getByTestId("a"));
 
     expect(screen.getByTestId("a-confirmar").className).not.toBe(peligro);

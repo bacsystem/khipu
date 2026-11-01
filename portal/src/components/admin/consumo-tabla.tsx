@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon } from "lucide-react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -161,7 +161,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">{t.vacio[params.filtro]}</p>
                   </div>
                 </TableCell>

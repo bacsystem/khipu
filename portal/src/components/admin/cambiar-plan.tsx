@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeftIcon, TriangleAlertIcon } from "lucide-react";
+import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -118,14 +118,14 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger className={ACCION_PRINCIPAL} data-testid="cambiar-plan">
-        <ArrowRightLeftIcon className="size-4" />
+        <ArrowsLeftRightIcon className="size-4" />
         {messages.admin.planDeCuenta.cambiar}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="cambiar-plan-dialogo" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <ArrowRightLeftIcon className="size-4" />
+              <ArrowsLeftRightIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
@@ -217,7 +217,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
             data-testid="cambiar-plan-confirmar"
             className={BOTON_PRIMARIO}
           >
-            <ArrowRightLeftIcon className="size-4" />
+            <ArrowsLeftRightIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
         </div>
@@ -259,7 +259,7 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
       <p>{consumo}</p>
       {d.programado_que_se_descarta ? (
         <p data-testid="cambiar-plan-descarta" className="flex items-start gap-1.5 text-warning-foreground">
-          <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+          <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
           {(inmediato ? t.descartaInmediato : t.descartaBajada)
             .replace("{plan}", d.programado_que_se_descarta.plan.nombre)
             .replace("{fecha}", formatearFechaDeLima(d.programado_que_se_descarta.aplica_desde, locale))}
@@ -267,7 +267,7 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
       ) : null}
       {d.supera_el_limite ? (
         <p data-testid="cambiar-plan-supera" className="flex items-start gap-1.5 text-warning-foreground">
-          <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+          <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
           {inmediato ? t.superaInmediato : t.superaBajada}
         </p>
       ) : null}

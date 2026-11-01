@@ -1,4 +1,5 @@
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
@@ -53,7 +54,7 @@ export default async function NuevaGuiaPage() {
   return (
     <div className="mx-auto grid w-full max-w-[1100px] min-w-0 grid-cols-1 gap-4">
       <Link href="/guias" className="flex w-fit items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon className="size-3.5" />
+        <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
         {t.form.volver}
       </Link>
       <AvisoExperimental />

@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon } from "lucide-react";
+import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Administrador } from "@/lib/api/admin-auth";
@@ -59,7 +59,7 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
         {miga?.accion === "nuevoPlan" ? <FormularioDePlan claseDelBoton={ACCION_PRINCIPAL} /> : null}
         {miga?.accion === "exportarConsumo" ? (
           <a href={hrefExportacionDeLaPagina(busqueda)} download className={ACCION_PRINCIPAL}>
-            <DownloadIcon className="size-4" />
+            <DownloadSimpleIcon className="size-4" />
             {messages.admin.consumo.exportar}
           </a>
         ) : null}

@@ -1,4 +1,5 @@
-import { CheckCircle2Icon } from "lucide-react";
+import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -38,7 +39,7 @@ export function AlertasDelPanel({ alertas, incompleto, guiaPendiente = false }: 
         </p>
       ) : alertas.length === 0 && !guiaPendiente ? (
         <p data-testid="alertas-sin-avisos" className="flex items-center gap-1.5 text-[12px] text-success-foreground">
-          <CheckCircle2Icon className="size-3.5 shrink-0" aria-hidden />
+          <CheckCircleIcon weight={PESO_ICONO} className="size-3.5 shrink-0" aria-hidden />
           {t.sinAvisos}
         </p>
       ) : null}

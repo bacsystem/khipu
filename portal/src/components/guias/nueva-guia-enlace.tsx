@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { ACCION_PRINCIPAL } from "@/lib/estilos";
@@ -14,14 +14,14 @@ export function NuevaGuiaEnlace() {
   if (motivo !== null) {
     return (
       <span aria-disabled="true" title={motivo} className={cn(ACCION_PRINCIPAL, "cursor-not-allowed opacity-50")}>
-        <PlusIcon className="size-4" />
+        <PlusIcon weight="bold" className="size-4" />
         {t.nueva}
       </span>
     );
   }
   return (
     <Link href="/guias/nueva" className={ACCION_PRINCIPAL}>
-      <PlusIcon className="size-4" />
+      <PlusIcon weight="bold" className="size-4" />
       {t.nueva}
     </Link>
   );

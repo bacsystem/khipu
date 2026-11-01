@@ -1,4 +1,5 @@
-import { ArrowLeftIcon, FileMinusIcon, FileTextIcon, HistoryIcon, IdCardIcon, LinkIcon, Rows3Icon } from "lucide-react";
+import { ArrowLeftIcon, ClockCounterClockwiseIcon, FileMinusIcon, FileTextIcon, IdentificationCardIcon, LinkIcon, RowsIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
@@ -209,7 +210,7 @@ function Historial({ eventos, t, estados, locale }: { eventos: Comprobante["even
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="historial">
       <div className={cn(TITULO_SECCION, "mb-3")}>
-        <HistoryIcon className="size-4" />
+        <ClockCounterClockwiseIcon weight={PESO_ICONO} className="size-4" />
         {t.historial.titulo}
       </div>
       {eventos && eventos.length > 0 ? (
@@ -267,7 +268,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
           <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
-            <ArrowLeftIcon className="size-3.5" />
+            <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
             {t.volver}
           </Link>
           <span className="text-muted-foreground/40">/</span>
@@ -285,7 +286,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
           {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numero} /> : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
-              <FileMinusIcon className="size-4" />
+              <FileMinusIcon weight={PESO_ICONO} className="size-4" />
               {t.emitirNota}
             </Link>
           ) : null}
@@ -300,7 +301,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               className={ACCION_PRINCIPAL}
               data-testid="ver-pdf"
             >
-              <FileTextIcon className="size-4" />
+              <FileTextIcon weight={PESO_ICONO} className="size-4" />
               {t.verPdf}
             </a>
           ) : null}
@@ -398,7 +399,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
       <section className="rounded-xl border border-border bg-card p-5 shadow-2xs">
         <div className={cn(TITULO_SECCION, "mb-3")}>
-          <IdCardIcon className="size-4" />
+          <IdentificationCardIcon weight={PESO_ICONO} className="size-4" />
           {t.receptor.titulo}
         </div>
         {c.receptor ? (
@@ -456,7 +457,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.nota ? (
         <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-2xs" data-testid="nota">
           <div className={cn(TITULO_SECCION, "mb-3")}>
-            <FileMinusIcon className="size-4" />
+            <FileMinusIcon weight={PESO_ICONO} className="size-4" />
             {c.tipo === "07" ? t.nota.creditoSobre : t.nota.debitoSobre}
           </div>
           <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
@@ -479,7 +480,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.notas?.length ? (
         <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="notas">
           <div className={cn(TITULO_SECCION, "mb-3")}>
-            <FileMinusIcon className="size-4" />
+            <FileMinusIcon weight={PESO_ICONO} className="size-4" />
             {c.tipo === "03" ? t.notas.sobreBoleta : t.notas.sobreFactura}
           </div>
           <ul className="divide-y divide-border/60 text-xs">
@@ -505,7 +506,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.referencias ? (
         <section className="rounded-xl border border-border bg-card p-5 shadow-2xs" data-testid="referencias">
           <div className={cn(TITULO_SECCION, "mb-3")}>
-            <LinkIcon className="size-4" />
+            <LinkIcon weight={PESO_ICONO} className="size-4" />
             {t.referencias.titulo}
           </div>
           <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-3">
@@ -549,7 +550,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
           <div className={TITULO_SECCION}>
-            <Rows3Icon className="size-4" />
+            <RowsIcon weight={PESO_ICONO} className="size-4" />
             {t.items.titulo}
           </div>
           <span className="font-mono text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CalendarIcon, FileCheck2Icon, InboxIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon, CalendarBlankIcon, FileTextIcon, TrayIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
@@ -234,7 +234,7 @@ export function ComprobantesTable({
           <BusquedaDelListado id="filtro-numero" etiqueta={t.numero.etiqueta} ayuda={t.numero.ayuda} placeholder={t.numero.placeholder} valor={numero ? String(numero) : ""} onCambio={(v) => cambiarFiltro("numero", v.replace(/\D/g, "").replace(/^0+/, "") || null)} ancho="w-24" soloDigitos maxLength={12} />
 
           <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title={t.fechaTitulo}>
-            <CalendarIcon className="size-4 text-muted-foreground/70" />
+            <CalendarBlankIcon className="size-4 text-muted-foreground/70" />
             <label className="sr-only" htmlFor="filtro-desde">{t.desde}</label>
             <input
               id="filtro-desde"
@@ -266,7 +266,7 @@ export function ComprobantesTable({
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <RefreshCwIcon className={cn("size-4", isFetching && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", isFetching && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -380,7 +380,7 @@ export function ComprobantesTable({
                           title={t.descargarCdr}
                           className={cn(ACCION, "w-control text-muted-foreground hover:bg-secondary hover:text-foreground")}
                         >
-                          <FileCheck2Icon className="size-3.5" />
+                          <FileTextIcon className="size-3.5" />
                         </a>
                       ) : null}
                       {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numeroCompleto} compacto /> : null}
@@ -393,7 +393,7 @@ export function ComprobantesTable({
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">
                       {hayFiltros ? t.vacioConFiltros : t.vacio}
                     </p>

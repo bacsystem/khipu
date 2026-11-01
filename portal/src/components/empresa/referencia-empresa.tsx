@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
+import { DatabaseIcon, LockIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { type CampoReferencia, ReferenciaTecnicaDialog, SeccionReferencia, TablaCampos } from "@/components/compartidos/referencia-tecnica";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon, SendIcon, Trash2Icon } from "lucide-react";
+import { CaretDownIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
@@ -88,7 +88,7 @@ function Seleccion({ id, valor, alCambiar, opciones, vacio, deshabilitado }: { i
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+      <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
     </div>
   );
 }
@@ -373,14 +373,14 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
                 </Campo>
                 {i > 0 ? (
                   <button type="button" onClick={() => cambiar({ vehiculos: f.vehiculos.filter((_, n) => n !== i) })} aria-label={`${t.quitar} ${t.placa} ${i + 1}`} className={BOTON_SECUNDARIO}>
-                    <Trash2Icon className="size-4" />
+                    <TrashIcon className="size-4" />
                   </button>
                 ) : null}
               </div>
             ))}
             {f.vehiculos.length < MAX_VEHICULOS ? (
               <button type="button" onClick={() => cambiar({ vehiculos: [...f.vehiculos, ""] })} className={cn(BOTON_SECUNDARIO, "w-fit")}>
-                <PlusIcon className="size-4" />
+                <PlusIcon weight="bold" className="size-4" />
                 {t.agregar}
               </button>
             ) : null}
@@ -396,7 +396,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             ))}
             {f.conductores.length < MAX_CONDUCTORES ? (
               <button type="button" onClick={() => cambiar({ conductores: [...f.conductores, conductorVacio()] })} className={cn(BOTON_SECUNDARIO, "w-fit")}>
-                <PlusIcon className="size-4" />
+                <PlusIcon weight="bold" className="size-4" />
                 {t.agregar}
               </button>
             ) : null}
@@ -410,7 +410,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             <ItemFila key={i} i={i} item={it} alCambiar={(nuevo) => cambiar({ items: reemplazar(f.items, i, nuevo) })} alQuitar={f.items.length > 1 ? () => cambiar({ items: f.items.filter((_, n) => n !== i) }) : undefined} />
           ))}
           <button type="button" onClick={() => cambiar({ items: [...f.items, itemVacio()] })} className={cn(BOTON_SECUNDARIO, "w-fit")}>
-            <PlusIcon className="size-4" />
+            <PlusIcon weight="bold" className="size-4" />
             {t.agregar}
           </button>
         </div>
@@ -423,7 +423,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           ))}
           {f.documentos.length < MAX_DOCUMENTOS ? (
             <button type="button" onClick={() => cambiar({ documentos: [...f.documentos, { ...documentoVacio(), tipo: documentosAplicables[0]?.codigo ?? "01" }] })} className={cn(BOTON_SECUNDARIO, "w-fit")}>
-              <PlusIcon className="size-4" />
+              <PlusIcon weight="bold" className="size-4" />
               {t.agregar}
             </button>
           ) : null}
@@ -462,7 +462,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           {enviando === "validar" ? t.validando : t.validar}
         </button>
         <button type="submit" disabled={bloqueado} title={soloLectura ?? undefined} className={BOTON_PRIMARIO}>
-          <SendIcon className="size-4" />
+          <PaperPlaneTiltIcon className="size-4" />
           {enviando === "emitir" ? t.emitiendo : t.emitir}
         </button>
       </div>
@@ -496,7 +496,7 @@ function ConductorFila({ i, conductor, tipos, alCambiar, alQuitar }: { i: number
       </Campo>
       {alQuitar ? (
         <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
-          <Trash2Icon className="size-4" />
+          <TrashIcon className="size-4" />
           {t.quitar}
         </button>
       ) : null}
@@ -526,7 +526,7 @@ function ItemFila({ i, item, alCambiar, alQuitar }: { i: number; item: ItemForm;
       </Campo>
       {alQuitar ? (
         <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
-          <Trash2Icon className="size-4" />
+          <TrashIcon className="size-4" />
           {t.quitar}
         </button>
       ) : null}
@@ -553,7 +553,7 @@ function DocumentoFila({ i, documento, opciones, alCambiar, alQuitar }: { i: num
         <input id={`${id}-ruc`} value={documento.ruc_emisor} onChange={(e) => alCambiar({ ...documento, ruc_emisor: e.target.value })} maxLength={11} className={cn(CAMPO, "font-mono")} />
       </Campo>
       <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
-        <Trash2Icon className="size-4" />
+        <TrashIcon className="size-4" />
         {t.quitar}
       </button>
     </div>

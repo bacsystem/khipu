@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheckIcon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
+import { CheckCircleIcon, ShieldCheckIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -159,7 +159,7 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
           limpio ? "border-success-border bg-success text-success-foreground" : "border-warning-border bg-warning text-warning-foreground",
         )}
       >
-        {limpio ? <CircleCheckIcon className="mt-0.5 size-4 shrink-0" /> : <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />}
+        {limpio ? <CheckCircleIcon className="mt-0.5 size-4 shrink-0" /> : <WarningIcon className="mt-0.5 size-4 shrink-0" />}
         <div className="grid gap-0.5">
           <p data-testid="integridad-verificados">{verificados}</p>
           <p data-testid="integridad-hallazgo" className="font-medium">

@@ -1,6 +1,6 @@
 "use client";
 
-import { PowerIcon, PowerOffIcon, Trash2Icon } from "lucide-react";
+import { PowerIcon, TrashIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import { FormularioDePlan } from "@/components/admin/formulario-de-plan";
@@ -31,7 +31,7 @@ export function AccionesDePlan({ plan }: { plan: PlanAdmin }) {
         <DialogoDeAccion
           testId={`plan-desactivar-${id}`}
           boton={t.desactivar.boton}
-          icono={PowerOffIcon}
+          icono={PowerIcon}
           chico
           titulo={t.desactivar.titulo.replace("{nombre}", plan.nombre)}
           descripcion={t.desactivar.descripcion}
@@ -65,7 +65,7 @@ export function AccionesDePlan({ plan }: { plan: PlanAdmin }) {
         <DialogoDeAccion
           testId={`plan-borrar-${id}`}
           boton={t.eliminar.boton}
-          icono={Trash2Icon}
+          icono={TrashIcon}
           chico
           tono="peligro"
           titulo={t.eliminar.titulo.replace("{nombre}", plan.nombre)}

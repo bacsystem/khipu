@@ -1,4 +1,4 @@
-import { ReceiptTextIcon } from "lucide-react";
+import { ReceiptIcon } from "@phosphor-icons/react/dist/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getMessages } from "next-intl/server";
@@ -92,7 +92,7 @@ export default async function InicioPage() {
 
       {sinEmision ? (
         <EstadoVacio
-          icon={ReceiptTextIcon}
+          icon={ReceiptIcon}
           titulo={t.sinEmision.titulo}
           accion={
             <Link href="/comprobantes" className={ACCION_SECUNDARIA}>

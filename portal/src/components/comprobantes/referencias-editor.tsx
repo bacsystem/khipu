@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { interpolar } from "@/i18n/mensajes";
@@ -39,12 +39,12 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
             </select>
             <input aria-label={interpolar(t.numeroGuia, { n: i + 1 })} value={g.numero} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} placeholder="T001-123" className={cn(CAMPO_DENSO, "font-mono")} />
             <button type="button" aria-label={interpolar(t.quitarGuia, { n: i + 1 })} onClick={() => set({ guias: valor.guias.filter((_, j) => j !== i) })} className="mt-1.5 text-muted-foreground hover:text-destructive">
-              <Trash2Icon className="size-4" />
+              <TrashIcon className="size-4" />
             </button>
           </div>
         ))}
         <button type="button" onClick={() => set({ guias: [...valor.guias, { tipo: "09", numero: "" }] })} className={cn(BOTON_SECUNDARIO, "justify-self-start")}>
-          <PlusIcon className="size-3.5" />
+          <PlusIcon weight="bold" className="size-3.5" />
           {t.agregarGuia}
         </button>
       </fieldset>
@@ -60,12 +60,12 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
             </select>
             <input aria-label={interpolar(t.numeroDocumento, { n: i + 1 })} value={d.numero} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} maxLength={MAX_DOCUMENTO + 10} placeholder="SCOP-8841203" className={cn(CAMPO_DENSO, "font-mono")} />
             <button type="button" aria-label={interpolar(t.quitarDocumento, { n: i + 1 })} onClick={() => set({ documentos: valor.documentos.filter((_, j) => j !== i) })} className="mt-1.5 text-muted-foreground hover:text-destructive">
-              <Trash2Icon className="size-4" />
+              <TrashIcon className="size-4" />
             </button>
           </div>
         ))}
         <button type="button" onClick={() => set({ documentos: [...valor.documentos, { tipo: tiposDeDocumento[0].codigo, numero: "" }] })} className={cn(BOTON_SECUNDARIO, "justify-self-start")}>
-          <PlusIcon className="size-3.5" />
+          <PlusIcon weight="bold" className="size-3.5" />
           {t.agregarDocumento}
         </button>
       </fieldset>

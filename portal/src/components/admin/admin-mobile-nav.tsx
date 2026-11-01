@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { ListIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -22,7 +22,7 @@ export function AdminMobileNav({ administrador }: { administrador: Administrador
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={<Button variant="ghost" size="icon-sm" />}>
-        <Menu className="size-5" />
+        <ListIcon weight="bold" className="size-5" />
         <span className="sr-only">{messages.admin.topbar.abrirMenu}</span>
       </SheetTrigger>
       <SheetContent side="left" showCloseButton={false} className="w-60 bg-sidebar p-0 text-sidebar-foreground">

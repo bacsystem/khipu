@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPinIcon, SaveIcon } from "lucide-react";
+import { FloppyDiskIcon, MapPinIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -172,7 +172,7 @@ export function DatosFiscalesForm({
 
       <div className="flex justify-end border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? messages.empresa.comun.guardando : t.guardar}
         </button>
       </div>

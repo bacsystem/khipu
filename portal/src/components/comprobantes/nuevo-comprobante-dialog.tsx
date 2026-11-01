@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, PlusIcon } from "lucide-react";
+import { FileTextIcon, PlusIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
@@ -185,7 +185,7 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
       }}
     >
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className}>
-        <PlusIcon className="size-4" />
+        <PlusIcon weight="bold" className="size-4" />
         {t.titulo}
       </DialogTrigger>
       <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">

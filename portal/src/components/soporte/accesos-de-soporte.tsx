@@ -1,4 +1,5 @@
-import { EyeIcon } from "lucide-react";
+import { EyeIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useLocale, useMessages } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { AccesoDeSoporte } from "@/lib/api/accesos-de-soporte";
@@ -44,7 +45,7 @@ export function AccesosDeSoporte({ accesos }: { accesos: AccesoDeSoporte[] }) {
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={3} className="py-14 text-center">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <EyeIcon className="size-6" />
+                  <EyeIcon weight={PESO_ICONO} className="size-6" />
                   <p className="text-sm">{t.vacio}</p>
                 </div>
               </TableCell>

@@ -1,17 +1,4 @@
-import {
-  EyeIcon,
-  GaugeIcon,
-  ListNumbersIcon,
-  PackageIcon,
-  ReceiptIcon,
-  ShieldCheckIcon,
-  SquaresFourIcon,
-  StorefrontIcon,
-  TerminalWindowIcon,
-  TruckIcon,
-  UserGearIcon,
-  UsersIcon,
-} from "@phosphor-icons/react";
+import { EyeIcon, GaugeIcon, ListNumbersIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SquaresFourIcon, StorefrontIcon, TerminalWindowIcon, TruckIcon, UserGearIcon, UsersIcon } from "@phosphor-icons/react";
 import type { GrupoNav } from "khipu-design-system/nav/sidebar-nav";
 import type { Mensajes } from "@/i18n/mensajes";
 

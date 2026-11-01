@@ -1,6 +1,6 @@
 "use client";
 
-import { PackageIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { MagnifyingGlassIcon, PackageIcon, TrashIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
@@ -106,7 +106,7 @@ export function ProductosTable() {
         </div>
         <label className="relative">
           <span className="sr-only">{t.buscar}</span>
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             type="search"
             value={texto}
@@ -162,7 +162,7 @@ export function ProductosTable() {
                       <>
                         <ProductoDialog existente={p} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted")} />
                         <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(p.id)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-                          <Trash2Icon className="size-3.5" />
+                          <TrashIcon className="size-3.5" />
                           {t.eliminar}
                         </button>
                       </>

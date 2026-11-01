@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon, ProhibitIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -64,13 +64,13 @@ export function BajaEstado({ baja }: { baja: Baja }) {
     >
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
-          <BanIcon className="size-4" />
+          <ProhibitIcon className="size-4" />
           {resumenDiario ? t.resumenDiario : t.comunicacion} {baja.identificador}
           {alta ? t.alta : null}
         </span>
         {pendiente ? (
           <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
-            <RefreshCwIcon className={cn("size-3.5", consultando ? "animate-spin" : "")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", consultando ? "animate-spin" : "")} />
             {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
           </button>
         ) : null}

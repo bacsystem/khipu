@@ -1,4 +1,4 @@
-import { Building2, Code2, KeyRound, LayoutDashboard, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { ArrowClockwiseIcon, BuildingsIcon, CodeIcon, KeyIcon, ShieldCheckIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { ComprobantePreview } from "@/components/landing/comprobante-preview";
@@ -15,16 +15,16 @@ import { TextosDeCliente } from "@/i18n/textos-de-cliente";
 
 // Los textos están en `landing.*` de messages; acá queda solo el icono (y el código SUNAT) de cada tarjeta.
 const BENEFICIOS = [
-  { icono: ShieldCheck, clave: "descuadre" },
-  { icono: RefreshCw, clave: "caida" },
-  { icono: LayoutDashboard, clave: "portal" },
-  { icono: KeyRound, clave: "configuracion" },
+  { icono: ShieldCheckIcon, clave: "descuadre" },
+  { icono: ArrowClockwiseIcon, clave: "caida" },
+  { icono: SquaresFourIcon, clave: "portal" },
+  { icono: KeyIcon, clave: "configuracion" },
 ] as const;
 
 const AUDIENCIA = [
-  { icono: Building2, clave: "pymes" },
-  { icono: Users, clave: "contadores" },
-  { icono: Code2, clave: "integradores" },
+  { icono: BuildingsIcon, clave: "pymes" },
+  { icono: UsersIcon, clave: "contadores" },
+  { icono: CodeIcon, clave: "integradores" },
 ] as const;
 
 const COMPROBANTES = [

@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, ChevronDownIcon, MailIcon, RefreshCwIcon, RotateCcwIcon, SendIcon, UsersIcon } from "lucide-react";
+import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, ProhibitIcon, UsersIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
@@ -124,7 +124,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
               </option>
             ))}
           </select>
-          <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
       </TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">
@@ -137,7 +137,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
           ) : !m.activo ? (
             <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/reactivar`, { method: "POST" })}
               className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-              <RotateCcwIcon className="size-3.5" />
+              <ArrowCounterClockwiseIcon className="size-3.5" />
               {t.reactivar}
             </button>
           ) : confirmando ? (
@@ -146,7 +146,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
                 <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarDesactivar}</span>
                 <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/usuarios/${m.id}/desactivar`, { method: "POST" }); }}
                   className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                  <BanIcon className="size-3.5" />
+                  <ProhibitIcon className="size-3.5" />
                   {t.siDesactivar}
                 </button>
                 <button type="button" onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
@@ -165,7 +165,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
             </div>
           ) : (
             <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-              <BanIcon className="size-3.5" />
+              <ProhibitIcon className="size-3.5" />
               {t.desactivar}
             </button>
           )}
@@ -205,7 +205,7 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
               <span className="mr-1 text-[11px] text-muted-foreground">{t.confirmarRevocar}</span>
               <button type="button" disabled={bloqueado} onClick={() => { setConfirmando(false); ejecutar(`/api/proxy/cuenta/invitaciones/${i.id}`, { method: "DELETE" }); }}
                 className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                <BanIcon className="size-3.5" />
+                <ProhibitIcon className="size-3.5" />
                 {t.siRevocar}
               </button>
               <button type="button" onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
@@ -218,11 +218,11 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
                 onClick={() => ejecutar<InvitacionEnviada>(`/api/proxy/cuenta/invitaciones/${i.id}/reenviar`, { method: "POST" },
                   (d) => (d?.correo_enviado ? t.reenviada.replace("{email}", i.email) : t.reenviadaSinCorreo))}
                 className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                {pendiente ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <SendIcon className="size-3.5" />}
+                {pendiente ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <PaperPlaneTiltIcon className="size-3.5" />}
                 {t.reenviar}
               </button>
               <button type="button" disabled={bloqueado} title={sinPermiso ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-                <BanIcon className="size-3.5" />
+                <ProhibitIcon className="size-3.5" />
                 {t.revocar}
               </button>
             </div>
@@ -277,7 +277,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
       </section>
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
-        <Encabezado icono={MailIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
+        <Encabezado icono={EnvelopeSimpleIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
         <div className="min-w-0 overflow-x-auto rounded-xl border border-border/90 bg-card shadow-2xs">
           <Table>
             <TableHeader>

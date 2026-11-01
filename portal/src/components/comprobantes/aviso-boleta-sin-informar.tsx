@@ -1,4 +1,5 @@
-import { TriangleAlertIcon } from "lucide-react";
+import { WarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useLocale, useMessages } from "next-intl";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { AvisoDePlazo } from "@/lib/comprobantes/plazo";
@@ -31,7 +32,7 @@ export function AvisoBoletaSinInformar({ aviso, que }: { aviso: AvisoDePlazo; qu
         urgente ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-warning-border bg-warning text-warning-foreground",
       )}
     >
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <WarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0" />
       <div className="space-y-1">
         <p className="font-semibold">{interpolar(t.titulo, { que: messages.comprobantes.estadoBaja.que[que] })}</p>
         <p className="text-[13px] leading-relaxed">

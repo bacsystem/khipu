@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon } from "lucide-react";
+import { TrayIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
@@ -136,7 +136,7 @@ export function GuiasTable({
             {datos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5}>
-                  <TablaVacia icon={<InboxIcon className="size-5" />}>{hayFiltros ? t.tabla.vacioFiltrado : t.tabla.vacio}</TablaVacia>
+                  <TablaVacia icon={<TrayIcon className="size-5" />}>{hayFiltros ? t.tabla.vacioFiltrado : t.tabla.vacio}</TablaVacia>
                 </TableCell>
               </TableRow>
             ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { MailIcon, Undo2Icon } from "lucide-react";
+import { ArrowUUpLeftIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -127,14 +127,14 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" disabled={enviando} onClick={guardar} data-testid="correo-guardar" className={BOTON_PRIMARIO}>
-          <MailIcon className="size-4" />
+          <EnvelopeSimpleIcon className="size-4" />
           {enviando ? t.guardando : t.guardar}
         </button>
         {remitente.personalizado ? (
           <DialogoDeAccion
             testId="correo-restablecer"
             boton={t.restablecer.boton}
-            icono={Undo2Icon}
+            icono={ArrowUUpLeftIcon}
             titulo={t.restablecer.titulo}
             descripcion={t.restablecer.descripcion}
             efectos={t.restablecer.efectos.map((e) => e.replace("{remitente}", direccionEnPalabras(remitente.predeterminado)))}

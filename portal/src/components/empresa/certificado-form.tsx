@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, EyeOffIcon, FileKey2Icon, KeyRoundIcon, LockIcon, RefreshCcwIcon, UploadCloudIcon, XIcon } from "lucide-react";
+import { ArrowsClockwiseIcon, CloudArrowUpIcon, EyeIcon, EyeSlashIcon, FileLockIcon, KeyIcon, LockIcon, XIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
@@ -86,7 +86,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
         {archivo ? (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-muted px-3 py-2.5">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <FileKey2Icon className="size-4" />
+              <FileLockIcon className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-mono text-[13px] font-medium text-foreground">{archivo.name}</p>
@@ -98,7 +98,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
               title={t.quitarArchivo}
               className="flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              <XIcon className="size-4" />
+              <XIcon weight="bold" className="size-4" />
             </button>
           </div>
         ) : (
@@ -115,7 +115,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
               arrastrando ? "border-primary bg-accent/60" : "border-border bg-muted hover:border-primary/50 hover:bg-accent/40",
             )}
           >
-            <UploadCloudIcon className="size-6 text-primary" />
+            <CloudArrowUpIcon className="size-6 text-primary" />
             <span className="text-[13px] font-medium text-foreground">{t.arrastra}</span>
             <span className={AYUDA_CAMPO}>{t.examinar}</span>
           </label>
@@ -137,7 +137,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
           {t.contrasena}
         </label>
         <div className="relative">
-          <KeyRoundIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <KeyIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             id="clave-cert"
             type={verClave ? "text" : "password"}
@@ -153,7 +153,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
             title={verClave ? t.ocultarContrasena : t.mostrarContrasena}
             className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
           >
-            {verClave ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+            {verClave ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
           </button>
         </div>
         <span className={AYUDA_CAMPO}>{t.ayudaOu}</span>
@@ -167,7 +167,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
         disabled={enviando || !archivo}
         className={cn(BOTON_PRIMARIO, "w-full")}
       >
-        <RefreshCcwIcon className="size-4" />
+        <ArrowsClockwiseIcon className="size-4" />
         {enviando ? messages.empresa.comun.subiendo : tieneCertificado ? t.actualizarDigital : t.cargarDigital}
       </button>
 

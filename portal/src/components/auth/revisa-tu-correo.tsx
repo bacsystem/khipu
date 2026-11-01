@@ -1,6 +1,6 @@
 "use client";
 
-import { MailCheckIcon } from "lucide-react";
+import { EnvelopeSimpleOpenIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -38,7 +38,7 @@ export function RevisaTuCorreo({ email }: { email: string }) {
   }
 
   return (
-    <Alerta tono="aviso" icon={MailCheckIcon} titulo={t.titulo} className="mx-auto max-w-lg">
+    <Alerta tono="aviso" icon={EnvelopeSimpleOpenIcon} titulo={t.titulo} className="mx-auto max-w-lg">
       <div className="grid gap-3" data-testid="revisa-tu-correo">
         <p>{interpolar(t.descripcion, { email })}</p>
         {estado === "enviado" ? <p role="status">{t.reenviado}</p> : null}

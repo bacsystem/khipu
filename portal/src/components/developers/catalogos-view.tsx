@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon } from "lucide-react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useMemo, useState } from "react";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -40,7 +40,7 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[200px_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
         <div className="relative mb-3">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}

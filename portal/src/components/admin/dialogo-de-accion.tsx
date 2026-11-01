@@ -1,6 +1,7 @@
 "use client";
 
-import { TriangleAlertIcon, type LucideIcon } from "lucide-react";
+import { WarningIcon } from "@phosphor-icons/react";
+import type { IconoComponente } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -17,7 +18,7 @@ export type DialogoDeAccionProps = {
   /** Base de los `data-testid`: el botón es `{testId}`, el diálogo `{testId}-dialogo` y el de confirmar `{testId}-confirmar`. */
   testId: string;
   boton: string;
-  icono: LucideIcon;
+  icono: IconoComponente;
   /** `peligro` para lo que corta o pesa mucho; `secundario` para lo corriente; `primario` para lo que devuelve algo a su sitio. */
   tono?: "primario" | "secundario" | "peligro";
   chico?: boolean;
@@ -141,7 +142,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
 
         <div className="grid gap-4 px-5 py-4">
           <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[12px] leading-relaxed text-foreground", tono === "peligro" ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/50")}>
-            {p.advertencia ? <TriangleAlertIcon className={cn("mt-0.5 size-4 shrink-0", tono === "peligro" ? "text-destructive" : "text-warning-foreground")} /> : null}
+            {p.advertencia ? <WarningIcon className={cn("mt-0.5 size-4 shrink-0", tono === "peligro" ? "text-destructive" : "text-warning-foreground")} /> : null}
             <ul className="grid list-disc gap-1 pl-4">
               {p.efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>
