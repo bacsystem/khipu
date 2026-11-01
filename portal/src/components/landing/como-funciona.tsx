@@ -69,7 +69,7 @@ export function ComoFunciona() {
                   >
                     <div className="flex items-center justify-between">
                       <span
-                        className="flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde transition-colors"
+                        className="flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento-texto dark:text-acento ring-1 ring-acento-borde transition-colors"
                         aria-hidden
                       >
                         <Icono weight={PESO_ICONO} className="size-[18px]" />

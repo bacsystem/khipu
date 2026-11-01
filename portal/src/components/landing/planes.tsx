@@ -61,7 +61,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               )}
             >
               {op.etiqueta}
-              {op.valor ? <span className={cn("ml-1.5 text-etiqueta", anual ? "text-primary-foreground/80" : "text-acento")}>{t.ahorroAnual}</span> : null}
+              {op.valor ? <span className={cn("ml-1.5 text-etiqueta", anual ? "text-primary-foreground/80" : "text-acento-texto dark:text-acento")}>{t.ahorroAnual}</span> : null}
             </button>
           ))}
         </div>
@@ -96,7 +96,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                 <span className="text-sm text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
               </p>
               {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo. */}
-              <p className="mt-1 min-h-[1.25rem] text-control text-acento">
+              <p className="mt-1 min-h-[1.25rem] text-control text-acento-texto dark:text-acento">
                 {anual && p.mensual > 0 ? interpolar(t.alAno, { monto: soles(alAno) }) : ""}
               </p>
 
