@@ -54,3 +54,19 @@ updates:
     labels: [dependencies, portal]
     commit-message:
       prefix: build
+
+  # Imágenes base del backend (eclipse-temurin) y del respaldo (postgres): ahora que se publican en Docker Hub y producción corre de ellas.
+  # Ojo con el respaldo: postgres tiene que seguir en la misma versión mayor que la base de Railway (deploy/README.md §8), así que las mayores se ignoran.
+  - package-ecosystem: docker
+    directories: [/deploy/backend, /deploy/respaldo]
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Lima
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+    labels: [dependencies, backend]
+    commit-message:
+      prefix: build

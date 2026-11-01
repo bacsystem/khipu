@@ -1,0 +1,179 @@
+# Imágenes Docker en Docker Hub (cuenta cbaciliod) y despliegue a producción en Railway, que corre esas imágenes (servicios con fuente «Docker image»).
+#
+# push a develop   → pruebas → imágenes :develop y :sha-<corto>
+# push a main      → pruebas → imágenes :main, :latest y :sha-<corto> → redespliegue de backend y portal en Railway (producción sigue :latest)
+# tag vX.Y.Z       → no reconstruye: reetiqueta la imagen :sha-<corto> de ese commit, la que ya pasó las pruebas, como :X.Y.Z y :X.Y
+# PR que toca un Dockerfile, un .dockerignore o este workflow → solo construye, sin pruebas (ya las corre pruebas.yml en la PR), sin login ni push
+# workflow_dispatch → lo mismo que un push a la rama elegida
+#
+# Imágenes: cbaciliod/khipu-backend (deploy/backend/Dockerfile, contexto la raíz), cbaciliod/khipu-portal (portal/Dockerfile) y cbaciliod/khipu-respaldo
+# (deploy/respaldo, el cron de pg_dump de deploy/README.md §8). Solo linux/amd64: el bootJar bajo QEMU para arm64 tardaría varias veces más.
+#
+# Secretos: DOCKERHUB_TOKEN (access token de Docker Hub, Read & Write) y, en el environment «produccion», RAILWAY_TOKEN (project token del entorno de
+# producción de Railway). Variables opcionales: RAILWAY_SERVICIO_BACKEND y RAILWAY_SERVICIO_PORTAL si los servicios no se llaman «backend» y «portal».
+name: Imágenes y despliegue
+
+on:
+  push:
+    branches: [develop, main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - deploy/backend/Dockerfile
+      - deploy/respaldo/**
+      - .dockerignore
+      - portal/Dockerfile
+      - portal/.dockerignore
+      - .github/workflows/imagenes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imagenes-${{ github.ref }}
+  # En una PR basta el último commit. En develop/main/tags cada push espera su turno: cancelarlo podría dejar :latest sin desplegar.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOCKERHUB_USUARIO: cbaciliod
+
+jobs:
+  pruebas:
+    if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/') }}
+    uses: ./.github/workflows/pruebas.yml
+
+  imagen:
+    name: imagen (${{ matrix.nombre }})
+    needs: pruebas
+    # En una PR «pruebas» se salta y la imagen igual se construye (sin publicar); en un push, solo con la suite en verde.
+    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && (needs.pruebas.result == 'success' || (github.event_name == 'pull_request' && needs.pruebas.result == 'skipped')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PUBLICAR: ${{ github.event_name != 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: backend
+            imagen: cbaciliod/khipu-backend
+            contexto: .
+            dockerfile: deploy/backend/Dockerfile
+          - nombre: portal
+            imagen: cbaciliod/khipu-portal
+            contexto: portal
+            dockerfile: portal/Dockerfile
+          - nombre: respaldo
+            imagen: cbaciliod/khipu-respaldo
+            contexto: deploy/respaldo
+            dockerfile: deploy/respaldo/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login en Docker Hub
+        if: ${{ env.PUBLICAR == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USUARIO }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tags y labels OCI
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.imagen }}
+          # sha-<7 caracteres>: es el que el job «promover» busca cuando se pone un tag vX.Y.Z sobre este commit.
+          tags: |
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.title=khipu-${{ matrix.nombre }}
+            org.opencontainers.image.vendor=Bacsystem Solutions EIRL
+
+      - name: Construir (y publicar, salvo en PRs)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.contexto }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: ${{ env.PUBLICAR == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Caché de capas en el caché de Actions, separado por imagen para que una no desaloje a la otra.
+          cache-from: type=gha,scope=${{ matrix.nombre }}
+          cache-to: type=gha,scope=${{ matrix.nombre }},mode=max
+
+  promover:
+    name: promover (${{ matrix.imagen }})
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        imagen: [cbaciliod/khipu-backend, cbaciliod/khipu-portal, cbaciliod/khipu-respaldo]
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USUARIO }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Reetiquetar la imagen ya probada de este commit
+        env:
+          IMAGEN: ${{ matrix.imagen }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::El tag $GITHUB_REF_NAME no es vX.Y.Z; no se promueve nada."
+            exit 1
+          fi
+          origen="$IMAGEN:sha-${GITHUB_SHA::7}"
+          # Si el tag se puso apenas mergeado, la imagen de main puede estar todavía construyéndose: se espera hasta 45 minutos.
+          for intento in $(seq 1 90); do
+            if docker buildx imagetools inspect "$origen" > /dev/null 2>&1; then break; fi
+            if [ "$intento" = 90 ]; then
+              echo "::error::No existe $origen: el commit del tag no pasó por develop/main con la suite en verde, o su imagen falló."
+              exit 1
+            fi
+            sleep 30
+          done
+          # Copia el manifiesto en el registro, sin bajar ni reconstruir: :X.Y.Z es byte a byte la imagen probada.
+          docker buildx imagetools create -t "$IMAGEN:$version" -t "$IMAGEN:${version%.*}" "$origen"
+
+  desplegar:
+    name: desplegar en Railway
+    needs: imagen
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # El environment guarda RAILWAY_TOKEN aparte y permite exigir aprobación manual antes de tocar producción (Settings → Environments).
+    environment: produccion
+    concurrency:
+      group: desplegar-produccion
+      cancel-in-progress: false
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: CLI de Railway
+        run: npm install -g @railway/cli@5.71.0
+
+      # --from-source es lo que hace bajar la :latest recién publicada; sin él, `redeploy` vuelve a levantar la imagen que ya estaba.
+      # Primero el backend (corre las migraciones de Flyway al arrancar, deploy/README.md §6) y después el portal. El respaldo es un cron:
+      # toma la imagen nueva cuando se actualiza su servicio en Railway, no hace falta redesplegarlo en cada push.
+      - name: Redesplegar backend
+        env:
+          SERVICIO: ${{ vars.RAILWAY_SERVICIO_BACKEND || 'backend' }}
+        run: railway redeploy --service "$SERVICIO" --from-source --yes
+
+      - name: Redesplegar portal
+        env:
+          SERVICIO: ${{ vars.RAILWAY_SERVICIO_PORTAL || 'portal' }}
+        run: railway redeploy --service "$SERVICIO" --from-source --yes

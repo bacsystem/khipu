@@ -1,6 +1,6 @@
 # Pruebas de carga (k6)
 
-Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en CI". Escenarios:
+Cubre el ítem #15 de `docs/spec/spec.md`: "Pruebas de carga k6 con umbrales en CI" (ya no corren en CI, ver «Fuera de CI»). Escenarios:
 
 | Script | Umbral del spec | Resultado (laptop local) |
 |---|---|---|
@@ -22,7 +22,7 @@ API_BASE_URL=http://localhost:8001 PLATFORM_ADMIN_KEY=... SERIES="01:F001 03:B00
 # imprime la API key en stdout (los pasos intermedios van a stderr); SERIES por defecto es solo 01:F001
 ```
 
-En Windows con Git Bash, `openssl` necesita `MSYS_NO_PATHCONV=1` y un `TMPDIR` con ruta de Windows; en Linux y en CI no hace falta nada.
+En Windows con Git Bash, `openssl` necesita `MSYS_NO_PATHCONV=1` y un `TMPDIR` con ruta de Windows; en Linux no hace falta nada.
 
 ## Correr los escenarios
 
@@ -37,22 +37,26 @@ Sin k6 instalado: `docker run --rm -i -e API_BASE_URL=http://host.docker.interna
 La fecha de emisión de los scripts es la de **Lima** (UTC-5): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API respondía `422 FECHA_INVALIDA` (fecha futura) y la siembra de
 `descargas.js` fallaba.
 
-## En CI (`.github/workflows/k6.yml`, #8)
+## Fuera de CI
 
-En cada PR que toca el backend (y cada lunes, y a pedido) levanta Postgres y el backend real, prepara una empresa con `F001` y `B001` y corre:
+Las pruebas de carga **no corren en GitHub Actions**: se lanzan a mano, con los comandos de arriba, contra un backend local o un entorno de pruebas. Un runner compartido mide
+mucho más lento que una laptop (allí ~25 ms de p95) y con ruido de una corrida a otra, así que como check daba poca señal y mucho tiempo de cola.
 
-| Paso | Bloquea | Umbral |
-|---|---|---|
-| `descargas.js` | **Sí** | p95 < 300 ms, errores < 1 % |
-| `emision.js` (facturas) y `boletas.js` | **Sí** | todos los `check` (201 del tipo y estado pedidos) > 99 %, errores < 1 %, menos de 20 iteraciones descartadas (o sea, se sostienen los 50 doc/s) y p95 < **1 500 ms** en CI (`UMBRAL_P95_MS`; el objetivo es 500 ms) |
-| Numeración después de la carga | **Sí** | por serie: documentos = número más alto = números distintos, y al menos 3 000 documentos en F001 y en B001 (si la carga no emitió, la comprobación no probaba nada) |
+Qué mirar después de una corrida:
 
-Los resúmenes de k6 (JSON), el resultado de la numeración y el log del backend quedan como artifact, y una tabla con los p95 contra su objetivo en el resumen del job. El p95 de CI es más
-holgado que el objetivo porque el runner compartido es mucho más lento que una laptop (donde miden ~25 ms): ahí solo debe saltar una regresión grande. Cuando haya varias corridas que digan
-cuánto ruido tiene, bajar `UMBRAL_P95_MS` a 500. Para correr lo mismo a mano: los comandos de arriba contra un backend local.
+| Escenario | Umbral |
+|---|---|
+| `descargas.js` | p95 < 300 ms, errores < 1 % |
+| `emision.js` (facturas) y `boletas.js` | todos los `check` (201 del tipo y estado pedidos) > 99 %, errores < 1 %, menos de 20 iteraciones descartadas (o sea, se sostienen los 50 doc/s) y p95 < 500 ms (`UMBRAL_P95_MS` lo cambia) |
+| Numeración después de la carga | por serie: documentos = número más alto = números distintos |
 
-El token del workflow es de solo lectura (`permissions: contents: read`), la acción de terceros (`grafana/setup-k6-action`) está fijada por commit y el job usa el jar ejecutable aunque
-`build` deje también un `-plain`.
+Para la numeración, contra la base del backend que recibió la carga:
+
+```sql
+SELECT serie, count(*), max(numero), count(DISTINCT numero) FROM documento GROUP BY serie ORDER BY serie;
+```
+
+Las tres columnas tienen que coincidir en cada serie; si no, hay huecos o duplicados.
 
 ## Hallazgo: la emisión no llega a 50 doc/s en una sola serie
 

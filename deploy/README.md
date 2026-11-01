@@ -1,9 +1,38 @@
 # Deploy a Railway
 
-Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plugin de Postgres. Cada
-servicio construye desde este mismo repo (monorepo), variando el **Root Directory** y el **Dockerfile
-Path** en su configuración de Railway. No se usa Nixpacks ni `railway.toml`/`railway.json`: cada
-servicio apunta directo a su Dockerfile.
+Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plugin de Postgres (y el cron
+`respaldo`, §8). Cada servicio despliega una **imagen de Docker Hub** que publica CI
+(`.github/workflows/imagenes.yml`), no el repo: Railway no compila nada.
+
+| Servicio | Fuente («Docker image») | Dockerfile del que sale |
+|---|---|---|
+| `backend` | `cbaciliod/khipu-backend:latest` | `deploy/backend/Dockerfile` (contexto: la raíz del repo, proyecto Gradle multi-módulo) |
+| `portal` | `cbaciliod/khipu-portal:latest` | `portal/Dockerfile` |
+| `respaldo` | `cbaciliod/khipu-respaldo:latest` | `deploy/respaldo/Dockerfile` |
+
+### Cómo llega un cambio a producción
+
+1. Merge a `main` (el release desde `develop`, o un `hotfix/*`).
+2. `imagenes.yml` corre la suite completa (`pruebas.yml`); solo con todo en verde construye y publica `:latest`, `:main` y
+   `:sha-<commit>` de las tres imágenes.
+3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
+   Railway baja la `:latest` nueva y la levanta cuando pasa su healthcheck. El `respaldo` no se redespliega solo; toma la imagen
+   nueva cuando se actualiza su servicio en Railway (botón de actualizar o auto-update programado).
+4. Al poner el tag `vX.Y.Z` sobre ese commit, `imagenes.yml` reetiqueta la misma imagen como `:X.Y.Z` y `:X.Y`, sin
+   reconstruirla. Para volver a una versión anterior: cambiar la fuente del servicio a `cbaciliod/khipu-backend:X.Y.Z` (o
+   `:sha-<commit>`) y redesplegar; al volver a `:latest`, el próximo merge a `main` lo retoma.
+
+Un push a `develop` publica `:develop` (para un entorno de pruebas), pero no despliega nada.
+
+Lo que necesita GitHub: el secreto `DOCKERHUB_TOKEN` (access token de Docker Hub, Read & Write) y, en el environment
+`produccion` (Settings → Environments; ahí también se puede exigir aprobación manual antes de cada despliegue), el secreto
+`RAILWAY_TOKEN`, un *project token* del entorno de producción de Railway (Project Settings → Tokens). Si los servicios no se
+llaman `backend` y `portal`, las variables `RAILWAY_SERVICIO_BACKEND` y `RAILWAY_SERVICIO_PORTAL` dicen cómo. Si los
+repositorios de Docker Hub son privados, Railway pide el plan Pro y las credenciales del registro al crear el servicio.
+
+Los Dockerfiles siguen sirviendo para construir a mano (`make docker-backend`, `make docker-portal`). Si alguna vez se vuelve
+a desplegar desde el repo en vez de desde la imagen, en Railway se elige la fuente «GitHub repo» y se fija **Root Directory**
+y **Dockerfile Path** como dice la tabla de arriba (para el portal: Root Directory `portal`, Dockerfile Path `Dockerfile`).
 
 ## 1. Postgres
 
@@ -12,9 +41,7 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 
 ## 2. Servicio `backend`
 
-- **Root Directory**: `.` (raíz del repo — es un proyecto Gradle multi-módulo, necesita ver todos los
-  módulos para compilar `:bootstrap:bootJar`)
-- **Dockerfile Path**: `deploy/backend/Dockerfile`
+- **Fuente**: imagen `cbaciliod/khipu-backend:latest` (ver arriba)
 - **Healthcheck path**: `/health/liveness` — grupo con base de datos y proceso, o sea lo que vuelve
   inservible al servicio. No incluye el correo a propósito: un SMTP caído no debería tumbar el
   despliegue. Para diagnóstico está `/health` completo, que sí incluye el correo **cuando está
@@ -114,8 +141,7 @@ están en el `README.md` de la raíz (§Storage).
 Pasos completos, verificación y fase 0 (landing público con el autoservicio cerrado):
 [`frontend/README.md`](frontend/README.md). Resumen:
 
-- **Root Directory**: `portal`
-- **Dockerfile Path**: `Dockerfile` (el que ya existe en `portal/Dockerfile`)
+- **Fuente**: imagen `cbaciliod/khipu-portal:latest` (ver arriba)
 - **Puerto**: tampoco fijar `PORT` — el output `standalone` de Next.js ya lo respeta
 
 ### Variables de entorno
@@ -304,7 +330,8 @@ Railway no tiene copia propia.
 0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 16 y `pg_dump` aborta ante un servidor más nuevo («server version
    mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
    `deploy/respaldo/Dockerfile` a esa versión.
-1. **New → GitHub Repo** (el mismo repo) → **Settings → Build**: Dockerfile `deploy/respaldo/Dockerfile`, root `deploy/respaldo`.
+1. **New → Docker Image** → `cbaciliod/khipu-respaldo:latest` (la publica CI desde `deploy/respaldo/Dockerfile`). Si cambias el `FROM` del paso 0,
+   la imagen nueva sale con el próximo merge a `main`; en Railway hay que actualizar el servicio para que la tome.
 2. **Settings → Cron Schedule**: `0 8 * * *` (todos los días a las 3:00 de Lima, que es UTC-5). Railway arranca el contenedor a esa hora, corre
    `respaldar.sh` y lo apaga.
 3. Variables:
