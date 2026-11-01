@@ -4,7 +4,7 @@ import { CaretDownIcon, KeyIcon, PlayIcon, PowerIcon, ProhibitIcon, TrashIcon } 
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { Webhook } from "@/lib/api/webhooks";
 import { BOTON_PRIMARIO, TARJETA } from "@/lib/estilos";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { PAUSA_TRAS_FALLOS, resumenDeEventos } from "@/lib/webhooks/eventos";
 import { EntregasWebhook } from "./entregas-webhook";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -194,16 +195,13 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
 
       <Dialog open={secretoNuevo !== null} onOpenChange={(abierto) => !abierto && setSecretoNuevo(null)}>
         <DialogContent className="gap-0 p-0">
-          <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <DialogTitle className="text-titulo font-semibold tracking-tight">{t.nuevoSecreto}</DialogTitle>
-            <DialogDescription className="text-control">{t.nuevoSecretoDescripcion}</DialogDescription>
-          </DialogHeader>
+          <CabeceraDialogo icon={KeyIcon} titulo={t.nuevoSecreto} descripcion={t.nuevoSecretoDescripcion} />
           <div className="grid gap-4 px-5 py-4">{secretoNuevo ? <SecretoWebhookRevelado secreto={secretoNuevo} /> : null}</div>
-          <div className="flex justify-end border-t border-border/60 px-5 py-3">
+          <PieDialogo>
             <button type="button" onClick={() => setSecretoNuevo(null)} className={BOTON_PRIMARIO}>
               {messages.webhooks.listo}
             </button>
-          </div>
+          </PieDialogo>
         </DialogContent>
       </Dialog>
     </article>

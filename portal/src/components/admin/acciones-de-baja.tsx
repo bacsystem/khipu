@@ -4,7 +4,7 @@ import { ArchiveIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
@@ -12,8 +12,7 @@ import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
-import { PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /**
  * Dar de baja o reponer una cuenta (#201). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón que
@@ -83,17 +82,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
         {textos.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", deBaja ? "bg-success text-success-foreground" : "bg-muted text-foreground")}>
-              <Icono className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{textos.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{textos.descripcion.replace("{nombre}", nombre)}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={Icono} tono={deBaja ? "ok" : "neutro"} titulo={textos.titulo} descripcion={textos.descripcion.replace("{nombre}", nombre)} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">

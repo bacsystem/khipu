@@ -22,8 +22,8 @@ function hrefExportacionDeLaPagina(busqueda: URLSearchParams): string {
 }
 
 /**
- * Cabecera del backoffice, con el mismo esqueleto que la del portal de clientes: menú en móvil, miga de ubicación y la acción
- * principal de la página. La miga NO es un encabezado: cada página del backoffice ya trae su propio `h1`.
+ * Cabecera del backoffice, con el aspecto de la `TopBar` del design system (sin borde, miga en tinta terciaria) y el mismo esqueleto que la del portal de clientes: menú en móvil,
+ * miga de ubicación y la acción principal de la página. La miga NO es un encabezado: cada página del backoffice ya trae su propio `h1`, y la del kit lo pondría repetido.
  */
 export function AdminTopBar({ administrador }: { administrador: Administrador }) {
   const pathname = usePathname();
@@ -33,7 +33,7 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
   const t = messages.admin.topbar;
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/80 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 bg-background/80 px-3 backdrop-blur md:px-4">
       <div className="flex min-w-0 items-center gap-3">
         <div className="md:hidden">
           <AdminMobileNav administrador={administrador} />
@@ -41,11 +41,11 @@ export function AdminTopBar({ administrador }: { administrador: Administrador })
 
         {miga ? (
           <nav aria-label={t.ubicacion} className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-control whitespace-nowrap">
-            <span className="text-muted-foreground/80">{miga.seccion}</span>
-            <span aria-hidden="true" className="text-muted-foreground/40">
+            <span className="text-texto-terciario">{miga.seccion}</span>
+            <span aria-hidden="true" className="text-texto-terciario/50">
               /
             </span>
-            <span aria-current="page" className="truncate font-heading font-semibold text-foreground">
+            <span aria-current="page" className="truncate font-heading text-titulo text-foreground">
               {miga.pagina}
             </span>
           </nav>

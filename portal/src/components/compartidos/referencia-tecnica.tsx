@@ -3,9 +3,10 @@
 import { BookOpenIcon, KeyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { cn } from "@/lib/utils";
 import { TARJETA } from "@/lib/estilos";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Icono = typeof BookOpenIcon;
 
@@ -48,17 +49,7 @@ export function ReferenciaTecnicaDialog({
 
       {/* Ancho por estilo inline: no depende de breakpoints ni del orden de las utilidades. */}
       <DialogContent className="gap-0 p-0" style={{ maxWidth: "min(1200px, calc(100vw - 3rem))" }}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className={ICONO}>
-              <BookOpenIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{titulo}</DialogTitle>
-              <DialogDescription className="text-control">{descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={BookOpenIcon} titulo={titulo} descripcion={descripcion} />
 
         <div className="@container bg-muted/40 px-5 py-4">
           <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-2">{children}</div>

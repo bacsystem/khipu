@@ -5,7 +5,7 @@ import type { IconoComponente } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
@@ -13,7 +13,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-import { PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 export type DialogoDeAccionProps = {
   /** Base de los `data-testid`: el botón es `{testId}`, el diálogo `{testId}-dialogo` y el de confirmar `{testId}-confirmar`. */
@@ -129,17 +129,7 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
         {p.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid={`${p.testId}-dialogo`} showCloseButton={!enviando}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", tono === "peligro" ? "bg-destructive-suave text-destructive-texto" : "bg-muted text-foreground")}>
-              <Icono className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-titulo font-semibold tracking-tight">{p.titulo}</DialogTitle>
-              <DialogDescription className="text-control">{p.descripcion}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={Icono} tono={tono === "peligro" ? "peligro" : "neutro"} titulo={p.titulo} descripcion={p.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
           <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", tono === "peligro" ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/50")}>
