@@ -176,6 +176,7 @@ test("el menú marca «Empresas» como la página actual y la cabecera la ubica 
 
   const item = menuAdmin(page).getByRole("link", { name: "Empresas" });
   await expect(item).toBeVisible();
-  await expect(item).toHaveClass(/bg-accent/);
+  // La página actual la dice `aria-current` (el aspecto lo pone el design system), no una clase.
+  await expect(item).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "Ubicación" })).toContainText("Clientes");
 });
