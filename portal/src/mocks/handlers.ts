@@ -1653,6 +1653,12 @@ export const handlers = [
         documentos: consumoDelMesMock(c.cuenta),
         ...(maximo === undefined ? {} : { maximo }),
       },
+      // #498: lo que la cuenta ocupa de su plan. Las keys, las de todas las empresas del mock; los usuarios, los activos más las invitaciones pendientes.
+      uso: {
+        api_keys: [...db.apiKeysPorEmpresa.values()].flat().filter((k) => k.activa).length,
+        usuarios: equipoDe(c.cuenta).filter((u) => !db.usuariosDesactivados.has(u.id)).length + [...db.invitaciones.values()].filter((i) => i.cuenta_id === c.cuenta).length,
+        rucs: (db.empresasPorCuenta.get(c.cuenta) ?? []).length,
+      },
     });
   }),
 

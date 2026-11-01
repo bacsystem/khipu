@@ -15,7 +15,7 @@ export type ResumenDePlan = {
 };
 
 /** Desde aquí se avisa que el consumo se acerca al tope: el mismo 80 % que usa el backoffice en Consumo (#193). */
-const UMBRAL_CERCA = 0.8;
+export const UMBRAL_CERCA = 0.8;
 
 /** Lo que el menú dice del plan del cliente (C1): el estado de pago pesa más que el consumo. Los textos, en el idioma de `messages`. */
 export function resumenDePlan(cuenta: MiCuenta, messages: Mensajes, locale: Locale): ResumenDePlan {

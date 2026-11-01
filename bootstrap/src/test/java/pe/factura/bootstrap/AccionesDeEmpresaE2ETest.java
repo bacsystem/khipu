@@ -65,6 +65,8 @@ class AccionesDeEmpresaE2ETest {
         FALLA.set(null);
         LLAMADO_CON.set(null);
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, token_verificacion, sesion, usuario, cuenta, administrador, auditoria_admin CASCADE");
+        // #498: aquí se prueba otra cosa, no los topes de RUC, usuarios y API keys del plan Gratis (1, 1, 1): eso lo prueba CupoDelPlanE2ETest.
+        jdbc.update("UPDATE plan SET rucs = 50, usuarios = NULL, api_keys = NULL WHERE nombre = 'Gratis'");
     }
 
     /** Un cliente real: su cuenta, su empresa con credenciales SOL y dos API keys. */

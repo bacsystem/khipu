@@ -6,6 +6,7 @@ import pe.factura.application.port.in.CambiarPlanDeCuentaUseCase.PlanDeCuenta;
 import pe.factura.application.port.in.ConsultarConsumoUseCase;
 import pe.factura.application.port.in.ConsultarConsumoUseCase.ConsumoDeCuenta;
 import pe.factura.application.port.out.CuentaRepository;
+import pe.factura.application.port.out.CupoDeCuentaRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Cuenta;
 import pe.factura.domain.plan.*;
@@ -50,7 +51,13 @@ class ConsultarMiCuentaServiceTest {
             return new ConsumoDeCuenta(c, YearMonth.of(2026, 10), 12, List.of());
         }
     };
-    final ConsultarMiCuentaService service = new ConsultarMiCuentaService(cuentas, planes, consumo);
+    final UsoDeRecursos uso = new UsoDeRecursos(1, 2, 1);
+    final CupoDeCuentaRepository ocupados = new CupoDeCuentaRepository() {
+        public void bloquear(UUID c, RecursoDelPlan r) { throw new AssertionError("el cliente solo mira"); }
+        public long ocupados(UUID c, RecursoDelPlan r, Instant ahora) { throw new AssertionError("se pide el uso entero"); }
+        public UsoDeRecursos uso(UUID c, Instant ahora) { return c.equals(cuentaId) ? uso : new UsoDeRecursos(0, 0, 0); }
+    };
+    final ConsultarMiCuentaService service = new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, java.time.Clock.fixed(Instant.parse("2026-10-09T15:00:00Z"), java.time.ZoneOffset.UTC));
 
     @Test void juntaElNombreElPlanYElConsumoDelMes() {
         cuentas.guardar(new Cuenta(cuentaId, "Ferretería Torres", "ana@negocio.pe", "987654321"));
@@ -61,6 +68,13 @@ class ConsultarMiCuentaServiceTest {
         assertThat(mi.plan()).isSameAs(planDeCuenta);
         assertThat(mi.consumo().documentos()).isEqualTo(12);
         assertThat(mi.consumo().mes()).isEqualTo(YearMonth.of(2026, 10));
+    }
+
+    /** #498: junto al consumo de documentos, lo que la cuenta ocupa de API keys, usuarios y RUCs contra los de su plan. */
+    @Test void sumaLoQueOcupaDeApiKeysUsuariosYRucs() {
+        cuentas.guardar(new Cuenta(cuentaId, "Ferretería Torres", "ana@negocio.pe", "987654321"));
+
+        assertThat(service.deLaCuenta(cuentaId).uso()).isEqualTo(new UsoDeRecursos(1, 2, 1));
     }
 
     @Test void unaCuentaQueNoExisteEsNoEncontrado() {

@@ -16,4 +16,7 @@ public record Limite(Integer maximo) {
     public static Limite sinLimite() { return new Limite(null); }
 
     public boolean ilimitado() { return maximo == null; }
+
+    /** Si con {@code usados} ya no cabe uno más: el N-ésimo pasa y el N+1 no. Pasarse del tope (un plan bajado) también cuenta como lleno. Lo ilimitado nunca se llena. */
+    public boolean llenoCon(long usados) { return !ilimitado() && usados >= maximo; }
 }

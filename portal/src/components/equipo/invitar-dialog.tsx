@@ -49,7 +49,7 @@ export function InvitarDialog({ className }: { className?: string }) {
     enviandoRef.current = false;
     setEnviando(false);
     if (res.estado !== "exito" || !res.datos) {
-      setError(res.codigo === "VALIDACION" ? messages.errores.EMAIL_INVALIDO : mensajeError(res.codigo));
+      setError(res.codigo === "VALIDACION" ? messages.errores.EMAIL_INVALIDO : mensajeError(res.codigo, res.mensaje));
       return;
     }
     router.refresh();

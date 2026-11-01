@@ -38,4 +38,12 @@ class LimitesTest {
         assertThat(a).isNotEqualTo(new Limites(Limite.de(301), 1, Limite.de(1), Limite.de(2), 5));
         assertThat(a).isNotEqualTo(new Limites(Limite.sinLimite(), 1, Limite.de(1), Limite.de(2), 5));
     }
+
+    /** #498: cada recurso del plan lee su propio tope; los RUC son siempre finitos. */
+    @Test void cadaRecursoLeeSuTope() {
+        Limites l = new Limites(Limite.de(300), 3, Limite.de(5), Limite.sinLimite(), 2);
+        assertThat(l.de(RecursoDelPlan.RUCS)).isEqualTo(Limite.de(3));
+        assertThat(l.de(RecursoDelPlan.USUARIOS)).isEqualTo(Limite.de(5));
+        assertThat(l.de(RecursoDelPlan.API_KEYS).ilimitado()).isTrue();
+    }
 }

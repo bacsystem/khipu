@@ -41,6 +41,8 @@ class ConsumoMensualE2ETest {
 
     @BeforeEach void limpiar() {
         jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, api_key, tenant, token_recuperacion, token_verificacion, sesion, usuario, cuenta, administrador, auditoria_admin CASCADE");
+        // #498: aquí se prueba otra cosa, no los topes de RUC, usuarios y API keys del plan Gratis (1, 1, 1): eso lo prueba CupoDelPlanE2ETest.
+        jdbc.update("UPDATE plan SET rucs = 50, usuarios = NULL, api_keys = NULL WHERE nombre = 'Gratis'");
     }
 
     record Cliente(String access, UUID cuentaId, List<UUID> empresas, String apiKey) {}

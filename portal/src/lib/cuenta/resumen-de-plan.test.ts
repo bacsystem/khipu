@@ -24,6 +24,7 @@ function cuenta(cambios: { documentos?: number; maximo?: number; estado?: MiCuen
       hasta_cuando_cubre: cambios.cubre,
     },
     consumo: { mes: "2026-10", documentos: cambios.documentos ?? 0, maximo: "maximo" in cambios ? cambios.maximo : 300 },
+    uso: { api_keys: 0, usuarios: 1, rucs: 1 },
   };
 }
 

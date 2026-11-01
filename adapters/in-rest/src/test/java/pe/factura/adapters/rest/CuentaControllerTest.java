@@ -37,7 +37,7 @@ class CuentaControllerTest {
         Plan plan = new Plan(UUID.randomUUID(), "Emprende", new BigDecimal("29.00"), new Limites(documentos, 1, Limite.de(1), Limite.de(2), 5), EstadoPlan.ACTIVO, false);
         Suscripcion s = new Suscripcion(UUID.randomUUID(), CUENTA, plan.id(), Instant.parse("2026-10-08T17:00:00Z"), venceEn, 5, null);
         return new MiCuenta(CUENTA, "Ferretería Torres", new PlanDeCuenta(CUENTA, plan, s, estado, s.hastaCuandoCubre(), null),
-                new ConsumoDeCuenta(CUENTA, YearMonth.of(2026, 10), 12, List.of()));
+                new ConsumoDeCuenta(CUENTA, YearMonth.of(2026, 10), 12, List.of()), new UsoDeRecursos(1, 2, 1));
     }
 
     @Test void devuelveElNombreElPlanYElConsumoContraElTope() throws Exception {
@@ -52,6 +52,16 @@ class CuentaControllerTest {
                 .andExpect(jsonPath("$.datos.consumo.mes").value("2026-10"))
                 .andExpect(jsonPath("$.datos.consumo.documentos").value(12))
                 .andExpect(jsonPath("$.datos.consumo.maximo").value(300));
+    }
+
+    /** #498: lo que ocupa de los límites que no son documentos, en snake_case como el resto. */
+    @Test void devuelveLoQueOcupaDeApiKeysUsuariosYRucs() throws Exception {
+        when(miCuenta.deLaCuenta(CUENTA)).thenReturn(con(Limite.de(300), null, EstadoSuscripcion.VIGENTE));
+
+        mvc.perform(get("/v1/cuenta").requestAttr(CuentaActual.ATRIBUTO, CUENTA))
+                .andExpect(jsonPath("$.datos.uso.api_keys").value(1))
+                .andExpect(jsonPath("$.datos.uso.usuarios").value(2))
+                .andExpect(jsonPath("$.datos.uso.rucs").value(1));
     }
 
     @Test void conDocumentosIlimitadosNoHayTope() throws Exception {

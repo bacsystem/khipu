@@ -39,7 +39,7 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
     const res = await apiRequest<{ api_key: string }>("/api/proxy/empresa/api-keys", { method: "POST" });
     setCreando(false);
     if (res.estado !== "exito" || !res.datos) {
-      setError(mensajeError(res.codigo));
+      setError(mensajeError(res.codigo, res.mensaje));
       return;
     }
     setApiKey(res.datos.api_key);

@@ -5,6 +5,7 @@ import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plan.RecursoDelPlan;
 import pe.factura.domain.plataforma.AccionAdmin;
 import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.plataforma.RegistroAuditoria;
@@ -33,6 +34,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final EstablecimientoRepository establecimientos;
     private final AuditoriaAdminRepository auditoria;
     private final RechazoDeSolRepository rechazosDeSol;
+    private final CupoDelPlan cupo;
 
 
     public TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno) {
@@ -171,10 +173,14 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         });
     }
 
+    /** #498: si la empresa es de una cuenta, la key nueva tiene que caber en las que su plan permite (las activas de todas sus empresas). Una empresa sin cuenta (integración) no se controla. */
     public String crearApiKey(UUID tenantId) {
         obtener(tenantId);
         String key = ApiKeyGenerator.generar();
-        uow.ejecutar(() -> apiKeys.guardar(nuevaApiKey(tenantId, key)));
+        uow.ejecutar(() -> {
+            tenants.cuentaDe(tenantId).ifPresent(cuenta -> cupo.exigirLugar(cuenta, RecursoDelPlan.API_KEYS));
+            apiKeys.guardar(nuevaApiKey(tenantId, key));
+        });
         return key;
     }
 

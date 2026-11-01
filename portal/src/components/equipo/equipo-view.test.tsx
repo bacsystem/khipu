@@ -124,4 +124,16 @@ describe("EquipoView (#21)", () => {
     expect((screen.getByLabelText("Rol de beto@torres.pe") as HTMLSelectElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /Reenviar/ }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  /** #498: reactivar a alguien ocupa un lugar del plan; si no hay, el administrador ve qué plan tiene y cómo liberar uno, no un «error genérico». */
+  it("si el plan no tiene lugar para reactivar, muestra lo que dice el backend", async () => {
+    const mensaje = "Tu plan Gratis incluye 1 usuario y ya tienes 1 usuario (activos o con invitación pendiente). Desactiva a alguien o revoca una invitación pendiente, o pide un cambio de plan";
+    apiRequest.mockResolvedValue({ estado: "error", codigo: "CUPO_DEL_PLAN", datos: null, mensaje, errores: null });
+    render(<EquipoView miembros={[ana, { ...beto, activo: false }]} invitaciones={[]} />);
+
+    fireEvent.click(within(screen.getByTestId("miembro-beto@torres.pe")).getByRole("button", { name: "Reactivar" }));
+
+    expect((await screen.findAllByRole("alert")).map((a) => a.textContent).join(" ")).toContain(mensaje);
+    expect(apiRequest).toHaveBeenCalledWith("/api/proxy/cuenta/usuarios/u2/reactivar", { method: "POST" });
+  });
 });

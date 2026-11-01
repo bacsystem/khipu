@@ -8,6 +8,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
 import { obtenerMiCuenta } from "@/lib/api/cuenta";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
+import { usoDelPlan } from "@/lib/cuenta/uso-del-plan";
 import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { formatearFecha, formatearFechaDeLima, formatearMes, ultimoDiaCubierto } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
@@ -66,6 +67,8 @@ export default async function PlanPage() {
 
   const { plan, consumo } = cuenta;
   const r = resumenDePlan(cuenta, messages, locale);
+  const uso = usoDelPlan(cuenta, messages);
+  const avisosDeUso = uso.filter((u) => u.aviso !== null);
   // Un estado que el portal no conoce se muestra tal cual, en neutro: caer en «Al día» afirmaría lo que no se sabe (265-H4).
   const estado =
     plan.estado in ESTADO
@@ -86,6 +89,15 @@ export default async function PlanPage() {
         </Alerta>
       ) : null}
 
+      {/* #498: lo que ya llegó o pasó el tope de API keys, usuarios o RUCs, con qué hacer; el 80 % lo dice la barra de abajo sin gritar. */}
+      {avisosDeUso
+        .filter((u) => u.tono === "error" || u.maximo === u.usados)
+        .map((u) => (
+          <Alerta key={u.clave} tono={u.tono === "error" ? "error" : "aviso"} titulo={t.uso[u.clave]}>
+            {u.aviso}
+          </Alerta>
+        ))}
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-plan">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
@@ -101,6 +113,7 @@ export default async function PlanPage() {
             {cubreHasta ? <Dato etiqueta={t.seSirveHasta}>{interpolar(t.graciaIncluida, { fecha: cubreHasta })}</Dato> : null}
             <div className="sm:col-span-2">
               <Dato etiqueta={t.limites}>{limitesEnPalabras(plan.plan.limites, messages)}</Dato>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">{t.retencionNota}</p>
             </div>
           </div>
           {plan.programado ? (
@@ -132,6 +145,31 @@ export default async function PlanPage() {
             </div>
           ) : null}
           <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">{t.nota}</p>
+        </section>
+
+        <section className={cn(TARJETA, "p-5", "lg:col-span-2")} aria-labelledby="titulo-uso">
+          <h2 id="titulo-uso" className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>
+            {t.usoTitulo}
+          </h2>
+          <ul className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3">
+            {uso.map((u) => (
+              <li key={u.clave} data-testid={`uso-${u.clave}`}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className={ETIQUETA_DATO}>{t.uso[u.clave]}</span>
+                  <span className="font-mono text-[13px] font-semibold text-foreground">{u.texto}</span>
+                </div>
+                {u.porcentaje !== null ? (
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={u.porcentaje} aria-label={t.uso[u.clave]}>
+                    <div
+                      className={cn("h-full rounded-full", u.tono === "ok" && "bg-primary", u.tono === "aviso" && "bg-warning-solid", u.tono === "error" && "bg-destructive")}
+                      style={{ width: `${u.porcentaje}%` }}
+                    />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">{t.usoNota}</p>
         </section>
       </div>
     </div>

@@ -37,7 +37,9 @@ class AdministrarTenantServiceTest {
     Fakes.Auditoria auditoria = new Fakes.Auditoria();
     { auditoria.uow = uow; }
     Fakes.RechazosDeSol rechazosDeSol = new Fakes.RechazosDeSol();
-    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, uow, "pepper", Fakes.CLOCK, establecimientos, auditoria, rechazosDeSol);
+    Fakes.Cupo cupo = new Fakes.Cupo();
+    { cupo.uow = uow; }
+    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, uow, "pepper", Fakes.CLOCK, establecimientos, auditoria, rechazosDeSol, cupo);
     static final ActorAdmin ACTOR = ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7");
 
     @Test void crearTenantDevuelveApiKeyUnaVez() {
@@ -259,5 +261,43 @@ class AdministrarTenantServiceTest {
         assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=20100066603,O=Y", "20100066603")).isTrue();
         assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=201000666035,O=Y", "20100066603")).isFalse();
         assertThat(AdministrarTenantService.ouContieneRuc("CN=20100066603,OU=Otro,O=Y", "20100066603")).isFalse();
+    }
+
+    // --- #498: el tope de API keys del plan ------------------------------------------------------------------------------------------
+
+    /** La key nueva de una empresa de una cuenta pide su lugar en el plan, de esa cuenta y dentro de la transacción (el bloqueo vale hasta el commit). */
+    @Test void crearApiKeyDeUnaEmpresaDeUnaCuentaPideLugarEnElPlanDentroDeLaTransaccion() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        UUID cuenta = UUID.randomUUID();
+        tenants.asignarCuenta(empresa, cuenta);
+        int antes = keys.size();
+
+        service.crearApiKey(empresa);
+
+        assertThat(cupo.pedidos).containsExactly(pe.factura.domain.plan.RecursoDelPlan.API_KEYS);
+        assertThat(cupo.cuentas).containsExactly(cuenta);
+        assertThat(cupo.controladoDentro).containsExactly(true);
+        assertThat(keys).hasSize(antes + 1);
+    }
+
+    @Test void sinLugarEnElPlanLaKeyNoSeGuarda() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        tenants.asignarCuenta(empresa, UUID.randomUUID());
+        int antes = keys.size();
+        cupo.lleno = true;
+
+        assertThatThrownBy(() -> service.crearApiKey(empresa)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CUPO_DEL_PLAN");
+
+        assertThat(keys).as("no queda una key creada a medias").hasSize(antes);
+    }
+
+    /** Una empresa de integración, sin cuenta, no tiene plan que la limite. */
+    @Test void unaEmpresaSinCuentaNoSeControla() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        cupo.lleno = true;
+
+        assertThatCode(() -> service.crearApiKey(empresa)).doesNotThrowAnyException();
+
+        assertThat(cupo.pedidos).isEmpty();
     }
 }

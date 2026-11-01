@@ -1736,6 +1736,7 @@
     "INTERNO": "Error interno. Intenta de nuevo en unos minutos.",
     "CERTIFICADO_INVALIDO": "El certificado digital no es válido.",
     "SERIE_INVALIDA": "La serie indicada no es válida.",
+    "CUPO_DEL_PLAN": "Tu plan no incluye más de esto. Libera un lugar o pide un cambio de plan.",
     "LIMITE_PLAN": "Alcanzaste el límite de tu plan.",
     "PLAN_VENCIDO": "Tu plan venció: renuévalo para volver a emitir.",
     "EMPRESA_AJENA": "Esa empresa no pertenece a tu cuenta.",
@@ -4820,6 +4821,10 @@
           "La cuenta llegó al tope de documentos del mes de su plan (facturas, boletas y notas de todas sus empresas). No se emite ni se gasta número.",
           "Vuelva a emitir el mes siguiente o pida un cambio de plan; la comunicación de baja no consume."
         ],
+        "CUPO_DEL_PLAN": [
+          "El plan de la cuenta ya no deja una API key activa, un usuario (con las invitaciones pendientes) o una empresa más. El mensaje dice cuánto incluye el plan y cuánto tiene la cuenta; lo que ya excedía el tope no se toca.",
+          "Revoque una API key, desactive a un usuario o revoque una invitación para liberar un lugar, o pida un cambio de plan."
+        ],
         "PLAN_VENCIDO": [
           "El plan de la cuenta venció y pasaron sus días de gracia (en gracia se sigue emitiendo). Aplica a facturas, boletas y notas; no se emite ni se gasta número.",
           "Renueve el plan para volver a emitir; consultar lo ya emitido y la comunicación de baja siguen funcionando."
@@ -5888,6 +5893,17 @@
       "limites": "Límites del plan",
       "programado": "Desde el {fecha} pasas al plan <b>{plan}</b>.",
       "consumoDe": "Consumo de {mes}",
+      "usoTitulo": "Lo que usas de tu plan",
+      "usoNota": "Las API keys cuentan solo las activas, de todas tus empresas. Los usuarios incluyen las invitaciones pendientes: reservan su lugar hasta que se acepten, venzan o las revoques.",
+      "retencionNota": "Los años de retención son una referencia de tu plan: hoy khipu no borra tus XML ni tus CDR cuando se cumplen.",
+      "usoSinTope": "{n} · sin tope",
+      "usoDe": { "apiKeys": "API keys", "usuarios": "usuarios", "rucs": "empresas" },
+      "uso": { "apiKeys": "API keys activas", "usuarios": "Usuarios", "rucs": "Empresas (RUC)" },
+      "usoAvisos": {
+        "cerca": "Estás cerca del tope de {recurso} de tu plan.",
+        "lleno": "Llegaste al tope de {recurso} de tu plan: para sumar más, libera un lugar o pide un cambio de plan.",
+        "excedido": "Tienes más {recurso} de los que incluye tu plan. No se quitó nada, pero no puedes sumar más."
+      },
       "consumoTope": "Consumo del tope del mes",
       "nota": "Cuenta lo que SUNAT aceptó este mes en todas tus empresas, aunque después se anule, por su fecha de emisión (hora de Lima)."
     }
