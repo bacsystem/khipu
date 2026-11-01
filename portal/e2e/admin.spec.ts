@@ -116,3 +116,16 @@ test("una sesión de cliente no da acceso al backoffice", async ({ page }) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/login/);
 });
+
+/** #504: el backoffice también ofrece «Apariencia…» en su menú, con el mismo panel del design system. */
+test("el menú del backoffice abre «Apariencia…» y cambia la paleta", async ({ page }) => {
+  await entrarComoAdmin(page);
+
+  await page.getByRole("button", { name: "Menú de administrador" }).click();
+  await page.getByRole("menuitem", { name: "Apariencia…" }).click();
+  // El diálogo del design system no lleva nombre accesible (su título es un encabezado dentro): se ubica por ese encabezado.
+  const panel = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Apariencia", level: 2 }) });
+  await expect(panel).toBeVisible();
+  await panel.getByRole("radiogroup", { name: "Paleta de color" }).getByRole("radio", { name: "Coral" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-paleta", "coral");
+});

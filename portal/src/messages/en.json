@@ -1551,7 +1551,8 @@
     },
     "perfil": {
       "menu": "Administrator menu",
-      "tema": "Theme"
+      "tema": "Theme",
+      "apariencia": "Appearance…"
     },
     "recargar": {
       "estado": "{error} Reload the page to see the current state.",
@@ -1864,6 +1865,7 @@
       "menu": "User menu",
       "tuCuenta": "Your account",
       "tema": "Theme",
+      "apariencia": "Appearance…",
       "cambiarContrasena": "Change password",
       "documentacion": "API documentation",
       "contrasena": {

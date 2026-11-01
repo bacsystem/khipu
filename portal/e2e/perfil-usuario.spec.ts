@@ -46,3 +46,25 @@ test("cierra sesión desde el menú de usuario", async ({ page }) => {
   await page.goto("/comprobantes");
   await expect(page).toHaveURL(/\/login/);
 });
+
+/** #504: la paleta, el tono oscuro y la tipografía del design system se eligen desde «Apariencia…», en el menú de usuario, y se recuerdan en el navegador. */
+test("«Apariencia…» abre el panel del design system y la paleta elegida se aplica y sobrevive a una recarga", async ({ page }) => {
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-paleta", "lima");
+
+  await page.getByRole("button", { name: "Menú de usuario" }).click();
+  await page.getByRole("menuitem", { name: "Apariencia…" }).click();
+  // El diálogo del design system no lleva nombre accesible (su título es un encabezado dentro): se ubica por ese encabezado.
+  const panel = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Apariencia", level: 2 }) });
+  await expect(panel).toBeVisible();
+
+  await panel.getByRole("radiogroup", { name: "Paleta de color" }).getByRole("radio", { name: "Océano" }).click();
+  await expect(html).toHaveAttribute("data-paleta", "oceano");
+  await panel.getByRole("radiogroup", { name: "Tipografía" }).getByRole("radio", { name: "Manrope" }).click();
+  await expect(html).toHaveAttribute("data-fuente", "manrope");
+
+  // Se guarda en el navegador (localStorage): una recarga mantiene la elección y el script del `<head>` la pone antes de pintar.
+  await page.reload();
+  await expect(html).toHaveAttribute("data-paleta", "oceano");
+  await expect(html).toHaveAttribute("data-fuente", "manrope");
+});
