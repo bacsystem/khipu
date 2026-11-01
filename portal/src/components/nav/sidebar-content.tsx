@@ -37,6 +37,7 @@ export function SidebarContent({
       chip={activa ? <ChipSidebar>{activa.entorno === "BETA" ? t.entorno.beta : t.entorno.produccion}</ChipSidebar> : undefined}
       selector={empresas.length > 0 ? <EmpresaSelector empresas={empresas} activaId={activaId} /> : undefined}
       grupos={gruposDeNavegacion(t, usuario.rol)}
+      etiquetaMenu={t.principal}
       pie={<PlanYConsumo cuenta={cuenta} />}
       // El menú de usuario incluye el tema (en móvil la barra superior no lo muestra), «Apariencia…», el cambio de contraseña y el cierre de sesión.
       usuario={<PerfilUsuario usuario={usuario} nombreCuenta={cuenta?.nombre ?? null} />}

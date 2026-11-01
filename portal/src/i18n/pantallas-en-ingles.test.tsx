@@ -18,9 +18,8 @@ import LoginPage from "@/app/login/page";
 import { RegistroForm } from "@/components/auth/registro-form";
 import { AlertasDelPanel } from "@/components/inicio/alertas-del-panel";
 import { KpisDelMes } from "@/components/inicio/kpis-del-mes";
-import { gruposDeNavegacion } from "@/components/nav/grupos-de-navegacion";
 import { TopBar } from "@/components/nav/top-bar";
-import { SidebarNav } from "khipu-design-system/nav/sidebar-nav";
+import { SidebarContent } from "@/components/nav/sidebar-content";
 
 afterEach(cleanup);
 
@@ -63,17 +62,21 @@ describe("pantallas migradas en inglés (#25)", () => {
     fijarLocaleDePrueba("en");
     const { container } = render(
       <>
-        <SidebarNav grupos={gruposDeNavegacion(en.nav, "ADMIN")} />
+        <SidebarContent usuario={{ id: "u-1", email: "demo@example.com", rol: "ADMIN" } as never} cuenta={null} empresas={[]} />
         <TopBar entorno="BETA" usuario={{ id: "u-1", email: "demo@example.com", rol: "ADMIN" } as never} cuenta={null} empresas={[]} apiBaseUrl="http://localhost:8001" />
       </>,
     );
 
-    // Los nombres de los landmarks (navegación principal, ubicación y «Abrir menú») los fija el design system en castellano: se pidieron como propiedades. Lo que se ve, no.
+    // También los nombres que no se ven: el del menú, el de la miga y el del botón del cajón (#519; antes los fijaba el design system en castellano).
+    expect(screen.getByRole("navigation", { name: en.nav.principal })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: en.nav.ubicacion })).toBeTruthy();
+    expect(screen.getByRole("button", { name: en.nav.abrirMenu })).toBeTruthy();
     for (const etiqueta of Object.values(en.nav.items)) expect(screen.getAllByText(etiqueta).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(en.nav.items.inicio);
     expect(screen.getByRole("heading", { level: 1 }).parentElement?.textContent).toContain(en.nav.migas.secciones.panel);
     expect(screen.getByTitle(en.nav.entorno.betaAyuda).textContent).toContain(en.nav.entorno.betaSunat);
     sinCastellano(container, [es.nav.grupos.emision, es.nav.items.series, es.nav.items.plan, es.nav.entorno.betaSunat]);
+    expect(screen.queryByRole("navigation", { name: es.nav.ubicacion })).toBeNull();
   });
 
   it("el panel de inicio: indicadores y avisos", () => {
