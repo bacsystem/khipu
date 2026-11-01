@@ -24,11 +24,16 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 
 Un push a `develop` publica `:develop` (para un entorno de pruebas), pero no despliega nada.
 
-Lo que necesita GitHub: el secreto `DOCKERHUB_TOKEN` (access token de Docker Hub, Read & Write) y, en el environment
-`produccion` (Settings → Environments; ahí también se puede exigir aprobación manual antes de cada despliegue), el secreto
-`RAILWAY_TOKEN`, un *project token* del entorno de producción de Railway (Project Settings → Tokens). Si los servicios no se
-llaman `backend` y `portal`, las variables `RAILWAY_SERVICIO_BACKEND` y `RAILWAY_SERVICIO_PORTAL` dicen cómo. Si los
-repositorios de Docker Hub son privados, Railway pide el plan Pro y las credenciales del registro al crear el servicio.
+**Antes del primer push a `develop` o `main`, crear en Docker Hub `khipu-backend`, `khipu-portal` y `khipu-respaldo` como
+repositorios privados.** Docker Hub crea públicos los que no existen al recibir la primera imagen, y la del backend lleva el
+jar completo (la del portal, el código compilado): cualquiera podría bajarlos con `docker pull`. Un repositorio privado exige
+que Railway tenga el plan Pro y las credenciales del registro (usuario y un access token de solo lectura) en cada servicio.
+
+Lo que necesita GitHub, también antes del primer push (sin `DOCKERHUB_TOKEN` el login falla y el run de `develop` queda en
+rojo): el secreto `DOCKERHUB_TOKEN` (access token de Docker Hub, Read & Write) y, en el environment `produccion` (Settings →
+Environments; ahí también se puede exigir aprobación manual antes de cada despliegue), el secreto `RAILWAY_TOKEN`, un
+*project token* del entorno de producción de Railway (Project Settings → Tokens). Si los servicios no se llaman `backend` y
+`portal`, las variables `RAILWAY_SERVICIO_BACKEND` y `RAILWAY_SERVICIO_PORTAL` dicen cómo.
 
 Los Dockerfiles siguen sirviendo para construir a mano (`make docker-backend`, `make docker-portal`). Si alguna vez se vuelve
 a desplegar desde el repo en vez de desde la imagen, en Railway se elige la fuente «GitHub repo» y se fija **Root Directory**

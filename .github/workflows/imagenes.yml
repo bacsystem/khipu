@@ -9,6 +9,8 @@
 # Imágenes: cbaciliod/khipu-backend (deploy/backend/Dockerfile, contexto la raíz), cbaciliod/khipu-portal (portal/Dockerfile) y cbaciliod/khipu-respaldo
 # (deploy/respaldo, el cron de pg_dump de deploy/README.md §8). Solo linux/amd64: el bootJar bajo QEMU para arm64 tardaría varias veces más.
 #
+# Los tres repositorios de Docker Hub se crean privados ANTES del primer push: si no existen, Docker Hub los crea públicos y el jar
+# del backend queda al alcance de un `docker pull` (deploy/README.md).
 # Secretos: DOCKERHUB_TOKEN (access token de Docker Hub, Read & Write) y, en el environment «produccion», RAILWAY_TOKEN (project token del entorno de
 # producción de Railway). Variables opcionales: RAILWAY_SERVICIO_BACKEND y RAILWAY_SERVICIO_PORTAL si los servicios no se llaman «backend» y «portal».
 name: Imágenes y despliegue
