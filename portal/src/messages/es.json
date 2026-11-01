@@ -1551,7 +1551,8 @@
     },
     "perfil": {
       "menu": "Menú de administrador",
-      "tema": "Tema"
+      "tema": "Tema",
+      "apariencia": "Apariencia…"
     },
     "recargar": {
       "estado": "{error} Recarga la página para ver el estado real.",
@@ -1864,6 +1865,7 @@
       "menu": "Menú de usuario",
       "tuCuenta": "Tu cuenta",
       "tema": "Tema",
+      "apariencia": "Apariencia…",
       "cambiarContrasena": "Cambiar contraseña",
       "documentacion": "Documentación API",
       "contrasena": {

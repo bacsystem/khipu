@@ -1,11 +1,12 @@
 "use client";
 
-import { BookOpenIcon, ChevronsUpDownIcon, KeyRoundIcon, LogOutIcon, MailCheckIcon, ShieldCheckIcon } from "lucide-react";
+import { BookOpenIcon, ChevronsUpDownIcon, KeyRoundIcon, LogOutIcon, MailCheckIcon, PaletteIcon, ShieldCheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMessages } from "next-intl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "khipu-design-system/ui/dialog";
 import { Menu, MenuContent, MenuItem, MenuLinkItem, MenuSeparator, MenuTrigger } from "khipu-design-system/ui/menu";
+import { PanelApariencia } from "khipu-design-system/nav/panel-apariencia";
 import { ThemeToggle } from "khipu-design-system/nav/theme-toggle";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import type { Usuario } from "@/lib/api/auth";
@@ -117,6 +118,7 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
   const soloLectura = useSoloLecturaDeLaSesion();
   const router = useRouter();
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+  const [apariencia, setApariencia] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
 
   // C7: el nombre de la cuenta («Ferretería Torres»), no la parte del correo antes de la @ («ana.torres»).
@@ -176,6 +178,11 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
           <div className="px-0.5 pb-1.5">
             <ThemeToggle conTexto />
           </div>
+          {/* La paleta, el tono oscuro y la tipografía son del design system (v0.5.0): se eligen en su panel y se guardan en el navegador. */}
+          <MenuItem onClick={() => setApariencia(true)}>
+            <PaletteIcon />
+            {t.apariencia}
+          </MenuItem>
 
           <MenuSeparator />
 
@@ -198,6 +205,7 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
       </Menu>
 
       <CambiarContrasenaDialog email={usuario.email} abierto={cambiandoContrasena} onOpenChange={setCambiandoContrasena} />
+      <PanelApariencia open={apariencia} onOpenChange={setApariencia} />
     </>
   );
 }
