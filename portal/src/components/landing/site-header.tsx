@@ -24,14 +24,22 @@ export function SiteHeader() {
             {t.iniciarSesion}
           </Link>
         </nav>
-        {abierto ? (
-          <Button render={<Link href="/registro" />} nativeButton={false} className="h-control px-4">
-            {t.crearCuentaGratis}
-          </Button>
-        ) : contacto ? (
-          <Button render={<a href={contacto} />} nativeButton={false} className="h-control px-4">
-            {t.solicitarAcceso}
-          </Button>
+        {abierto || contacto ? (
+          <div className="flex items-center gap-4">
+            {/* En el teléfono el menú de arriba se oculta: sin este enlace, el único camino al login era el pie de la página. */}
+            <Link href="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground md:hidden">
+              {t.iniciarSesion}
+            </Link>
+            {abierto ? (
+              <Button render={<Link href="/registro" />} nativeButton={false} className="h-control px-4">
+                {t.crearCuentaGratis}
+              </Button>
+            ) : (
+              <Button render={<a href={contacto ?? undefined} />} nativeButton={false} className="h-control px-4">
+                {t.solicitarAcceso}
+              </Button>
+            )}
+          </div>
         ) : (
           <Button render={<Link href="/login" />} nativeButton={false} variant="outline" className="h-control px-4">
             {t.iniciarSesion}

@@ -123,7 +123,7 @@ export default async function Home() {
             <div className="mt-10 grid gap-5 sm:grid-cols-2">
               {BENEFICIOS.map((b) => (
                 <div key={b.clave} className="group rounded-xl border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]">
-                  <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde" aria-hidden>
+                  <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento-texto dark:text-acento ring-1 ring-acento-borde" aria-hidden>
                     <b.icono className="size-[18px]" />
                   </span>
                   <h3 className="font-heading text-lg font-semibold">{t.beneficios[b.clave].titulo}</h3>
@@ -140,7 +140,7 @@ export default async function Home() {
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {AUDIENCIA.map((a) => (
               <div key={a.clave} className={cn(TARJETA, "group p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]")}>
-                <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde" aria-hidden>
+                <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento-texto dark:text-acento ring-1 ring-acento-borde" aria-hidden>
                   <a.icono className="size-[18px]" />
                 </span>
                 <h3 className="font-heading text-lg font-semibold">{t.audiencia[a.clave].titulo}</h3>
