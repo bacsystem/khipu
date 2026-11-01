@@ -1,0 +1,146 @@
+# Imágenes Docker en Docker Hub (cuenta cbaciliod) y despliegue a producción en Railway, que corre esas imágenes (servicios con fuente «Docker image»).
+#
+# Solo un release publica y despliega. El release es el tag vX.Y.Z que se pone sobre main después de mergear develop (o un hotfix/*):
+#
+# tag vX.Y.Z (en main) → imágenes :X.Y.Z, :X.Y, :latest y :sha-<corto> → redespliegue de backend y portal en Railway (producción sigue :latest)
+# workflow_dispatch eligiendo el tag → lo mismo (repetir un release que falló); sobre una rama se corta en el job «release» sin publicar
+#
+# CI no corre la suite: las pruebas se corren en local antes del release (pruebas.yml queda solo a pedido). Un merge a develop o a main no dispara nada.
+#
+# Imágenes: cbaciliod/khipu-backend (deploy/backend/Dockerfile, contexto la raíz), cbaciliod/khipu-portal (portal/Dockerfile) y cbaciliod/khipu-respaldo
+# (deploy/respaldo, el cron de pg_dump de deploy/README.md §8). Solo linux/amd64: el bootJar bajo QEMU para arm64 tardaría varias veces más.
+#
+# Los tres repositorios de Docker Hub se crean privados ANTES del primer tag: si no existen, Docker Hub los crea públicos y el jar
+# del backend queda al alcance de un `docker pull` (deploy/README.md).
+# Secretos: DOCKERHUB_TOKEN (access token de Docker Hub, Read & Write) y, en el environment «produccion», RAILWAY_TOKEN (project token del entorno de
+# producción de Railway). Variables opcionales: RAILWAY_SERVICIO_BACKEND y RAILWAY_SERVICIO_PORTAL si los servicios no se llaman «backend» y «portal».
+name: Imágenes y despliegue
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imagenes-${{ github.ref }}
+  # Un release no se cancela a medias: podría dejar :latest publicada y sin desplegar.
+  cancel-in-progress: false
+
+env:
+  DOCKERHUB_USUARIO: cbaciliod
+
+jobs:
+  # El tag tiene que ser vX.Y.Z y estar sobre un commit de main: un tag puesto por error en una rama de trabajo, o un dispatch sobre una rama, no publica.
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: El tag es vX.Y.Z y su commit está en main
+        run: |
+          if [[ "$GITHUB_REF_TYPE" != tag ]] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::El tag $GITHUB_REF_NAME no es vX.Y.Z; no se publica nada."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::El commit del tag $GITHUB_REF_NAME no está en main; un release sale de main (GitFlow)."
+            exit 1
+          fi
+
+  imagen:
+    name: imagen (${{ matrix.nombre }})
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: backend
+            imagen: cbaciliod/khipu-backend
+            contexto: .
+            dockerfile: deploy/backend/Dockerfile
+          - nombre: portal
+            imagen: cbaciliod/khipu-portal
+            contexto: portal
+            dockerfile: portal/Dockerfile
+          - nombre: respaldo
+            imagen: cbaciliod/khipu-respaldo
+            contexto: deploy/respaldo
+            dockerfile: deploy/respaldo/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USUARIO }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tags y labels OCI
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.imagen }}
+          # :X.Y.Z para volver atrás a una versión exacta, :X.Y para la última de esa menor, :latest es la que corre producción, :sha-<corto> para ubicar el commit.
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.title=khipu-${{ matrix.nombre }}
+            org.opencontainers.image.vendor=Bacsystem Solutions EIRL
+
+      - name: Construir y publicar
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.contexto }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Caché de capas en el caché de Actions, separado por imagen para que una no desaloje a la otra.
+          cache-from: type=gha,scope=${{ matrix.nombre }}
+          cache-to: type=gha,scope=${{ matrix.nombre }},mode=max
+
+  desplegar:
+    name: desplegar en Railway
+    needs: imagen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # El environment guarda RAILWAY_TOKEN aparte y permite exigir aprobación manual antes de tocar producción (Settings → Environments).
+    environment: produccion
+    concurrency:
+      group: desplegar-produccion
+      cancel-in-progress: false
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: CLI de Railway
+        run: npm install -g @railway/cli@5.71.0
+
+      # --from-source es lo que hace bajar la :latest recién publicada; sin él, `redeploy` vuelve a levantar la imagen que ya estaba.
+      # Primero el backend (corre las migraciones de Flyway al arrancar, deploy/README.md §6) y después el portal. El respaldo es un cron:
+      # toma la imagen nueva cuando se actualiza su servicio en Railway, no hace falta redesplegarlo en cada release.
+      - name: Redesplegar backend
+        env:
+          SERVICIO: ${{ vars.RAILWAY_SERVICIO_BACKEND || 'backend' }}
+        run: railway redeploy --service "$SERVICIO" --from-source --yes
+
+      - name: Redesplegar portal
+        env:
+          SERVICIO: ${{ vars.RAILWAY_SERVICIO_PORTAL || 'portal' }}
+        run: railway redeploy --service "$SERVICIO" --from-source --yes

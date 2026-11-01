@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-# Build context: raíz del repo (proyecto Gradle multi-módulo). En Railway: Root Directory = ".",
-# Dockerfile Path = "deploy/backend/Dockerfile". Requiere BuildKit por el cache mount de abajo.
+# Build context: raíz del repo (proyecto Gradle multi-módulo). Lo construye y publica CI (.github/workflows/imagenes.yml);
+# Railway despliega la imagen de Docker Hub. Requiere BuildKit por el cache mount de abajo.
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 COPY . .

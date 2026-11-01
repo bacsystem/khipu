@@ -1,4 +1,4 @@
-# Pruebas de carga con umbrales (#8, #287): levanta Postgres y el backend real, prepara una empresa aislada y corre los escenarios de k6/.
+# Pruebas de carga con umbrales (#8, #287), a pedido: levanta Postgres y el backend real, prepara una empresa aislada y corre los escenarios de k6/.
 # - Descargas (p95 < 300 ms): bloquea. Si un cambio la rompe, el job falla.
 # - Emisión de facturas y de boletas: bloquea por lo funcional —respuestas que no sean 201 del tipo y estado pedidos, errores, iteraciones descartadas (no se alcanzan los
 #   50 doc/s)— y por una latencia holgada (p95 < 1500 ms: el objetivo es 500 ms, y una laptop mide ~25 ms, pero el runner compartido es mucho más lento y no debe dar falsos rojos).
@@ -7,22 +7,9 @@
 #   carga debía emitir (si no emitió nada, la comprobación no probaba nada).
 name: Carga (k6)
 
+# Solo a pedido (Actions → «Carga (k6)» → Run workflow): en cada PR el runner compartido daba poca señal (mucho más lento y ruidoso que una
+# laptop). Sirve para medir en un entorno limpio antes de un release que toca la emisión.
 on:
-  pull_request:
-    paths:
-      - "domain/**"
-      - "application/**"
-      - "adapters/**"
-      - "bootstrap/**"
-      - "k6/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradle.properties"
-      - "gradlew"
-      - ".github/workflows/k6.yml"
-  schedule:
-    - cron: "0 8 * * 1"   # lunes 03:00 Lima
   workflow_dispatch:
 
 permissions:

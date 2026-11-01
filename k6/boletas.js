@@ -15,7 +15,7 @@ const hoyEnLima = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().sli
 
 const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8001";
 const API_KEY = __ENV.API_KEY;
-// 500 ms es el objetivo; CI lo sube (UMBRAL_P95_MS) porque el runner compartido es mucho más lento que una laptop y ahí solo debe saltar una regresión grande.
+// 500 ms es el objetivo; UMBRAL_P95_MS lo sube al correr contra una máquina más lenta que una laptop, donde solo debe saltar una regresión grande.
 const P95_MAXIMO_MS = __ENV.UMBRAL_P95_MS || "500";
 const SERIE = __ENV.SERIE || "B001";
 

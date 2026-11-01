@@ -11,11 +11,9 @@ habla con la API desde el servidor (BFF) y guarda la sesión en cookies `httpOnl
 
 | | |
 |---|---|
-| Root Directory | `portal` |
-| Dockerfile Path | `Dockerfile` (el de `portal/Dockerfile`) |
+| Fuente | imagen `cbaciliod/khipu-portal:latest`, que CI construye desde `portal/Dockerfile` y publica en Docker Hub (ver `deploy/README.md`, «Cómo llega un cambio a producción») |
 | Puerto | no fijar `PORT`: Railway lo inyecta y el server `standalone` lo respeta (la imagen ya trae `HOSTNAME=0.0.0.0`) |
 | Healthcheck path | `/` |
-| Watch paths | `portal/**` — así un push que solo toca el backend no redespliega el portal |
 
 ## 1. Fase 0: landing público, autoservicio cerrado
 
@@ -65,11 +63,11 @@ docker run --rm -p 3200:3000 \
 
 ## 4. Pasos en Railway
 
-1. **New Service → GitHub Repo** → `bacsystem/khipu` (Railway necesita acceso al repo).
-2. **Settings → Source**: Root Directory `portal`, Dockerfile Path `Dockerfile`, Watch Paths `portal/**`.
+1. **New Service → Docker Image** → `cbaciliod/khipu-portal:latest` (si el repositorio de Docker Hub es privado, con sus credenciales).
+2. **Settings → Service Name**: `portal` (es el nombre que usa el job `desplegar` de CI; si es otro, definir la variable `RAILWAY_SERVICIO_PORTAL` en GitHub).
 3. **Variables**: las de la tabla de arriba (en fase 0 alcanza con `REGISTRO_ABIERTO=false` y `CONTACTO_URL`).
 4. **Settings → Networking → Generate Domain** (o dominio propio + CNAME al que da Railway).
-5. **Deploy**. El build tarda unos minutos (`npm ci` + `next build` dentro de la imagen).
+5. **Deploy**. No hay build en Railway: baja la imagen y la levanta. Los siguientes despliegues los dispara CI en cada release (tag `vX.Y.Z` sobre `main`).
 6. Verificar con el checklist de abajo.
 
 ## 5. Verificación después del deploy
