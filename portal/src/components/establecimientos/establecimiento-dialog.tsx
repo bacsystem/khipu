@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, PlusIcon, StoreIcon } from "lucide-react";
+import { PencilSimpleIcon, PlusIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
@@ -24,7 +24,7 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
       >
         {trigger ?? (
           <>
-            {existente ? <PencilIcon className="size-3.5" /> : <PlusIcon className="size-4" />}
+            {existente ? <PencilSimpleIcon className="size-3.5" /> : <PlusIcon weight="bold" className="size-4" />}
             {existente ? t.editar : t.nuevo}
           </>
         )}
@@ -33,7 +33,7 @@ export function EstablecimientoDialog({ existente, trigger, className }: { exist
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <StoreIcon className="size-4" />
+              <StorefrontIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{existente ? interpolar(t.tituloEditar, { codigo: existente.codigo }) : t.tituloNuevo}</DialogTitle>

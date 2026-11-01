@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon } from "lucide-react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { CONTROL_FILTRO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ export function BusquedaDelListado({
 
   return (
     <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3", ancho)} title={ayuda}>
-      <SearchIcon className="size-4 shrink-0 text-muted-foreground/70" />
+      <MagnifyingGlassIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/70" />
       <label className="sr-only" htmlFor={id}>
         {etiqueta}
       </label>

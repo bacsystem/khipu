@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { useState } from "react";
@@ -122,7 +122,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               <ul className="mt-5 grid gap-2 text-sm text-muted-foreground">
                 {p.incluye.map((f) => (
                   <li key={f} className="flex gap-2">
-                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    <CheckIcon weight="bold" className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                     <span>{f}</span>
                   </li>
                 ))}

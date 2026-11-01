@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { MagnifyingGlassIcon, TrashIcon, UsersIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
@@ -103,7 +103,7 @@ export function ClientesTable() {
         </div>
         <label className="relative">
           <span className="sr-only">{t.buscar}</span>
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
           <input
             type="search"
             value={texto}
@@ -157,7 +157,7 @@ export function ClientesTable() {
                       <>
                         <ClienteDialog existente={c} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted")} />
                         <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(c.id)} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-                          <Trash2Icon className="size-3.5" />
+                          <TrashIcon className="size-3.5" />
                           {t.eliminar}
                         </button>
                       </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { PackageIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { PackageIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -20,7 +20,7 @@ export function ProductoDialog({ existente, trigger, className }: { existente?: 
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={className ?? cn(ACCION_PRINCIPAL, "self-start md:self-auto")} data-testid={existente ? "editar-producto" : "nuevo-producto"}>
         {trigger ?? (
           <>
-            {existente ? <PencilIcon className="size-3.5" /> : <PlusIcon className="size-4" />}
+            {existente ? <PencilSimpleIcon className="size-3.5" /> : <PlusIcon weight="bold" className="size-4" />}
             {existente ? t.editar : t.nuevo}
           </>
         )}

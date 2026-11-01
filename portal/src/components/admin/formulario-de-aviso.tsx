@@ -1,6 +1,6 @@
 "use client";
 
-import { MegaphoneIcon, XIcon } from "lucide-react";
+import { MegaphoneIcon, XIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";

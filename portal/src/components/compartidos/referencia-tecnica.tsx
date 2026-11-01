@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, KeyRoundIcon } from "lucide-react";
+import { BookOpenIcon, KeyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "khipu-design-system/ui/dialog";
@@ -129,7 +129,7 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
                 <td className="px-4 py-2 whitespace-nowrap">
                   <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-foreground">
                     {c.campo}
-                    {c.clave ? <KeyRoundIcon className="size-3 text-warning-solid" aria-label={etiquetaClave ?? t.clavePrimaria} /> : null}
+                    {c.clave ? <KeyIcon className="size-3 text-warning-solid" aria-label={etiquetaClave ?? t.clavePrimaria} /> : null}
                   </span>
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap">

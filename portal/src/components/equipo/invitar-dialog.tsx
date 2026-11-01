@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, MailPlusIcon, SendIcon, UserPlusIcon } from "lucide-react";
+import { CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, UserPlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
@@ -71,7 +71,7 @@ export function InvitarDialog({ className }: { className?: string }) {
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <MailPlusIcon className="size-4" />
+              <EnvelopeSimpleIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>
@@ -108,7 +108,7 @@ export function InvitarDialog({ className }: { className?: string }) {
                   </option>
                 ))}
               </select>
-              <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+              <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
             </div>
             <span className={AYUDA_CAMPO}>{roles.descripciones[rol]}</span>
           </div>
@@ -121,7 +121,7 @@ export function InvitarDialog({ className }: { className?: string }) {
               {messages.comun.cancelar}
             </button>
             <button type="submit" disabled={enviando || email.trim() === "" || aviso !== null} className={BOTON_PRIMARIO}>
-              <SendIcon className="size-4" />
+              <PaperPlaneTiltIcon className="size-4" />
               {enviando ? t.enviando : t.enviar}
             </button>
           </div>

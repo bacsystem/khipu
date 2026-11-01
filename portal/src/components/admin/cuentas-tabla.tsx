@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon, SearchIcon } from "lucide-react";
+import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,7 +44,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
         {/* `key`: al cambiar la búsqueda (p. ej. «Quitar filtros») el campo se vuelve a montar con el valor de la URL. */}
         <form key={params.q ?? ""} role="search" onSubmit={buscar} className="flex w-full max-w-xl items-center gap-2">
           <div className="relative min-w-0 flex-1">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+            <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
             <input
               ref={buscador}
               id="buscar-cuentas"
@@ -106,7 +106,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">{hayFiltros ? messages.admin.cuentas.sinResultados : messages.admin.cuentas.vacio}</p>
                   </div>
                 </TableCell>

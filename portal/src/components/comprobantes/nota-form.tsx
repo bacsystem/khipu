@@ -1,6 +1,6 @@
 "use client";
 
-import { FileMinusIcon, SendIcon } from "lucide-react";
+import { FileMinusIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages, useTranslations } from "next-intl";
@@ -528,7 +528,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={!listo || enviando} aria-describedby={avisoDecimales ? "nota-aviso-decimales" : undefined} className={BOTON_PRIMARIO}>
-          {enviando ? <SendIcon className="size-4 animate-pulse" /> : <FileMinusIcon className="size-4" />}
+          {enviando ? <PaperPlaneTiltIcon className="size-4 animate-pulse" /> : <FileMinusIcon className="size-4" />}
           {enviando ? t.emitiendo : interpolar(t.emitir, { nota: esNc ? t.notaCredito : t.notaDebito })}
         </button>
         <Link href={`/comprobantes/${factura.id}`} className={BOTON_SECUNDARIO}>{messages.comun.cancelar}</Link>

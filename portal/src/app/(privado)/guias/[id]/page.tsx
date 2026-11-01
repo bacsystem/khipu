@@ -1,4 +1,5 @@
-import { ArrowLeftIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -81,7 +82,7 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="mx-auto grid w-full max-w-[1100px] min-w-0 grid-cols-1 gap-4">
       <Link href="/guias" className="flex w-fit items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon className="size-3.5" />
+        <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
         {t.volver}
       </Link>
 
@@ -143,7 +144,7 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
         ) : null}
         {enlaceDeConsultaSeguro(g.enlace_consulta) ? (
           <a href={enlaceDeConsultaSeguro(g.enlace_consulta)!} target="_blank" rel="noopener noreferrer" className="flex w-fit items-center gap-1.5 text-[12px] text-primary hover:underline">
-            <ExternalLinkIcon className="size-3.5" />
+            <ArrowSquareOutIcon weight={PESO_ICONO} className="size-3.5" />
             {t.enlaceConsulta}
           </a>
         ) : null}
@@ -288,16 +289,16 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
         <Seccion titulo={t.descargas}>
           <div className="flex flex-wrap gap-2" data-testid="guia-descargas">
             <a href={`/api/proxy/guias-remision/${encodeURIComponent(g.id)}/xml`} className={ACCION_SECUNDARIA}>
-              <DownloadIcon className="size-4" />
+              <DownloadSimpleIcon weight={PESO_ICONO} className="size-4" />
               {t.xml}
             </a>
             <a href={`/api/proxy/guias-remision/${encodeURIComponent(g.id)}/pdf`} target="_blank" rel="noopener noreferrer" className={ACCION_SECUNDARIA}>
-              <DownloadIcon className="size-4" />
+              <DownloadSimpleIcon weight={PESO_ICONO} className="size-4" />
               {t.pdf}
             </a>
             {g.enlaces.cdr ? (
               <a href={`/api/proxy/guias-remision/${encodeURIComponent(g.id)}/cdr`} className={ACCION_SECUNDARIA}>
-                <DownloadIcon className="size-4" />
+                <DownloadSimpleIcon weight={PESO_ICONO} className="size-4" />
                 {t.cdr}
               </a>
             ) : null}

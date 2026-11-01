@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
+import { CircleNotchIcon, DownloadSimpleIcon, FileCodeIcon, SealCheckIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
@@ -65,7 +65,7 @@ export function VistaPrevia({
       </button>
       {tieneCdr ? (
         <button type="button" onClick={() => setAbierto("cdr")} className={ACCION_SECUNDARIA}>
-          <BadgeCheckIcon className="size-4 text-success-foreground" />
+          <SealCheckIcon className="size-4 text-success-foreground" />
           {t.verCdr}
         </button>
       ) : null}
@@ -97,7 +97,7 @@ export function VistaPrevia({
               {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={ACCION_SECUNDARIA} /> : null}
               {activo ? (
                 <a href={urlDe(id, activo, true)} className={ACCION_PRINCIPAL}>
-                  <DownloadIcon className="size-3.5" />
+                  <DownloadSimpleIcon className="size-3.5" />
                   {interpolar(t.descargar, { formato: activo === "cdr" ? "ZIP" : "XML" })}
                 </a>
               ) : null}
@@ -107,7 +107,7 @@ export function VistaPrevia({
           <div className="min-h-0 flex-1 overflow-auto bg-card">
             {!contenido || contenido.estado === "cargando" ? (
               <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin" />
+                <CircleNotchIcon weight="bold" className="size-4 animate-spin" />
                 {t.cargando}
               </div>
             ) : contenido.estado === "error" ? (

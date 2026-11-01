@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, ChevronDownIcon, KeyRoundIcon, PlayIcon, PowerIcon, Trash2Icon } from "lucide-react";
+import { CaretDownIcon, KeyIcon, PlayIcon, PowerIcon, ProhibitIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
@@ -120,7 +120,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
 
         {webhook.pausado_motivo ? (
           <div role="status" className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning px-3 py-2 text-[12px] leading-relaxed text-warning-foreground">
-            <BanIcon className="mt-0.5 size-4 shrink-0" />
+            <ProhibitIcon className="mt-0.5 size-4 shrink-0" />
             <p>
               {interpolar(t.pausa, { motivo: webhook.pausado_motivo, n: PAUSA_TRAS_FALLOS })}
             </p>
@@ -152,7 +152,7 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
             </>
           ) : (
             <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("rotar")} className={ACCION_NEUTRA}>
-              <KeyRoundIcon className="size-3.5" />
+              <KeyIcon className="size-3.5" />
               {t.rotar}
             </button>
           )}
@@ -168,13 +168,13 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
             </>
           ) : (
             <button type="button" disabled={bloqueado} title={soloLectura ?? undefined} onClick={() => setConfirmando("eliminar")} className={cn(ACCION, "text-destructive hover:bg-destructive/10")}>
-              <Trash2Icon className="size-3.5" />
+              <TrashIcon className="size-3.5" />
               {t.eliminar}
             </button>
           )}
           <button type="button" aria-expanded={verEntregas} onClick={() => setVerEntregas((v) => !v)} className={cn(ACCION_NEUTRA, "ml-auto")}>
             {t.entregas}
-            <ChevronDownIcon className={cn("size-3.5 transition-transform", verEntregas && "rotate-180")} />
+            <CaretDownIcon weight="bold" className={cn("size-3.5 transition-transform", verEntregas && "rotate-180")} />
           </button>
         </div>
 

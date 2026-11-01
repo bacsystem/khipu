@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRingIcon } from "lucide-react";
+import { BellRingingIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { AvisoEnviado, MotivoDeAviso, TipoDeAviso } from "@/lib/api/admin-avisos";
@@ -32,7 +32,7 @@ export function AvisarAlCliente({
     <DialogoDeAccion
       testId="avisos-avisar"
       boton={t.boton}
-      icono={BellRingIcon}
+      icono={BellRingingIcon}
       chico
       titulo={t.titulo}
       descripcion={t.descripcion.replace("{empresa}", razonSocial)}

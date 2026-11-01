@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, CopyIcon, TriangleAlertIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { BOTON_SECUNDARIO, ETIQUETA_DATO } from "@/lib/estilos";
@@ -42,13 +42,13 @@ export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; et
             onClick={copiar}
             className={cn(BOTON_SECUNDARIO, "shrink-0", copiada && "border-success-border bg-success text-success-foreground")}
           >
-            {copiada ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+            {copiada ? <CheckIcon weight="bold" className="size-4" /> : <CopyIcon weight="bold" className="size-4" />}
             {copiada ? t.copiada : t.copiar}
           </button>
         </div>
       </div>
       <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-[12px] leading-relaxed text-warning-foreground">
-        <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+        <WarningIcon className="mt-0.5 size-4 shrink-0" />
         {aviso ?? <p>{tr.rich("aviso", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}</p>}
       </div>
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveIcon, ArchiveRestoreIcon, TriangleAlertIcon } from "lucide-react";
+import { ArchiveIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -73,7 +73,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
     router.refresh();
   }
 
-  const Icono = deBaja ? ArchiveRestoreIcon : ArchiveIcon;
+  const Icono = deBaja ? ArchiveIcon : ArchiveIcon;
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
@@ -96,7 +96,7 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
-            {deBaja ? null : <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />}
+            {deBaja ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />}
             <ul className="grid list-disc gap-1 pl-4">
               {textos.efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>

@@ -1,4 +1,5 @@
-import { CheckCircle2Icon, CircleIcon } from "lucide-react";
+import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
@@ -29,9 +30,9 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
         {pasos.map((paso) => (
           <li key={paso.id} data-paso={paso.id} data-listo={paso.listo} className="flex flex-wrap items-center gap-3 py-2.5">
             {paso.listo ? (
-              <CheckCircle2Icon className="size-4 shrink-0 text-success-solid" aria-hidden />
+              <CheckCircleIcon weight={PESO_ICONO} className="size-4 shrink-0 text-success-solid" aria-hidden />
             ) : (
-              <CircleIcon className="size-4 shrink-0 text-muted-foreground/50" aria-hidden />
+              <CircleIcon weight={PESO_ICONO} className="size-4 shrink-0 text-muted-foreground/50" aria-hidden />
             )}
             <div className="min-w-0 flex-1 basis-56">
               <p className="text-[13px] font-medium text-foreground">

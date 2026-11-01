@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenIcon, DatabaseIcon, FingerprintIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
+import { BookOpenIcon, DatabaseIcon, FingerprintIcon, LockIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages, useTranslations } from "next-intl";
 import {

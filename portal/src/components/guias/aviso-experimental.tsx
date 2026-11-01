@@ -1,4 +1,5 @@
-import { FlaskConicalIcon } from "lucide-react";
+import { FlaskIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 
 /**
@@ -9,7 +10,7 @@ export function AvisoExperimental() {
   const t = useMessages().guias.pagina;
   return (
     <aside role="note" className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning px-4 py-3 text-[13px] text-warning-foreground">
-      <FlaskConicalIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <FlaskIcon weight={PESO_ICONO} aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       <div className="flex flex-col gap-0.5">
         <strong className="font-semibold">{t.experimentalTitulo}</strong>
         <span className="leading-relaxed">{t.experimentalTexto}</span>

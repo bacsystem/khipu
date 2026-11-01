@@ -1,4 +1,5 @@
-import { WebhookIcon } from "lucide-react";
+import { WebhooksLogoIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import type { Webhook } from "@/lib/api/webhooks";
@@ -16,7 +17,7 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <WebhookIcon className="size-4" />
+            <WebhooksLogoIcon weight={PESO_ICONO} className="size-4" />
           </div>
           <div className="min-w-0">
             <h2 id="webhooks-titulo" className="text-[13px] font-semibold text-foreground">
@@ -39,7 +40,7 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
         </p>
       ) : webhooks.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-10 text-center text-muted-foreground">
-          <WebhookIcon className="size-6" />
+          <WebhooksLogoIcon weight={PESO_ICONO} className="size-6" />
           <p className="text-sm">{t.vacia}</p>
         </div>
       ) : (

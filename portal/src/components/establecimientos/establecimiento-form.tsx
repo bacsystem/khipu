@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPinIcon, SaveIcon } from "lucide-react";
+import { FloppyDiskIcon, MapPinIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -125,7 +125,7 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? t.guardando : existente ? t.guardarCambios : t.registrar}
         </button>
       </div>

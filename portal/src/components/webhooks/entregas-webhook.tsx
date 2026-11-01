@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCwIcon, RotateCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
@@ -107,7 +107,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             <option value="FALLIDA">{t.filtro.fallidas}</option>
           </select>
           <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground hover:text-foreground")}>
-            <RefreshCwIcon className={cn("size-4", leyendo && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", leyendo && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -154,7 +154,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
                       onClick={() => reenviar(e.id)}
                       className="inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <RotateCwIcon className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
+                      <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
                       {t.reenviar}
                     </button>
                   )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheckIcon, CircleXIcon, TriangleAlertIcon } from "lucide-react";
+import { CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -120,7 +120,7 @@ function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
   const texto = outbox.vencidos === 1 ? t.alerta.uno.replace("{tiempo}", tiempo) : t.alerta.varios.replace("{n}", String(outbox.vencidos)).replace("{tiempo}", tiempo);
   return (
     <div data-testid="monitor-alerta" role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive-border bg-destructive/10 px-4 py-3 text-sm text-destructive">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alerta.titulo}</p>
         <p>{texto}</p>
@@ -139,7 +139,7 @@ function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) 
     : t.alertaResumenes.varios.replace("{n}", String(resumenes.cantidad)).replace("{umbral}", umbral).replace("{tiempo}", tiempo);
   return (
     <div data-testid="monitor-alerta-resumenes" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alertaResumenes.titulo}</p>
         <p>{texto}</p>
@@ -159,7 +159,7 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
   const texto = boletas.cantidad === 1 ? t.alertaBoletas.uno.replace("{fecha}", fecha) : t.alertaBoletas.varios.replace("{n}", String(boletas.cantidad)).replace("{fecha}", fecha);
   return (
     <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-sm text-warning-foreground">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <WarningIcon className="mt-0.5 size-4 shrink-0" />
       <div className="grid gap-0.5">
         <p className="font-medium">{t.alertaBoletas.titulo}</p>
         <p>
@@ -358,7 +358,7 @@ function Sunat({ servicios }: { servicios: EstadoDeServicio[] }) {
               data-disponible={s.disponible}
               className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 px-3 py-2 text-[13px]"
             >
-              {s.disponible ? <CircleCheckIcon className="size-4 shrink-0 text-success-foreground" /> : <CircleXIcon className="size-4 shrink-0 text-destructive" />}
+              {s.disponible ? <CheckCircleIcon className="size-4 shrink-0 text-success-foreground" /> : <XCircleIcon className="size-4 shrink-0 text-destructive" />}
               <span className="font-medium">{t.sunat.servicios[s.servicio]}</span>
               <Etiqueta tono={s.disponible ? "ok" : "error"}>{s.disponible ? t.sunat.disponible : t.sunat.noDisponible}</Etiqueta>
               <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">

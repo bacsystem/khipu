@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon } from "lucide-react";
+import { ProhibitIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
@@ -32,7 +32,7 @@ export function DescartarComprobante({ comprobante, alResultado }: { comprobante
     <DialogoDeAccion
       testId="errores-descartar"
       boton={t.boton}
-      icono={BanIcon}
+      icono={ProhibitIcon}
       tono="peligro"
       chico
       advertencia

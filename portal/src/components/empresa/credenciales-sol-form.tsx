@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, EyeOffIcon, LockIcon, SaveIcon, UserIcon } from "lucide-react";
+import { EyeIcon, EyeSlashIcon, FloppyDiskIcon, LockIcon, UserIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -86,7 +86,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
               title={verClave ? tc.ocultarClave : tc.mostrarClave}
               className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             >
-              {verClave ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+              {verClave ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
           <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
@@ -99,7 +99,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
       {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>
       </div>

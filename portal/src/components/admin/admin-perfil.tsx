@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDownIcon, LogOutIcon, PaletteIcon } from "lucide-react";
+import { CaretUpDownIcon, PaletteIcon, SignOutIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -48,7 +48,7 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
               <p className="truncate font-mono text-[10px] leading-tight text-muted-foreground">{administrador.email}</p>
             </div>
           </div>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground/70" />
+          <CaretUpDownIcon weight="bold" className="size-4 shrink-0 text-muted-foreground/70" />
         </MenuTrigger>
 
         <MenuContent side="top" align="start" className="w-(--anchor-width) min-w-0">
@@ -62,7 +62,7 @@ export function AdminPerfil({ administrador }: { administrador: Administrador })
           </MenuItem>
           <MenuSeparator />
           <MenuItem variant="destructive" disabled={saliendo} onClick={salir}>
-            <LogOutIcon />
+            <SignOutIcon />
             {messages.comun.cerrarSesion}
           </MenuItem>
         </MenuContent>

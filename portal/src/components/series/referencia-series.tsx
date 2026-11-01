@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseIcon, KeyRoundIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
+import { DatabaseIcon, KeyIcon, LockIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import {
   type CampoReferencia,
@@ -51,7 +51,7 @@ export function ReferenciaSeriesDialog({ className }: { className?: string }) {
           nota={
             <>
               <span className="inline-flex items-center gap-1">
-                <KeyRoundIcon className="size-3 text-warning-solid" /> {t.claveUnica}
+                <KeyIcon className="size-3 text-warning-solid" /> {t.claveUnica}
               </span>
               <span className="inline-flex items-center gap-1">
                 <LockIcon className="size-3" /> {t.numeracion}

@@ -1,6 +1,6 @@
 "use client";
 
-import { PauseCircleIcon, PlayCircleIcon, TriangleAlertIcon } from "lucide-react";
+import { PauseCircleIcon, PlayCircleIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -103,7 +103,7 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
 
         <div className="grid gap-4 px-5 py-4">
           <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-[12px] leading-relaxed text-foreground", suspendida ? "border-border bg-muted/50" : "border-destructive/40 bg-destructive/5")}>
-            {suspendida ? null : <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
+            {suspendida ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
             <div className="grid gap-1.5">
               <p className="font-medium" data-testid="suspension-alcance">
                 {empresasAfectadas(empresas, t)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOutIcon } from "lucide-react";
+import { SignOutIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMessages } from "next-intl";
@@ -27,7 +27,7 @@ export function CuentaSuspendida() {
       </p>
       <p className="text-[13px] font-medium">{t.soporte}</p>
       <button type="button" disabled={saliendo} onClick={cerrarSesion} className={BOTON_PRIMARIO}>
-        <LogOutIcon className="size-4" />
+        <SignOutIcon className="size-4" />
         {t.cerrarSesion}
       </button>
     </div>

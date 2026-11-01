@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon } from "lucide-react";
+import { CaretDownIcon, PlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -74,7 +74,7 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
               <option value="BETA">{t.beta}</option>
               <option value="PRODUCCION">{t.produccion}</option>
             </select>
-            <ChevronDownIcon className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+            <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
           </div>
           <span className={AYUDA_CAMPO}>{t.entornoAyuda}</span>
         </div>
@@ -103,7 +103,7 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <PlusIcon className="size-4" />
+          <PlusIcon weight="bold" className="size-4" />
           {enviando ? t.registrando : t.registrar}
         </button>
       </div>

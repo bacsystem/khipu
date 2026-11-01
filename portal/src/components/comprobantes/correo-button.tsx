@@ -1,6 +1,6 @@
 "use client";
 
-import { MailIcon, SendIcon, XIcon } from "lucide-react";
+import { EnvelopeSimpleIcon, PaperPlaneTiltIcon, XIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
 import { buttonVariants } from "khipu-design-system/ui/button";
@@ -47,7 +47,7 @@ export function CorreoButton({ id, numero, correoDelCliente = null }: { id: stri
     return (
       <div className="flex items-center gap-2">
         <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setAbierto(true)} className={ACCION_SECUNDARIA} data-testid="enviar-correo">
-          <MailIcon className="size-4 text-muted-foreground" />
+          <EnvelopeSimpleIcon className="size-4 text-muted-foreground" />
           {t.boton}
         </button>
         {enviadoA ? <span className="text-xs text-success-foreground" role="status" data-testid="correo-enviado">{interpolar(t.enviadoA, { email: enviadoA })}</span> : null}
@@ -66,11 +66,11 @@ export function CorreoButton({ id, numero, correoDelCliente = null }: { id: stri
       {error ? <p className="text-destructive" role="alert">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!email.includes("@") || enviando} onClick={enviar} className={cn(buttonVariants())}>
-          <SendIcon className="size-3.5" />
+          <PaperPlaneTiltIcon className="size-3.5" />
           {enviando ? t.enviando : t.enviar}
         </button>
         <button type="button" onClick={() => setAbierto(false)} className={ACCION_SECUNDARIA}>
-          <XIcon className="size-3.5" />
+          <XIcon weight="bold" className="size-3.5" />
           {messages.comun.cancelar}
         </button>
       </div>

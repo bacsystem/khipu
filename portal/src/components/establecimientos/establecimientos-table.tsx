@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, RefreshCwIcon, StoreIcon } from "lucide-react";
+import { ArrowClockwiseIcon, ProhibitIcon, StorefrontIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
@@ -81,7 +81,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
           <>
             <span className="mr-1 text-[11px] text-muted-foreground">{interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}</span>
             <button type="button" disabled={bajando} onClick={darDeBaja} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-              {bajando ? <RefreshCwIcon className="size-3.5 animate-spin" /> : <BanIcon className="size-3.5" />}
+              {bajando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
               {t.siDarDeBaja}
             </button>
             <button type="button" disabled={bajando} onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
@@ -101,7 +101,7 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
               className={cn(ACCION, "text-destructive hover:bg-destructive/10")}
               data-testid={`baja-establecimiento-${establecimiento.codigo}`}
             >
-              <BanIcon className="size-3.5" />
+              <ProhibitIcon className="size-3.5" />
               {t.darDeBaja}
             </button>
           </>
@@ -127,7 +127,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <StoreIcon className="size-4" />
+            <StorefrontIcon className="size-4" />
           </div>
           <div className="min-w-0">
             <h2 className="text-[13px] font-semibold text-foreground">{t.titulo}</h2>
@@ -141,7 +141,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
           </button>
           {/* «Nuevo establecimiento» vive en la barra superior, como la acción principal de las demás páginas (#277). */}
         </div>
@@ -191,7 +191,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={7} className="py-14 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <StoreIcon className="size-6" />
+                    <StorefrontIcon className="size-6" />
                     <p className="text-sm">
                       {t.vacioAntes}{" "}
                       <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">

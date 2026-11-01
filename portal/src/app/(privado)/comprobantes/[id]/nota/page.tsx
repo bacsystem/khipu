@@ -1,5 +1,6 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { NotaForm } from "@/components/comprobantes/nota-form";
@@ -51,7 +52,7 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Link href={`/comprobantes/${id}`} className={cn(BOTON_SECUNDARIO, "h-auto px-2.5 py-1.5 text-xs")}>
-          <ArrowLeftIcon className="size-3.5" />
+          <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
           {boleta ? t.volverABoleta : t.volverAFactura}
         </Link>
       </div>

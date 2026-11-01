@@ -1,18 +1,8 @@
-import {
-  BellIcon,
-  BuildingIcon,
-  CircleAlertIcon,
-  CreditCardIcon,
-  GaugeIcon,
-  RadioIcon,
-  SettingsIcon,
-  ShieldCheckIcon,
-  UsersIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { BellIcon, BuildingIcon, CreditCardIcon, GaugeIcon, GearIcon, RadioIcon, ShieldCheckIcon, UsersIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
+import type { IconoComponente } from "khipu-design-system/lib/iconos";
 import type { Mensajes } from "@/i18n/mensajes";
 
-export type ItemAdmin = { href: string; etiqueta: string; icono: LucideIcon; resumen: string };
+export type ItemAdmin = { href: string; etiqueta: string; icono: IconoComponente; resumen: string };
 export type SeccionAdmin = { titulo: string; items: ItemAdmin[] };
 
 /**
@@ -42,14 +32,14 @@ export function seccionesAdmin(messages: Mensajes): SeccionAdmin[] {
       titulo: t.topbar.operacion,
       items: [
         { href: "/admin/monitor", etiqueta: t.nav.monitor, icono: RadioIcon, resumen: r.monitor },
-        { href: "/admin/errores", etiqueta: t.nav.errores, icono: CircleAlertIcon, resumen: r.errores },
+        { href: "/admin/errores", etiqueta: t.nav.errores, icono: WarningCircleIcon, resumen: r.errores },
         { href: "/admin/avisos", etiqueta: t.nav.avisos, icono: BellIcon, resumen: r.avisos },
         { href: "/admin/integridad", etiqueta: t.nav.integridad, icono: ShieldCheckIcon, resumen: r.integridad },
       ],
     },
     {
       titulo: t.topbar.plataforma,
-      items: [{ href: "/admin/configuracion", etiqueta: t.nav.configuracion, icono: SettingsIcon, resumen: r.configuracion }],
+      items: [{ href: "/admin/configuracion", etiqueta: t.nav.configuracion, icono: GearIcon, resumen: r.configuracion }],
     },
   ];
 }

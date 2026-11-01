@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon } from "lucide-react";
+import { EyeIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { interpolar } from "@/i18n/mensajes";

@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, TriangleAlertIcon } from "lucide-react";
+import { ProhibitIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -104,14 +104,14 @@ export function BajaButton({
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
-        <BanIcon className="size-4" />
+        <ProhibitIcon className="size-4" />
         {t.darDeBaja}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-              <BanIcon className="size-4" />
+              <ProhibitIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">
@@ -133,7 +133,7 @@ export function BajaButton({
 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
-            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
             <p>
               {tr.rich("efecto", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}
               {notasVigentes > 0 ? interpolar(notasVigentes === 1 ? t.notasUno : t.notasVarias, { n: notasVigentes }) : ""}
@@ -170,7 +170,7 @@ export function BajaButton({
             {messages.comun.cancelar}
           </button>
           <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO}>
-            <BanIcon className="size-4" />
+            <ProhibitIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { SaveIcon } from "lucide-react";
+import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
@@ -128,7 +128,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
           </button>
         ) : null}
         <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
         </button>
       </div>

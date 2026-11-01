@@ -1,6 +1,6 @@
 "use client";
 
-import { SaveIcon } from "lucide-react";
+import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -81,7 +81,7 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         <button type="submit" disabled={enviando || activado === guardado} className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? messages.empresa.comun.guardando : t.guardar}
         </button>
       </div>

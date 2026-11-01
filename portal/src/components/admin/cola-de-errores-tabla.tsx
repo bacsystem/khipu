@@ -1,6 +1,6 @@
 "use client";
 
-import { FilterIcon, InboxIcon, SearchIcon } from "lucide-react";
+import { FunnelIcon, MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -70,7 +70,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
             <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO, "w-64")} />
           </div>
           <button type="submit" className={ACCION_SECUNDARIA}>
-            <SearchIcon className="size-4" />
+            <MagnifyingGlassIcon weight="bold" className="size-4" />
             {t.botonBuscar}
           </button>
         </form>
@@ -127,7 +127,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
                         data-testid="errores-filtrar-empresa"
                         className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
                       >
-                        <FilterIcon className="size-3" />
+                        <FunnelIcon className="size-3" />
                         {t.soloUnaEmpresa}
                       </Link>
                     )}
@@ -181,7 +181,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="py-14 text-center">
                   <div data-testid="errores-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
+                    <TrayIcon className="size-6" />
                     <p className="text-sm">{params.q || params.empresa ? t.vacioConBusqueda : t.vacio[params.clase ?? "TODAS"]}</p>
                   </div>
                 </TableCell>

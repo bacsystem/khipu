@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -91,7 +91,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
     router.refresh();
   }
 
-  const Icono = edicion ? PencilIcon : PlusIcon;
+  const Icono = edicion ? PencilSimpleIcon : PlusIcon;
   const fechaProximoCiclo = formatearFechaDeLima(inicioDelProximoCiclo(new Date()), locale);
   const programado = plan?.limites_programados;
   const efectos = edicion ? f.efectosEditar.map((e) => e.replace("{fecha}", fechaProximoCiclo)) : f.efectosNuevo;

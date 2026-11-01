@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCwIcon, SendIcon } from "lucide-react";
+import { ArrowClockwiseIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
@@ -69,7 +69,7 @@ export function GuiaAcciones({ guia }: { guia: Guia }) {
             title={soloLectura ?? undefined}
             className={ACCION_PRINCIPAL}
           >
-            <SendIcon className="size-4" />
+            <PaperPlaneTiltIcon className="size-4" />
             {haciendo === "enviar" ? t.enviando : guia.estado === "ERROR_ENVIO" ? t.reenviar : t.enviar}
           </button>
         ) : null}
@@ -81,7 +81,7 @@ export function GuiaAcciones({ guia }: { guia: Guia }) {
             title={soloLectura ?? undefined}
             className={ACCION_SECUNDARIA}
           >
-            <RefreshCwIcon className="size-4" />
+            <ArrowClockwiseIcon weight="bold" className="size-4" />
             {haciendo === "ticket" ? t.consultando : t.consultarTicket}
           </button>
         ) : null}
@@ -101,7 +101,7 @@ export function GuiaAcciones({ guia }: { guia: Guia }) {
             title={soloLectura ?? undefined}
             className={ACCION_SECUNDARIA}
           >
-            <SendIcon className="size-4" />
+            <PaperPlaneTiltIcon className="size-4" />
             {haciendo === "retomar" ? t.enviando : t.retomar}
           </button>
         </div>

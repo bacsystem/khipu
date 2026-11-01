@@ -1,6 +1,6 @@
 "use client";
 
-import { CopyPlusIcon } from "lucide-react";
+import { CopyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
@@ -25,13 +25,13 @@ export function DuplicarButton({ id, numero, compacto = false, className }: { id
         onClick={() => pedirDuplicado(id)}
         className={cn("flex h-control w-control items-center justify-center rounded-lg border border-border text-muted-foreground shadow-2xs transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50", className)}
       >
-        <CopyPlusIcon className="size-3.5" />
+        <CopyIcon weight="bold" className="size-3.5" />
       </button>
     );
   }
   return (
     <Button variant="outline" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => pedirDuplicado(id)} data-testid="duplicar" className={className}>
-      <CopyPlusIcon className="size-4" />
+      <CopyIcon weight="bold" className="size-4" />
       {t.boton}
     </Button>
   );

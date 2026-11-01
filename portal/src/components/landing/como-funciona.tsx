@@ -1,4 +1,5 @@
-import { FileSignature, KeyRound, ListOrdered, ShieldCheck } from "lucide-react";
+import { KeyIcon, ListNumbersIcon, ShieldCheckIcon, SignatureIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -14,15 +15,15 @@ const ETAPAS = [
   {
     clave: "unaVez",
     pasos: [
-      { icono: KeyRound, clave: "certificado" },
-      { icono: ListOrdered, clave: "series" },
+      { icono: KeyIcon, clave: "certificado" },
+      { icono: ListNumbersIcon, clave: "series" },
     ],
   },
   {
     clave: "cadaComprobante",
     pasos: [
-      { icono: FileSignature, clave: "emision" },
-      { icono: ShieldCheck, clave: "constancia" },
+      { icono: SignatureIcon, clave: "emision" },
+      { icono: ShieldCheckIcon, clave: "constancia" },
     ],
   },
 ] as const;
@@ -70,7 +71,7 @@ export function ComoFunciona() {
                         className="flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento ring-1 ring-acento-borde transition-colors"
                         aria-hidden
                       >
-                        <Icono className="size-[18px]" />
+                        <Icono weight={PESO_ICONO} className="size-[18px]" />
                       </span>
                       <span className="font-mono text-sm text-muted-foreground tabular-nums">{String(n).padStart(2, "0")}</span>
                     </div>

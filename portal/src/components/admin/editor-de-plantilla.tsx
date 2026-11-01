@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, SaveIcon, Undo2Icon } from "lucide-react";
+import { ArrowUUpLeftIcon, EyeIcon, FloppyDiskIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -224,14 +224,14 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
           {calculando ? t.calculandoVistaPrevia : t.vistaPrevia}
         </button>
         <button type="button" disabled={enviando || calculando} onClick={guardar} data-testid="plantilla-guardar" className={BOTON_PRIMARIO}>
-          <SaveIcon className="size-4" />
+          <FloppyDiskIcon className="size-4" />
           {enviando ? t.guardando : t.guardar}
         </button>
         {plantilla.personalizada ? (
           <DialogoDeAccion
             testId="plantilla-restaurar"
             boton={t.restaurar.boton}
-            icono={Undo2Icon}
+            icono={ArrowUUpLeftIcon}
             titulo={t.restaurar.titulo}
             descripcion={t.restaurar.descripcion.replace("{correo}", plantilla.etiqueta)}
             efectos={t.restaurar.efectos}

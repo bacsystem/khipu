@@ -1,6 +1,6 @@
 "use client";
 
-import { BanknoteIcon } from "lucide-react";
+import { MoneyIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -135,14 +135,14 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
       <DialogTrigger className={ACCION_PRINCIPAL} data-testid="registrar-pago">
-        <BanknoteIcon className="size-4" />
+        <MoneyIcon className="size-4" />
         {messages.admin.pagos.registrar}
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="registrar-pago-dialogo" showCloseButton={!enviando}>
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-              <BanknoteIcon className="size-4" />
+              <MoneyIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo.replace("{cuenta}", cuentaNombre)}</DialogTitle>
@@ -292,7 +292,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
             {t.cancelar}
           </button>
           <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO}>
-            <BanknoteIcon className="size-4" />
+            <MoneyIcon className="size-4" />
             {enviando ? t.enviando : t.confirmar}
           </button>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRoundIcon, PlusIcon } from "lucide-react";
+import { KeyIcon, PlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useState } from "react";
@@ -53,14 +53,14 @@ export function NuevaApiKeyDialog({ className }: { className?: string }) {
           cn(ACCION_PRINCIPAL, "self-start md:self-auto")
         }
       >
-        <PlusIcon className="size-4" />
+        <PlusIcon weight="bold" className="size-4" />
         {t.boton}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <KeyRoundIcon className="size-4" />
+              <KeyIcon className="size-4" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold tracking-tight">{t.titulo}</DialogTitle>

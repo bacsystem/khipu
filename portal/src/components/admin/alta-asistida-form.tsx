@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftIcon, ArrowRightIcon, UserPlusIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, UserPlusIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useMemo, useRef, useState } from "react";

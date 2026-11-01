@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Settings2Icon, Trash2Icon } from "lucide-react";
+import { PlusIcon, SlidersHorizontalIcon, TrashIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -922,7 +922,7 @@ export function NuevoComprobanteForm({
             title={lineas.length >= MAX_LINEAS ? interpolar(t.maxItemsTitulo, { max: MAX_LINEAS }) : undefined}
             className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
           >
-            <PlusIcon className="size-3.5" />
+            <PlusIcon weight="bold" className="size-3.5" />
             {t.agregarItem}
           </button>
         </div>
@@ -977,7 +977,7 @@ export function NuevoComprobanteForm({
                       detalle === i && "bg-muted text-foreground",
                     )}
                   >
-                    <Settings2Icon className="size-4" />
+                    <SlidersHorizontalIcon className="size-4" />
                   </button>
                   <button
                     type="button"
@@ -987,7 +987,7 @@ export function NuevoComprobanteForm({
                     aria-label={interpolar(t.quitarItemN, { n: i + 1 })}
                     className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <Trash2Icon className="size-4" />
+                    <TrashIcon className="size-4" />
                   </button>
                 </div>
               </div>
