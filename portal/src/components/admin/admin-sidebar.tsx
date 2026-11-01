@@ -1,29 +1,41 @@
-import { ChipSidebar } from "khipu-design-system/nav/sidebar";
+"use client";
+
+import { HouseIcon } from "@phosphor-icons/react";
+import type { GrupoNav } from "khipu-design-system/nav/sidebar-nav";
+import { ChipSidebar, SidebarContent } from "khipu-design-system/nav/sidebar";
 import { useMessages } from "next-intl";
 import { LogoMarca } from "@/components/nav/logo";
+import type { Mensajes } from "@/i18n/mensajes";
 import type { Administrador } from "@/lib/api/admin-auth";
+import { seccionesAdmin } from "@/lib/admin-secciones";
 import { AdminPerfil } from "./admin-perfil";
-import { AdminSidebarNav } from "./admin-sidebar-nav";
 
 /**
- * El contenido del menú del backoffice, con el reparto del `SidebarContent` del design system (marca y chip arriba, el menú, y el usuario abajo). No usa el del kit porque su
- * menú no tiene nombre accesible ni distingue «Inicio» (`/admin`) de las páginas que cuelgan de él: ver `AdminSidebarNav`.
+ * Los grupos del menú del backoffice (Panel · Clientes · Comercial · Operación · Plataforma), los mismos de la miga de la cabecera: salen de `seccionesAdmin`.
+ * «Inicio» es `/admin`, del que cuelgan todas las demás, así que es `exacto`: por prefijo quedaría marcado en todas las páginas. El detalle de una cuenta o
+ * empresa deja marcada su lista (por prefijo).
+ */
+export function gruposAdmin(messages: Mensajes): GrupoNav[] {
+  const t = messages.admin.nav;
+  return [
+    { titulo: t.panel, items: [{ href: "/admin", label: t.inicio, icon: HouseIcon, exacto: true }] },
+    ...seccionesAdmin(messages).map((s) => ({ titulo: s.titulo, items: s.items.map((i) => ({ href: i.href, label: i.etiqueta, icon: i.icono })) })),
+  ];
+}
+
+/**
+ * El menú del backoffice (la tarjeta lateral en escritorio, el cajón en el teléfono): el `SidebarContent` del design system con la marca, la insignia ADMIN, los
+ * grupos y el menú del administrador. Es de cliente porque los íconos de los grupos son funciones y no cruzan desde el layout del servidor.
  */
 export function AdminSidebar({ administrador }: { administrador: Administrador }) {
   const messages = useMessages();
   return (
-    <div className="flex h-full w-full min-w-0 flex-col justify-between overflow-hidden select-none">
-      <div className="flex w-full min-w-0 flex-col">
-        <div className="flex h-14 w-full min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden px-4">
-          <LogoMarca href="/admin" />
-          <ChipSidebar>{messages.admin.nav.insignia}</ChipSidebar>
-        </div>
-        <AdminSidebarNav />
-      </div>
-
-      <div className="flex w-full min-w-0 flex-col gap-2.5 p-3">
-        <AdminPerfil administrador={administrador} />
-      </div>
-    </div>
+    <SidebarContent
+      marca={<LogoMarca href="/admin" />}
+      chip={<ChipSidebar>{messages.admin.nav.insignia}</ChipSidebar>}
+      grupos={gruposAdmin(messages)}
+      etiquetaMenu={messages.admin.nav.menu}
+      usuario={<AdminPerfil administrador={administrador} />}
+    />
   );
 }

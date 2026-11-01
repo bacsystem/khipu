@@ -115,15 +115,13 @@ export function TopBar({
       migas={migas}
       pills={[pill]}
       menuMovil={
-        <MobileNav>
-          {/* El cajón del design system no se desplaza (su contenido es `h-full overflow-hidden`): en una pantalla baja el menú de usuario —tema, «Apariencia…», salir— quedaba
-              fuera y no había cómo llegar a él. Se le da un contenedor que se desplaza y se deja crecer al contenido. */}
-          <div className="h-full overflow-y-auto [&>div]:h-auto [&>div]:min-h-full [&>div]:overflow-visible">
-            <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
-          </div>
+        // El cajón se desplaza (design system v0.5.2): en una pantalla baja el menú de usuario —tema, «Apariencia…», salir— queda al alcance (menu-movil.spec.ts).
+        <MobileNav etiqueta={t.abrirMenu}>
+          <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
         </MobileNav>
       }
       acciones={<AccionesDeLaPagina usuario={usuario} apiBaseUrl={apiBaseUrl} />}
+      etiquetaUbicacion={t.ubicacion}
     />
   );
 }

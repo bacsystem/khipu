@@ -182,7 +182,8 @@
       "errores": "Errores",
       "avisos": "Avisos",
       "configuracion": "Configuración",
-      "insignia": "ADMIN"
+      "insignia": "ADMIN",
+      "panel": "Panel"
     },
     "topbar": {
       "ubicacion": "Ubicación",
@@ -1813,6 +1814,9 @@
     "rucInvalido": "El RUC no es válido: revisa los dígitos (SUNAT valida el dígito verificador)"
   },
   "nav": {
+    "principal": "Navegación principal",
+    "ubicacion": "Ubicación",
+    "abrirMenu": "Abrir menú",
     "grupos": {
       "panel": "Panel",
       "emision": "Emisión & SUNAT",
