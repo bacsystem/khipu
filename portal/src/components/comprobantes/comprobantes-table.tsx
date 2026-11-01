@@ -56,7 +56,7 @@ const TODOS_LOS_ESTADOS = "todos";
 const TODOS_LOS_TIPOS = "todos";
 
 const TODAS_LAS_SERIES = "todas";
-const ACCION = "flex h-9 items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
+const ACCION = "flex h-control items-center justify-center rounded-lg border border-border font-mono text-[10px] font-semibold shadow-2xs transition-colors";
 
 async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number, errorListar: string): Promise<PaginaComprobantes> {
   const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
@@ -264,7 +264,7 @@ export function ComprobantesTable({
             type="button"
             onClick={() => refetch()}
             title={t.refrescar}
-            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", isFetching && "animate-spin")} />
           </button>
@@ -378,7 +378,7 @@ export function ComprobantesTable({
                         <a
                           href={`/api/proxy/facturas/${c.id}/cdr`}
                           title={t.descargarCdr}
-                          className={cn(ACCION, "w-9 text-muted-foreground hover:bg-secondary hover:text-foreground")}
+                          className={cn(ACCION, "w-control text-muted-foreground hover:bg-secondary hover:text-foreground")}
                         >
                           <FileCheck2Icon className="size-3.5" />
                         </a>

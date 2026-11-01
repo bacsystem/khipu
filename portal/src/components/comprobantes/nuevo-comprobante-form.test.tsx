@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { elegirFecha, fechaEsElegible } from "@/test/fecha-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hoyLima, sumarDias } from "@/lib/formato";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
@@ -314,7 +315,7 @@ describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
 
     await waitFor(() => expect(calculos(fetch).at(-1)?.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 1180, cuotas: [{ monto: 590 }, { monto: 590 }] }));
     fireEvent.click(screen.getByText("Más opciones del comprobante"));
-    fireEvent.change(screen.getByLabelText(/^Fecha de vencimiento/), { target: { value: calculos(fetch).at(-1).forma_pago.cuotas[1].vencimiento } });
+    await elegirFecha(/^Fecha de vencimiento/, calculos(fetch).at(-1).forma_pago.cuotas[1].vencimiento);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0]).toMatchObject({ forma_pago: { tipo: "credito", monto_pendiente: 1180, cuotas: [{ monto: 590 }, { monto: 590 }] } });
@@ -1345,27 +1346,29 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
   });
 
   /** #292: la boleta admite hasta 7 días atrás (del 6.º al 7.º va en el resumen diario); la factura, 3. */
-  it("la fecha de la boleta llega a 7 días atrás y la de la factura a 3", () => {
+  it("la fecha de la boleta llega a 7 días atrás y la de la factura a 3", async () => {
     stubEmision();
     const hoy = hoyLima();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Fecha de emisión")).toHaveAttribute("min", sumarDias(hoy, -7));
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -7))).toBe(true);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -8))).toBe(false);
     expect(screen.getByText("Máx. 7 días")).toBeInTheDocument();
     cleanup();
 
     render(<NuevoComprobanteForm tipo="factura" series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Fecha de emisión")).toHaveAttribute("min", sumarDias(hoy, -3));
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -3))).toBe(true);
+    expect(await fechaEsElegible("Fecha de emisión", sumarDias(hoy, -4))).toBe(false);
     expect(screen.getByText("Máx. 3 días")).toBeInTheDocument();
   });
 
-  it("una boleta de 6 días atrás avisa que va en el resumen diario; una de 5, no", () => {
+  it("una boleta de 6 días atrás avisa que va en el resumen diario; una de 5, no", async () => {
     stubEmision();
     const hoy = hoyLima();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
 
-    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -5) } });
+    await elegirFecha("Fecha de emisión", sumarDias(hoy, -5));
     expect(screen.queryByTestId("aviso-resumen-diario")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Fecha de emisión"), { target: { value: sumarDias(hoy, -6) } });
+    await elegirFecha("Fecha de emisión", sumarDias(hoy, -6));
     // Región viva (336-H2): un lector de pantalla anuncia el aviso al cambiar la fecha.
     expect(screen.getByTestId("aviso-resumen-diario")).toHaveAttribute("role", "status");
     expect(screen.getByTestId("aviso-resumen-diario")).toHaveTextContent(/resumen diario/);

@@ -23,7 +23,7 @@ export function DuplicarButton({ id, numero, compacto = false, className }: { id
         title={soloLectura ?? t.titulo}
         aria-label={interpolar(t.aria, { numero })}
         onClick={() => pedirDuplicado(id)}
-        className={cn("flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground shadow-2xs transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50", className)}
+        className={cn("flex h-control w-control items-center justify-center rounded-lg border border-border text-muted-foreground shadow-2xs transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50", className)}
       >
         <CopyPlusIcon className="size-3.5" />
       </button>

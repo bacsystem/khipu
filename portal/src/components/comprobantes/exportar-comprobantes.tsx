@@ -128,7 +128,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
             type="button"
             onClick={exportar}
             disabled={exportando || motivo !== null}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+            className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             data-testid="exportar-descargar"
           >
             {exportando ? t.exportando : t.descargar}

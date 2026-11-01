@@ -115,7 +115,7 @@ export function GuiasTable({
           {t.filtros.aplicar}
         </button>
         {hayFiltros ? (
-          <Link href="/guias" className="flex h-9 items-center text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+          <Link href="/guias" className="flex h-control items-center text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
             {t.filtros.limpiar}
           </Link>
         ) : null}

@@ -1,3 +1,4 @@
+import { cerrarCalendario, elegirFecha, fechaElegida, fechaEsElegible, sumarDias } from "./fecha";
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
@@ -23,11 +24,12 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
 
   // El calendario no deja elegir una fecha que el backend va a rechazar: ni futura ni fuera del plazo de envío.
   const fecha = dialogo.getByLabel("Fecha de emisión");
-  const hoy = await fecha.getAttribute("max");
+  const hoy = await fechaElegida(fecha);
   expect(hoy).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  expect(await fecha.getAttribute("min")).toBe(
-    new Date(Date.parse(`${hoy}T00:00:00Z`) - 3 * 86_400_000).toISOString().slice(0, 10),
-  );
+  expect(await fechaEsElegible(fecha, hoy)).toBe(true);
+  expect(await fechaEsElegible(fecha, sumarDias(hoy, 1))).toBe(false);
+  expect(await fechaEsElegible(fecha, sumarDias(hoy, -3))).toBe(true);
+  expect(await fechaEsElegible(fecha, sumarDias(hoy, -4))).toBe(false);
 
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
@@ -63,8 +65,10 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
   await expect(dialogo.getByText("Máx. 7 días")).toBeVisible();
   await expect(dialogo.getByText("Máx. 3 días")).toHaveCount(0);
   const fecha = dialogo.getByLabel("Fecha de emisión");
-  const hoy = await fecha.getAttribute("max");
-  expect(await fecha.getAttribute("min")).toBe(new Date(Date.parse(`${hoy}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10));
+  const hoy = await fechaElegida(fecha);
+  expect(await fechaEsElegible(fecha, hoy)).toBe(true);
+  expect(await fechaEsElegible(fecha, sumarDias(hoy, -7))).toBe(true);
+  expect(await fechaEsElegible(fecha, sumarDias(hoy, -8))).toBe(false);
   await dialogo.getByLabel("Documento del comprador").selectOption("-");
   await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
 
@@ -144,7 +148,7 @@ test("tras emitir, el diálogo anuncia como último emitido el que acaba de usar
   expect(await numeroAnunciado()).toBe(emitido);
 });
 
-test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda un comprobante sin fecha (#17)", async ({ page }) => {
+test("una línea sin precio no se emite como S/ 0.00, y el comprobante siempre sale con fecha (#17)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
@@ -163,14 +167,11 @@ test("una línea sin precio no se emite como S/ 0.00, y vaciar la fecha no manda
   // H9: 100 / 1.18 = 84.75 y el IGV es lo que falta para 100 (15.25), no 84.75 × 0.18 = 15.26.
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.00");
 
-  // Un input de fecha vaciado emite "", no null: la guarda tiene que devolverlo a hoy y no dejar pasar el vacío.
-  const fecha = dialogo.getByLabel("Fecha de emisión");
-  const hoy = await fecha.inputValue();
-  await fecha.fill("");
-  await fecha.blur();
-  await expect(fecha).toHaveValue(hoy);
-
+  // Con el calendario del DS no hay forma de dejar la fecha vacía (siempre hay un día elegido, hoy por defecto): sale con fecha.
+  const hoy = await fechaElegida(dialogo.getByLabel("Fecha de emisión"));
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  expect((await peticion).postDataJSON().fecha_emision).toBe(hoy);
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
 });
 
@@ -327,6 +328,8 @@ test("Enter en un campo de texto no emite: la factura solo sale desde el botón"
     await dialogo.getByLabel(campo).focus();
     await page.waitForTimeout(120);
     await page.keyboard.press("Enter");
+    // La fecha es un botón: Enter abre su calendario (no emite). Se cierra para seguir con el resto.
+    if (campo === "Fecha de emisión") await cerrarCalendario(dialogo.getByLabel(campo));
   }
   await page.waitForTimeout(400);
   expect(posts).toEqual([]);
@@ -547,10 +550,10 @@ test("la fecha y la moneda elegidas son las que viajan, y la fecha por defecto e
 
   // Por defecto, hoy: el `max` del calendario es hoy en Lima, y el valor inicial tiene que coincidir con él.
   const fecha = dialogo.getByLabel("Fecha de emisión");
-  const hoy = await fecha.getAttribute("max");
-  await expect(fecha).toHaveValue(hoy!);
-  const ayer = new Date(Date.parse(`${hoy}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
-  await fecha.fill(ayer);
+  const hoy = await fechaElegida(fecha);
+  expect(hoy).toBe(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
+  const ayer = sumarDias(hoy, -1);
+  await elegirFecha(fecha, ayer);
   await dialogo.getByLabel("Moneda").selectOption("USD");
   await dialogo.getByLabel("Cantidad").fill("2.5");
 

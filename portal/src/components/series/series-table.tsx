@@ -111,7 +111,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             type="button"
             onClick={() => startTransition(() => router.refresh())}
             title={t.refrescar}
-            className={cn(CONTROL_FILTRO, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
             <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
           </button>

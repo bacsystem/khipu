@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { ClienteDialog } from "./cliente-dialog";
 import { alCambiarLosClientes, avisarQueCambiaronLosClientes } from "./eventos";
 
-const ACCION = "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** La lista de clientes guardados (#319): búsqueda por documento o nombre, páginas y las acciones de cambiar y eliminar. */
 export function ClientesTable() {

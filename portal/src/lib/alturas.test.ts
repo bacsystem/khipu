@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 import * as estilos from "@/lib/estilos";
 
 /**
- * Todos los controles del portal miden lo mismo: h-9 (36 px), la altura única del design system v0.2.0. Botones, inputs, selects, filtros, acciones de fila y
- * pie de diálogo quedan alineados donde sea que se junten. Se vigila de tres formas: las recetas de estilos.ts miden h-9, ningún componente les cambia la
+ * Todos los controles del portal miden lo mismo: h-control (34 px), la altura única del design system desde v0.5.0 (antes h-9, 36 px). Botones, inputs, selects, filtros,
+ * acciones de fila y pie de diálogo quedan alineados donde sea que se junten. Se vigila de tres formas: las recetas del DS miden h-control, ningún componente les cambia la
  * altura (`cn(CAMPO, "h-8")`, `` `${BOTON_PRIMARIO} h-10` ``) y ningún `<button>`/`<input>`/`<select>`/enlace declara otra altura a mano. `h-auto` sí vale:
  * es un textarea, que crece con su contenido y no forma fila con nadie.
  * Los componentes que vienen de khipu-design-system no están en `src/` y no se escanean aquí: su escala la vigila el DS.
  */
 const RECETA = String.raw`(?:CAMPO\w*|BOTON_\w+|ACCION_\w+|CONTROL_FILTRO|SELECT_NATIVO|SEGMENT\w*)`;
-const ALTURA = /(?<![\w-])(?:[a-z-]+:)*h-(?!auto\b)[\d.[]/;
+const ALTURA = /(?<![\w-])(?:[a-z-]+:)*h-(?!auto\b)(?:[\d.[]|control\b)/;
 const EN_CN = new RegExp(String.raw`\bcn\(\s*(?:[^,()?]+\?\s*)?${RECETA}(?:\s*:\s*${RECETA})?\s*,([^()]*(?:\([^()]*\)[^()]*)*)\)`, "g");
 const EN_PLANTILLA = new RegExp(String.raw`\$\{${RECETA}\}([^\x60]*)`, "g");
 
@@ -29,8 +29,9 @@ export function sobrescrituras(texto: string): Array<{ linea: number; codigo: st
 
 // Etiquetas que son un control: el botón, el enlace con forma de botón, el input y el select. Un `<a>` de texto no declara altura.
 const CONTROL = /<(button|input|select|a|Button|Link|BotonCopiar|BotonAsync|SelectTrigger)\b/g;
-// Toda altura de control que no sea la única (h-9 / size-9). `h-auto` y las del textarea quedan fuera por no estar en la lista.
-const ALTURA_FUERA_DE_ESCALA = /(?<![\w-])(?:[a-z-]+:)*(?:h|size)-(?:5|6|7|8|10|11|12)(?![\w.])/;
+// Toda altura de control que no sea la única (h-control / size-control, 34 px). Un `h-9` escrito a mano es la altura de antes de v0.5.0 (36 px): también está fuera.
+// `h-auto` y las del textarea quedan fuera por no estar en la lista.
+const ALTURA_FUERA_DE_ESCALA = /(?<![\w-])(?:[a-z-]+:)*(?:h|size)-(?:5|6|7|8|9|10|11|12)(?![\w.])/;
 
 /** La etiqueta de apertura de un elemento JSX desde `inicio` (respeta llaves, para no cortar en el `>` de un `=>`). */
 function etiquetaDeApertura(texto: string, inicio: number): string {
@@ -44,7 +45,7 @@ function etiquetaDeApertura(texto: string, inicio: number): string {
   return texto.slice(inicio);
 }
 
-/** Los controles de un archivo que declaran una altura distinta de h-9, con su línea. */
+/** Los controles de un archivo que declaran una altura distinta de h-control, con su línea. */
 export function controlesFueraDeEscala(texto: string): Array<{ linea: number; codigo: string }> {
   const hallazgos: Array<{ linea: number; codigo: string }> = [];
   // Las clases que un archivo guarda en una constante (`const ACCION = "inline-flex h-7 …"`) y luego pasa a `className={ACCION}`.
@@ -68,7 +69,7 @@ export function controlesFueraDeEscala(texto: string): Array<{ linea: number; co
 }
 
 /**
- * Los controles que miden otra cosa a propósito, por archivo. Cada uno vive DENTRO de otro control de h-9 (no forma fila con nadie)
+ * Los controles que miden otra cosa a propósito, por archivo. Cada uno vive DENTRO de otro control de h-control (no forma fila con nadie)
  * o es la portada pública, que no es el portal.
  */
 const EXCEPCIONES: Record<string, string> = {
@@ -90,6 +91,7 @@ function archivosTsx(dir: string): string[] {
 describe("alturas de los controles", () => {
   it("detecta una altura puesta encima de una receta", () => {
     expect(sobrescrituras(`cn(BOTON_SECUNDARIO, "h-9 px-3.5 text-[13px]")`)).toHaveLength(1);
+    expect(sobrescrituras(`cn(BOTON_SECUNDARIO, "h-control px-3.5")`)).toHaveLength(1);
     expect(sobrescrituras(`cn(abierto ? BOTON_PRIMARIO : BOTON_SECUNDARIO, "h-8 text-xs")`)).toHaveLength(1);
     expect(sobrescrituras("className={`${CAMPO} h-9 w-64`}")).toHaveLength(1);
     expect(sobrescrituras(`cn(CAMPO, variante === "filtro" && "h-8", "pl-9")`)).toHaveLength(1);
@@ -102,17 +104,18 @@ describe("alturas de los controles", () => {
     expect(sobrescrituras("className={`${CAMPO} w-64`}")).toEqual([]);
   });
 
-  it("toda receta de control mide h-9, la altura única", () => {
+  it("toda receta de control mide h-control, la altura única", () => {
+    // Las acciones de la barra flotante de selección (`ACCION_MASIVA*`, h-8) viven dentro de una píldora que las contiene: no forman fila con otros controles.
     // `@/lib/estilos` es una fachada del paquete: se miran los VALORES exportados, no el texto del archivo (que ya no tiene recetas).
-    const recetas = Object.entries(estilos).filter(([nombre]) => new RegExp(`^${RECETA}$`).test(nombre) && !nombre.startsWith("SEGMENT"));
+    const recetas = Object.entries(estilos).filter(([nombre]) => new RegExp(`^${RECETA}$`).test(nombre) && !nombre.startsWith("SEGMENT") && !nombre.startsWith("ACCION_MASIVA"));
     expect(recetas.map(([nombre]) => nombre)).toEqual(
       expect.arrayContaining(["ACCION_PRINCIPAL", "ACCION_SECUNDARIA", "CONTROL_FILTRO", "CAMPO", "SELECT_NATIVO", "BOTON_PRIMARIO", "BOTON_SECUNDARIO", "BOTON_DESTRUCTIVO"]),
     );
-    expect(recetas.filter(([, clases]) => typeof clases !== "string" || !/(?<![\w-])h-9(?![\w.])/.test(clases)).map(([nombre]) => nombre)).toEqual([]);
+    expect(recetas.filter(([, clases]) => typeof clases !== "string" || !/(?<![\w-])h-control(?![\w.])/.test(clases)).map(([nombre]) => nombre)).toEqual([]);
   });
 
-  it("el control segmentado: caja de h-9 (o más, si se parte en filas) con segmentos de h-7", () => {
-    expect(estilos.SEGMENTADO).toMatch(/(?<![\w-])min-h-9(?![\w.])/);
+  it("el control segmentado: caja de h-control (o más, si se parte en filas) con segmentos más bajos que ella", () => {
+    expect(estilos.SEGMENTADO).toMatch(/(?<![\w-])min-h-control(?![\w.])/);
     expect(estilos.SEGMENTO).toMatch(/(?<![\w-])h-7(?![\w.])/);
   });
 
@@ -123,11 +126,12 @@ describe("alturas de los controles", () => {
     expect(controlesFueraDeEscala(`const BOTON =\n  "inline-flex h-7 items-center";\n<button type="button" className={BOTON}>Anterior</button>`)).toHaveLength(1);
     expect(controlesFueraDeEscala(`const BOTON_PAGINA = "inline-flex h-7 hover:bg-muted";\n<Pagina className={BOTON_PAGINA} />`)).toHaveLength(1);
     expect(controlesFueraDeEscala(`const INSIGNIA = "flex size-7 rounded bg-accent";`)).toEqual([]);
-    expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-9 items-center"><XIcon className="size-4" /></button>`)).toEqual([]);
+    expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-9 items-center"><XIcon className="size-4" /></button>`)).toHaveLength(1);
+    expect(controlesFueraDeEscala(`<button type="button" className="inline-flex h-control items-center"><XIcon className="size-4" /></button>`)).toEqual([]);
     expect(controlesFueraDeEscala(`<input type="checkbox" className="size-4" />`)).toEqual([]);
   });
 
-  it("ningún control del portal mide otra cosa que h-9", () => {
+  it("ningún control del portal mide otra cosa que h-control", () => {
     const raiz = resolve(__dirname, "..");
     const encontradas = archivosTsx(raiz).flatMap((ruta) => {
       const relativa = relative(raiz, ruta).replaceAll("\\", "/");

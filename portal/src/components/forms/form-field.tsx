@@ -3,7 +3,7 @@ import type { UseFormRegisterReturn } from "react-hook-form";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 
 /**
- * Campo de un formulario hecho con react-hook-form: el `Campo` y la `Entrada` del panel (etiqueta de 12 px, control `CAMPO` de h-9, error en rojo o ayuda
+ * Campo de un formulario hecho con react-hook-form: el `Campo` y la `Entrada` del panel (etiqueta de 12 px, control `CAMPO` de h-control, error en rojo o ayuda
  * en mono), con el registro del formulario ya conectado. Los formularios de acceso (login, registro, recuperar, restablecer) lo usan para verse igual que el panel.
  */
 export function FormField({

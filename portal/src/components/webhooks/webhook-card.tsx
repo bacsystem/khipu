@@ -18,7 +18,7 @@ import { EntregasWebhook } from "./entregas-webhook";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
 
 const ACCION =
-  "inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 const ACCION_NEUTRA = cn(ACCION, "border border-border bg-card text-foreground/80 shadow-2xs hover:bg-muted");
 
 function EstadoBadge({ webhook }: { webhook: Webhook }) {

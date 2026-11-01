@@ -96,7 +96,7 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
               type="button"
               onClick={() => setArchivo(null)}
               title={t.quitarArchivo}
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <XIcon className="size-4" />
             </button>

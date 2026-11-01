@@ -70,11 +70,11 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
             </p>
           ) : null}
           {href && !motivo ? (
-            <a href={href} download onClick={cerrar} className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground" data-testid="descarga-enlace">
+            <a href={href} download onClick={cerrar} className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground" data-testid="descarga-enlace">
               {t.descargar}
             </a>
           ) : (
-            <span className="inline-flex h-9 cursor-not-allowed items-center justify-center rounded-lg bg-muted px-3 text-[13px] font-medium text-muted-foreground" aria-disabled="true">
+            <span className="inline-flex h-control cursor-not-allowed items-center justify-center rounded-lg bg-muted px-3 text-[13px] font-medium text-muted-foreground" aria-disabled="true">
               {href ? t.descargar : t.elegirArchivo}
             </span>
           )}

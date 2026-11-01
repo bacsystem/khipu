@@ -25,15 +25,15 @@ export function SiteHeader() {
           </Link>
         </nav>
         {abierto ? (
-          <Button render={<Link href="/registro" />} nativeButton={false} className="h-9 px-4">
+          <Button render={<Link href="/registro" />} nativeButton={false} className="h-control px-4">
             {t.crearCuentaGratis}
           </Button>
         ) : contacto ? (
-          <Button render={<a href={contacto} />} nativeButton={false} className="h-9 px-4">
+          <Button render={<a href={contacto} />} nativeButton={false} className="h-control px-4">
             {t.solicitarAcceso}
           </Button>
         ) : (
-          <Button render={<Link href="/login" />} nativeButton={false} variant="outline" className="h-9 px-4">
+          <Button render={<Link href="/login" />} nativeButton={false} variant="outline" className="h-control px-4">
             {t.iniciarSesion}
           </Button>
         )}
