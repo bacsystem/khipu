@@ -23,11 +23,12 @@ test("con khipu_locale=en el login y el panel de inicio se ven en inglés", asyn
   await page.getByRole("button", { name: en.auth.login.enviar }).click();
 
   await expect(page).toHaveURL(/\/inicio$/);
-  // Los nombres de los landmarks (menú lateral sin nombre, «Ubicación» de la miga) los fija el design system en castellano; lo que se ve, no.
-  const menu = page.getByRole("complementary").getByRole("navigation");
+  // También los nombres de los landmarks, que no se ven (#519): el menú y la miga se llaman en inglés, y ninguno en castellano.
+  const menu = page.getByRole("complementary").getByRole("navigation", { name: en.nav.principal });
   await expect(menu.getByRole("link", { name: en.nav.items.comprobantes })).toBeVisible();
   await expect(menu.getByRole("link", { name: en.nav.items.plan })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Ubicación" })).toContainText(en.nav.items.inicio);
+  await expect(page.getByRole("navigation", { name: en.nav.ubicacion })).toContainText(en.nav.items.inicio);
+  await expect(page.getByRole("navigation", { name: es.nav.ubicacion })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: en.nav.empresas.cambiar })).toContainText("Demo SAC");
   await expect(page.getByTestId("kpis-del-mes")).toBeVisible();
   await expect(page.getByText(es.nav.items.comprobantes, { exact: true })).toHaveCount(0);
