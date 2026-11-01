@@ -8,12 +8,12 @@ import { useState } from "react";
 import { DescartarComprobante } from "@/components/admin/descartar-comprobante";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { ReintentarEnvio } from "@/components/admin/reintentar-envio";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { faultEnPalabras } from "@/lib/errores-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -99,10 +99,10 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
         </p>
       ) : null}
 
-      <div className={cn(TARJETA, "overflow-x-auto")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{t.columnas.cliente}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.comprobante}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.problema}</TableHead>
@@ -113,7 +113,7 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
           </TableHeader>
           <TableBody className="text-control">
             {errores.map((e) => (
-              <TableRow key={e.comprobante_id} data-testid="errores-fila" data-clase={e.clase} data-comprobante={e.nombre_archivo} className="border-b border-border/60 align-top hover:bg-muted/80">
+              <TableRow key={e.comprobante_id} data-testid="errores-fila" data-clase={e.clase} data-comprobante={e.nombre_archivo} className="align-top">
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleEmpresa(e.empresa_id)} className="font-medium text-foreground hover:text-primary hover:underline">
@@ -178,14 +178,9 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
               </TableRow>
             ))}
             {errores.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div data-testid="errores-vacio" className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">{params.q || params.empresa ? t.vacioConBusqueda : t.vacio[params.clase ?? "TODAS"]}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                <span data-testid="errores-vacio">{params.q || params.empresa ? t.vacioConBusqueda : t.vacio[params.clase ?? "TODAS"]}</span>
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

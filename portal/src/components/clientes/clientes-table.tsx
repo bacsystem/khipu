@@ -3,13 +3,13 @@
 import { MagnifyingGlassIcon, TrashIcon, UsersIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { buscarClientes } from "@/lib/api/clientes-browser";
 import { documentosDeCliente } from "@/lib/comprobantes/documentos";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSoloLectura } from "@/lib/solo-lectura";
@@ -120,10 +120,10 @@ export function ClientesTable() {
         </p>
       ) : null}
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.cliente}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.documento}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.direccion}</TableHead>
@@ -133,7 +133,7 @@ export function ClientesTable() {
           </TableHeader>
           <TableBody className="text-control">
             {(clientes ?? []).map((c) => (
-              <TableRow key={c.id} data-testid="cliente" className="border-b border-border/60 hover:bg-muted/80">
+              <TableRow key={c.id} data-testid="cliente">
                 <TableCell className="max-w-72 py-2 pr-3 pl-4 font-medium break-words">{c.razon_social}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
                   <span className="font-mono tabular-nums">{c.num_doc}</span>
@@ -167,21 +167,12 @@ export function ClientesTable() {
               </TableRow>
             ))}
             {clientes !== null && clientes.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <UsersIcon className="size-6" />
-                    <p className="text-cuerpo">{q ? t.sinCoincidencias : t.vacio}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={5} icon={<UsersIcon className="size-6" />}>
+                {q ? t.sinCoincidencias : t.vacio}
+              </FilaVacia>
             ) : null}
             {clientes === null && !error ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-14 text-center text-cuerpo text-muted-foreground">
-                  {t.cargando}
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={5}>{t.cargando}</FilaVacia>
             ) : null}
           </TableBody>
         </Table>

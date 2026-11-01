@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { etiquetasTipo } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";
 import { interpolar } from "@/i18n/mensajes";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const TODOS = "todos";
 
@@ -118,10 +118,10 @@ export function SeriesTable({ series }: { series: Serie[] }) {
         </div>
       </div>
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.tipo}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.codigo}</TableHead>
               <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>{t.columnas.ultimoNumero}</TableHead>
@@ -132,7 +132,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           </TableHeader>
           <TableBody className="text-control">
             {data.map((s) => (
-              <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group border-b border-border/60 hover:bg-muted/80", !s.activa && "opacity-80")}>
+              <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group", !s.activa && "opacity-80")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-2">
                     <div
@@ -197,16 +197,9 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               </TableRow>
             ))}
             {data.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">
-                      {series.length === 0 ? t.vacio : t.sinCoincidencias}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                {series.length === 0 ? t.vacio : t.sinCoincidencias}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

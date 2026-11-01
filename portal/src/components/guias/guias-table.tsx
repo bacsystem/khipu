@@ -7,7 +7,7 @@ import { useLocale, useMessages } from "next-intl";
 import { type FormEvent } from "react";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
-import { CONTENEDOR_TABLA, PieTabla, TablaVacia } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { Locale } from "@/i18n/config";
 import { interpolar } from "@/i18n/mensajes";
@@ -124,7 +124,7 @@ export function GuiasTable({
       <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.tabla.cabeceras.guia}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.tabla.cabeceras.fecha}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.tabla.cabeceras.destinatario}</TableHead>
@@ -134,11 +134,9 @@ export function GuiasTable({
           </TableHeader>
           <TableBody className="text-control">
             {datos.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5}>
-                  <TablaVacia icon={<TrayIcon className="size-5" />}>{hayFiltros ? t.tabla.vacioFiltrado : t.tabla.vacio}</TablaVacia>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={5} icon={<TrayIcon className="size-6" />}>
+                {hayFiltros ? t.tabla.vacioFiltrado : t.tabla.vacio}
+              </FilaVacia>
             ) : (
               datos.map((g) => {
                 const numero = numeroDeGuia(g);
@@ -148,7 +146,7 @@ export function GuiasTable({
                     onClick={(e) => {
                       if (esClickSimple(e)) router.push(`/guias/${g.id}`);
                     }}
-                    className="cursor-pointer border-b border-border/60 hover:bg-muted/80"
+                    className="cursor-pointer"
                   >
                     <TableCell className="py-2 pr-3 pl-4">
                       <div className="flex flex-col">

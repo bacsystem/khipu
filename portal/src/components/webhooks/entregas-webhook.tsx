@@ -3,12 +3,12 @@
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
 import { listarEntregas } from "@/lib/api/webhooks-browser";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -118,10 +118,10 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
         </p>
       ) : null}
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden")}>
+      <div className={CONTENEDOR_TABLA}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.creada}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.evento}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.estado}</TableHead>
@@ -132,7 +132,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
           </TableHeader>
           <TableBody className="text-control">
             {(entregas ?? []).map((e) => (
-              <TableRow key={e.id} data-testid="entrega" className="border-b border-border/60 hover:bg-muted/80">
+              <TableRow key={e.id} data-testid="entrega">
                 <TableCell className="py-2 pr-3 pl-4 font-mono text-control whitespace-nowrap tabular-nums">{formatearFechaHora(e.creada_en, locale)}</TableCell>
                 <TableCell className="px-3 py-2">{etiquetaDeEvento(e.evento, messages)}</TableCell>
                 <TableCell className="px-3 py-2 whitespace-nowrap">
@@ -162,18 +162,10 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
               </TableRow>
             ))}
             {entregas !== null && entregas.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-8 text-center text-control text-muted-foreground">
-                  {estado ? t.sinResultados : t.vacia}
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6}>{estado ? t.sinResultados : t.vacia}</FilaVacia>
             ) : null}
             {entregas === null && !error ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-8 text-center text-control text-muted-foreground">
-                  {t.cargando}
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6}>{t.cargando}</FilaVacia>
             ) : null}
           </TableBody>
         </Table>

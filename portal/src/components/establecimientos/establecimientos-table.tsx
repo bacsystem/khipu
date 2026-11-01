@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useState, useTransition } from "react";
+import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
@@ -15,7 +16,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -147,10 +148,10 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
         </div>
       </div>
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.codigo}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.nombre}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.direccion}</TableHead>
@@ -164,7 +165,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
             {establecimientos.map((e) => {
               const activas = seriesDe(e.codigo);
               return (
-                <TableRow key={e.codigo} className={cn("border-b border-border/60 hover:bg-muted/80", !e.activo && "opacity-70")} data-testid={`establecimiento-${e.codigo}`}>
+                <TableRow key={e.codigo} className={cn(!e.activo && "opacity-70")} data-testid={`establecimiento-${e.codigo}`}>
                   <TableCell className="py-2 pr-3 pl-4">
                     <span className={cn("rounded px-2 py-0.5 font-mono text-cuerpo font-semibold tracking-tight", e.activo ? "bg-secondary text-primary" : "bg-muted text-muted-foreground")}>{e.codigo}</span>
                   </TableCell>
@@ -188,20 +189,13 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
               );
             })}
             {establecimientos.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <StorefrontIcon className="size-6" />
-                    <p className="text-cuerpo">
-                      {t.vacioAntes}{" "}
-                      <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">
-                        {t.vacioEnlace}
-                      </Link>{" "}
-                      {t.vacioDespues}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={7} icon={<StorefrontIcon className="size-6" />}>
+                {t.vacioAntes}{" "}
+                <Link href={enlaceASeccion("datos")} className="text-primary hover:underline">
+                  {t.vacioEnlace}
+                </Link>{" "}
+                {t.vacioDespues}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

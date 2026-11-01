@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
@@ -35,7 +35,7 @@ import { DescargaMasiva } from "./descarga-masiva";
 import { ExportarComprobantes } from "./exportar-comprobantes";
 import { DuplicarButton } from "./duplicar-button";
 import { etiquetasEstado, EstadoBadge } from "./estado-badge";
-import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const ESTADOS: EstadoDocumento[] = [
   "RECIBIDO",
@@ -271,20 +271,16 @@ export function ComprobantesTable({
         </div>
       </div>
 
-      <div
-        className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity",
-          isFetching && "opacity-60",
-        )}
-      >
+      <div className={cn(CONTENEDOR_TABLA, isFetching && "opacity-60")}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto py-2 pr-3 pl-4 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.comprobante}</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.cliente}</TableHead>
-              <TableHead className="h-auto px-3 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.fecha}</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-right text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.importe}</TableHead>
-              <TableHead className="h-auto px-4 py-2 text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.estado}</TableHead>
-              <TableHead className="h-auto py-2 pr-4 pl-2 text-right text-etiqueta font-semibold text-muted-foreground/80">{t.columnas.acciones}</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={cn(CABECERA_TABLA, "pr-3 pl-4")}>{t.columnas.comprobante}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.cliente}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.fecha}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>{t.columnas.importe}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "pr-4 pl-2 text-right")}>{t.columnas.acciones}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-control">
@@ -297,7 +293,7 @@ export function ComprobantesTable({
                     if (!esClickSimple(e)) return;
                     router.push(`/comprobantes/${c.id}`);
                   }}
-                  className="group cursor-pointer border-b border-border/60 hover:bg-muted/80"
+                  className="group cursor-pointer"
                 >
                   <TableCell className="py-2 pr-3 pl-4">
                     <div className="flex flex-col">
@@ -389,21 +385,16 @@ export function ComprobantesTable({
               );
             })}
             {data.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <TrayIcon className="size-6" />
-                    <p className="text-cuerpo">
-                      {hayFiltros ? t.vacioConFiltros : t.vacio}
-                    </p>
-                    {hayFiltros ? (
-                      <Link href="/comprobantes" className="text-etiqueta text-primary hover:underline">
-                        {t.quitarFiltros}
-                      </Link>
-                    ) : null}
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                <span className="flex flex-col items-center gap-2">
+                  <span>{hayFiltros ? t.vacioConFiltros : t.vacio}</span>
+                  {hayFiltros ? (
+                    <Link href="/comprobantes" className="text-etiqueta text-primary hover:underline">
+                      {t.quitarFiltros}
+                    </Link>
+                  ) : null}
+                </span>
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>

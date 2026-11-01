@@ -133,10 +133,10 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
 
           <details className="text-control">
             <summary className="cursor-pointer text-control text-primary">{t.verTabla}</summary>
-            <div className="mt-2 overflow-x-auto rounded-lg border border-border/90">
+            <div className="mt-2 min-w-0">
               <Table data-testid="grafico-emision-tabla">
                 <TableHeader>
-                  <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+                  <TableRow className="hover:bg-transparent">
                     <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.dia}</TableHead>
                     <TableHead className={`${CABECERA_TABLA} text-right`}>{t.emitidos}</TableHead>
                     {monedas.map((m) => (
@@ -148,7 +148,7 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
                 </TableHeader>
                 <TableBody className="text-control tabular-nums">
                   {serie.map((p) => (
-                    <TableRow key={p.fecha} className="border-b border-border/60">
+                    <TableRow key={p.fecha}>
                       <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha, locale)}</TableCell>
                       <TableCell className="py-1.5 text-right">{p.emitidos}</TableCell>
                       {monedas.map((m) => (

@@ -6,7 +6,7 @@ import { useLocale, useMessages } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
-import { PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { ApiKeyResumen } from "@/lib/api/api-keys";
 import { apiRequest } from "@/lib/api/browser";
@@ -15,7 +15,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { cn } from "@/lib/utils";
-import { CABECERA_TABLA, CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 
 const TODAS = "todas";
@@ -169,10 +169,10 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
         </div>
       </div>
 
-      <div className={cn(TARJETA, "min-w-0 overflow-hidden transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
+            <TableRow className="hover:bg-transparent">
               <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.llave}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.creada}</TableHead>
               <TableHead className={CABECERA_TABLA}>{t.columnas.revocada}</TableHead>
@@ -182,7 +182,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
           </TableHeader>
           <TableBody className="text-control">
             {data.map((k) => (
-              <TableRow key={k.id} className={cn("group border-b border-border/60 hover:bg-muted/80", !k.activa && "opacity-80")}>
+              <TableRow key={k.id} className={cn("group", !k.activa && "opacity-80")}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-1.5">
                     <span
@@ -213,16 +213,9 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
               </TableRow>
             ))}
             {data.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <KeyIcon className="size-6" />
-                    <p className="text-cuerpo">
-                      {apiKeys.length === 0 ? t.vacia : t.sinResultados}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={5} icon={<KeyIcon className="size-6" />}>
+                {apiKeys.length === 0 ? t.vacia : t.sinResultados}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>
