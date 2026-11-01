@@ -1,15 +1,12 @@
-# Pruebas en cada PR (CAL-02, auditoría 2026-10-22). Hasta aquí ningún workflow ejecutaba la suite: una PR que rompía 7 tests de contrato llegó a develop
-# (CAL-01). Dos jobs independientes, pensados como *required status checks* de la protección de rama: «Pruebas / backend» y «Pruebas / portal».
-# Un merge a develop/main no lo vuelve a correr (ya corrió en su PR). En un release (tag vX.Y.Z) lo llama imagenes.yml (workflow_call) antes de construir y
-# publicar, para que una imagen solo salga de un commit con la suite en verde.
+# La suite completa, solo a pedido (Actions → «Pruebas» → Run workflow). Nació para correr en cada PR (CAL-02, auditoría 2026-10-22), pero las pruebas se
+# corren en local antes de cada PR y de cada release, y en el runner compartido tardaban más de 40 minutos por corrida: CI solo construye y despliega
+# (imagenes.yml). Sirve para correr la suite en un entorno limpio cuando haga falta.
 # - backend: toda la suite de Gradle (Testcontainers levanta Postgres y MinIO con el Docker del runner), con --continue para ver todos los fallos de una vez.
 # - portal: npm ci (el design system es un paquete git público, sin secretos), typecheck, lint, Vitest, npm audit de producción y los e2e de Playwright con un
 #   solo worker (el dev server con mocks en memoria no es estable con varios; retries: 2 en CI ya lo cubre el playwright.config).
 name: Pruebas
 
 on:
-  pull_request:
-  workflow_call:
   workflow_dispatch:
 
 permissions:

@@ -77,7 +77,7 @@ Agregar un texto: la clave en `es.json` y en `en.json` (si falta en `en`, `parid
 
 ## Integración continua y vulnerabilidades (CAL-02)
 
-`.github/workflows/pruebas.yml` corre en cada PR (y, en cada release —tag `vX.Y.Z`—, lo llama `imagenes.yml` antes de publicar las imágenes) dos jobs pensados como *required status checks*: **Pruebas / backend**
+`.github/workflows/pruebas.yml` corre **solo a pedido** (Actions → «Pruebas» → *Run workflow*; las pruebas se corren en local antes de cada PR y de cada release, y CI solo construye y despliega) dos jobs: **Pruebas / backend**
 (`./gradlew test --continue`, con Testcontainers) y **Pruebas / portal** (`npm ci`, `typecheck`, `lint`, Vitest, `npm run audit` y los e2e de Playwright con
 un solo worker). Dependabot (`.github/dependabot.yml`) abre una PR semanal por ecosistema (Gradle, npm, GitHub Actions y los Dockerfiles del portal, el backend y el respaldo), con las
 actualizaciones menores agrupadas.

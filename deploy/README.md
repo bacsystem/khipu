@@ -12,57 +12,51 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 
 ### Cómo llega un cambio a producción
 
-Solo un release llega a producción, y solo con la suite en verde. El release es el tag `vX.Y.Z` sobre `main`: un merge a
-`develop` o a `main` no publica ni despliega nada (sus pruebas ya corrieron en la PR).
+Solo un release llega a producción. El release es el tag `vX.Y.Z` sobre `main`: un merge a `develop` o a `main` no publica ni
+despliega nada. **CI no corre las pruebas** (consumían más de 40 minutos de Actions por corrida): la suite completa se corre en
+local antes de mergear y antes de poner el tag (`./gradlew test`, y en `portal/` `npm run typecheck`, `lint`, `test` y `e2e`).
+Si hace falta en un entorno limpio, Actions → «Pruebas» → *Run workflow*.
 
 ```mermaid
 flowchart TB
-    subgraph PR["Pull request (a develop o main)"]
+    subgraph LOCAL["Antes del merge y del tag (en local)"]
         direction LR
-        pr_ev["PR abierta"] --> pr_t["Pruebas<br/>backend + portal"]
-        pr_ev -.->|"solo si toca un Dockerfile"| pr_b["Build de prueba<br/>sin push"]
-    end
-
-    subgraph MERGE["Merge a develop o main"]
-        direction LR
-        mg_ev["push a la rama"] -.-> mg_r["No publica<br/>ni despliega"]
+        lc_t["Suite completa<br/>backend + portal"] --> lc_m["Merge de la PR"]
+        lc_m -.-> mg_r["CI no corre nada"]
     end
 
     subgraph TAG["Release: tag vX.Y.Z sobre main"]
         direction LR
         tg_ev["push del tag"] --> tg_v["¿vX.Y.Z y<br/>commit en main?"]
-        tg_v -->|"sí"| tg_t["Pruebas<br/>suite completa"]
-        tg_t -->|"si pasa"| tg_b["Build + push<br/>backend · portal · respaldo"]
+        tg_v -->|"sí"| tg_b["Build + push<br/>backend · portal · respaldo"]
         tg_b --> tg_h[":X.Y.Z · :X.Y · :latest<br/>:sha-def5678"]
         tg_h -->|"railway redeploy"| tg_r["Producción en Railway<br/>backend, luego portal"]
-        tg_t -->|"si falla"| tg_x["No publica<br/>ni despliega"]
-        tg_v -->|"no"| tg_x
+        tg_v -->|"no"| tg_x["No publica<br/>ni despliega"]
     end
 
-    PR ~~~ MERGE ~~~ TAG
+    LOCAL ~~~ TAG
 
     classDef prod stroke:#2457d6,stroke-width:3px
     classDef stop stroke:#c0392b,stroke-width:2px
     classDef off stroke-dasharray:5 5
     class tg_r prod
     class tg_x stop
-    class pr_b,mg_r off
+    class mg_r off
 ```
 
 Paso a paso:
 
-1. Merge a `main` (el release desde `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push
+1. Con la suite en verde en local, merge a `main` (el release desde `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push
    <remoto> vX.Y.Z`).
-2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, corre la suite completa (`pruebas.yml`) y,
-   solo con todo en verde, construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
+2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, y construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
 3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
    Railway baja la `:latest` nueva y la levanta cuando pasa su healthcheck. El `respaldo` no se redespliega solo; toma la imagen
    nueva cuando se actualiza su servicio en Railway (botón de actualizar o auto-update programado).
 4. Para volver a una versión anterior: cambiar la fuente del servicio a `cbaciliod/khipu-backend:X.Y.Z` y redesplegar; al
    volver a `:latest`, el próximo release lo retoma.
 
-Si un release falla a medias (la suite, Docker Hub o Railway), se repite desde Actions → «Imágenes y despliegue» → *Run
-workflow* eligiendo el tag, o con *Re-run failed jobs*; no hace falta un tag nuevo. Sobre una rama, ese botón solo construye.
+Si un release falla a medias (Docker Hub o Railway), se repite desde Actions → «Imágenes y despliegue» → *Run workflow*
+eligiendo el tag, o con *Re-run failed jobs*; no hace falta un tag nuevo. Sobre una rama, ese botón no publica nada.
 
 **Antes del primer tag, crear en Docker Hub `khipu-backend`, `khipu-portal` y `khipu-respaldo` como repositorios privados.**
 Docker Hub crea públicos los que no existen al recibir la primera imagen, y la del backend lleva el jar completo (la del

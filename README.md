@@ -157,7 +157,7 @@ Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/super
 `./gradlew :bootstrap:homologacion` emite los escenarios de factura (`bootstrap/src/test/.../homologacion/EscenariosFactura.java`)
 contra `e-beta.sunat.gob.pe` con el flujo completo y exige CDR `0` sin observaciones. Deja XML y CDR por escenario en
 `bootstrap/build/homologacion/` más un `RESUMEN.md` (evidencia para el trámite de SUNAT). Necesita Docker y salida a Internet;
-`test` la excluye. El workflow `homologacion.yml` la corre cada noche (y bajo demanda) y publica la evidencia como artifact.
+`test` la excluye. El workflow `homologacion.yml` la corre bajo demanda (Actions → Run workflow) y publica la evidencia como artifact.
 Cubre facturas, notas de crédito/débito y la comunicación de baja (RA).
 Variables opcionales: `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT` / `HOMOLOGACION_CERT_CLAVE` (PKCS#12 con `OU` = RUC; van juntas con
 el RUC), `HOMOLOGACION_SERIE`. En Actions se toman de los secretos `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT_B64` y `HOMOLOGACION_CERT_CLAVE`;
@@ -165,8 +165,9 @@ sin ellos usa el certificado de prueba del repo.
 
 ## Despliegue
 Producción corre en Railway las imágenes que CI publica en Docker Hub (`cbaciliod/khipu-backend`, `khipu-portal`, `khipu-respaldo`).
-Solo un release las publica: el tag `vX.Y.Z` sobre `main` hace que `.github/workflows/imagenes.yml` corra la suite completa y, con
-todo en verde, publique las imágenes y redespliegue producción. Un merge a `develop` o `main` no publica ni despliega. El diagrama del flujo, los
+Solo un release las publica: el tag `vX.Y.Z` sobre `main` hace que `.github/workflows/imagenes.yml` construya y publique las
+imágenes y redespliegue producción. CI no corre la suite: las pruebas se corren en local antes del release. Un merge a `develop` o
+`main` no publica ni despliega. El diagrama del flujo, los
 secretos que necesita y cómo volver a una versión anterior están en
 [`deploy/README.md`, «Cómo llega un cambio a producción»](deploy/README.md#cómo-llega-un-cambio-a-producción).
 

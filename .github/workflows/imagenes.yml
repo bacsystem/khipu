@@ -2,11 +2,10 @@
 #
 # Solo un release publica y despliega. El release es el tag vX.Y.Z que se pone sobre main después de mergear develop (o un hotfix/*):
 #
-# tag vX.Y.Z (en main) → pruebas → imágenes :X.Y.Z, :X.Y, :latest y :sha-<corto> → redespliegue de backend y portal en Railway (producción sigue :latest)
-# PR que toca un Dockerfile, un .dockerignore o este workflow → solo construye, sin pruebas (ya las corre pruebas.yml en la PR), sin login ni push
-# workflow_dispatch sobre una rama → solo construye, como en una PR; sobre un tag vX.Y.Z → lo mismo que el push del tag (repetir un release que falló)
+# tag vX.Y.Z (en main) → imágenes :X.Y.Z, :X.Y, :latest y :sha-<corto> → redespliegue de backend y portal en Railway (producción sigue :latest)
+# workflow_dispatch eligiendo el tag → lo mismo (repetir un release que falló); sobre una rama se corta en el job «release» sin publicar
 #
-# Un merge a develop o a main no dispara nada aquí: las pruebas ya corrieron en su PR, y producción no cambia hasta que hay versión.
+# CI no corre la suite: las pruebas se corren en local antes del release (pruebas.yml queda solo a pedido). Un merge a develop o a main no dispara nada.
 #
 # Imágenes: cbaciliod/khipu-backend (deploy/backend/Dockerfile, contexto la raíz), cbaciliod/khipu-portal (portal/Dockerfile) y cbaciliod/khipu-respaldo
 # (deploy/respaldo, el cron de pg_dump de deploy/README.md §8). Solo linux/amd64: el bootJar bajo QEMU para arm64 tardaría varias veces más.
@@ -20,14 +19,6 @@ name: Imágenes y despliegue
 on:
   push:
     tags: ["v*"]
-  pull_request:
-    paths:
-      - deploy/backend/Dockerfile
-      - deploy/respaldo/**
-      - .dockerignore
-      - portal/Dockerfile
-      - portal/.dockerignore
-      - .github/workflows/imagenes.yml
   workflow_dispatch:
 
 permissions:
@@ -35,18 +26,15 @@ permissions:
 
 concurrency:
   group: imagenes-${{ github.ref }}
-  # En una PR basta el último commit. Un release no se cancela a medias: podría dejar :latest publicada y sin desplegar.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Un release no se cancela a medias: podría dejar :latest publicada y sin desplegar.
+  cancel-in-progress: false
 
 env:
   DOCKERHUB_USUARIO: cbaciliod
-  # Publicar y desplegar solo desde un tag de versión; todo lo demás (PR, dispatch sobre una rama) construye sin push.
-  ES_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
 jobs:
-  # Antes de gastar 40 minutos de suite: el tag tiene que ser vX.Y.Z y estar sobre un commit de main (un tag puesto por error en una rama de trabajo no publica).
+  # El tag tiene que ser vX.Y.Z y estar sobre un commit de main: un tag puesto por error en una rama de trabajo, o un dispatch sobre una rama, no publica.
   release:
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -56,7 +44,7 @@ jobs:
           persist-credentials: false
       - name: El tag es vX.Y.Z y su commit está en main
         run: |
-          if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ "$GITHUB_REF_TYPE" != tag ]] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::El tag $GITHUB_REF_NAME no es vX.Y.Z; no se publica nada."
             exit 1
           fi
@@ -65,15 +53,9 @@ jobs:
             exit 1
           fi
 
-  pruebas:
-    needs: release
-    uses: ./.github/workflows/pruebas.yml
-
   imagen:
     name: imagen (${{ matrix.nombre }})
-    needs: pruebas
-    # En un release, solo con la suite en verde. En una PR o un dispatch sobre una rama, «release» y «pruebas» se saltan y la imagen igual se construye (sin publicar).
-    if: ${{ !cancelled() && (needs.pruebas.result == 'success' || (!startsWith(github.ref, 'refs/tags/v') && needs.pruebas.result == 'skipped')) }}
+    needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -100,7 +82,6 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Login en Docker Hub
-        if: ${{ env.ES_RELEASE == 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USUARIO }}
@@ -116,19 +97,19 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ env.ES_RELEASE == 'true' }}
+            type=raw,value=latest
             type=sha,prefix=sha-,format=short
           labels: |
             org.opencontainers.image.title=khipu-${{ matrix.nombre }}
             org.opencontainers.image.vendor=Bacsystem Solutions EIRL
 
-      - name: Construir (y publicar, solo en un release)
+      - name: Construir y publicar
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.contexto }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
-          push: ${{ env.ES_RELEASE == 'true' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Caché de capas en el caché de Actions, separado por imagen para que una no desaloje a la otra.
@@ -138,7 +119,6 @@ jobs:
   desplegar:
     name: desplegar en Railway
     needs: imagen
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # El environment guarda RAILWAY_TOKEN aparte y permite exigir aprobación manual antes de tocar producción (Settings → Environments).
