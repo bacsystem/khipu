@@ -26,6 +26,8 @@ public class XmlCdrParser implements CdrParser {
             if (responses.getLength() == 0) throw new IllegalStateException("CDR sin cac:Response");
             org.w3c.dom.Element resp = (org.w3c.dom.Element) responses.item(0);
             String codigo = texto(resp, "ResponseCode");
+            // LOG-02: sin código el dominio no puede decidir el estado (Cdr.esRechazo lanzaba CDR_INVALIDO después de marcarEnviado); es un CDR ilegible como cualquier otro.
+            if (codigo.isBlank()) throw new IllegalStateException("CDR sin cbc:ResponseCode");
             String descripcion = texto(resp, "Description");
 
             List<String> notas = new ArrayList<>();

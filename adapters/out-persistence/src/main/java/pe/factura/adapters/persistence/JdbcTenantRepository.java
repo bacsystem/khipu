@@ -18,27 +18,33 @@ import java.util.UUID;
 public class JdbcTenantRepository implements TenantRepository {
     private static final String COLS = "id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta, "
             + "dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial, "
-            + "pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv";
+            + "pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv, api_sunat_client_id_enc, api_sunat_client_secret_enc, "
+            + "agente_retencion, agente_percepcion";
     private final JdbcTemplate jdbc;
     private final SecretCipher cipher;
 
+    /**
+     * La designación de agente (#40) no se escribe aquí: la cambia solo el administrador, con {@code JdbcAccionesDeEmpresaRepository.designarAgente}, de forma condicional. Si guardar
+     * la reescribiera, unos datos fiscales guardados con el tenant leído antes de una designación la borrarían. LOG-05: por la misma razón, sobre una fila existente tampoco
+     * se reescriben el entorno ({@code cambiarEntorno}) ni los secretos (certificado, SOL, API SUNAT: cada uno con su método). Los secretos sí van en el INSERT: el alta
+     * asistida crea la empresa con ellos.
+     */
     @Override public void guardar(Tenant t) {
         byte[] su = t.sol() == null ? null : cipher.cifrar(t.sol().usuario().getBytes(StandardCharsets.UTF_8));
         byte[] sc = t.sol() == null ? null : cipher.cifrar(t.sol().clave().getBytes(StandardCharsets.UTF_8));
         byte[] cp = t.certificado() == null ? null : cipher.cifrar(t.certificado().pkcs12());
         byte[] cc = t.certificado() == null ? null : cipher.cifrar(t.certificado().clave().getBytes(StandardCharsets.UTF_8));
+        byte[] ai = t.apiSunat() == null ? null : cipher.cifrar(t.apiSunat().clientId().getBytes(StandardCharsets.UTF_8));
+        byte[] as = t.apiSunat() == null ? null : cipher.cifrar(t.apiSunat().clientSecret().getBytes(StandardCharsets.UTF_8));
         Date cv = t.certificado() == null || t.certificado().vigenciaHasta() == null ? null : Date.valueOf(t.certificado().vigenciaHasta());
         Domicilio d = t.domicilio();
         PersonalizacionPdf p = t.personalizacionPdf();
         jdbc.update("""
             INSERT INTO tenant (id, ruc, razon_social, entorno, sol_usuario_enc, sol_clave_enc, cert_pkcs12_enc, cert_clave_enc, cert_vigencia_hasta,
               dom_ubigeo, dom_direccion, dom_urbanizacion, dom_distrito, dom_provincia, dom_departamento, dom_establecimiento, cuenta_detracciones, nombre_comercial,
-              pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET razon_social = EXCLUDED.razon_social, entorno = EXCLUDED.entorno,
-              sol_usuario_enc = EXCLUDED.sol_usuario_enc, sol_clave_enc = EXCLUDED.sol_clave_enc,
-              cert_pkcs12_enc = EXCLUDED.cert_pkcs12_enc, cert_clave_enc = EXCLUDED.cert_clave_enc,
-              cert_vigencia_hasta = EXCLUDED.cert_vigencia_hasta,
+              pdf_plantilla, pdf_color, pdf_logo_key, pdf_pie, pdf_observaciones, padron_tasa_especial_igv, api_sunat_client_id_enc, api_sunat_client_secret_enc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET razon_social = EXCLUDED.razon_social,
               dom_ubigeo = EXCLUDED.dom_ubigeo, dom_direccion = EXCLUDED.dom_direccion, dom_urbanizacion = EXCLUDED.dom_urbanizacion,
               dom_distrito = EXCLUDED.dom_distrito, dom_provincia = EXCLUDED.dom_provincia, dom_departamento = EXCLUDED.dom_departamento,
               dom_establecimiento = EXCLUDED.dom_establecimiento, cuenta_detracciones = EXCLUDED.cuenta_detracciones, nombre_comercial = EXCLUDED.nombre_comercial,
@@ -47,7 +53,37 @@ public class JdbcTenantRepository implements TenantRepository {
             """, t.id(), t.ruc(), t.razonSocial(), t.entorno().name(), su, sc, cp, cc, cv,
                 d == null ? null : d.ubigeo(), d == null ? null : d.direccion(), d == null ? null : d.urbanizacion(), d == null ? null : d.distrito(),
                 d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), t.cuentaDetracciones(), t.nombreComercial(),
-                p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto(), t.padronTasaEspecialIgv());
+                p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto(), t.padronTasaEspecialIgv(), ai, as);
+    }
+
+    // LOG-05: escrituras por sección. Cada UPDATE toca solo sus columnas; lo que otro guardó en otra sección (o el entorno, o la designación) no se pisa.
+    @Override public void guardarDatosFiscales(UUID tenantId, Domicilio d, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) {
+        exigirUnaFila(jdbc.update("""
+            UPDATE tenant SET dom_ubigeo = ?, dom_direccion = ?, dom_urbanizacion = ?, dom_distrito = ?, dom_provincia = ?, dom_departamento = ?, dom_establecimiento = ?,
+              cuenta_detracciones = ?, nombre_comercial = ?, padron_tasa_especial_igv = ?, updated_at = now() WHERE id = ?
+            """, d == null ? null : d.ubigeo(), d == null ? null : d.direccion(), d == null ? null : d.urbanizacion(), d == null ? null : d.distrito(),
+                d == null ? null : d.provincia(), d == null ? null : d.departamento(), d == null ? null : d.codigoEstablecimiento(), cuentaDetracciones, nombreComercial,
+                padronTasaEspecialIgv, tenantId));
+    }
+    @Override public void guardarCertificado(UUID tenantId, CertificadoDigital c) {
+        Date cv = c == null || c.vigenciaHasta() == null ? null : Date.valueOf(c.vigenciaHasta());
+        exigirUnaFila(jdbc.update("UPDATE tenant SET cert_pkcs12_enc = ?, cert_clave_enc = ?, cert_vigencia_hasta = ?, updated_at = now() WHERE id = ?",
+                c == null ? null : cipher.cifrar(c.pkcs12()), c == null ? null : cipher.cifrar(c.clave().getBytes(StandardCharsets.UTF_8)), cv, tenantId));
+    }
+    @Override public void guardarCredencialesSol(UUID tenantId, CredencialesSol s) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET sol_usuario_enc = ?, sol_clave_enc = ?, updated_at = now() WHERE id = ?",
+                s == null ? null : cipher.cifrar(s.usuario().getBytes(StandardCharsets.UTF_8)), s == null ? null : cipher.cifrar(s.clave().getBytes(StandardCharsets.UTF_8)), tenantId));
+    }
+    @Override public void guardarCredencialesApiSunat(UUID tenantId, CredencialesApiSunat a) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET api_sunat_client_id_enc = ?, api_sunat_client_secret_enc = ?, updated_at = now() WHERE id = ?",
+                a == null ? null : cipher.cifrar(a.clientId().getBytes(StandardCharsets.UTF_8)), a == null ? null : cipher.cifrar(a.clientSecret().getBytes(StandardCharsets.UTF_8)), tenantId));
+    }
+    @Override public void guardarPersonalizacionPdf(UUID tenantId, PersonalizacionPdf p) {
+        exigirUnaFila(jdbc.update("UPDATE tenant SET pdf_plantilla = ?, pdf_color = ?, pdf_logo_key = ?, pdf_pie = ?, pdf_observaciones = ?, updated_at = now() WHERE id = ?",
+                p.plantilla().name(), p.colorPrimario(), p.logoKey(), p.pieDePagina(), p.observacionesPorDefecto(), tenantId));
+    }
+    private static void exigirUnaFila(int filas) {
+        if (filas != 1) throw new pe.factura.domain.DomainException("NO_ENCONTRADO", "Tenant no encontrado");
     }
     @Override public Optional<Tenant> buscar(UUID id) {
         return jdbc.query("SELECT " + COLS + " FROM tenant WHERE id = ?", this::mapear, id).stream().findFirst();
@@ -75,8 +111,11 @@ public class JdbcTenantRepository implements TenantRepository {
                         rs.getString("dom_provincia"), rs.getString("dom_departamento"), rs.getString("dom_establecimiento"));
         PersonalizacionPdf pdf = new PersonalizacionPdf(PlantillaPdf.valueOf(rs.getString("pdf_plantilla")), rs.getString("pdf_color"), rs.getString("pdf_logo_key"),
                 rs.getString("pdf_pie"), rs.getString("pdf_observaciones"));
+        CredencialesApiSunat api = rs.getBytes("api_sunat_client_id_enc") == null ? null
+                : new CredencialesApiSunat(txt(rs.getBytes("api_sunat_client_id_enc")), txt(rs.getBytes("api_sunat_client_secret_enc")));
         return new Tenant(rs.getObject("id", UUID.class), rs.getString("ruc"), rs.getString("razon_social"),
-                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"), pdf, rs.getBoolean("padron_tasa_especial_igv"));
+                Entorno.valueOf(rs.getString("entorno")), sol, cert, dom, rs.getString("cuenta_detracciones"), rs.getString("nombre_comercial"), pdf, rs.getBoolean("padron_tasa_especial_igv"), api,
+                new DesignacionDeAgente(rs.getBoolean("agente_retencion"), rs.getBoolean("agente_percepcion")));
     }
     private String txt(byte[] enc) { return new String(cipher.descifrar(enc), StandardCharsets.UTF_8); }
 }

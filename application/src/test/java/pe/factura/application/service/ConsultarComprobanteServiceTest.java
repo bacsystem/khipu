@@ -53,6 +53,22 @@ class ConsultarComprobanteServiceTest {
         return c;
     }
 
+    /** #293: el detalle de una boleta lista sus notas, como el de una factura; una nota no tiene notas. */
+    @Test void lasNotasDeUnaBoletaSeListanEnSuDetalle() {
+        List<pe.factura.domain.documento.Item> items = List.of(new pe.factura.domain.documento.Item("P", "Prod", "NIU", java.math.BigDecimal.ONE, java.math.BigDecimal.TEN,
+                pe.factura.domain.documento.TipoAfectacionIgv.GRAVADO));
+        pe.factura.domain.documento.Receptor comprador = new pe.factura.domain.documento.Receptor("-", "-", "CLIENTES VARIOS", null);
+        Comprobante boleta = Comprobante.persistido(UUID.randomUUID(), tenant, pe.factura.domain.documento.TipoDocumento.BOLETA, "B001", 5L,
+                java.time.LocalDate.of(2026, 9, 10), pe.factura.domain.documento.EstadoDocumento.ACEPTADO, comprador, items).rehidratar();
+        Comprobante nc = Comprobante.persistido(UUID.randomUUID(), tenant, pe.factura.domain.documento.TipoDocumento.NOTA_CREDITO, "BC01", 1L,
+                java.time.LocalDate.of(2026, 9, 11), pe.factura.domain.documento.EstadoDocumento.ACEPTADO, comprador, items)
+                .nota(new pe.factura.domain.documento.Nota(pe.factura.domain.documento.TipoDocumento.BOLETA, "B001", 5, "07", "Devolución")).rehidratar();
+        repo.guardar(boleta);
+        repo.guardar(nc);
+        assertThat(service.notasDe(tenant, boleta)).extracting(Comprobante::id).containsExactly(nc.id());
+        assertThat(service.notasDe(tenant, nc)).isEmpty();
+    }
+
     @Test void cdrXmlExtraeElXmlDelZip() throws Exception {
         Comprobante c = conCdr(zip("R-F001-1.xml", "<ApplicationResponse/>"));
         assertThat(new String(service.cdrXml(tenant, c.id()))).isEqualTo("<ApplicationResponse/>");

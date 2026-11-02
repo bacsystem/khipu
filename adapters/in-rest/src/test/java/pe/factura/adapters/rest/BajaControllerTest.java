@@ -2,8 +2,8 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.DarDeBajaUseCase;
@@ -26,17 +26,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = BajaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = BajaController.class)
 @Import(GlobalExceptionHandler.class)
 class BajaControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean DarDeBajaUseCase bajas;
+    @MockitoBean DarDeBajaUseCase bajas;
     UUID tenant = UUID.randomUUID(), comprobante = UUID.randomUUID();
 
     static ComunicacionBaja baja(UUID tenant, UUID comprobante, ComunicacionBaja.EstadoBaja estado) {
-        return ComunicacionBaja.rehidratar(UUID.randomUUID(), tenant, LocalDate.of(2026, 9, 18), 1, comprobante, TipoDocumento.FACTURA, "F001", 125, LocalDate.of(2026, 9, 15),
-                "Error en el RUC del cliente", estado, "1789768174685", "k.xml", estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? "r.zip" : null,
-                estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? new Cdr("0", "La Comunicacion de baja RA-20260918-1, ha sido aceptada", List.of()) : null, 1, null);
+        return ComunicacionBaja.rehidratar(UUID.randomUUID(), tenant, LocalDate.of(2026, 9, 18), 1, comprobante, TipoDocumento.FACTURA, false, "F001", 125, LocalDate.of(2026, 9, 15),
+                "Error en el RUC del cliente", ComunicacionBaja.Condicion.BAJA, estado, "1789768174685", "k.xml", estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? "r.zip" : null,
+                estado == ComunicacionBaja.EstadoBaja.ACEPTADA ? new Cdr("0", "La Comunicacion de baja RA-20260918-1, ha sido aceptada", List.of()) : null, 1, null, 1, 1);
     }
 
     @Test void solicitaLaBajaYDevuelveElResultado() throws Exception {

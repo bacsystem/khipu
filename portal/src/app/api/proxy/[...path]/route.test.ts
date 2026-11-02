@@ -37,7 +37,111 @@ function requestWithSession(url: string, init: SessionInit = {}) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.mocked(refrescar).mockReset();
+});
+
+describe("proxy /api/proxy/[...path]: IP del cliente (#208)", () => {
+  const llamar = async (xff: string | undefined) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/empresas", {
+      method: "GET",
+      access: "a1",
+      headers: xff === undefined ? {} : { "x-forwarded-for": xff },
+    });
+    await GET(req, ctx(["empresas"]));
+    return fetchMock.mock.calls[0][1].headers as Headers;
+  };
+
+  it("manda al backend la IP de confianza resuelta y descarta lo que el navegador puso a la izquierda", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+
+    const saliente = await llamar("6.6.6.6, 203.0.113.7");
+
+    expect(saliente.get("x-forwarded-for")).toBe("203.0.113.7");
+  });
+
+  it("sin saltos de confianza no reenvía la cabecera del navegador", async () => {
+    const saliente = await llamar("6.6.6.6");
+
+    expect(saliente.has("x-forwarded-for")).toBe(false);
+  });
+});
+
+describe("proxy /api/proxy/[...path]: Idempotency-Key (#115)", () => {
+  it("reenvía la clave de idempotencia tal cual y ninguna otra cabecera del navegador", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/facturas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-clave", "x-otra": "no" },
+    });
+
+    await POST(req, ctx(["facturas"]));
+
+    const saliente = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(saliente.get("idempotency-key")).toBe("5f0c1d2e-clave");
+    expect(saliente.has("x-otra")).toBe(false);
+  });
+
+  /** El reintento tras renovar el token es el mismo pedido: lleva la misma clave, así el backend no emite dos veces. */
+  it("el reintento tras renovar el token lleva la misma clave", async () => {
+    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/facturas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      refresh: "r1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-clave" },
+    });
+
+    await POST(req, ctx(["facturas"]));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1][1].headers as Headers).get("idempotency-key")).toBe("5f0c1d2e-clave");
+  });
+
+  /** #355: la emisión de notas lleva la misma clave; el proxy no distingue por ruta, y este test es lo que impide que alguien lo limite a /facturas. */
+  it("reenvía la clave de idempotencia también en POST /v1/notas, y en el reintento tras renovar el token", async () => {
+    vi.mocked(refrescar).mockResolvedValue({ access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/notas", {
+      method: "POST",
+      body: "{}",
+      access: "a1",
+      refresh: "r1",
+      headers: { "content-type": "application/json", "idempotency-key": "5f0c1d2e-nota" },
+    });
+
+    await POST(req, ctx(["notas"]));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const llamada of fetchMock.mock.calls) {
+      expect(String(llamada[0])).toMatch(/\/v1\/notas$/);
+      expect((llamada[1].headers as Headers).get("idempotency-key")).toBe("5f0c1d2e-nota");
+    }
+  });
+
+  it("sin clave no inventa una", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await POST(requestWithSession("http://localhost/api/proxy/facturas", { method: "POST", body: "{}", access: "a1" }), ctx(["facturas"]));
+
+    expect((fetchMock.mock.calls[0][1].headers as Headers).has("idempotency-key")).toBe(false);
+  });
 });
 
 describe("proxy /api/proxy/[...path]", () => {
@@ -54,6 +158,17 @@ describe("proxy /api/proxy/[...path]", () => {
 
     expect(res.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  /** Next entrega los segmentos decodificados: un número de documento con `#`, `?` o `;` (#319) no puede cortar la ruta que llega al backend. */
+  it("vuelve a codificar cada segmento, así un documento con # o ? llega entero", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = requestWithSession("http://localhost/api/proxy/clientes", { method: "GET", access: "a1" });
+
+    await GET(req, ctx(["clientes", "documento", "7", "AB#1?2;3"]));
+
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8001/v1/clientes/documento/7/AB%231%3F2%3B3");
   });
 
   it("reenvía con Authorization y X-Empresa al backend", async () => {
@@ -85,7 +200,7 @@ describe("proxy /api/proxy/[...path]", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const req = requestWithSession("http://localhost/api/proxy/empresas", {
@@ -130,7 +245,7 @@ describe("proxy /api/proxy/[...path]", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const req1 = requestWithSession("http://localhost/api/proxy/empresas", { method: "GET", access: "a1", refresh: "r1" });
@@ -159,7 +274,7 @@ describe("proxy /api/proxy/[...path]", () => {
       return {
         access: `nuevo-${refresh}`,
         refresh: `rotado-${refresh}`,
-        usuario: { id: refresh, cuenta_id: `c-${refresh}`, email: `${refresh}@b.com`, rol: "admin" },
+        usuario: { id: refresh, cuenta_id: `c-${refresh}`, email: `${refresh}@b.com`, rol: "admin", correo_verificado: true },
       };
     });
 
@@ -198,5 +313,34 @@ describe("proxy /api/proxy/[...path]", () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(new TextDecoder().decode(init.body)).toBe(JSON.stringify({ ruc: "12345678901" }));
+  });
+
+  // Issue #174: antes de esto, un POST acá llegaba directo a /v1/auth/registro del backend sin pasar por
+  // /api/auth/registro, que es donde vive el chequeo de «registro cerrado» del portal. Este proxy no exige
+  // sesión (`middleware.ts` no lo protege), así que cualquier visitante sin cuenta podía llamarlo.
+  it("no reenvía /auth/**: los endpoints de auth tienen su propia ruta dedicada", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest("http://localhost/api/proxy/auth/registro", {
+      method: "POST",
+      body: JSON.stringify({ nombre: "x", email: "x@x.pe", password: "x", telefono: "1" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req, ctx(["auth", "registro"]));
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tampoco reenvía otras rutas bajo /auth/, como login", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(new NextRequest("http://localhost/api/proxy/auth/login", { method: "POST" }), ctx(["auth", "login"]));
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.regex.Pattern;
 
 /**
- * Anticipo que se regulariza en esta factura: el cliente pagó por adelantado con una factura de anticipo (ya aceptada
+ * Anticipo que se regulariza en esta factura o boleta: el cliente pagó por adelantado con una factura o una boleta de anticipo (ya aceptada
  * por SUNAT) y ahora se descuenta ese importe del total. En el XML va tres veces (reglas 65–66 de la hoja Factura2_0):
  * <ul>
  *   <li>{@code cac:AdditionalDocumentReference}: serie-número de la factura de anticipo, tipo 02 y RUC del emisor (2505, 2520, 2521, 3216–3218).</li>
@@ -31,19 +31,24 @@ public record Anticipo(String serie, long numero, BigDecimal monto, Afectacion a
         private final Tributo tributo;
     }
 
-    /** Tipo de comprobante que se realizó el anticipo (catálogo 12): khipu solo emite facturas. */
-    public static final String TIPO_COMPROBANTE = "02";
-    private static final Pattern SERIE = Pattern.compile("F[A-Z0-9]{3}");
+    /** Tipos de comprobante que pueden haber recibido el anticipo (catálogo 12, reglas 2505 y 2521): 02 factura (serie F) y 03 boleta (serie B, #295). */
+    public static final String TIPO_FACTURA = "02";
+    public static final String TIPO_BOLETA = "03";
+    private static final Pattern SERIE = Pattern.compile("[FB][A-Z0-9]{3}");
 
     public Anticipo {
         afectacion = afectacion == null ? Afectacion.GRAVADO : afectacion;
         if (serie == null || !SERIE.matcher(serie).matches() || numero <= 0 || numero > 99_999_999L)
-            throw new DomainException("ANTICIPO_INVALIDO", "2521 - Indique serie y número de la factura de anticipo (F###-correlativo)");
+            throw new DomainException("ANTICIPO_INVALIDO", "2521 - Indique serie y número del comprobante de anticipo: factura (F###-correlativo) o boleta (B###-correlativo)");
         if (monto == null || monto.signum() <= 0 || monto.scale() > 2)
             throw new DomainException("ANTICIPO_INVALIDO", "2503 - El monto del anticipo debe ser positivo con hasta 2 decimales");
     }
 
     public String comprobante() { return serie + "-" + numero; }
+
+    /** La serie decide el tipo: la F es una factura de anticipo (02) y la B una boleta (03). */
+    public boolean esDeBoleta() { return serie.charAt(0) == 'B'; }
+    public String tipoComprobante() { return esDeBoleta() ? TIPO_BOLETA : TIPO_FACTURA; }
     public String codigoSunat() { return afectacion.codigo(); }
 
     /** Importe realmente pagado con el anticipo (cbc:PaidAmount): valor + IGV a la tasa general si es gravado. */

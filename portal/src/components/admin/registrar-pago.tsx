@@ -1,0 +1,299 @@
+"use client";
+
+import { MoneyIcon } from "@phosphor-icons/react";
+import { useLocale, useMessages } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
+import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
+import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
+import { fechaValida } from "@/lib/cambio-de-plan";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
+import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { validarPago, type ErroresDePago } from "@/lib/pago-formulario";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+
+type Props = {
+  cuentaId: string;
+  cuentaNombre: string;
+  /** El plan de la cuenta; nulo si no se pudo cargar (entonces no se ofrece extender el vencimiento). */
+  plan: PlanDeCuentaAdmin | null;
+  /** La fecha de hoy en Lima, `YYYY-MM-DD`: la fecha de pago no puede ser posterior. */
+  hoy: string;
+};
+
+/**
+ * Registrar a mano el pago de una cuenta (#194). Pide el periodo que cubre, el monto, el medio y la fecha, y ofrece **extender el vencimiento** del plan hasta el final
+ * del periodo: solo si el plan vence y el periodo lo adelanta, y entonces viene marcado (es lo que casi siempre se quiere), diciendo de qué día a qué día se mueve.
+ * No hay pasarela: esto solo anota. Lo que no se puede saber acá (un pago repetido, otro administrador moviendo el vencimiento) lo contesta el backend.
+ */
+export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.pagos.dialogo;
+  const medios = messages.admin.pagos.medios;
+  const router = useRouter();
+  const pagadoHastaActual = plan?.vence_en ? ultimoDiaCubierto(plan.vence_en) : undefined;
+  const planVence = Boolean(plan?.vence_en);
+  const desdeSugerido = pagadoHastaActual && pagadoHastaActual >= hoy ? sumarDias(pagadoHastaActual, 1) : hoy;
+
+  const [abierto, setAbierto] = useState(false);
+  const [desde, setDesde] = useState(desdeSugerido);
+  const [hasta, setHasta] = useState("");
+  const [monto, setMonto] = useState("");
+  const [medio, setMedio] = useState("");
+  const [fecha, setFecha] = useState(hoy);
+  const [referencia, setReferencia] = useState("");
+  const [nota, setNota] = useState("");
+  // Nulo mientras el administrador no toque la casilla: entonces vale lo que sugiere el formulario (extender si se puede).
+  const [extenderElegido, setExtenderElegido] = useState<boolean | null>(null);
+  const [errores, setErrores] = useState<ErroresDePago>({});
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const alertaRef = useRef<HTMLParagraphElement>(null);
+  // Un ref, no el estado: dos clics en el mismo tick leen el `enviando` viejo del closure.
+  const enviandoRef = useRef(false);
+  useEffect(() => {
+    if (error) alertaRef.current?.focus();
+  }, [error]);
+
+  const hastaValida = fechaValida(hasta);
+  const adelanta = Boolean(pagadoHastaActual) && hastaValida && hasta > (pagadoHastaActual as string);
+  const puedeExtender = planVence && adelanta;
+  const extender = puedeExtender && (extenderElegido ?? true);
+  // Lo que muestra la casilla (H6): con un plan que vence se ve marcada desde el principio, aunque todavía no haya periodo para extender. Si se mostrara vacía
+  // y se marcara sola al elegir el periodo, quien hace clic para marcarla la apaga sin darse cuenta. Solo un periodo que no adelanta la deja vacía, y la nota
+  // dice por qué.
+  const marcada = planVence && !(hastaValida && !adelanta) && (extenderElegido ?? true);
+
+  function limpiar<K extends keyof ErroresDePago>(campo: K) {
+    setErrores((e) => ({ ...e, [campo]: undefined }));
+  }
+
+  function reiniciar() {
+    setDesde(desdeSugerido);
+    setHasta("");
+    setMonto("");
+    setMedio("");
+    setFecha(hoy);
+    setReferencia("");
+    setNota("");
+    setExtenderElegido(null);
+    setErrores({});
+    setError(null);
+  }
+
+  function cambiarAbierto(valor: boolean) {
+    if (enviando) return; // no se cierra mientras se envía: el administrador debe ver el resultado
+    setAbierto(valor);
+    reiniciar();
+  }
+
+  async function confirmar() {
+    if (enviandoRef.current) return;
+    const r = validarPago({ desde, hasta, monto, medio, fecha, referencia, nota, extender }, { hoy, planVence, pagadoHastaActual }, messages);
+    if ("errores" in r) {
+      setErrores(r.errores);
+      return;
+    }
+    enviandoRef.current = true;
+    setEnviando(true);
+    setError(null);
+    const res = await apiRequest<unknown>(`/api/admin/cuentas/${cuentaId}/pagos`, { method: "POST", body: r.cuerpo });
+    enviandoRef.current = false;
+    setEnviando(false);
+    if (noSeSabeSiLlego(res)) {
+      // No se sabe si el pago llegó: se dice, y no se reintenta a ciegas (un reintento podría anotarlo dos veces).
+      setError(interpolar(messages.admin.recargar.pagoRegistrado, { error: res.mensaje ?? mensajeError(res.codigo) }));
+      return;
+    }
+    if (res.estado !== "exito") {
+      setError(res.mensaje ?? mensajeError(res.codigo));
+      // Otro administrador movió el vencimiento: la página muestra lo real.
+      if (res.codigo === "CAMBIO_CONCURRENTE" || res.codigo === "NO_ENCONTRADO") router.refresh();
+      return;
+    }
+    setAbierto(false);
+    reiniciar();
+    router.refresh();
+  }
+
+  const notaDeExtension = !plan
+    ? t.extenderSinPlan
+    : !planVence
+      ? t.extenderNoVence
+      : !hastaValida
+        ? t.extenderElegirPeriodo
+        : !adelanta
+          ? t.extenderNoAdelanta.replace("{actual}", formatearFecha(pagadoHastaActual as string, locale))
+          : t.extenderHoy.replace("{actual}", formatearFecha(pagadoHastaActual as string, locale)).replace("{nuevo}", formatearFecha(hasta, locale));
+
+  return (
+    <Dialog open={abierto} onOpenChange={cambiarAbierto}>
+      <DialogTrigger className={ACCION_PRINCIPAL} data-testid="registrar-pago">
+        <MoneyIcon className="size-4" />
+        {messages.admin.pagos.registrar}
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0" data-testid="registrar-pago-dialogo" showCloseButton={!enviando}>
+        <CabeceraDialogo icon={MoneyIcon} titulo={<>{t.titulo.replace("{cuenta}", cuentaNombre)}</>} descripcion={t.descripcion} />
+
+        <div className="grid gap-4 px-5 py-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo id="registrar-pago-desde" etiqueta={t.desde} error={errores.desde}>
+              <EntradaFecha
+                id="registrar-pago-desde"
+                valor={desde}
+                onCambio={(v) => {
+                  setDesde(v);
+                  limpiar("desde");
+                  limpiar("hasta");
+                }}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.desde)}
+                describidoPor={errores.desde ? "registrar-pago-desde-error" : undefined}
+              />
+            </Campo>
+            <Campo id="registrar-pago-hasta" etiqueta={t.hasta} error={errores.hasta}>
+              <EntradaFecha
+                id="registrar-pago-hasta"
+                valor={hasta}
+                onCambio={(v) => {
+                  setHasta(v);
+                  limpiar("hasta");
+                }}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.hasta)}
+                describidoPor={errores.hasta ? "registrar-pago-hasta-error" : undefined}
+              />
+            </Campo>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo id="registrar-pago-monto" etiqueta={t.monto} error={errores.monto} ayuda={t.montoAyuda}>
+              <input
+                id="registrar-pago-monto"
+                value={monto}
+                onChange={(e) => {
+                  setMonto(e.target.value);
+                  limpiar("monto");
+                }}
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="29.00"
+                aria-invalid={errores.monto ? true : undefined}
+                className={CAMPO}
+              />
+            </Campo>
+            <Campo id="registrar-pago-medio" etiqueta={t.medio} error={errores.medio}>
+              <select
+                id="registrar-pago-medio"
+                value={medio}
+                onChange={(e) => {
+                  setMedio(e.target.value);
+                  limpiar("medio");
+                }}
+                aria-invalid={errores.medio ? true : undefined}
+                className={cn(SELECT_NATIVO, "w-full")}
+              >
+                <option value="">{t.elegirMedio}</option>
+                {MEDIOS_DE_PAGO.map((m) => (
+                  <option key={m} value={m}>
+                    {medios[m]}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo id="registrar-pago-fecha" etiqueta={t.fecha} error={errores.fecha}>
+              <EntradaFecha
+                id="registrar-pago-fecha"
+                valor={fecha}
+                max={hoy}
+                onCambio={(v) => {
+                  setFecha(v);
+                  limpiar("fecha");
+                }}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.fecha)}
+                describidoPor={errores.fecha ? "registrar-pago-fecha-error" : undefined}
+              />
+            </Campo>
+            <Campo id="registrar-pago-referencia" etiqueta={t.referencia} error={errores.referencia} ayuda={t.referenciaAyuda}>
+              <input
+                id="registrar-pago-referencia"
+                value={referencia}
+                onChange={(e) => {
+                  setReferencia(e.target.value);
+                  limpiar("referencia");
+                }}
+                autoComplete="off"
+                aria-invalid={errores.referencia ? true : undefined}
+                className={CAMPO}
+              />
+            </Campo>
+          </div>
+
+          <Campo id="registrar-pago-nota" etiqueta={t.nota} error={errores.nota}>
+            <input
+              id="registrar-pago-nota"
+              value={nota}
+              onChange={(e) => {
+                setNota(e.target.value);
+                limpiar("nota");
+              }}
+              autoComplete="off"
+              aria-invalid={errores.nota ? true : undefined}
+              className={CAMPO}
+            />
+          </Campo>
+
+          <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
+            <Casilla id="registrar-pago-extender" etiqueta={t.extender} checked={marcada} disabled={!puedeExtender} onCheckedChange={setExtenderElegido} />
+            <p data-testid="registrar-pago-extender-nota" className="pl-7 text-control text-muted-foreground">
+              {notaDeExtension}
+            </p>
+          </div>
+
+          {error ? (
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <PieDialogo>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
+            {t.cancelar}
+          </button>
+          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO}>
+            <MoneyIcon className="size-4" />
+            {enviando ? t.enviando : t.confirmar}
+          </button>
+        </PieDialogo>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Un campo con su etiqueta, y debajo su error o, si no hay, su ayuda. */
+function Campo({ id, etiqueta, error, ayuda, children }: { id: string; etiqueta: string; error?: string; ayuda?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className={ETIQUETA_CAMPO}>
+        {etiqueta}
+      </label>
+      {children}
+      {error ? <span id={`${id}-error`} className="text-control text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
+    </div>
+  );
+}

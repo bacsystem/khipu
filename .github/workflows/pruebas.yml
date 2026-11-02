@@ -1,0 +1,81 @@
+# La suite completa, solo a pedido (Actions → «Pruebas» → Run workflow). Nació para correr en cada PR (CAL-02, auditoría 2026-10-22), pero las pruebas se
+# corren en local antes de cada PR y de cada release, y en el runner compartido tardaban más de 40 minutos por corrida: CI solo construye y despliega
+# (imagenes.yml). Sirve para correr la suite en un entorno limpio cuando haga falta.
+# - backend: toda la suite de Gradle (Testcontainers levanta Postgres y MinIO con el Docker del runner), con --continue para ver todos los fallos de una vez.
+# - portal: npm ci (el design system es un paquete git público, sin secretos), typecheck, lint, Vitest, npm audit de producción y los e2e de Playwright con un
+#   solo worker (el dev server con mocks en memoria no es estable con varios; retries: 2 en CI ya lo cubre el playwright.config).
+name: Pruebas
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Suite completa del backend
+        run: ./gradlew test --continue --no-daemon
+      - name: Informes de pruebas (solo si algo falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informes-backend
+          path: |
+            **/build/reports/tests/test/
+            **/build/test-results/test/*.xml
+          retention-days: 7
+
+  portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: portal
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Typecheck (incluye la guardia de contrato con openapi.json)
+        run: npm run typecheck
+      - name: Lint (incluye la regla de textos de UI y su baseline)
+        run: npm run lint
+      - name: Vitest
+        run: npm run test
+      - name: Vulnerabilidades en dependencias de producción (high/critical, con excepciones justificadas en audit-excepciones.json)
+        run: npm run audit
+      - name: Navegador de Playwright
+        run: npx playwright install --with-deps chromium
+      - name: E2E (Playwright, un worker)
+        run: npm run e2e -- --workers=1
+      - name: Informe de Playwright (solo si algo falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-playwright
+          path: portal/playwright-report/
+          retention-days: 7

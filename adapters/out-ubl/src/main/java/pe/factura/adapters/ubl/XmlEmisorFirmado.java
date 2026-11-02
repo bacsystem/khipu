@@ -14,7 +14,9 @@ import java.io.ByteArrayInputStream;
 import java.util.Optional;
 
 /**
- * Lee el emisor de {@code cac:AccountingSupplierParty} en el XML ya firmado.
+ * Lee el emisor de {@code cac:AccountingSupplierParty} en el XML ya firmado; en la liquidación de compra ({@code SelfBilledInvoice}, #327) el emisor es el comprador y está en
+ * {@code cac:AccountingCustomerParty}: el proveedor de ese documento es el vendedor sin RUC. En la retención y la percepción (UBL 2.0, #40) el emisor es el agente,
+ * {@code cac:AgentParty}, que no tiene {@code cac:Party} dentro y lleva su domicilio en {@code cac:PostalAddress}.
  *
  * <p>Es la fuente correcta por dos razones. Es el documento que SUNAT recibió, así que la representación impresa dice
  * exactamente lo que se declaró; y existe para <em>todos</em> los comprobantes, también los emitidos antes de que esto
@@ -29,9 +31,11 @@ public class XmlEmisorFirmado implements EmisorFirmado {
     public Optional<EmisorImpreso> leer(byte[] xmlFirmado) {
         if (xmlFirmado == null || xmlFirmado.length == 0) return Optional.empty();
         try {
-            Element emisor = primero(parsear(xmlFirmado).getDocumentElement(), CAC, "AccountingSupplierParty");
+            Element raiz = parsear(xmlFirmado).getDocumentElement();
+            boolean deAgente = "Retention".equals(raiz.getLocalName()) || "Perception".equals(raiz.getLocalName());
+            Element emisor = primero(raiz, CAC, deAgente ? "AgentParty" : "SelfBilledInvoice".equals(raiz.getLocalName()) ? "AccountingCustomerParty" : "AccountingSupplierParty");
             if (emisor == null) return Optional.empty();
-            Element parte = primero(emisor, CAC, "Party");
+            Element parte = deAgente ? emisor : primero(emisor, CAC, "Party");
             if (parte == null) return Optional.empty();
 
             Element legal = primero(parte, CAC, "PartyLegalEntity");
@@ -40,7 +44,7 @@ public class XmlEmisorFirmado implements EmisorFirmado {
             if (razonSocial == null || ruc == null) return Optional.empty();
 
             return Optional.of(new EmisorImpreso(ruc, razonSocial, texto(primero(parte, CAC, "PartyName"), CBC, "Name"),
-                    domicilio(primero(legal, CAC, "RegistrationAddress"))));
+                    deAgente ? domicilioPostal(primero(parte, CAC, "PostalAddress")) : domicilio(primero(legal, CAC, "RegistrationAddress"))));
         } catch (Exception e) {
             // Un XML que no se puede leer no debe impedir imprimir: quien llama cae al emisor actual.
             return Optional.empty();
@@ -59,6 +63,16 @@ public class XmlEmisorFirmado implements EmisorFirmado {
         if (ubigeo == null || direccion == null) return null;
         return new Domicilio(ubigeo, direccion, texto(dir, CBC, "CitySubdivisionName"), texto(dir, CBC, "District"),
                 texto(dir, CBC, "CityName"), texto(dir, CBC, "CountrySubentity"), texto(dir, CBC, "AddressTypeCode"));
+    }
+
+    /** El domicilio del agente en una retención o percepción (UBL 2.0): ubigeo en cbc:ID y la dirección en cbc:StreetName; sin ellos, ninguno. */
+    private static Domicilio domicilioPostal(Element dir) {
+        if (dir == null) return null;
+        String ubigeo = texto(dir, CBC, "ID");
+        String direccion = texto(dir, CBC, "StreetName");
+        if (ubigeo == null || direccion == null) return null;
+        return new Domicilio(ubigeo, direccion, texto(dir, CBC, "CitySubdivisionName"), texto(dir, CBC, "District"),
+                texto(dir, CBC, "CityName"), texto(dir, CBC, "CountrySubentity"), null);
     }
 
     /** Sin DTD ni entidades externas: el XML viene de storage, pero un parser permisivo es un vector igual. */

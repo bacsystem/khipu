@@ -1,0 +1,61 @@
+"use client";
+
+import { ProhibitIcon } from "@phosphor-icons/react";
+import { useMessages } from "next-intl";
+import { useState } from "react";
+import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
+import type { ErrorDeEmision } from "@/lib/api/admin-errores";
+import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { AYUDA_CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { mensajeDeDescarte } from "@/lib/errores-formato";
+
+/**
+ * Una boleta o una nota que la modifica (serie B: la de una nota empieza como la del comprobante que modifica). SUNAT no les contesta getStatusCdr, así que el backend no
+ * les pregunta si ya las recibió antes de descartarlas (#357): el diálogo no puede prometerlo.
+ */
+const esDeBoleta = (c: ErrorDeEmision) => c.serie.startsWith("B");
+
+/** Lo mismo que el tope del backend ({@code ResolverErroresUseCase.MAX_MOTIVO}); el backend lo vuelve a comprobar. */
+const MAX_MOTIVO = 200;
+
+/**
+ * Descartar un comprobante en error de envío (#196): deja de intentarse y queda terminal. El motivo es obligatorio y viaja a la bitácora; si falta o es muy largo, el backend
+ * lo rechaza y el diálogo muestra su mensaje (una sola regla, la del backend). Es irreversible, así que el diálogo es de peligro y lo dice.
+ */
+export function DescartarComprobante({ comprobante, alResultado }: { comprobante: ErrorDeEmision; alResultado: (mensaje: string) => void }) {
+  const messages = useMessages();
+  const t = messages.admin.errores.descarte;
+  const [motivo, setMotivo] = useState("");
+  const id = `errores-motivo-${comprobante.comprobante_id}`;
+
+  return (
+    <DialogoDeAccion
+      testId="errores-descartar"
+      boton={t.boton}
+      icono={ProhibitIcon}
+      tono="peligro"
+      chico
+      advertencia
+      titulo={t.titulo}
+      descripcion={t.descripcion.replace("{comprobante}", comprobante.nombre_archivo)}
+      efectos={[...t.efectos.slice(0, 2), esDeBoleta(comprobante) ? t.efectoSinConsultaSunat : t.efectoConsultaSunat, ...t.efectos.slice(2)]}
+      confirmar={t.confirmar}
+      enviando={t.enviando}
+      cancelar={t.cancelar}
+      ruta={`/api/admin/comprobantes/${comprobante.comprobante_id}/descarte`}
+      cuerpo={() => ({ motivo })}
+      estadoViejo={["ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "NO_ENCONTRADO", "SUNAT_YA_LO_TIENE"]}
+      alEstadoViejo={(mensaje) => alResultado(`${comprobante.nombre_archivo}: ${mensaje}`)}
+      alCerrar={() => setMotivo("")}
+      alExito={() => alResultado(mensajeDeDescarte(comprobante.nombre_archivo, messages))}
+    >
+      <div className="grid gap-1.5">
+        <label htmlFor={id} className={ETIQUETA_CAMPO}>
+          {t.motivo}
+        </label>
+        <AreaTexto id={id} data-testid="errores-motivo" rows={3} maxLength={MAX_MOTIVO} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+        <span className={AYUDA_CAMPO}>{t.ayudaMotivo.replace("{max}", String(MAX_MOTIVO))}</span>
+      </div>
+    </DialogoDeAccion>
+  );
+}

@@ -35,6 +35,24 @@ function iscParaNota(isc: NonNullable<ItemComprobante["isc"]>) {
  * viera, y mandaba el ISC como `{sistema, tasa}`, que en los sistemas 02 y 03 el dominio rechaza.
  */
 export function itemParaNota(item: ItemComprobante, cantidad: number) {
+  // #393: un descuento 01 no cabe en una nota (la regla 3280 no resta descuentos del total y la API responde 422 DESCUENTO_INVALIDO). La línea viaja por lo que el
+  // cliente pagó por ella: el importe neto prorrateado, sin descuento, y sin los cargos, el ISC ni el ICBPER, que ya van dentro de ese importe.
+  if (item.descuento && !item.descuento.afecta_base_igv) {
+    return {
+      codigo: item.codigo ?? undefined,
+      descripcion: item.descripcion,
+      unidad: item.unidad,
+      cantidad,
+      precio_unitario: redondear(importeLineaNota(item, cantidad) / cantidad, 10),
+      tipo_afectacion_igv: item.tipo_afectacion_igv,
+      descuento: undefined,
+      cargos: undefined,
+      isc: undefined,
+      icbper: undefined,
+      codigo_sunat: item.codigo_sunat ?? undefined,
+      gtin: item.gtin ?? undefined,
+    };
+  }
   const completa = cantidad === Number(item.cantidad);
   const cargos = (item.cargos ?? []).filter((c) => seConserva(c, completa)).map(ajuste);
   return {
@@ -48,9 +66,20 @@ export function itemParaNota(item: ItemComprobante, cantidad: number) {
     cargos: cargos.length ? cargos : undefined,
     isc: item.isc ? iscParaNota(item.isc) : undefined,
     icbper: item.icbper ? true : undefined,
+    // #314: los otros tributos (9999) van por su tasa, que el backend aplica a la cantidad de la nota; la placa acompaña a la línea (propiedad 7000).
+    otros_tributos: item.otros_tributos ? { tasa: item.otros_tributos.tasa } : undefined,
+    placa: item.placa ?? undefined,
     codigo_sunat: item.codigo_sunat ?? undefined,
     gtin: item.gtin ?? undefined,
   };
+}
+
+/**
+ * #393: la factura tiene un descuento que no afecta la base del IGV (01 de línea o 03 global). Una nota no lo admite (3280), así que la nota «total» no puede copiar la
+ * factura y se arma por ítems por el importe neto, como cuando hay anticipos.
+ */
+export function tieneDescuentoQueNoAfectaLaBase(factura: Comprobante): boolean {
+  return factura.items.some((i) => i.descuento != null && !i.descuento.afecta_base_igv) || (factura.totales.descuento_global != null && !factura.totales.descuento_global.afecta_base_igv);
 }
 
 /**

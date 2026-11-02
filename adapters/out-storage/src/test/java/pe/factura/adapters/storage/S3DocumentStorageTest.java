@@ -20,8 +20,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Contrato del storage S3 contra MinIO (#38): mismas claves y semántica que el de disco, PutObject con checksum SHA-256. */
 @Testcontainers
 class S3DocumentStorageTest {
-    // Docker Hub retiró minio/minio (2025); la imagen oficial vive en quay.io.
-    @Container static final MinIOContainer MINIO = new MinIOContainer(DockerImageName.parse("quay.io/minio/minio:latest").asCompatibleSubstituteFor("minio/minio"));
+    // MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025): se usa la de Chainguard. Corre como el usuario
+    // 65532, que no puede escribir en /data, así que en pruebas se arranca como root.
+    @Container static final MinIOContainer MINIO = new MinIOContainer(DockerImageName.parse("cgr.dev/chainguard/minio:latest").asCompatibleSubstituteFor("minio/minio"))
+            .withCreateContainerCmdModifier(cmd -> cmd.withUser("0:0"));
     static final String BUCKET = "khipu-test";
     static S3DocumentStorage storage;
 
@@ -53,6 +55,20 @@ class S3DocumentStorageTest {
 
     @Test void leerInexistenteLanza() {
         assertThatThrownBy(() -> storage.leer("t1/2026/09/no-existe.xml")).isInstanceOf(IllegalStateException.class).hasMessageContaining("No existe");
+    }
+
+    /**
+     * LOG-02: una caída de red o un timeout del SDK es {@code SdkClientException}, hermana de {@code S3Exception} y no hija. Solo capturando la segunda, el
+     * servicio de envío la recibía cruda después de que SUNAT ya había aceptado, y el comprobante quedaba FIRMADO sin reintento. El contrato del storage es
+     * una sola excepción (IllegalStateException) para todo lo que no sea «no existe».
+     */
+    @Test void unServicioInalcanzableEsIllegalStateEnTodasLasOperaciones() {
+        S3DocumentStorage inalcanzable = S3DocumentStorage.crear("http://127.0.0.1:9", "us-east-1", "k", "s", BUCKET, true);
+        String key = "t1/2026/09/20100066603-01-F001-1.xml";
+        assertThatThrownBy(() -> inalcanzable.guardar(key, "<x/>".getBytes())).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo guardar");
+        assertThatThrownBy(() -> inalcanzable.leer(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo leer");
+        assertThatThrownBy(() -> inalcanzable.existe(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo consultar");
+        assertThatThrownBy(() -> inalcanzable.borrar(key)).isInstanceOf(IllegalStateException.class).hasMessageContaining("No se pudo borrar");
     }
 
     @Test void rechazaClavesInvalidas() {

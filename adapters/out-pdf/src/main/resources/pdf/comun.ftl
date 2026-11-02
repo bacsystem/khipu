@@ -44,7 +44,7 @@
     .hash { font-family: Courier, monospace; font-size: 7.5pt; word-break: break-all; }
     .leyenda { color: #444; font-size: 8pt; margin: 0.5mm 0; }
     .leyendas-declaradas { margin: 2mm 0 1mm; padding-top: 1.5mm; border-top: 0.3mm solid #ddd; }
-    .leyenda-declarada { color: #222; font-size: 8.5pt; font-weight: bold; }
+    .leyenda-declarada, .leyenda-gratuita { color: #222; font-size: 8.5pt; font-weight: bold; }
     .obs { color: #444; font-size: 8pt; }
     .logo { margin-bottom: 1.5mm; }
     .observaciones p { margin: 0; white-space: pre-line; }
@@ -106,7 +106,12 @@
         <td class="k">Fecha de emisión</td><td>${fechaEmision}</td>
       </tr>
       <tr>
+        <#-- Una boleta de hasta S/ 700 puede no identificar al comprador: «-» no está en el catálogo 06 (#20). -->
+        <#if c.receptor().sinDocumento()>
+        <td class="k">Documento</td><td>Sin documento</td>
+        <#else>
         <td class="k">${desc("06", c.receptor().tipoDoc())}</td><td>${c.receptor().numDoc()}</td>
+        </#if>
         <td class="k">Fecha de vencimiento</td><td>${fechaVencimiento!"-"}</td>
       </tr>
       <tr>
@@ -150,7 +155,8 @@
     <tbody>
       <#list tot.items() as l>
       <tr>
-        <td class="n">${l.item().cantidad()?string("#,##0.###")}</td>
+        <#-- LOG-04: la cantidad con todos sus decimales (hasta 10), como se firmó; con "#,##0.###" 0.00004 se imprimía «0». Igual que guia.ftl. -->
+        <td class="n">${l.item().cantidad()?string("#,##0.##########")}</td>
         <td class="c">${l.item().unidad()}</td>
         <td>${l.item().codigo()!""}</td>
         <td>
@@ -158,6 +164,8 @@
           <#if l.gratuita()><div class="obs">Transferencia gratuita (valor referencial ${m(l.precioVentaUnitario())})</div></#if>
           <#if l.tieneIsc()><div class="obs">ISC ${m(l.isc())}</div></#if>
           <#if l.tieneIcbper()><div class="obs">ICBPER ${m(l.icbper())}</div></#if>
+          <#if l.tieneOtrosTributos()><div class="obs">Otros tributos (${l.otrosTributosPorcentaje()?string["0.##"]}%) ${m(l.otrosTributos())}</div></#if>
+          <#if l.item().tienePlaca()><div class="obs">Placa ${l.item().placa()}</div></#if>
         </td>
         <td class="n">${m(l.valorUnitario())}</td>
         <td class="n"><#if l.descuento() gt 0>-${m(l.descuento())}<#else>-</#if></td>
@@ -183,13 +191,21 @@
     <#if tot.tieneIvap()><tr><td class="k">IVAP (4%)</td><td class="n">${c.moneda()} ${m(tot.ivap())}</td></tr>
     <#elseif !tot.esExportacion()><tr><td class="k">IGV (${tot.tasaIgv()?string["0.##"]}%)</td><td class="n">${c.moneda()} ${m(tot.igv())}</td></tr></#if>
     <#if tot.icbper() gt 0><tr><td class="k">ICBPER</td><td class="n">${c.moneda()} ${m(tot.icbper())}</td></tr></#if>
+    <#if tot.otrosTributos() gt 0><tr><td class="k">Otros tributos</td><td class="n">${c.moneda()} ${m(tot.otrosTributos())}</td></tr></#if>
     <#if tot.tieneAnticipos()><tr><td class="k">Anticipos</td><td class="n">- ${c.moneda()} ${m(tot.totalAnticipos())}</td></tr></#if>
     <#if tot.tieneRedondeo()><tr><td class="k">Redondeo</td><td class="n">${c.moneda()} ${m(tot.redondeo())}</td></tr></#if>
     <tr class="total"><td class="k">Importe total</td><td class="n">${c.moneda()} ${m(tot.total())}</td></tr>
+    <#-- #316: el tipo de cambio informado y el equivalente en soles; no son parte del XML. -->
+    <#if c.tipoCambio()??>
+    <tr><td class="k">Tipo de cambio (S/ por ${c.moneda()})</td><td class="n">${c.tipoCambio()?string["0.000"]}</td></tr>
+    <tr><td class="k">Equivalente en soles</td><td class="n">S/ ${m(tot.total() * c.tipoCambio())}</td></tr>
+    </#if>
     <#if c.percepcion()??><tr><td class="k">Percepción (${m(c.percepcion().porcentaje())}%)</td><td class="n">${c.moneda()} ${m(c.percepcion().monto())}</td></tr>
     <tr class="total"><td class="k">Total a pagar</td><td class="n">${c.moneda()} ${m(c.percepcion().totalConPercepcion(tot.total()))}</td></tr></#if>
   </table>
   <div class="letras">SON: ${montoEnLetras}</div>
+  <#-- Leyenda 1002, la misma condición que el XML (#291): solo si toda la operación es gratuita. -->
+  <#if tot.todasGratuitas()><p class="leyenda-gratuita">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</p></#if>
 </#macro>
 
 <#-- Cuotas, detracción, retención y anticipos: solo cuando aplican. -->
@@ -251,7 +267,8 @@
 </#macro>
 
 <#-- QR, hash y la leyenda de representación impresa (el pie configurado por la empresa reemplaza la primera línea). -->
-<#macro pie tipoNombre>
+<#-- {@code de}: «de la» (factura, boleta, nota, liquidación) o «del» (comprobante de retención o de percepción, #40). -->
+<#macro pie tipoNombre de="de la">
   <table class="pie">
     <tr>
       <td class="qr" style="width: 36mm;"><img src="${qr}" alt="QR" /></td>
@@ -259,7 +276,7 @@
         <#if p.pieDePagina()??>
         <p class="leyenda">${p.pieDePagina()}</p>
         <#else>
-        <p class="leyenda">Representación impresa de la ${tipoNombre?upper_case} ELECTRÓNICA emitida por ${t.razonSocial()} (RUC ${t.ruc()}) a través de khipu.</p>
+        <p class="leyenda">Representación impresa ${de} ${tipoNombre?upper_case} ELECTRÓNICA emitida por ${t.razonSocial()} (RUC ${t.ruc()}) a través de khipu.</p>
         </#if>
         <p class="leyenda">Consulte el documento en el portal de SUNAT (www.sunat.gob.pe) con el RUC del emisor, tipo, serie y número.</p>
         <p class="leyenda">Valor resumen (hash): <span class="hash">${c.hash()}</span></p>

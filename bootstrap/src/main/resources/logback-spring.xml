@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging por nivel. Consola y khipu.log (INFO y superiores) cuentan cada error en una línea, con su causa raíz, para
+  poder leer el log sin atravesar 80 líneas de traza de filtros y de Tomcat. La traza completa va solo a
+  khipu-error.log (WARN y ERROR).
+
+  Usa solo elementos de Logback puro (sin springProfile/springProperty): LogbackConfigTest la carga tal cual.
+  LOG_DIR cambia la carpeta (por defecto ./logs); en producción conviene un volumen persistente.
+-->
+<configuration>
+    <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
+
+    <property name="PATRON" value="%d{yyyy-MM-dd'T'HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"/>
+    <!-- Solo la excepción y su causa raíz, sin líneas «at …». -->
+    <property name="PATRON_CORTO" value="${PATRON}%rEx{0}"/>
+    <!-- Traza completa. -->
+    <property name="PATRON_COMPLETO" value="${PATRON}%ex"/>
+
+    <appender name="CONSOLA" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${PATRON_CORTO}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- INFO y superiores, en una línea por error. -->
+    <appender name="LOG_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/khipu.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/khipu.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATRON_CORTO}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Solo WARN y ERROR, con la traza completa. -->
+    <appender name="LOG_ERRORES" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <file>${LOG_DIR}/khipu-error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/khipu-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATRON_COMPLETO}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLA"/>
+        <appender-ref ref="LOG_INFO"/>
+        <appender-ref ref="LOG_ERRORES"/>
+    </root>
+</configuration>

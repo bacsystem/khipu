@@ -1,6 +1,7 @@
 package pe.factura.adapters.rest;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,15 +26,60 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> dominio(DomainException e) {
         HttpStatus st = switch (e.codigo()) {
             case "NO_ENCONTRADO", "SIN_CDR" -> HttpStatus.NOT_FOUND;
-            case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE" -> HttpStatus.CONFLICT;
-            case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA" -> HttpStatus.UNAUTHORIZED;
-            case "EMPRESA_AJENA", "REQUIERE_SESION" -> HttpStatus.FORBIDDEN;
-            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO" -> HttpStatus.BAD_REQUEST;
+            case "DUPLICADO", "ESTADO_NO_ENVIABLE", "NO_ACEPTADO", "ESTABLECIMIENTO_EN_USO", "FUERA_DE_PLAZO", "CDR_YA_DISPONIBLE", "CDR_NO_CONSULTABLE", "TICKET_NO_PENDIENTE", "ENVIO_EN_CURSO" -> HttpStatus.CONFLICT;
+            // #322: el ticket del SIRE sigue en proceso en SUNAT; el pedido es válido y se repite cuando termine.
+            case "PROPUESTA_NO_LISTA" -> HttpStatus.CONFLICT;
+            case "NO_AUTORIZADO", "CREDENCIALES_INVALIDAS", "SESION_INVALIDA", "CODIGO_INVALIDO" -> HttpStatus.UNAUTHORIZED;
+            case "SEGUNDO_FACTOR_NO_CONFIGURADO", "SEGUNDO_FACTOR_YA_CONFIGURADO" -> HttpStatus.CONFLICT;
+            // El alta ya se hizo con esa clave pero su respuesta (con la API key) ya no se guarda: no es un dato inválido del pedido.
+            case "IDEMPOTENCIA_VENCIDA" -> HttpStatus.CONFLICT;
+            case "CORREO_YA_VERIFICADO" -> HttpStatus.CONFLICT;
+            // Mandarle un correo de acceso a un usuario desactivado (#183): el pedido es válido pero el estado del usuario no lo permite.
+            case "USUARIO_INACTIVO" -> HttpStatus.CONFLICT;
+            // Suspender o reactivar una cuenta que ya está en ese estado (#182): el pedido es válido pero el estado ya no lo permite.
+            case "CUENTA_YA_SUSPENDIDA", "CUENTA_NO_SUSPENDIDA", "CUENTA_YA_DE_BAJA", "CUENTA_NO_DE_BAJA" -> HttpStatus.CONFLICT;
+            // Acciones sobre una empresa (#187): el pedido es válido pero el estado de la empresa no lo permite (ya estaba así, tiene envíos pendientes o le faltan las credenciales SOL).
+            // #40: registrar la designación de agente que la empresa ya tenía.
+            case "ENTORNO_SIN_CAMBIOS", "EMPRESA_CON_ENVIOS_PENDIENTES", "API_KEY_YA_REVOCADA", "SOL_NO_CARGADAS", "DESIGNACION_SIN_CAMBIOS" -> HttpStatus.CONFLICT;
+            // Gestión de planes (#190): el pedido es válido pero el estado del plan no lo permite (nombre repetido, ya estaba así, es el de las cuentas nuevas o lo usan cuentas).
+            case "NOMBRE_DUPLICADO", "PLAN_POR_DEFECTO", "PLAN_EN_USO", "PLAN_YA_ACTIVO", "PLAN_YA_INACTIVO" -> HttpStatus.CONFLICT;
+            // Cambio de plan de una cuenta (#191): el plan está fuera de la oferta, o otro administrador cambió el plan de la cuenta en el medio.
+            case "PLAN_INACTIVO", "CAMBIO_CONCURRENTE" -> HttpStatus.CONFLICT;
+            // Pagos manuales (#194): el pedido es válido pero el estado de la cuenta no lo permite (el mismo apunte repetido, un plan que no vence o un pago que no adelanta nada).
+            case "PAGO_DUPLICADO", "PLAN_SIN_VENCIMIENTO", "EXTENSION_SIN_EFECTO" -> HttpStatus.CONFLICT;
+            // Cola de errores (#196): el pedido es válido pero el estado del comprobante no lo permite, o cambió en el medio (la guía de errores ya documentaba ESTADO_CONFLICTO como 409).
+            // SUNAT_YA_LO_TIENE: antes de descartar se le preguntó a SUNAT y tenía el comprobante (se aplicó su CDR).
+            case "ESTADO_NO_DESCARTABLE", "ESTADO_CONFLICTO", "SUNAT_YA_LO_TIENE" -> HttpStatus.CONFLICT;
+            // Webhooks (#19): el pedido es válido pero el estado no lo permite (tope de endpoints, endpoint apagado, entrega todavía pendiente).
+            case "WEBHOOK_LIMITE", "WEBHOOK_PAUSADO", "ENTREGA_NO_REENVIABLE" -> HttpStatus.CONFLICT;
+            // Equipo de la cuenta (#21): el pedido es válido pero el estado no lo permite (último administrador, ya es usuario, ya hay una invitación, ya no está pendiente).
+            case "ULTIMO_ADMINISTRADOR", "YA_ES_MIEMBRO", "USUARIO_EXISTENTE", "INVITACION_PENDIENTE", "INVITACION_NO_PENDIENTE" -> HttpStatus.CONFLICT;
+            case "DEMASIADAS_INVITACIONES", "DEMASIADOS_ENVIOS" -> HttpStatus.TOO_MANY_REQUESTS;
+            // El rol del usuario no permite la operación (#21): se identificó bien, pero no tiene permiso.
+            case "ROL_INSUFICIENTE" -> HttpStatus.FORBIDDEN;
+            // No se pudo preguntarle a SUNAT si ya tiene el comprobante: no es culpa del cliente, y se puede reintentar más tarde.
+            // PADRON_NO_CARGADO (#361): el padrón de RUC todavía no se cargó, así que no se puede decir si un RUC existe; vuelve a estar disponible cuando corra la primera carga.
+            case "SUNAT_NO_DISPONIBLE", "PADRON_NO_CARGADO" -> HttpStatus.SERVICE_UNAVAILABLE;
+            // Avisos a los clientes (#197): el pedido es válido pero la situación no lo permite (no hay nada que avisar, no hay a quién escribirle, o se avisó lo mismo hace poco).
+            case "AVISO_SIN_MOTIVO", "EMPRESA_SIN_CUENTA", "AVISO_RECIENTE" -> HttpStatus.CONFLICT;
+            // LIMITE_PLAN (#18): la cuenta llegó al tope de documentos del mes de su plan; se puede volver a emitir el mes siguiente o con otro plan.
+            // DEMASIADAS_CONSULTAS (#361): la empresa pasó su cupo de consultas de RUC por minuto o por día.
+            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN", "DEMASIADAS_CONSULTAS" -> HttpStatus.TOO_MANY_REQUESTS;
+            // CUPO_DEL_PLAN (#498): el plan de la cuenta ya no deja una API key, un usuario o una empresa más; se libera un lugar o se sube de plan. No es un exceso de pedidos: es el estado de la cuenta.
+            case "CUPO_DEL_PLAN" -> HttpStatus.CONFLICT;
+            // PLAN_VENCIDO (#285): el plan de la cuenta venció y pasó su gracia; se vuelve a emitir al renovarlo (pagarlo).
+            case "PLAN_VENCIDO" -> HttpStatus.PAYMENT_REQUIRED;
+            // La cuenta está suspendida (#182): el cliente se identificó bien, pero no tiene permiso hasta que la reactiven.
+            case "EMPRESA_AJENA", "REQUIERE_SESION", "REGISTRO_CERRADO", "CUENTA_SUSPENDIDA", "REQUIERE_ADMINISTRADOR" -> HttpStatus.FORBIDDEN;
+            // TERMINOS_NO_ACEPTADOS (#342): el registro llegó sin la aceptación de los términos; no hay nada que validar del resto.
+            case "PARAMETRO_INVALIDO", "RANGO_INVALIDO", "TERMINOS_NO_ACEPTADOS" -> HttpStatus.BAD_REQUEST;
             // El correo saliente es un servicio externo: su fallo no es culpa del cliente ni un bug del servidor.
             case "CORREO_NO_ENVIADO" -> HttpStatus.BAD_GATEWAY;
+            // El servidor no tiene SMTP: no es culpa del cliente y reintentar no sirve hasta que el operador lo configure.
+            case "CORREO_NO_CONFIGURADO" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Un CDR guardado que no se puede leer es un fallo del servidor, no de la petición.
             case "CDR_CORRUPTO" -> HttpStatus.INTERNAL_SERVER_ERROR;
-            default -> HttpStatus.UNPROCESSABLE_ENTITY;
+            default -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
         return ResponseEntity.status(st).body(ApiResponse.error(e.codigo(), e.getMessage()));
     }
@@ -59,9 +105,18 @@ public class GlobalExceptionHandler {
      * El único multipart del sistema es el .p12 del certificado. Sin este handler un archivo más grande que el tope
      * cae en el catch-all y devuelve 500 INTERNO, que el portal traduce a «error interno, intenta en unos minutos»:
      * el usuario no tiene forma de saber que el problema es el tamaño del archivo que eligió.
+     * Spring envuelve en la misma excepción el tope de partes de Tomcat (server.tomcat.max-part-count, DEPS-02): una petición de
+     * 3 KB con 22 partes no «supera 1 MB», así que ese caso responde su propio código con el máximo real, para que el integrador
+     * arregle el multipart y no el archivo.
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> archivoDemasiadoGrande(MaxUploadSizeExceededException e) {
+        for (Throwable causa = e.getCause(); causa != null; causa = causa.getCause()) {
+            if (causa instanceof FileCountLimitExceededException partes) {
+                return ResponseEntity.unprocessableEntity().body(ApiResponse.error("DEMASIADAS_PARTES",
+                        "La petición multipart tiene más partes de las permitidas (máximo " + partes.getLimit() + "). El certificado se envía con dos partes, archivo y clave; el logo con una."));
+            }
+        }
         return ResponseEntity.unprocessableEntity()
                 .body(ApiResponse.error("ARCHIVO_DEMASIADO_GRANDE", "El archivo supera el tamaño máximo permitido (1 MB). Un certificado .p12 pesa unos pocos KB: conviene verificar que sea el archivo correcto."));
     }

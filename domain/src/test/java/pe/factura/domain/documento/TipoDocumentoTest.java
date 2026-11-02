@@ -19,6 +19,37 @@ class TipoDocumentoTest {
         assertThat(TipoDocumento.NOTA_CREDITO.serieValida("BC01")).isTrue();
         assertThat(TipoDocumento.NOTA_CREDITO.serieValida("XC01")).isFalse();
     }
+    /** #327: la liquidación de compra es la 04 con serie L### (regla 1001 de LiquidacionCompra2_0); ni F ni B, y una nota no la acepta. */
+    @Test void liquidacionDeCompraAceptaSerieL() {
+        assertThat(TipoDocumento.porCodigo("04")).isEqualTo(TipoDocumento.LIQUIDACION_COMPRA);
+        assertThat(TipoDocumento.LIQUIDACION_COMPRA.serieValida("L001")).isTrue();
+        assertThat(TipoDocumento.LIQUIDACION_COMPRA.serieValida("LA9Z")).isTrue();
+        assertThat(TipoDocumento.LIQUIDACION_COMPRA.serieValida("F001")).isFalse();
+        assertThat(TipoDocumento.LIQUIDACION_COMPRA.serieValida("0001")).as("la serie numérica es de la liquidación física, que khipu no emite").isFalse();
+        assertThat(TipoDocumento.FACTURA.serieValida("L001")).isFalse();
+        assertThat(TipoDocumento.NOTA_CREDITO.serieValida("L001")).isFalse();
+    }
+    /** #39: la serie de la GRE es T### (remitente) o V### (transportista), alfanumérica como en el ejemplo del manual REST (VA28). */
+    @Test void lasGuiasAceptanSerieTyV() {
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("T001")).isTrue();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("TA01")).isTrue();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("V001")).isFalse();
+        assertThat(TipoDocumento.GUIA_REMITENTE.serieValida("EG01")).isFalse();
+        assertThat(TipoDocumento.GUIA_TRANSPORTISTA.serieValida("VA28")).isTrue();
+        assertThat(TipoDocumento.GUIA_TRANSPORTISTA.serieValida("T001")).isFalse();
+        assertThat(TipoDocumento.porCodigo("09")).isEqualTo(TipoDocumento.GUIA_REMITENTE);
+        assertThat(TipoDocumento.porCodigo("31")).isEqualTo(TipoDocumento.GUIA_TRANSPORTISTA);
+        assertThat(TipoDocumento.GUIA_REMITENTE.esGuia()).isTrue();
+        assertThat(TipoDocumento.FACTURA.esGuia()).isFalse();
+    }
+    /** Una sola definición de venta para el resumen, el panel, la exportación y el SIRE: factura, boleta y sus notas; ni compras, ni impuestos del agente, ni guías. */
+    @Test void soloFacturaBoletaYSusNotasSonVentas() {
+        assertThat(TipoDocumento.ventas()).containsExactlyInAnyOrder(TipoDocumento.FACTURA, TipoDocumento.BOLETA, TipoDocumento.NOTA_CREDITO, TipoDocumento.NOTA_DEBITO);
+        for (String noVenta : new String[]{"04", "09", "20", "31", "40"}) assertThat(TipoDocumento.esVenta(noVenta)).as(noVenta).isFalse();
+        for (String venta : new String[]{"01", "03", "07", "08"}) assertThat(TipoDocumento.esVenta(venta)).as(venta).isTrue();
+        assertThat(TipoDocumento.esVenta((String) null)).isFalse();
+        assertThat(TipoDocumento.esVenta("99")).isFalse();
+    }
     @Test void codigoSunat() {
         assertThat(TipoDocumento.FACTURA.codigo()).isEqualTo("01");
         assertThat(TipoDocumento.porCodigo("01")).isEqualTo(TipoDocumento.FACTURA);

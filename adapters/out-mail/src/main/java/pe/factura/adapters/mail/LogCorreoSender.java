@@ -16,4 +16,6 @@ public class LogCorreoSender implements CorreoSender {
         log.warn("Correo NO enviado (SMTP no configurado) — para={} asunto={} adjuntos={}\n{}", para, asunto,
                 adjuntos.stream().map(a -> a.nombre() + " (" + a.contenido().length + " bytes)").toList(), cuerpoTexto);
     }
+    /** No lanza, pero el correo no sale de este proceso. */
+    @Override public boolean entregaDeVerdad() { return false; }
 }

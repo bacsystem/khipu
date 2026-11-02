@@ -11,8 +11,13 @@
 import http from "k6/http";
 import { check } from "k6";
 
+// La fecha de emisión se compara con la de Lima (UTC-5, sin horario de verano): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API responde 422 FECHA_INVALIDA (fecha futura).
+const hoyEnLima = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+
 const BASE_URL = __ENV.API_BASE_URL || "http://localhost:8001";
 const API_KEY = __ENV.API_KEY;
+// 500 ms es el objetivo; UMBRAL_P95_MS lo sube al correr contra una máquina más lenta que una laptop, donde solo debe saltar una regresión grande.
+const P95_MAXIMO_MS = __ENV.UMBRAL_P95_MS || "500";
 const SERIE = __ENV.SERIE || "F001";
 
 if (!API_KEY) {
@@ -35,15 +40,19 @@ export const options = {
     },
   },
   thresholds: {
-    "http_req_duration{expected_response:true}": ["p(95)<500"],
+    "http_req_duration{expected_response:true}": [`p(95)<${P95_MAXIMO_MS}`],
     http_req_failed: ["rate<0.01"],
+    // Una respuesta 201 que no es lo que se pidió (otro tipo, otro estado) no puede pasar como éxito, y un servidor lento que no alcanza los 50 doc/s descarta iteraciones
+    // mientras el p95 de las que sí corren sigue bien: sin estos dos umbrales «50 doc/s» no se exigiría.
+    checks: ["rate>0.99"],
+    dropped_iterations: ["count<20"],
   },
 };
 
 function comprobante() {
   return JSON.stringify({
     serie: SERIE,
-    fecha_emision: new Date().toISOString().slice(0, 10),
+    fecha_emision: hoyEnLima(),
     tipo_operacion: "0101",
     moneda: "PEN",
     cliente: {

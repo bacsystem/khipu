@@ -1,16 +1,14 @@
+import { seCortoLaConexion, noSeSabeSiLlego, seVencioLaEspera } from "./corte-de-red";
 import type { ApiEnvelope } from "./types";
 
-function sobre<T>(codigo: string, mensaje: string): ApiEnvelope<T> {
-  return { estado: "error", datos: null, mensaje, codigo, errores: null };
-}
+export { seCortoLaConexion, noSeSabeSiLlego, seVencioLaEspera };
 
 /**
- * El error no deja saber si la petición llegó al servidor o no. En un GET da igual, pero en el POST que emite un
- * comprobante es la diferencia entre «no pasó nada» y «se consumió un correlativo»: reintentar a ciegas duplica el
- * documento. Los formularios que emiten usan esto para avisar que hay que mirar antes de volver a intentar.
+ * Un error de transporte viaja solo con su código y sin `mensaje`: los formularios muestran `res.mensaje ?? mensajeError(res.codigo)`,
+ * y el texto en el idioma de la sesión sale del catálogo (`errores.<CODIGO>` en messages), no de un literal acá (#25).
  */
-export function noSeSabeSiLlego(res: ApiEnvelope<unknown>): boolean {
-  return res.codigo === "RED" || res.codigo === "RESPUESTA_INVALIDA";
+function sobre<T>(codigo: string): ApiEnvelope<T> {
+  return { estado: "error", datos: null, mensaje: null, codigo, errores: null };
 }
 
 /**
@@ -25,13 +23,13 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
   try {
     texto = await res.text();
   } catch {
-    return sobre("RED", "Se cortó la conexión antes de recibir la respuesta. Verifica el estado del envío antes de reintentar.");
+    return sobre("RED_CORTADA");
   }
 
   if (!texto) {
     return res.ok
       ? { estado: "exito", datos: null, mensaje: null, codigo: null, errores: null }
-      : sobre("RED", "Error de comunicación con la API");
+      : sobre("RED");
   }
   // Un 502/504 de un proxy intermedio llega como HTML: `JSON.parse` lanzaba y el llamador quedaba colgado (medido en la
   // auditoría de bajas: diálogo «Enviando a SUNAT…» sin salida). Va con código propio, porque los formularios que emiten
@@ -39,16 +37,26 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
   try {
     return JSON.parse(texto) as ApiEnvelope<T>;
   } catch {
-    return sobre("RESPUESTA_INVALIDA", `Respuesta inválida del servidor (HTTP ${res.status}). Recarga la página para ver el estado real.`);
+    return sobre("RESPUESTA_INVALIDA");
   }
 }
 
-async function pedir<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+/**
+ * Cuánto se espera una respuesta antes de rendirse (#117). Sin tope, un POST que nunca responde dejaba «Emitiendo…» para siempre. La lectura es rápida; lo que escribe puede
+ * esperar a SUNAT dentro de la misma llamada (la emisión envía y espera el CDR), así que tiene un margen mucho mayor. Al vencer cae en la rama de corte de red, que ya avisa
+ * que el comprobante pudo haberse emitido.
+ */
+export const ESPERA_MAXIMA_LECTURA_MS = 30_000;
+export const ESPERA_MAXIMA_ESCRITURA_MS = 120_000;
+
+async function pedir<T>(path: string, init: RequestInit, esperaMs?: number): Promise<ApiEnvelope<T>> {
   let res: Response;
+  const espera = esperaMs ?? (init.method === undefined || init.method === "GET" ? ESPERA_MAXIMA_LECTURA_MS : ESPERA_MAXIMA_ESCRITURA_MS);
   try {
-    res = await fetch(path, init);
-  } catch {
-    return sobre("RED", "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.");
+    res = await fetch(path, { signal: AbortSignal.timeout(espera), ...init });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") return sobre("ESPERA_VENCIDA");
+    return sobre("RED");
   }
   return toEnvelope<T>(res);
 }
@@ -61,14 +69,21 @@ export async function postJson<T>(path: string, body: unknown): Promise<ApiEnvel
   });
 }
 
+/** `headers`: cabeceras propias del pedido, como la clave de idempotencia de la emisión (#115). */
 export async function apiRequest<T>(
   path: string,
-  init: { method: string; body?: unknown },
+  init: { method: string; body?: unknown; headers?: Record<string, string>; /** Espera propia, en ms, para lo que tarda más que lo normal (p. ej. un barrido de integridad). */ esperaMaximaMs?: number },
 ): Promise<ApiEnvelope<T>> {
   const isFormData = init.body instanceof FormData;
-  return pedir<T>(path, {
-    method: init.method,
-    headers: isFormData || init.body === undefined ? undefined : { "content-type": "application/json" },
-    body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
-  });
+  const tipo: Record<string, string> = isFormData || init.body === undefined ? {} : { "content-type": "application/json" };
+  const headers: Record<string, string> = { ...tipo, ...init.headers };
+  return pedir<T>(
+    path,
+    {
+      method: init.method,
+      headers: Object.keys(headers).length === 0 ? undefined : headers,
+      body: isFormData ? (init.body as FormData) : init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    },
+    init.esperaMaximaMs,
+  );
 }

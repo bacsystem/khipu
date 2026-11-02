@@ -8,6 +8,9 @@ test("la referencia de API carga sin sesión y muestra un endpoint real", async 
 
   await page.goto("/developers");
 
+  // #13: la cabecera propia de la página (título, intro y las otras secciones) antes de la referencia.
+  await expect(page.getByRole("heading", { level: 1, name: "Referencia de la API" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Más documentación" }).getByRole("link")).toHaveCount(4);
   await expect(page.getByText("/v1/facturas").first()).toBeVisible({ timeout: 10_000 });
   expect(errores).toEqual([]);
 });
@@ -17,7 +20,7 @@ test("con sesión, el botón genera una key de prueba", async ({ page }) => {
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
 
   await page.goto("/developers");
   await page.getByRole("button", { name: "Generar API key de prueba" }).click();
@@ -29,6 +32,10 @@ test("la guía, los catálogos y los errores se navegan desde la cabecera", asyn
   await page.goto("/developers/guia");
   await expect(page.getByRole("heading", { name: "Guía de emisión de facturas" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Venta gravada al contado (el caso base)" })).toBeVisible();
+  // #293: el caso de las notas sobre una boleta, con sus motivos no admitidos.
+  const notasDeBoleta = page.locator("#notas-boleta");
+  await expect(notasDeBoleta.getByRole("heading", { name: "Notas de crédito y débito sobre una boleta" })).toBeVisible();
+  await expect(notasDeBoleta.getByText(/RCP art\. 10 num\. 1\.4/)).toBeVisible();
 
   await page.getByRole("link", { name: "Catálogos SUNAT" }).first().click();
   await expect(page).toHaveURL(/\/developers\/catalogos/);
@@ -40,4 +47,171 @@ test("la guía, los catálogos y los errores se navegan desde la cabecera", asyn
   await page.getByRole("link", { name: "Errores y estados" }).first().click();
   await expect(page.getByRole("heading", { name: "Errores y estados" })).toBeVisible();
   await expect(page.getByText("FORMA_PAGO_INVALIDA", { exact: true })).toBeVisible();
+  // #293: los plazos y las reglas de las notas sobre una boleta también están en la tabla de errores.
+  await expect(page.getByText(/nota de boleta, como la boleta/).first()).toBeVisible();
+  await expect(page.getByText(/NC 04, 05 u 08 sobre una boleta \(4367/)).toBeVisible();
+});
+
+/**
+ * #348-H3/H4: desde #308 la unidad se valida contra el catálogo 03 antes de numerar (2936), y en blanco la frena el `@NotBlank` de `ItemDto`
+ * (VALIDACION), no el dominio: la 2883 no llega por la API. El catálogo seguía diciendo que la API acepta cualquier código y que SUNAT
+ * rechaza los inexistentes.
+ */
+test("el catálogo 03 y la tabla de errores describen la validación de la unidad", async ({ page }) => {
+  await page.goto("/developers/catalogos");
+  const unidades = page.locator("#cat-03");
+  await expect(unidades.getByText(/fuera del catálogo responde/)).toBeVisible();
+  await expect(unidades.getByText(/SUNAT rechaza los inexistentes/)).toHaveCount(0);
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/unidad de medida que no existe en el catálogo 03 \(2936; en blanco responde VALIDACION\)/)).toBeVisible();
+  await expect(page.getByText(/unidad de medida ausente \(2883\)/)).toHaveCount(0);
+});
+
+/**
+ * #354: la guía y la tabla de errores dicen las reglas de la línea que se rechazan antes de numerar: precio mayor que cero, tope de 999 líneas y las del ICBPER
+ * (cantidad entera de hasta 5 dígitos, NIU, sin NRUS).
+ */
+test("la guía y la tabla de errores describen las reglas de la línea: precio, tope de 999 líneas e ICBPER (#354)", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByText(/hasta 999 líneas por comprobante/).first()).toBeVisible();
+  const icbper = page.locator("#isc-icbper");
+  await expect(icbper.getByText(/entero de 1 a 99999/)).toBeVisible();
+  // H1 (revisión de #354): la 4320 la observa SUNAT sobre el BaseUnitMeasure; la unidad NIU en la línea es una exigencia de khipu, y la guía no dice lo contrario.
+  await expect(icbper.getByText(/SUNAT solo observa esa unidad \(4320, sobre el `?BaseUnitMeasure`?/)).toBeVisible();
+  await expect(icbper.getByText(/\(NRUS\) no admite icbper \(3240\)/)).toBeVisible();
+  // H3: con anticipos que cubren la factura (neto 0.00) no hay nota posible; la guía manda a la baja en vez de pedir «items por el neto».
+  await expect(page.getByText(/Si el neto es 0\.00 \(los anticipos cubren la factura\) no hay nota posible/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/precio negativo o en cero \(2369; el valor referencial de una gratuita, 2367\)/)).toBeVisible();
+  await expect(page.getByText(/SUNAT solo observa la 4320; khipu la rechaza porque el ICBPER es por bolsa/)).toBeVisible();
+  await expect(page.getByText(/más de 999 líneas \(2023; 2137 en las notas\)/)).toBeVisible();
+  await expect(page.getByText(/ICBPER en una boleta NRUS \(tipo de operación 0113, 3240\)/)).toBeVisible();
+});
+
+/**
+ * #357: recuperar el CDR por getStatusCdr es solo de la factura y sus notas (serie F): la tabla de errores dice el 409 de la boleta y de las notas B y adónde ir, y no
+ * afirma qué responde SUNAT si se le pregunta (no está verificado).
+ */
+test("la tabla de errores dice que la boleta y las notas B no se recuperan por getStatusCdr (#357)", async ({ page }) => {
+  await page.goto("/developers/errores");
+  const fila = page.getByRole("row", { name: /CDR_NO_CONSULTABLE/ });
+  await expect(fila).toBeVisible();
+  await expect(fila.getByText(/409/)).toBeVisible();
+  await expect(fila.getByText(/getStatusCdr cubre solo factura y notas de crédito y débito \(01, 07, 08\) de serie F/)).toBeVisible();
+  await expect(fila.getByText(/resumen diario que la informó/)).toBeVisible();
+  await expect(fila.getByText(/en e-beta no se puede comprobar porque no publica el servicio de consulta/)).toBeVisible();
+  await expect(fila.getByText(/GET \/v1\/bajas\/\{id\}/)).toBeVisible();
+  await expect(fila.getByText(/si se envió sola y quedó en ERROR_ENVIO, reintente el envío con POST \/v1\/facturas\/\{id\}\/enviar/)).toBeVisible();
+});
+
+/**
+ * #302: el plazo de la baja (2957) se cuenta desde la emisión, también en la boleta (la regla de SUNAT desde 2027-01-01, más estricta que la de
+ * 2026, que lo cuenta desde la CDR). La guía y la tabla de errores lo dicen así, con la hora de Lima que decide el día.
+ */
+test("la guía y la tabla de errores cuentan el plazo de la baja desde la emisión, en hora de Lima", async ({ page }) => {
+  await page.goto("/developers/guia");
+  const baja = page.locator("#baja");
+  await expect(baja.getByText(/desde la fecha de emisión, no desde la aceptación de SUNAT/)).toBeVisible();
+  await expect(baja.getByText(/hora de Lima/)).toBeVisible();
+  await expect(baja.getByText(/2027-01-01/)).toBeVisible();
+  // Lo que decide SUNAT es el día en que recibe la comunicación (RA fila 44, RC fila 37): una baja admitida el día 7 cuyo envío falla y se reintenta
+  // el 8 vuelve RECHAZADA (2957), y el reintento reenvía el mismo RA/RC con su fecha de generación (2346), así que no hay forma de salvarla.
+  await expect(baja.getByText(/SUNAT mide el plazo con el día en que recibe la comunicación/)).toBeVisible();
+  await expect(baja.getByText(/boletas y a sus notas desde el 2027-01-01/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/pasaron más de 7 días calendario desde su emisión, en hora de Lima \(2957; no se cuentan desde la aceptación de SUNAT\)/)).toBeVisible();
+});
+
+/**
+ * #304: la guía era solo de facturas. Ahora trae los casos de boleta (con DNI, sin documento hasta S/ 700, alta tardía y baja en el resumen
+ * diario), los errores de plazo y de receptor por tipo de comprobante, y ya no dice que un RECHAZADO puede reutilizar su número: el índice
+ * único (tenant, tipo, serie, número) lo impide y SUNAT da por utilizado el número de un rechazo 2000–3999.
+ */
+test("la guía documenta la boleta y los errores distinguen el tipo de comprobante", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByRole("heading", { name: "Guía de emisión de facturas y boletas" })).toBeVisible();
+  const conDni = page.locator("#boleta-dni");
+  await expect(conDni.getByRole("heading", { name: "Boleta a un comprador con DNI" })).toBeVisible();
+  await expect(conDni.getByText(/"tipo_doc": "1", "num_doc": "45678912"/)).toBeVisible();
+  const sinDocumento = page.locator("#boleta-sin-documento");
+  await expect(sinDocumento.getByText(/"razon_social": "CLIENTES VARIOS"/)).toBeVisible();
+  await expect(sinDocumento.getByText(/S\/ 700\.00/).first()).toBeVisible();
+  const altaTardia = page.locator("#boleta-alta-tardia");
+  await expect(altaTardia.getByText(/"condicion": "ALTA"/)).toBeVisible();
+  await expect(altaTardia.getByText(/SUNAT no la rechaza: la norma prevé que la observe con/)).toBeVisible();
+  const baja = page.locator("#boleta-baja");
+  await expect(baja.getByText(/"identificador": "RC-20260918-1"/)).toBeVisible();
+  await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/Boleta: cualquier documento del catálogo 06/)).toBeVisible();
+  await expect(page.getByText(/NC 10 y ND 03 de boleta: más de 5, 1079/)).toBeVisible();
+  await expect(page.getByText(/factura o nota de factura pasado el 3\.er día \(2108\)/)).toBeVisible();
+  await expect(page.getByText(/puede reutilizar el número/)).toHaveCount(0);
+});
+
+/**
+ * #355: `POST /v1/notas` acepta `Idempotency-Key` igual que `POST /v1/facturas`. La guía trae el caso con un ejemplo que el backend acepta (la cabecera y
+ * el cuerpo de una nota) y la tabla de errores dice que las claves de facturas y de notas son independientes y que el reintento responde 200.
+ */
+test("la guía y la tabla de errores documentan la Idempotency-Key de las notas (#355)", async ({ page }) => {
+  await page.goto("/developers/guia");
+  const caso = page.locator("#idempotency-key");
+  await expect(caso.getByRole("heading", { name: /Reintento seguro con Idempotency-Key/ })).toBeVisible();
+  await expect(caso.getByText(/Idempotency-Key: 5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f/)).toBeVisible();
+  await expect(caso.getByText(/"documento_afectado": \{ "serie": "F001", "numero": 125 \}/)).toBeVisible();
+  await expect(caso.getByText(/misma clave con otro cuerpo: 422 IDEMPOTENCIA_INVALIDA/)).toBeVisible();
+  await expect(caso.getByText(/es propia de cada endpoint/)).toBeVisible();
+  await expect(page.locator("#notas").getByText(/Reintentos/)).toBeVisible();
+  await expect(page.locator("#buenas-practicas").getByText(/POST \/v1\/notas/)).toBeVisible();
+
+  await page.goto("/developers/errores");
+  await expect(page.getByText(/Las claves de facturas y de notas son independientes/)).toBeVisible();
+  await expect(page.getByText(/200 al repetir un pedido de emisión con la misma Idempotency-Key/)).toBeVisible();
+});
+
+/** #26: las secciones del developer portal se recorren desde la cabecera, el buscador lleva a un estado y a un código de error, y la guía trae los tres lenguajes. */
+test("la cabecera recorre las secciones y el buscador lleva a un estado y a un código de error", async ({ page }) => {
+  await page.goto("/developers/guia");
+  await expect(page.getByText("Node.js — primera factura")).toBeVisible();
+  await expect(page.getByText("Python — primera factura")).toBeVisible();
+  await expect(page.getByText("cURL — primera factura")).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Secciones del developer portal" }).getByRole("link", { name: "Entornos y límites" }).click();
+  await expect(page).toHaveURL(/\/developers\/entornos/);
+  await expect(page.getByRole("heading", { name: "BETA y producción" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Límites y cuotas" })).toBeVisible();
+  await expect(page.getByText("429 LIMITE_PLAN", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Infraestructura: IPs, SLA y conectores" })).toBeVisible();
+
+  const buscador = page.getByLabel("Buscar en la documentación");
+  await buscador.fill("error_envio");
+  await page.getByRole("option", { name: /ERROR_ENVIO/ }).first().click();
+  await expect(page).toHaveURL(/\/developers\/errores#estados/);
+  await expect(page.getByRole("heading", { name: "Estados del comprobante" })).toBeVisible();
+
+  await page.getByLabel("Buscar en la documentación").fill("LIMITE_PLAN");
+  await page.getByRole("option", { name: /LIMITE_PLAN/ }).first().click();
+  await expect(page).toHaveURL(/\/developers\/errores#codigos/);
+  await expect(page.getByRole("heading", { name: "Códigos de error de khipu" })).toBeVisible();
+});
+
+/** #26: en un celular el buscador no desaparece (pasa a una fila propia) y la cabecera no desborda la página. */
+test("el buscador está en el celular y la cabecera no desborda", async ({ page }) => {
+  for (const ancho of [390, 820, 1280]) {
+    await page.setViewportSize({ width: ancho, height: 800 });
+    await page.goto("/developers/entornos");
+    const buscador = page.getByLabel("Buscar en la documentación");
+    await expect(buscador, `buscador a ${ancho}px`).toBeVisible();
+    const desborda = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    expect(desborda, `desborde horizontal a ${ancho}px`).toBe(false);
+  }
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.getByLabel("Buscar en la documentación").fill("DEMASIADAS_CONSULTAS");
+  await page.getByRole("option").first().click();
+  await expect(page).toHaveURL(/\/developers\/entornos#limites/);
+  await expect(page.getByRole("heading", { name: "Límites y cuotas" })).toBeVisible();
 });

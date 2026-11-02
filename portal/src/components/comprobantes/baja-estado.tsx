@@ -1,21 +1,17 @@
 "use client";
 
-import { BanIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwiseIcon, ProhibitIcon } from "@phosphor-icons/react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { buttonVariants } from "khipu-design-system/ui/button";
+import { interpolar } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
-import { BOTON_SECUNDARIO, TITULO_SECCION } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
+import { TITULO_SECCION } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
-
-const ETIQUETAS: Record<Baja["estado"], string> = {
-  GENERADA: "Generada, pendiente de envío",
-  ENVIADA: "Enviada: SUNAT la está procesando",
-  ERROR_ENVIO: "Error de envío: se reintentará",
-  ACEPTADA: "Aceptada: comprobante anulado",
-  RECHAZADA: "Rechazada por SUNAT",
-};
 
 /**
  * Estado de la comunicación de baja en la ficha. Mientras está en curso (ENVIADA/ERROR_ENVIO/GENERADA) se puede reconsultar
@@ -23,10 +19,20 @@ const ETIQUETAS: Record<Baja["estado"], string> = {
  * está procesando» para siempre y nada en el portal volvía a preguntar.
  */
 export function BajaEstado({ baja }: { baja: Baja }) {
+  const messages = useMessages();
+  const t = messages.comprobantes.estadoBaja;
+  const mensajeError = useMensajeError();
   const router = useRouter();
   const [consultando, setConsultando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendiente = baja.estado === "ENVIADA" || baja.estado === "ERROR_ENVIO" || baja.estado === "GENERADA";
+  const alta = baja.condicion === "ALTA";
+  // #20/#294: la boleta y sus notas van en un resumen diario (RC-…), lo demás en una comunicación de baja (RA-…). El
+  // identificador lo dice para las dos: una nota sobre boleta es 07/08, no 03.
+  const resumenDiario = baja.identificador.startsWith("RC-");
+  const que = baja.tipo_comprobante === "03" ? "boleta" : "nota";
+  const vencida = bajaVencida(baja);
+  const etiqueta = etiquetaDeBaja(baja, que, messages);
 
   const actualizar = useCallback(async () => {
     setConsultando(true);
@@ -35,12 +41,12 @@ export function BajaEstado({ baja }: { baja: Baja }) {
       const res = await apiRequest<Baja>(`/api/proxy/bajas/${baja.id}`, { method: "GET" });
       if (res.estado !== "exito") setError(res.mensaje ?? mensajeError(res.codigo));
     } catch {
-      setError("Sin conexión: no se pudo consultar a SUNAT. Vuelve a intentarlo.");
+      setError(t.sinConexion);
     } finally {
       setConsultando(false);
       router.refresh();
     }
-  }, [baja.id, router]);
+  }, [baja.id, router, mensajeError, t.sinConexion]);
 
   useEffect(() => {
     if (!pendiente) return;
@@ -50,41 +56,54 @@ export function BajaEstado({ baja }: { baja: Baja }) {
 
   return (
     <section
-      className={cn("rounded-xl border p-5 shadow-2xs", baja.estado === "ACEPTADA" ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card")}
+      className={cn(
+        "rounded-xl border p-5 shadow-xs",
+        baja.estado === "ACEPTADA" && !alta ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card",
+      )}
       data-testid="baja"
     >
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
-          <BanIcon className="size-4" />
-          Comunicación de baja {baja.identificador}
+          <ProhibitIcon className="size-4" />
+          {resumenDiario ? t.resumenDiario : t.comunicacion} {baja.identificador}
+          {alta ? t.alta : null}
         </span>
         {pendiente ? (
-          <button type="button" onClick={actualizar} disabled={consultando} className={cn(BOTON_SECUNDARIO, "h-7 text-[11px] normal-case tracking-normal")}>
-            <RefreshCwIcon className={cn("size-3.5", consultando ? "animate-spin" : "")} />
-            {consultando ? "Consultando a SUNAT…" : "Actualizar estado"}
+          <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
+            <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", consultando ? "animate-spin" : "")} />
+            {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
           </button>
         ) : null}
       </div>
-      <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Estado</span>
-          <span className="font-semibold text-foreground" role="status">{ETIQUETAS[baja.estado]}</span>
+          <span className="text-etiqueta text-muted-foreground">{t.estado}</span>
+          <span className="font-semibold text-foreground" role="status">{etiqueta}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Motivo</span>
+          <span className="text-etiqueta text-muted-foreground">{t.motivo}</span>
           <p className="leading-snug text-foreground/80">{baja.motivo}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">Ticket SUNAT</span>
+          <span className="text-etiqueta text-muted-foreground">{t.ticket}</span>
           <span className="font-mono text-foreground/80">{baja.ticket ?? "—"}</span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] tracking-wider text-muted-foreground uppercase">{baja.cdr ? "CDR" : "Último intento"}</span>
-          <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? ` (${baja.intentos} intentos)` : ""}</span>
+          <span className="text-etiqueta text-muted-foreground">{vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento}</span>
+          <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? interpolar(t.intentos, { n: baja.intentos }) : ""}</span>
         </div>
       </div>
-      {pendiente ? <p className="mt-3 text-[12px] text-muted-foreground">Mientras SUNAT no responda, el comprobante no admite otra baja ni notas. Esta ficha se actualiza sola cada 30 s.</p> : null}
-      {error ? <p className="mt-2 text-sm text-destructive" role="alert">{error}</p> : null}
+      {alta && baja.fuera_de_plazo ? (
+        <p className="mt-3 text-control text-warning-foreground" data-testid="aviso-fuera-de-plazo">
+          {avisoAltaFueraDePlazo(messages)}
+        </p>
+      ) : null}
+      {pendiente ? (
+        <p className="mt-3 text-control text-muted-foreground">
+          {alta ? interpolar(t.pendienteAlta, { que: t.que[que] }) : t.pendiente}
+        </p>
+      ) : null}
+      {error ? <p className="mt-2 text-cuerpo text-destructive" role="alert">{error}</p> : null}
     </section>
   );
 }

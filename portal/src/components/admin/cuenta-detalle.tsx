@@ -1,0 +1,313 @@
+import { useLocale, useMessages } from "next-intl";
+import type { ReactNode } from "react";
+import { AccionesDeBaja } from "@/components/admin/acciones-de-baja";
+import { AccionesDeCuenta } from "@/components/admin/acciones-de-cuenta";
+import { AccionesDeUsuario } from "@/components/admin/acciones-de-usuario";
+import { CertificadoEtiqueta, Etiqueta, EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
+import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
+import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { Tabs } from "khipu-design-system/navegacion/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta, type EventoReciente } from "@/lib/api/admin-cuenta-detalle";
+import { detalleLegible, motivoDe } from "@/lib/bitacora";
+import { CABECERA_TABLA } from "@/lib/estilos";
+import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
+import type { Mensajes } from "@/i18n/mensajes";
+
+function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDetalleAdmin["usuarios"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
+  const u = t.usuarios;
+  return (
+    <Seccion titulo={u.titulo} id="detalle-usuarios" tabla>
+      <Table>
+        <TableHeader>
+          <TableRow className={CABECERA_FILA}>
+            <TableHead className={`${CABECERA_TABLA} pl-4`}>{u.columnas.correo}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{u.columnas.rol}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{u.columnas.estado}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{u.columnas.verificado}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{u.columnas.ultimoAcceso}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{u.columnas.acciones}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="text-control">
+          {usuarios.map((x) => (
+            <TableRow key={x.id}>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">{x.email}</TableCell>
+              <TableCell className="px-3 py-2 text-control">{x.rol}</TableCell>
+              <TableCell className="px-3 py-2">
+                <Etiqueta tono={x.activo ? "ok" : "neutro"}>{x.activo ? u.activo : u.inactivo}</Etiqueta>
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                {x.correo_verificado_en ? (
+                  <span title={formatearFechaHora(x.correo_verificado_en, locale)}>
+                    <Etiqueta tono="ok">{u.verificado}</Etiqueta>
+                  </span>
+                ) : (
+                  <Etiqueta tono="aviso">{u.sinVerificar}</Etiqueta>
+                )}
+              </TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">
+                {x.ultimo_acceso ? formatearFechaHora(x.ultimo_acceso, locale) : <span className="text-muted-foreground">{u.nunca}</span>}
+              </TableCell>
+              <TableCell className="py-2 pr-4 pl-3">
+                <AccionesDeUsuario cuentaId={cuentaId} usuarioId={x.id} correo={x.email} activo={x.activo} verificado={Boolean(x.correo_verificado_en)} />
+              </TableCell>
+            </TableRow>
+          ))}
+          {usuarios.length === 0 ? <Vacio columnas={6} texto={u.vacio} /> : null}
+        </TableBody>
+      </Table>
+    </Seccion>
+  );
+}
+
+function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string }) {
+  const t = useMessages().admin.detalle;
+  const e = t.empresas;
+  return (
+    <Seccion titulo={e.titulo} id="detalle-empresas" tabla>
+      <Table>
+        <TableHeader>
+          <TableRow className={CABECERA_FILA}>
+            <TableHead className={`${CABECERA_TABLA} pl-4`}>{e.columnas.empresa}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{e.columnas.entorno}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{e.columnas.certificado}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4`}>{e.columnas.sol}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="text-control">
+          {empresas.map((x) => (
+            <TableRow key={x.id}>
+              <TableCell className="py-2 pr-3 pl-4">
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">{x.razon_social}</span>
+                  <span className="font-mono text-etiqueta text-muted-foreground">{x.ruc}</span>
+                </div>
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                <Etiqueta tono={x.entorno === "PRODUCCION" ? "ok" : "neutro"}>{x.entorno === "PRODUCCION" ? e.produccion : e.beta}</Etiqueta>
+              </TableCell>
+              <TableCell className="px-3 py-2">
+                <CertificadoEtiqueta estado={estadoCertificado(x, hoy)} />
+              </TableCell>
+              <TableCell className="py-2 pr-4 pl-3">
+                <Etiqueta tono={x.tiene_credenciales_sol ? "ok" : "neutro"}>{x.tiene_credenciales_sol ? e.solCargadas : e.solSinCargar}</Etiqueta>
+              </TableCell>
+            </TableRow>
+          ))}
+          {empresas.length === 0 ? <Vacio columnas={4} texto={e.vacio} /> : null}
+        </TableBody>
+      </Table>
+    </Seccion>
+  );
+}
+
+function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comprobantes"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
+  const c = t.comprobantes;
+  return (
+    <Seccion titulo={c.titulo} id="detalle-comprobantes" tabla>
+      <Table>
+        <TableHeader>
+          <TableRow className={CABECERA_FILA}>
+            <TableHead className={`${CABECERA_TABLA} pl-4`}>{c.columnas.comprobante}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{c.columnas.empresa}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{c.columnas.fecha}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{c.columnas.estado}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4 text-right`}>{c.columnas.total}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="text-control">
+          {comprobantes.map((x) => (
+            <TableRow key={x.id}>
+              <TableCell className="py-2 pr-3 pl-4 font-mono text-control">
+                {x.serie}-{String(x.numero).padStart(8, "0")}
+              </TableCell>
+              <TableCell className="px-3 py-2 font-mono text-control text-foreground/80">{x.ruc}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFecha(x.fecha_emision, locale)}</TableCell>
+              <TableCell className="px-3 py-2">
+                <EstadoBadge estado={x.estado} />
+              </TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-right font-mono tabular-nums">{formatearMonto(x.moneda, x.total, locale)}</TableCell>
+            </TableRow>
+          ))}
+          {comprobantes.length === 0 ? <Vacio columnas={5} texto={c.vacio} /> : null}
+        </TableBody>
+      </Table>
+    </Seccion>
+  );
+}
+
+/** Quién hizo una acción (H11): el correo del administrador; «Administrador» solo si ya no existe, y «Clave de plataforma» si no fue una persona. */
+function quien(x: EventoReciente, t: Mensajes["admin"]["detalle"]): string {
+  if (x.actor !== "ADMINISTRADOR") return t.eventos.actorPlataforma;
+  return x.administrador ?? t.eventos.actorAdministrador;
+}
+
+function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
+  const e = t.eventos;
+  const acciones = e.acciones as Record<string, string>;
+  return (
+    <Seccion titulo={e.titulo} id="detalle-eventos" tabla>
+      <Table>
+        <TableHeader>
+          <TableRow className={CABECERA_FILA}>
+            <TableHead className={`${CABECERA_TABLA} pl-4`}>{e.columnas.accion}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{e.columnas.actor}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{e.columnas.cuando}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4`}>{e.columnas.detalle}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="text-control">
+          {eventos.map((x, i) => (
+            <TableRow key={`${x.ocurrido_en}-${i}`}>
+              {/* Una acción que este portal todavía no conoce se muestra con su código, no se esconde. */}
+              <TableCell className="py-2 pr-3 pl-4">{acciones[x.accion] ?? x.accion}</TableCell>
+              <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>
+              <TableCell className="px-3 py-2 text-control text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+              <TableCell className="py-2 pr-4 pl-3 text-control text-muted-foreground">{detalleLegible(x.detalle, messages, locale) || "—"}</TableCell>
+            </TableRow>
+          ))}
+          {eventos.length === 0 ? <Vacio columnas={4} texto={e.vacio} /> : null}
+        </TableBody>
+      </Table>
+    </Seccion>
+  );
+}
+
+/** Todas las suspensiones, reactivaciones, bajas y reposiciones (H15): cuándo, quién y por qué, aparte de la bitácora donde se mezclaban con lo demás. */
+function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
+  const h = t.historial;
+  const acciones = t.eventos.acciones as Record<string, string>;
+  return (
+    <Seccion titulo={h.titulo} id="detalle-historial-estado" tabla>
+      <Table>
+        <TableHeader>
+          <TableRow className={CABECERA_FILA}>
+            <TableHead className={`${CABECERA_TABLA} pl-4`}>{h.columnas.cuando}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{h.columnas.cambio}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{h.columnas.quien}</TableHead>
+            <TableHead className={`${CABECERA_TABLA} pr-4`}>{h.columnas.motivo}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="text-control" data-testid="historial-estado">
+          {historial.map((x, i) => {
+            const motivo = motivoDe(x.detalle);
+            return (
+              <TableRow key={`${x.ocurrido_en}-${i}`}>
+                <TableCell className="py-2 pr-3 pl-4 text-control whitespace-nowrap text-foreground/80">{formatearFechaHora(x.ocurrido_en, locale)}</TableCell>
+                <TableCell className="px-3 py-2">{acciones[x.accion] ?? x.accion}</TableCell>
+                <TableCell className="px-3 py-2 text-control">{quien(x, t)}</TableCell>
+                <TableCell className="py-2 pr-4 pl-3 text-control">{motivo ?? <span className="text-muted-foreground">{h.sinMotivo}</span>}</TableCell>
+              </TableRow>
+            );
+          })}
+          {historial.length === 0 ? <Vacio columnas={4} texto={h.vacio} /> : null}
+        </TableBody>
+      </Table>
+    </Seccion>
+  );
+}
+
+/** El motivo del último cambio de ese tipo, para mostrarlo junto al estado (H14): quien atiende al cliente lo necesita ahí, no al fondo de la bitácora. */
+function ultimoMotivo(historial: EventoReciente[], accion: string): string | null {
+  return motivoDe(historial.find((x) => x.accion === accion)?.detalle);
+}
+
+type Pestana = "plan" | "estado" | "usuarios" | "empresas" | "comprobantes" | "bitacora";
+
+/**
+ * Detalle de una cuenta del backoffice (#181): arriba el estado, los datos de contacto y las acciones que cambian el estado; abajo, en pestañas (H19), el plan
+ * y los pagos (llegan armados de la página: van aparte del detalle y pueden fallar solos), el historial del estado, los usuarios, las empresas, los
+ * comprobantes y la bitácora. Antes era una sola columna de siete tablas. `hoy` (fecha de Lima) llega de afuera para que el estado del certificado se
+ * calcule igual en el servidor y en las pruebas.
+ */
+export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmin; hoy: string; plan?: ReactNode }) {
+  const messages = useMessages();
+  const locale = useLocale();
+  const t = messages.admin.detalle;
+  const p = t.pestanas;
+  const motivoSuspension = cuenta.suspendida_en ? ultimoMotivo(cuenta.historial_estado, "SUSPENDER_CUENTA") : null;
+  const motivoBaja = cuenta.baja_en ? ultimoMotivo(cuenta.historial_estado, "DAR_DE_BAJA_CUENTA") : null;
+  const pestanas: Array<{ id: Pestana; etiqueta: string; contador?: number }> = [
+    ...(plan ? [{ id: "plan" as const, etiqueta: p.plan }] : []),
+    { id: "estado", etiqueta: p.estado, contador: cuenta.historial_estado.length },
+    { id: "usuarios", etiqueta: p.usuarios, contador: cuenta.usuarios.length },
+    { id: "empresas", etiqueta: p.empresas, contador: cuenta.empresas.length },
+    { id: "comprobantes", etiqueta: p.comprobantes },
+    { id: "bitacora", etiqueta: p.bitacora },
+  ];
+  return (
+    <div className="grid min-w-0 gap-6" data-testid="cuenta-detalle">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-cuerpo">
+          <div>
+            <dt className="text-etiqueta text-muted-foreground">{t.estado}</dt>
+            <dd className="text-control">
+              <EstadoCuentaEtiqueta estado={cuenta.estado} />
+              {cuenta.suspendida_en ? (
+                <span data-testid="suspendida-desde" className="mt-1 block text-etiqueta text-muted-foreground">
+                  {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en, locale))}
+                </span>
+              ) : null}
+              {motivoSuspension ? (
+                <span data-testid="motivo-suspension" className="block max-w-sm text-etiqueta text-foreground/80">
+                  {t.motivo.replace("{motivo}", motivoSuspension)}
+                </span>
+              ) : null}
+              {cuenta.baja_en ? (
+                <span data-testid="baja-desde" className="mt-1 block text-etiqueta text-muted-foreground">
+                  {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en, locale))}
+                </span>
+              ) : null}
+              {motivoBaja ? (
+                <span data-testid="motivo-baja" className="block max-w-sm text-etiqueta text-foreground/80">
+                  {t.motivo.replace("{motivo}", motivoBaja)}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-etiqueta text-muted-foreground">{t.correo}</dt>
+            <dd className="font-mono text-control">{cuenta.email}</dd>
+          </div>
+          <div>
+            <dt className="text-etiqueta text-muted-foreground">{t.telefono}</dt>
+            <dd className="font-mono text-control">{cuenta.telefono ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-etiqueta text-muted-foreground">{t.alta}</dt>
+            <dd className="text-control">{formatearFechaHora(cuenta.creada_en, locale)}</dd>
+          </div>
+        </dl>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Suspender también vale con la cuenta de baja (H16): la baja no corta el acceso, y suspenderla es lo que corta el servicio. */}
+          <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} suspendida={Boolean(cuenta.suspendida_en)} empresas={cuenta.empresas.length} />
+          <AccionesDeBaja id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} />
+        </div>
+      </div>
+      <Tabs<Pestana>
+        items={pestanas}
+        paneles={{
+          plan: <div className="grid gap-4">{plan}</div>,
+          estado: <HistorialEstado historial={cuenta.historial_estado} />,
+          usuarios: <Usuarios cuentaId={cuenta.id} usuarios={cuenta.usuarios} />,
+          empresas: <Empresas empresas={cuenta.empresas} hoy={hoy} />,
+          comprobantes: <Comprobantes comprobantes={cuenta.comprobantes} />,
+          bitacora: <Eventos eventos={cuenta.eventos} />,
+        }}
+      />
+    </div>
+  );
+}

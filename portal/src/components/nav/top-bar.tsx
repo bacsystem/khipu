@@ -1,143 +1,127 @@
 "use client";
 
-import { DownloadIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { MobileNav } from "khipu-design-system/nav/mobile-nav";
+import { TopBar as TopBarDelDiseno, type Miga, type PillEntorno } from "khipu-design-system/nav/top-bar";
 import { usePathname } from "next/navigation";
+import { useMessages } from "next-intl";
+import type { Mensajes } from "@/i18n/mensajes";
 import type { Usuario } from "@/lib/api/auth";
+import type { MiCuenta } from "@/lib/api/cuenta";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
 import { EjemploIntegracionDialog } from "@/components/api-keys/ejemplo-integracion";
 import { NuevaApiKeyDialog } from "@/components/api-keys/nueva-api-key-dialog";
 import { ReferenciaApiKeysDialog } from "@/components/api-keys/referencia-api-keys";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
+import { InvitarDialog } from "@/components/equipo/invitar-dialog";
 import { ReferenciaEmpresaDialog } from "@/components/empresa/referencia-empresa";
 import { NuevoComprobanteDialog } from "@/components/comprobantes/nuevo-comprobante-dialog";
+import { NuevaGuiaEnlace } from "@/components/guias/nueva-guia-enlace";
+import { ClienteDialog } from "@/components/clientes/cliente-dialog";
+import { ProductoDialog } from "@/components/productos/producto-dialog";
+import { EstablecimientoDialog } from "@/components/establecimientos/establecimiento-dialog";
 import { NuevaSerieDialog } from "@/components/series/nueva-serie-dialog";
 import { ReferenciaSeriesDialog } from "@/components/series/referencia-series";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
-import { MobileNav } from "./mobile-nav";
+import { SidebarContent } from "./sidebar-content";
 
-const ACCION_PRINCIPAL = "flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12px] font-medium whitespace-nowrap text-background shadow-xs";
-const ACCION_SECUNDARIA =
-  "h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
+type Nav = Mensajes["nav"];
 
-const MIGAS: Array<{ prefijo: string; seccion: string; pagina: string }> = [
-  { prefijo: "/comprobantes", seccion: "Facturación", pagina: "Comprobantes" },
-  { prefijo: "/series", seccion: "Emisión", pagina: "Series correlativas" },
-  {
-    prefijo: "/empresa",
-    seccion: "Configuración",
-    pagina: "Fiscal & certificado",
-  },
-  { prefijo: "/establecimientos", seccion: "Configuración", pagina: "Establecimientos" },
-  { prefijo: "/api-keys", seccion: "Configuración", pagina: "API keys & integración" },
-  { prefijo: "/developers", seccion: "Configuración", pagina: "Developers" },
+/** La miga de cada sección. `pagina` es un nombre del menú (`nav.items`) o una página propia de la miga (`nav.migas.paginas`). */
+const MIGAS: Array<{ prefijo: string; seccion: keyof Nav["migas"]["secciones"]; pagina: (t: Nav) => string }> = [
+  { prefijo: "/inicio", seccion: "panel", pagina: (t) => t.items.inicio },
+  { prefijo: "/comprobantes", seccion: "facturacion", pagina: (t) => t.items.comprobantes },
+  { prefijo: "/guias", seccion: "facturacion", pagina: (t) => t.items.guias },
+  { prefijo: "/series", seccion: "emision", pagina: (t) => t.items.series },
+  { prefijo: "/clientes", seccion: "emision", pagina: (t) => t.items.clientes },
+  { prefijo: "/productos", seccion: "emision", pagina: (t) => t.items.productos },
+  { prefijo: "/empresa", seccion: "configuracion", pagina: (t) => t.items.empresa },
+  { prefijo: "/establecimientos", seccion: "configuracion", pagina: (t) => t.items.establecimientos },
+  { prefijo: "/api-keys", seccion: "configuracion", pagina: (t) => t.migas.paginas.apiKeys },
+  { prefijo: "/developers", seccion: "configuracion", pagina: (t) => t.migas.paginas.developers },
+  { prefijo: "/cuenta/accesos-de-soporte", seccion: "cuenta", pagina: (t) => t.items.soporte },
+  { prefijo: "/cuenta/plan", seccion: "cuenta", pagina: (t) => t.items.plan },
+  { prefijo: "/cuenta/equipo", seccion: "cuenta", pagina: (t) => t.items.equipo },
 ];
 
+/** Las acciones de la sección en la que se está: lo que cada página ofrece arriba a la derecha (la principal, y a lo sumo dos secundarias). */
+function AccionesDeLaPagina({ usuario, apiBaseUrl }: { usuario: Usuario; apiBaseUrl: string }) {
+  const pathname = usePathname();
+
+  // Solo acciones que funcionan (C6): la búsqueda global, «Exportar», el monitoreo OSE y la prueba de conexión se veían pero no
+  // hacían nada. Vuelven cuando existan.
+  if (pathname.startsWith("/series"))
+    return (
+      <>
+        <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <NuevaSerieDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/api-keys"))
+    return (
+      <>
+        <ReferenciaApiKeysDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <EjemploIntegracionDialog baseUrl={apiBaseUrl} className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")} />
+        <NuevaApiKeyDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/empresa"))
+    return (
+      <>
+        <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
+        <NuevaEmpresaDialog className={ACCION_PRINCIPAL} />
+      </>
+    );
+  if (pathname.startsWith("/establecimientos")) return <EstablecimientoDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/clientes")) return <ClienteDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/productos")) return <ProductoDialog className={ACCION_PRINCIPAL} />;
+  if (pathname.startsWith("/comprobantes") || pathname.startsWith("/inicio")) return <NuevoComprobanteDialog className={ACCION_PRINCIPAL} />;
+  /* #39: «Nueva guía» es la acción de la sección, como «Nuevo comprobante» en la suya; en el propio formulario no hace falta. */
+  if (pathname.startsWith("/guias") && pathname !== "/guias/nueva") return <NuevaGuiaEnlace />;
+  if (pathname.startsWith("/cuenta/equipo") && usuario.rol === "ADMIN") return <InvitarDialog className={ACCION_PRINCIPAL} />;
+  /* #277: Plan y consumo, Accesos de soporte y Developers no tienen una acción principal; emitir desde ahí no venía al caso. */
+  return null;
+}
+
+/**
+ * La barra superior del design system con lo propio del portal: la miga traducida (es el h1 de la página), el entorno de la empresa activa, el menú del teléfono (el mismo
+ * menú lateral en un cajón) y las acciones de la sección.
+ */
 export function TopBar({
   entorno,
   usuario,
+  cuenta,
   empresas,
   activaId,
   apiBaseUrl,
 }: {
   entorno: Entorno;
   usuario: Usuario;
+  cuenta: MiCuenta | null;
   empresas: Empresa[];
   activaId?: string;
   /** URL pública de la API, para los ejemplos de integración. */
   apiBaseUrl: string;
 }) {
-  const pathname = usePathname();
-  const miga = MIGAS.find((m) => pathname.startsWith(m.prefijo));
+  const t = useMessages().nav;
+  const migas: Miga[] = MIGAS.map((m) => ({ prefijo: m.prefijo, seccion: t.migas.secciones[m.seccion], pagina: m.pagina(t) }));
   const beta = entorno === "BETA";
+  const pill: PillEntorno = beta
+    ? { texto: t.entorno.betaSunat, tono: "aviso", title: t.entorno.betaAyuda }
+    : { texto: t.entorno.produccion, tono: "oscuro", title: t.entorno.produccionAyuda };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/80 px-4 backdrop-blur md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="md:hidden">
-          <MobileNav usuario={usuario} empresas={empresas} activaId={activaId} />
-        </div>
-
-        {miga ? (
-          <nav aria-label="Ubicación" className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap">
-            <span className="text-muted-foreground/80">{miga.seccion}</span>
-            <span className="text-muted-foreground/40">/</span>
-            <h1 className="truncate font-heading font-semibold text-foreground">{miga.pagina}</h1>
-          </nav>
-        ) : null}
-
-        <div className="hidden h-4 w-px bg-border sm:block" />
-
-        <span
-          title="Monitoreo de conexión con OSE/SUNAT: próximamente"
-          className="hidden items-center gap-2 rounded-full border border-border/80 bg-muted px-2 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground opacity-60 sm:inline-flex"
-        >
-          <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-          <span className="font-medium">OSE</span>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="font-mono text-[10px]">sin monitoreo</span>
-        </span>
-
-        <span
-          title={beta ? "Entorno BETA de SUNAT: los comprobantes emitidos aquí no tienen validez tributaria" : "Entorno de producción de SUNAT"}
-          className={cn(
-            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
-            beta ? "border border-warning-border bg-warning text-warning-foreground" : "bg-foreground text-background",
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", beta ? "bg-warning-solid" : "bg-success-solid")} />
-          {beta ? "BETA Sunat" : "Producción"}
-        </span>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2.5">
-        <div className="relative hidden w-64 lg:block" title="Búsqueda por serie, RUC o cliente: próximamente">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            disabled
-            placeholder="Buscar por serie, RUC o cliente..."
-            className="h-8 w-full rounded-lg border border-border bg-muted pr-12 pl-8 text-[12px] text-foreground placeholder:text-muted-foreground/70 disabled:cursor-not-allowed"
-          />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70 shadow-2xs">
-            ⌘K
-          </kbd>
-        </div>
-        <div className="hidden h-4 w-px bg-border lg:block" />
-        <button
-          disabled
-          title="Exportar reporte: próximamente"
-          className="hidden h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed sm:flex"
-        >
-          <DownloadIcon className="size-4" />
-          Exportar
-        </button>
-        {pathname.startsWith("/series") ? (
-          <>
-            <ReferenciaSeriesDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <NuevaSerieDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
-          </>
-        ) : pathname.startsWith("/api-keys") ? (
-          <>
-            <ReferenciaApiKeysDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <EjemploIntegracionDialog baseUrl={apiBaseUrl} className={cn(ACCION_SECUNDARIA, "hidden md:inline-flex")} />
-            <NuevaApiKeyDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
-          </>
-        ) : pathname.startsWith("/empresa") ? (
-          <>
-            <ReferenciaEmpresaDialog className={cn(ACCION_SECUNDARIA, "hidden sm:inline-flex")} />
-            <button
-              disabled
-              title="Prueba de conexión con SUNAT: próximamente"
-              className={cn(ACCION_SECUNDARIA, "hidden disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex")}
-            >
-              <RefreshCwIcon className="size-4" />
-              Probar conexión SUNAT
-            </button>
-            <NuevaEmpresaDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
-          </>
-        ) : (
-          <NuevoComprobanteDialog className={cn(ACCION_PRINCIPAL, "transition-colors hover:bg-foreground/90")} />
-        )}
-      </div>
-    </header>
+    <TopBarDelDiseno
+      migas={migas}
+      pills={[pill]}
+      menuMovil={
+        // El cajón se desplaza (design system v0.5.2): en una pantalla baja el menú de usuario —tema, «Apariencia…», salir— queda al alcance (menu-movil.spec.ts).
+        <MobileNav etiqueta={t.abrirMenu}>
+          <SidebarContent usuario={usuario} cuenta={cuenta} empresas={empresas} activaId={activaId} />
+        </MobileNav>
+      }
+      acciones={<AccionesDeLaPagina usuario={usuario} apiBaseUrl={apiBaseUrl} />}
+      etiquetaUbicacion={t.ubicacion}
+    />
   );
 }

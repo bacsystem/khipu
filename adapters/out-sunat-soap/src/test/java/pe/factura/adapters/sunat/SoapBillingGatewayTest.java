@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.out.SunatRechazoException;
+import pe.factura.application.port.out.SunatCredencialesException;
 import pe.factura.application.port.out.SunatBillingGateway;
 import pe.factura.application.port.out.SunatTransientException;
 import pe.factura.domain.tenant.*;
@@ -50,6 +51,50 @@ class SoapBillingGatewayTest {
                 .withRequestBody(matching("(?s).*<contentFile>[A-Za-z0-9+/=]+</contentFile>.*")));
     }
 
+    /**
+     * #40: la retención, la percepción y su resumen de reversiones (RR) van al billService de otros CPE —con el ticket del RR consultado allí mismo—; lo demás, al de facturas, que
+     * los rechaza (e-beta 2026-10-20: «20100066603-20-….zip codigo cpe: 20 no es un cpe valido»).
+     */
+    @Test void laRetencionLaPercepcionYSuReversionVanAlServicioDeOtrosCpe(WireMockRuntimeInfo wm) {
+        SoapBillingGateway g = new SoapBillingGateway(new SunatUrls(wm.getHttpBaseUrl() + "/billService", wm.getHttpBaseUrl() + "/prod",
+                wm.getHttpBaseUrl() + "/otros", wm.getHttpBaseUrl() + "/otros-prod"), Duration.ofSeconds(2));
+        byte[] cdr = ZipUtil.comprimir("R-20100066603-20-R001-1.xml", "<cdr/>".getBytes());
+        stubFor(post("/otros").withRequestBody(containing("sendBill")).willReturn(okXml(respuestaOk(cdr))));
+        stubFor(post("/otros").withRequestBody(containing("sendSummary")).willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<ns2:sendSummaryResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><ticket>T-RR</ticket></ns2:sendSummaryResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/otros").withRequestBody(containing("getStatus")).willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<ns2:getStatusResponse xmlns:ns2=\"http://service.sunat.gob.pe\"><status><statusCode>98</statusCode></status></ns2:getStatusResponse></soap-env:Body></soap-env:Envelope>")));
+        stubFor(post("/billService").willReturn(okXml(respuestaOk(cdr))));
+
+        assertThat(g.sendBill(tenant, "20100066603-20-R001-1", "<Retention/>".getBytes())).isEqualTo(cdr);
+        assertThat(g.sendBill(tenant, "20100066603-40-P001-1", "<Perception/>".getBytes())).isEqualTo(cdr);
+        assertThat(g.sendSummary(tenant, "20100066603-RR-20260913-1", "<VoidedDocuments/>".getBytes())).isEqualTo("T-RR");
+        assertThat(g.getStatus(tenant, "20100066603-RR-20260913-1", "T-RR").statusCode()).isEqualTo("98");
+        g.sendBill(tenant, "20100066603-01-F001-1", "<Invoice/>".getBytes());
+        g.sendBill(tenant, "20100066603-04-L001-1", "<SelfBilledInvoice/>".getBytes());
+
+        verify(3, postRequestedFor(urlEqualTo("/otros")).withRequestBody(matching("(?s).*(sendBill|sendSummary)>.*")));
+        verify(1, postRequestedFor(urlEqualTo("/otros")).withRequestBody(containing("<ticket>T-RR</ticket>")));
+        verify(2, postRequestedFor(urlEqualTo("/billService")));
+        // En producción, el de producción; un RA sigue yendo al de facturas.
+        assertThat(new SunatUrls("b", "p", "ob", "op").para(Entorno.PRODUCCION, "20100066603-20-R001-1")).isEqualTo("op");
+        assertThat(new SunatUrls("b", "p", "ob", "op").para(Entorno.BETA, "20100066603-RA-20260913-1")).isEqualTo("b");
+        assertThatThrownBy(() -> new SunatUrls("b", "p").para(Entorno.BETA, "20100066603-40-P001-1")).isInstanceOf(IllegalStateException.class).hasMessageContaining("otros-beta-url");
+    }
+
+    /** #40: el servicio de otros CPE manda el código en faultstring y el texto en detail/message (respuesta real de e-beta, 2026-10-20). */
+    @Test void elCodigoEnFaultstringEsElDelRechazo(WireMockRuntimeInfo wm) {
+        stubFor(post("/billService").willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Header/><soap-env:Body>"
+                + "<soap-env:Fault><faultcode>soap-env:Client</faultcode><faultstring>2619</faultstring><detail><message>La tasa de retenci&#243;n enviada no corresponde con el r&#233;gimen de retenci&#243;n.</message></detail>"
+                + "</soap-env:Fault></soap-env:Body></soap-env:Envelope>")));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
+                .isInstanceOf(SunatRechazoException.class).hasMessageContaining("La tasa de retención enviada")
+                .extracting("codigo").isEqualTo("2619");
+        stubFor(post("/billService").willReturn(okXml("<soap-env:Envelope xmlns:soap-env=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap-env:Body>"
+                + "<soap-env:Fault><faultcode>soap-env:Client</faultcode><faultstring>0306</faultstring></soap-env:Fault></soap-env:Body></soap-env:Envelope>")));
+        assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).isInstanceOf(SunatTransientException.class).extracting("codigo").isEqualTo("0306");
+    }
+
     @Test void faultMenorA2000EsTransitorio(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault("0109", "El sistema no puede responder en este momento"))));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
@@ -71,6 +116,29 @@ class SoapBillingGatewayTest {
                 .isInstanceOf(SunatRechazoException.class)
                 .hasMessageContaining("registrado previamente")
                 .extracting("codigo").isEqualTo("1033");
+    }
+
+    // --- #107: credenciales SOL rechazadas -------------------------------------------------------------------------------------
+
+    /** Los 01xx de autenticación de la hoja «CódigosRetorno»: no cambian por reintentar, hay que corregir las credenciales. */
+    @Test void unFaultDeCredencialesNoEsUnaCaidaDeSunat(WireMockRuntimeInfo wm) {
+        for (String codigo : new String[]{"0101", "0102", "0103", "0104", "0105", "0106", "0111", "0112", "0113", "0154"}) {
+            stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault(codigo, "Usuario o contrasena incorrectos"))));
+            assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).as(codigo)
+                    .isInstanceOf(SunatCredencialesException.class).extracting("codigo").isEqualTo(codigo);
+        }
+    }
+
+    /**
+     * Los 01xx de servicio (0100 genérico, 0109 autenticación no disponible, 0110 «no se pudo obtener la información del tipo de usuario», 013x) sí son
+     * una caída: se siguen reintentando como hasta ahora, sin pausar a la empresa por algo que ella no puede corregir (270-H2).
+     */
+    @Test void unFaultDeServicioSigueSiendoTransitorio(WireMockRuntimeInfo wm) {
+        for (String codigo : new String[]{"0100", "0109", "0110", "0130", "0138"}) {
+            stubFor(post("/billService").willReturn(aResponse().withStatus(500).withHeader("Content-Type", "text/xml").withBody(fault(codigo, "El sistema no puede responder su solicitud"))));
+            assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0])).as(codigo)
+                    .isInstanceOf(SunatTransientException.class).isNotInstanceOf(SunatCredencialesException.class);
+        }
     }
 
     @Test void limitesDeLaClasificacionDeFaults() {
@@ -107,11 +175,11 @@ class SoapBillingGatewayTest {
         verify(2, postRequestedFor(urlEqualTo("/billService")));
     }
 
-    /** Tres 401 seguidos ya no son el balanceador: credenciales o URL. Sigue siendo transitorio (el outbox reintenta) pero con el mensaje claro. */
-    @Test void tres401SeguidosSonTransitorioConMensajeDeCredenciales(WireMockRuntimeInfo wm) {
+    /** Tres 401 seguidos ya no son el balanceador: SUNAT no acepta las credenciales (#107). Se trata como un fault de credenciales, no como una caída. */
+    @Test void tres401SeguidosSonCredencialesRechazadas(WireMockRuntimeInfo wm) {
         stubFor(post("/billService").willReturn(aResponse().withStatus(401)));
         assertThatThrownBy(() -> gateway(wm).sendBill(tenant, "n", new byte[0]))
-                .isInstanceOf(SunatTransientException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
+                .isInstanceOf(SunatCredencialesException.class).hasMessageContaining("401 en 3 intentos").hasMessageContaining("credenciales");
         verify(3, postRequestedFor(urlEqualTo("/billService")));
     }
 

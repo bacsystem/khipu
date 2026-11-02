@@ -48,7 +48,7 @@
   </#list>
 </#macro>
 <#-- Firma (el ds:Signature real lo coloca XmlDsigSigner en ExtensionContent), emisor y receptor. -->
-<#macro firmaYPartes>
+<#macro firma>
   <cac:Signature>
     <cbc:ID>signatureFACTURA</cbc:ID>
     <cac:SignatoryParty>
@@ -59,18 +59,14 @@
       <cac:ExternalReference><cbc:URI>#signatureFACTURA</cbc:URI></cac:ExternalReference>
     </cac:DigitalSignatureAttachment>
   </cac:Signature>
-  <cac:AccountingSupplierParty>
-    <cac:Party>
-      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
-      <#-- Nombre comercial (campo 11, regla 4092): opcional; solo cuando la empresa lo configuró. -->
-      <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
-      <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
-        <#-- Domicilio fiscal (reglas 4093–4098, 4041; establecimiento anexo 3030): ubigeo del catálogo 13 y dirección en una línea. -->
+</#macro>
+<#-- Domicilio fiscal del emisor (reglas 4093–4098, 4041): ubigeo del catálogo 13 y dirección en una línea. Con {@code conEstablecimiento} lleva además el código del establecimiento anexo (3030) y, sin
+     domicilio, el 0000; la liquidación de compra no lo lleva porque su hoja no lo tiene en el comprador. -->
+<#macro domicilioDelEmisor conEstablecimiento>
         <#if t.domicilio()??>
         <cac:RegistrationAddress>
           <cbc:ID schemeName="Ubigeos" schemeAgencyName="PE:INEI">${t.domicilio().ubigeo()}</cbc:ID>
-          <cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">${t.domicilio().codigoEstablecimiento()}</cbc:AddressTypeCode>
+          <#if conEstablecimiento><cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">${t.domicilio().codigoEstablecimiento()}</cbc:AddressTypeCode></#if>
           <#if t.domicilio().urbanizacion()??><cbc:CitySubdivisionName>${t.domicilio().urbanizacion()}</cbc:CitySubdivisionName></#if>
           <#if t.domicilio().provincia()??><cbc:CityName>${t.domicilio().provincia()}</cbc:CityName></#if>
           <#if t.domicilio().departamento()??><cbc:CountrySubentity>${t.domicilio().departamento()}</cbc:CountrySubentity></#if>
@@ -78,9 +74,20 @@
           <cac:AddressLine><cbc:Line>${t.domicilio().direccion()}</cbc:Line></cac:AddressLine>
           <cac:Country><cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">${statics["pe.factura.domain.tenant.Domicilio"].PAIS}</cbc:IdentificationCode></cac:Country>
         </cac:RegistrationAddress>
-        <#else>
+        <#elseif conEstablecimiento>
         <cac:RegistrationAddress><cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">0000</cbc:AddressTypeCode></cac:RegistrationAddress>
         </#if>
+</#macro>
+<#macro firmaYPartes>
+  <@firma/>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification><cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">${t.ruc()}</cbc:ID></cac:PartyIdentification>
+      <#-- Nombre comercial (campo 11, regla 4092): opcional; solo cuando la empresa lo configuró. -->
+      <#if t.nombreComercial()??><cac:PartyName><cbc:Name>${t.nombreComercial()}</cbc:Name></cac:PartyName></#if>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${t.razonSocial()}</cbc:RegistrationName>
+<@domicilioDelEmisor true/>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
@@ -223,10 +230,11 @@
   </cac:AllowanceCharge>
   </#list>
 </#macro>
-<#-- Totales por tributo (TaxTotal global). -->
-<#macro impuestos>
+<#-- Totales por tributo (TaxTotal global). renta=true en la liquidación de compra (#327): un TaxSubtotal 3000 más, con la retención del Impuesto a la Renta (base = valor de
+     venta de las líneas, monto = la suma de la retención de cada línea: 4345, 4346), que no suma al TaxAmount del TaxTotal (solo 1000 y 9999: 4301). -->
+<#macro impuestos renta=false>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper()}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="${c.moneda()}">${tot.igv() + tot.ivap() + tot.isc() + tot.icbper() + tot.otrosTributos()}</cbc:TaxAmount>
     <#list tot.subtotales() as st>
     <cac:TaxSubtotal>
       <#if st.tributo().codigo() != "7152"><cbc:TaxableAmount currencyID="${c.moneda()}">${st.base()}</cbc:TaxableAmount></#if>
@@ -236,6 +244,15 @@
       </cac:TaxCategory>
     </cac:TaxSubtotal>
     </#list>
+    <#if renta>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="${c.moneda()}">${c.liquidacion().baseRetencion(tot)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="${c.moneda()}">${c.retencionRenta()}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].RENTA/>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+    </#if>
   </cac:TaxTotal>
 </#macro>
 <#-- Totales monetarios: LegalMonetaryTotal en factura y NC, RequestedMonetaryTotal en ND (UBL 2.1). -->
@@ -258,12 +275,15 @@
     <cbc:PayableAmount currencyID="${c.moneda()}">${tot.total()}</cbc:PayableAmount>
   </cac:${elemento}>
 </#macro>
-<#-- Líneas: InvoiceLine/InvoicedQuantity, CreditNoteLine/CreditedQuantity o DebitNoteLine/DebitedQuantity. -->
-<#macro lineas elemento cantidad>
+<#-- Líneas: InvoiceLine/InvoicedQuantity, CreditNoteLine/CreditedQuantity o DebitNoteLine/DebitedQuantity. renta=true en la liquidación de compra (#327): cada línea lleva
+     además el TaxSubtotal 3000 de la retención de renta. -->
+<#-- LOG-04: la cantidad sale con todos sus decimales (el dominio admite 10, an..12,10) y sin redondear: con "0.####" (HALF_EVEN) 0.00004 salía «0» (2024) y
+     0.12345 «0.1234» con un LineExtensionAmount calculado con 0.12345 (3271). Igual que DeliveredQuantity en despatch-advice.ftl. -->
+<#macro lineas elemento cantidad renta=false>
   <#list tot.items() as it>
   <cac:${elemento}>
     <cbc:ID>${(it?index + 1)?c}</cbc:ID>
-    <cbc:${cantidad} unitCode="${it.item().unidad()}" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">${it.item().cantidad()?string["0.####"]}</cbc:${cantidad}>
+    <cbc:${cantidad} unitCode="${it.item().unidad()}" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">${it.item().cantidad()?string["0.##########"]}</cbc:${cantidad}>
     <cbc:LineExtensionAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:LineExtensionAmount>
     <cac:PricingReference>
       <cac:AlternativeConditionPrice>
@@ -316,25 +336,8 @@
       </#if>
     </cac:Delivery>
     </#if>
-    <#if it.item().tieneDescuento()>
-    <cac:AllowanceCharge>
-      <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
-      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
-      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
-      <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
-      <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
-    </cac:AllowanceCharge>
-    </#if>
-    <#-- Cargos de línea (catálogo 53: 47 afecta la base del IGV, 48 no). Reglas 3114, 3073, 3052, 2955, 3053, 3290. -->
-    <#list it.cargos() as cg>
-    <cac:AllowanceCharge>
-      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
-      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
-      <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
-      <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
-      <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
-    </cac:AllowanceCharge>
-    </#list>
+    <#-- #305: InvoiceLine lleva los descuentos y cargos de línea antes del TaxTotal; CreditNoteLine y DebitNoteLine, después (orden del XSD UBL 2.1). -->
+    <#if elemento == "InvoiceLine"><@cargosDeLinea it/></#if>
     <cac:TaxTotal>
       <cbc:TaxAmount currencyID="${c.moneda()}">${it.totalTributos()}</cbc:TaxAmount>
       <#-- ISC (2000): base = valor de venta (01/02) o PVP sugerido × cantidad (03), TierRange = sistema (catálogo 08); reglas 3108, 2373. -->
@@ -350,11 +353,23 @@
         </cac:TaxCategory>
       </cac:TaxSubtotal>
       </#if>
-      <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem y monto unitario vigente (reglas 3236–3238). -->
+      <#-- Otros tributos (9999, #317): base = valor de venta de la línea, tasa y monto (reglas 3109, 3102, 3050: sin afectación del IGV); suman al total y no a la base del IGV. -->
+      <#if it.tieneOtrosTributos()>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${it.otrosTributos()}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].OTROS>
+          <cbc:Percent>${it.otrosTributosPorcentaje()?string["0.00###"]}</cbc:Percent>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
+      <#-- ICBPER (7152): sin base ni tasa; bolsas = cantidad del ítem, entera (2892: icbperBolsas lanza en vez de redondear) y monto unitario vigente (reglas 3236–3238). -->
       <#if it.tieneIcbper()>
       <cac:TaxSubtotal>
         <cbc:TaxAmount currencyID="${c.moneda()}">${it.icbper()}</cbc:TaxAmount>
-        <cbc:BaseUnitMeasure unitCode="NIU">${it.item().cantidad()?string["0"]}</cbc:BaseUnitMeasure>
+        <cbc:BaseUnitMeasure unitCode="NIU">${it.icbperBolsas()?c}</cbc:BaseUnitMeasure>
         <cac:TaxCategory>
           <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].ICBPER>
           <cbc:PerUnitAmount currencyID="${c.moneda()}">${it.icbperUnitario()}</cbc:PerUnitAmount>
@@ -372,7 +387,21 @@
           </@categoriaTributo>
         </cac:TaxCategory>
       </cac:TaxSubtotal>
+      <#-- Retención de renta de la línea (#327, LiquidacionCompra2_0 filas 200–217): base = valor de venta (4294), monto = base × tasa (2464), tasa vigente (4237) y sin
+           afectación del IGV (3050). No suma al TaxAmount de la línea, que es solo 1000 + 9999 (4293). -->
+      <#if renta>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="${c.moneda()}">${it.valorVenta()}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="${c.moneda()}">${c.liquidacion().rentaDe(it)}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <@categoriaTributo tr=statics["pe.factura.domain.documento.Tributo"].RENTA>
+          <cbc:Percent>${c.liquidacion().tasaRetencionRenta()?string["0.00###"]}</cbc:Percent>
+          </@categoriaTributo>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      </#if>
     </cac:TaxTotal>
+    <#if elemento != "InvoiceLine"><@cargosDeLinea it/></#if>
     <cac:Item>
       <cbc:Description>${it.item().descripcion()}</cbc:Description>
       <#if it.item().codigo()??><cac:SellersItemIdentification><cbc:ID>${it.item().codigo()}</cbc:ID></cac:SellersItemIdentification></#if>
@@ -397,8 +426,35 @@
         <cbc:ValueQuantity unitCode="TNE">${h.cantidad()}</cbc:ValueQuantity>
       </cac:AdditionalItemProperty>
       </#if>
+      <#-- Placa del vehículo automotor (#317, campo 30): propiedad 7000 del catálogo 55, valor de hasta 8 caracteres (3064). -->
+      <#if it.item().tienePlaca()>
+      <@propiedadItem codigo="7000" nombre="Gastos Art. 37 Renta: Número de Placa" valor=it.item().placa()/>
+      </#if>
     </cac:Item>
     <cac:Price><cbc:PriceAmount currencyID="${c.moneda()}">${it.valorUnitario()?string["0.0000000000"]}</cbc:PriceAmount></cac:Price>
   </cac:${elemento}>
   </#list>
+</#macro>
+
+<#-- Descuento (00/01) y cargos (47/48) de una línea. -->
+<#macro cargosDeLinea it>
+    <#if it.item().tieneDescuento()>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${it.item().descuento().codigoSunat(false)}</cbc:AllowanceChargeReasonCode>
+      <#if it.descuentoFactor().isPresent()><cbc:MultiplierFactorNumeric>${it.descuentoFactor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${it.descuento()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${it.baseBruta()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#if>
+    <#-- Cargos de línea (catálogo 53: 47 afecta la base del IGV, 48 no). Reglas 3114, 3073, 3052, 2955, 3053, 3290. -->
+    <#list it.cargos() as cg>
+    <cac:AllowanceCharge>
+      <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+      <cbc:AllowanceChargeReasonCode listAgencyName="PE:SUNAT" listName="Cargo/descuento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53">${cg.codigo()}</cbc:AllowanceChargeReasonCode>
+      <#if cg.factor().isPresent()><cbc:MultiplierFactorNumeric>${cg.factor().get()?string["0.00000"]}</cbc:MultiplierFactorNumeric></#if>
+      <cbc:Amount currencyID="${c.moneda()}">${cg.monto()}</cbc:Amount>
+      <cbc:BaseAmount currencyID="${c.moneda()}">${cg.base()}</cbc:BaseAmount>
+    </cac:AllowanceCharge>
+    </#list>
 </#macro>

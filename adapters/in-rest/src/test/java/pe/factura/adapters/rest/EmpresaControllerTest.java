@@ -2,13 +2,14 @@ package pe.factura.adapters.rest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.tenant.*;
 
 import pe.factura.domain.DomainException;
@@ -23,12 +24,12 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class, AdminIntegridadController.class}, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {EmpresaController.class, AdminTenantController.class, AdminIntegridadController.class})
 @Import(GlobalExceptionHandler.class)
 class EmpresaControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean AdministrarTenantUseCase admin;
-    @MockBean pe.factura.application.port.in.VerificarIntegridadUseCase integridad;
+    @MockitoBean AdministrarTenantUseCase admin;
+    @MockitoBean pe.factura.application.port.in.VerificarIntegridadUseCase integridad;
     UUID tenant = UUID.randomUUID();
     UUID cuenta = UUID.randomUUID();
 
@@ -40,7 +41,34 @@ class EmpresaControllerTest {
                 .andExpect(jsonPath("$.datos.ruc").value("20100066603"))
                 .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(true))
                 .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").value("2030-01-01"))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))));
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("moddatos"))))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas").doesNotExist())
+                .andExpect(jsonPath("$.datos.tiene_credenciales_api_sunat").value(false));
+    }
+
+    /** #107: el portal dice que SUNAT rechazó las credenciales, desde cuándo y por qué. */
+    @Test void diceSiSunatRechazoLasCredencialesSol() throws Exception {
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, new CredencialesSol("MODDATOS", "moddatos"), null));
+        when(admin.rechazoDeSol(tenant)).thenReturn(java.util.Optional.of(
+                new pe.factura.application.port.out.RechazoDeSolRepository.Rechazo(java.time.Instant.parse("2026-10-09T15:00:00Z"), "0102 - Usuario o contrasena incorrectos")));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas.desde").value("2026-10-09T15:00:00Z"))
+                .andExpect(jsonPath("$.datos.credenciales_sol_rechazadas.motivo").value("0102 - Usuario o contrasena incorrectos"));
+    }
+
+    /** El portal decide si se puede emitir con esto (C2): un certificado sin fecha de vigencia también está cargado. */
+    @Test void dicePorSeparadoSiHayCertificadoYHastaCuandoVale() throws Exception {
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null,
+                new CertificadoDigital(new byte[]{1}, "clave", null)));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(true))
+                .andExpect(jsonPath("$.datos.certificado_vigencia_hasta").doesNotExist());
+
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.tiene_certificado").value(false))
+                .andExpect(jsonPath("$.datos.tiene_credenciales_sol").value(false));
     }
 
     @Test void datosFiscalesEntranYSalen() throws Exception {
@@ -89,6 +117,37 @@ class EmpresaControllerTest {
         verify(admin).cargarCredencialesSol(tenant, "MODDATOS", "moddatos");
     }
 
+    /** #318: se guardan y se borran como las SOL; la empresa dice si las tiene, nunca cuáles son. */
+    @Test void credencialesApiSunatSeGuardanSeBorranYNuncaVuelven() throws Exception {
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json")
+                        .content("{\"client_id\":\"d20b421e-4ace-46d8-ac8c-4fbb44cfde17\",\"client_secret\":\"HhWwZVo8ZaWm4BZ7n/xEzw==\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNoContent());
+        verify(admin).cargarCredencialesApiSunat(tenant, "d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw==");
+
+        mvc.perform(delete("/v1/empresa/credenciales-api-sunat").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(status().isNoContent());
+        verify(admin).borrarCredencialesApiSunat(tenant);
+
+        when(admin.obtener(tenant)).thenReturn(new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null)
+                .conCredencialesApiSunat(new CredencialesApiSunat("d20b421e-4ace-46d8-ac8c-4fbb44cfde17", "HhWwZVo8ZaWm4BZ7n/xEzw==")));
+        mvc.perform(get("/v1/empresa").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.tiene_credenciales_api_sunat").value(true))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("HhWwZVo8"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("d20b421e"))));
+    }
+
+    @Test void credencialesApiSunatIncompletasSonUnErrorDeValidacion() throws Exception {
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"abc\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"  \",\"client_secret\":\"x\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        verify(admin, never()).cargarCredencialesApiSunat(any(), any(), any());
+
+        doThrow(new DomainException("CREDENCIALES_API_SUNAT_INVALIDAS", "El client_id de la API SUNAT no admite espacios")).when(admin).cargarCredencialesApiSunat(any(), any(), any());
+        mvc.perform(put("/v1/empresa/credenciales-api-sunat").contentType("application/json").content("{\"client_id\":\"a b\",\"client_secret\":\"x\"}").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("CREDENCIALES_API_SUNAT_INVALIDAS"));
+    }
+
     @Test void crearSerieYListar() throws Exception {
         when(admin.listarSeries(tenant)).thenReturn(List.of(new Serie(tenant, TipoDocumento.FACTURA, "F001", 0, true)));
         mvc.perform(post("/v1/series").contentType("application/json").content("{\"tipo\":\"01\",\"serie\":\"F001\",\"correlativo_inicial\":0}").requestAttr(TenantActual.ATRIBUTO, tenant))
@@ -129,6 +188,18 @@ class EmpresaControllerTest {
                         .param("clave", "x").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("ARCHIVO_DEMASIADO_GRANDE"));
+    }
+
+    /** DEPS-02: el tope de partes de Tomcat llega envuelto en la misma MaxUploadSizeExceededException; la respuesta nombra ese límite, no el tamaño del archivo. */
+    @Test void multipartConMasPartesDeLasPermitidasEs422ConSuPropioCodigo() throws Exception {
+        var tope = new org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException("attachment", 5);
+        org.mockito.Mockito.doThrow(new org.springframework.web.multipart.MaxUploadSizeExceededException(-1, new IllegalStateException(tope)))
+                .when(admin).cargarCertificado(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        mvc.perform(multipart("/v1/empresa/certificado").file(new MockMultipartFile("archivo", "c.p12", "application/x-pkcs12", new byte[]{1, 2}))
+                        .param("clave", "x").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("DEMASIADAS_PARTES"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("máximo 5")));
     }
 
     @Test void establecimientosAnexos() throws Exception {
@@ -239,12 +310,34 @@ class EmpresaControllerTest {
         mvc.perform(post("/v1/admin/integridad").param("desde", "2026-09-01")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
-    @Test void adminCreaTenant() throws Exception {
+    private static final String CUERPO_TENANT = "{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA SAC\",\"entorno\":\"BETA\"}";
+
+    @Test void adminCreaTenantAtribuidoAlAdministradorQueTieneSesion() throws Exception {
+        UUID administrador = UUID.randomUUID();
+        ActorAdmin actor = ActorAdmin.administrador(administrador, "203.0.113.7");
         Tenant t = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null);
-        when(admin.crearTenant("20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
-        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content("{\"ruc\":\"20100066603\",\"razon_social\":\"EMPRESA SAC\",\"entorno\":\"BETA\"}"))
+        when(admin.crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT)
+                        .requestAttr(AdministradorActual.ATRIBUTO, administrador).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.tenant_id").value(tenant.toString()))
                 .andExpect(jsonPath("$.datos.api_key").value("fk_primera"));
+    }
+
+    @Test void adminCreaTenantAtribuidoALaClaveDePlataformaSiVinoPorEllaDesdeSuIp() throws Exception {
+        ActorAdmin actor = ActorAdmin.clavePlataforma("198.51.100.4");
+        Tenant t = new Tenant(tenant, "20100066603", "EMPRESA SAC", Entorno.BETA, null, null);
+        when(admin.crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA)).thenReturn(new AdministrarTenantUseCase.TenantCreado(t, "fk_primera"));
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT)
+                        .requestAttr(AdministradorActual.ATRIBUTO_CLAVE_PLATAFORMA, Boolean.TRUE).with(r -> { r.setRemoteAddr("198.51.100.4"); return r; }))
+                .andExpect(status().isCreated());
+        verify(admin).crearTenant(actor, "20100066603", "EMPRESA SAC", Entorno.BETA);
+    }
+
+    @Test void adminCreaTenantSinCredencialNoCreaNadaYEs401() throws Exception {
+        mvc.perform(post("/v1/admin/tenants").contentType("application/json").content(CUERPO_TENANT))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("NO_AUTORIZADO"));
+        verify(admin, never()).crearTenant(any(), any(), any(), any());
     }
 }

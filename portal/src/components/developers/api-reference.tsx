@@ -4,6 +4,7 @@ import { ApiReferenceReact } from "@scalar/api-reference-react";
 import "@scalar/api-reference-react/style.css";
 import { useTheme } from "next-themes";
 import { type ComponentProps, useEffect } from "react";
+import { tecnico } from "@/lib/developers/tecnico";
 
 // "agent" (botón "Ask AI") no está en los tipos de @scalar/types@0.19.0, pero @scalar/api-reference@1.68.0
 // (la versión real que trae api-reference-react@0.9.67) sí lo lee en tiempo de ejecución: revisamos el
@@ -13,7 +14,7 @@ type ScalarConfiguration = ComponentProps<typeof ApiReferenceReact>["configurati
   agent?: { disabled?: boolean };
 };
 
-const CUSTOM_CSS = `
+const CUSTOM_CSS = tecnico`
 :root {
   --scalar-font: var(--font-sans);
   --scalar-font-code: var(--font-mono);
@@ -70,6 +71,13 @@ export function ApiReference({ spec, baseServerURL, apiKey }: { spec: Record<str
     mcp: { disabled: true },
     agent: { disabled: true },
     hideClientButton: true,
+    // DEPS-01: nada sale hacia scalar.com. Con `proxyUrl` indefinido Scalar manda cada «Test Request» por
+    // https://proxy.scalar.com (con la API key real del tenant y el cuerpo del ejemplo: datos personales de terceros);
+    // cualquier valor definido anula ese default y "" es «sin proxy», posible porque el backend admite CORS desde
+    // PORTAL_URL con X-Api-Key. `withDefaultFonts` cargaría Inter desde fonts.scalar.com y `telemetry` viene activada.
+    proxyUrl: "",
+    withDefaultFonts: false,
+    telemetry: false,
     authentication: apiKey ? { securitySchemes: { ApiKey: { value: apiKey } } } : undefined,
   };
 

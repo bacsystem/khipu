@@ -8,7 +8,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  jackson:
+  # DEPS-02: Boot 4 sirve JSON con Jackson 3 por defecto; la API sigue en Jackson 2 (los controladores inyectan su ObjectMapper y swagger-core lo exige) hasta
+  # migrarla, así que el mapper preferido es el 2 y su configuración vive bajo spring.jackson2.
+  http:
+    converters:
+      preferred-json-mapper: jackson2
+  jackson2:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
   servlet:
@@ -19,8 +24,19 @@ spring:
       file-size-threshold: 2MB
       max-file-size: 1MB
       max-request-size: 2MB
+  mvc:
+    async:
+      # Las descargas que se escriben mientras se leen (ZIP de comprobantes #324, exportación #321) corren como respuesta asíncrona. Tiempo máximo explícito (el de Tomcat
+      # por defecto, 30 s, cortaba exportaciones grandes): pasado, la conexión se corta y el cliente recibe un archivo incompleto, que reconoce por el corte.
+      request-timeout: ${DESCARGAS_TIMEOUT:120s}
 server:
   port: ${PORT:8001}
+  tomcat:
+    # DEPS-02: los dos únicos multipart del sistema suben una sola parte (el .p12 y el logo). Tomcat limita el número de partes y el tamaño de sus cabeceras
+    # desde las CVE-2025-48976/48988 (DoS por decenas de miles de partes en 2 MB); aquí se bajan a lo que la API necesita. Una petición con más partes
+    # responde 422 DEMASIADAS_PARTES (GlobalExceptionHandler), que nombra este tope.
+    max-part-count: 5
+    max-part-header-size: 512B
 management:
   endpoints:
     web:
@@ -45,15 +61,35 @@ management:
 springdoc:
   api-docs:
     path: /openapi.json
+    # DEPS-02: springdoc 3.x emite OpenAPI 3.1 por defecto (sin `type: object` en los esquemas, entre otros cambios); el portal genera sus tipos del 3.0 commiteado, así que se mantiene 3.0.
+    version: openapi_3_0
   swagger-ui:
     path: /swagger-ui
 app:
   mode: ${APP_MODE:multi}
   master-key: ${MASTER_KEY:}
   api-key-pepper: ${API_KEY_PEPPER:}
+  # S2: para rotar. La de antes, mientras se termina de recifrar (MASTER_KEY) o de re-hashear las keys en uso (API_KEY_PEPPER). Vacías: no se está rotando.
+  master-key-anterior: ${MASTER_KEY_ANTERIOR:}
+  api-key-pepper-anterior: ${API_KEY_PEPPER_ANTERIOR:}
   platform-admin-key: ${PLATFORM_ADMIN_KEY:}
   jwt-secret: ${JWT_SECRET:}
   portal-url: ${PORTAL_URL:http://localhost:3000}
+  # Cerrado por defecto (issue #174): el portal ya cerraba su propia ruta de registro, pero el backend la dejaba
+  # abierta a quien lo llamara directo. Abrirlo es una decisión explícita de despliegue, no el estado de reposo.
+  registro-abierto: ${REGISTRO_ABIERTO:false}
+  # #342: versión vigente de los términos del servicio y la política de privacidad, las dos juntas. Es la misma que
+  # VERSION_TEXTOS_LEGALES en portal/src/content/legal/version.ts (TerminosVersionTest lo comprueba): cambian en el mismo commit
+  # que el texto. Subirla deja pendientes a todos los usuarios, que vuelven a aceptar al entrar. A propósito sin variable de entorno:
+  # la versión acompaña al texto, que vive en el código, no a un despliegue. Ver deploy/README.md, «Términos y privacidad».
+  terminos-version: "2026-10-21"
+  # IP del cliente detrás de proxies (#208). Expresión regular de las IPs de los proxies de los que se acepta `X-Forwarded-For`
+  # (p. ej. el BFF del portal). Vacío por defecto: no se confía en la cabecera y se registra la IP de la conexión. Se calibra con
+  # `GET /v1/admin/origen`; ver deploy/README.md. Ver ProxyDeConfianzaConfig.
+  trusted-proxies: ${TRUSTED_PROXIES:}
+  # Vida de la sesión del administrador del backoffice, en minutos (#177): entre 5 y 60, o el arranque aborta. Sin refresh: al vencer
+  # se vuelve a entrar con contraseña y segundo factor.
+  admin-sesion-minutos: ${ADMIN_SESION_MINUTOS:30}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}
@@ -68,26 +104,111 @@ app:
   integridad:
     dias: ${INTEGRIDAD_DIAS:7}
     intervalo-ms: ${INTEGRIDAD_INTERVALO_MS:86400000}
+  monitor:
+    # #362 B14: horas que un resumen diario o una baja con ticket puede llevar sin respuesta de SUNAT antes de que el monitor del backoffice lo marque (1 a 168). El worker no
+    # se rinde nunca con un ticket (lo reconsulta con intervalo creciente, hasta cada 5 min): esto solo avisa, no cambia lo que hace.
+    resumen-sin-respuesta-horas: ${MONITOR_RESUMEN_SIN_RESPUESTA_HORAS:6}
+  # #19: webhooks de cambio de estado de comprobante. Solo para desarrollo y pruebas: aceptar destinos http y direcciones internas (un receptor en localhost). En producción, en falso.
+  webhooks:
+    permitir-http: ${WEBHOOKS_PERMITIR_HTTP:false}
+    permitir-redes-privadas: ${WEBHOOKS_PERMITIR_REDES_PRIVADAS:false}
+    intervalo-ms: ${WEBHOOKS_INTERVALO_MS:5000}
+    # Hilos que entregan en paralelo (un endpoint por hilo, en orden). 1 a 64.
+    hilos: ${WEBHOOKS_HILOS:8}
+  # #325: envío automático del comprobante aceptado a su cliente (lo activa cada empresa; necesita MAIL_HABILITADO). Cada cuánto se mandan los pendientes.
+  envio-al-cliente:
+    intervalo-ms: ${ENVIO_AL_CLIENTE_INTERVALO_MS:10000}
+  # #341: alertas al operador de la plataforma cuando algo falla en silencio (envíos a SUNAT, FUERA_DE_PLAZO, resúmenes sin respuesta, respaldo, correo, certificados). Siempre
+  # salen por el log (ERROR); con ALERTAS_EMAIL y/o ALERTAS_WEBHOOK_URL también llegan a ese canal. Detalle y cómo probarlo: deploy/README.md §11.
+  alertas:
+    email: ${ALERTAS_EMAIL:}
+    webhook-url: ${ALERTAS_WEBHOOK_URL:}
+    # Cada cuántas horas se repite un problema que sigue sin resolverse (1 a 168).
+    repetir-horas: ${ALERTAS_REPETIR_HORAS:24}
+    # Alerta si hay al menos esta cantidad de comprobantes con al menos esos minutos en ERROR_ENVIO.
+    error-envio-minutos: ${ALERTAS_ERROR_ENVIO_MINUTOS:30}
+    error-envio-cantidad: ${ALERTAS_ERROR_ENVIO_CANTIDAD:5}
+    # Horas máximas sin un respaldo bueno (deploy/respaldo lo anota al terminar). 0 = sin alerta; en producción, 26 (el cron es diario).
+    respaldo-horas: ${ALERTAS_RESPALDO_HORAS:0}
+    fuera-de-plazo-horas: ${ALERTAS_FUERA_DE_PLAZO_HORAS:24}
+    intervalo-ms: ${ALERTAS_INTERVALO_MS:300000}
   sunat:
     timeout-seconds: ${SUNAT_TIMEOUT_SECONDS:15}
     beta-url: https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService
     prod-url: https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService
+    # Retenciones y percepciones (#40): su propio billService (manual del programador; servicios web disponibles), que recibe los 20, 40 y sus resúmenes de reversiones.
+    otros-beta-url: https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService
+    otros-prod-url: https://e-factura.sunat.gob.pe/ol-ti-itemision-otroscpe-gem/billService
     # Consultas (#36): billConsultService (estado y CDR) y billValidService (validez); solo existen en producción.
     consulta-url: https://e-factura.sunat.gob.pe/ol-it-wsconscpegem/billConsultService
     consulta-beta-url: ${SUNAT_CONSULTA_BETA_URL:}
     validez-url: https://e-factura.sunat.gob.pe/ol-it-wsconsvalidcpe/billValidService
     validez-beta-url: ${SUNAT_VALIDEZ_BETA_URL:}
+  # #318: APIs REST de SUNAT con OAuth2 (credenciales API SUNAT de cada empresa). Hoy, la consulta integrada de validez («Manual de Consulta Integrada de Comprobante
+  # de Pago por Servicio Web» v2.0): token en <seguridad>/v1/clientesextranet/<client_id>/oauth2/token/ y consulta en <consulta>/v1/contribuyente/contribuyentes/<ruc>/
+  # validarcomprobante. SUNAT no publica una instancia de pruebas de esta consulta (solo lee datos reales), así que beta usa por defecto las mismas URLs.
+  sunat-api:
+    seguridad-url: ${SUNAT_API_SEGURIDAD_URL:https://api-seguridad.sunat.gob.pe}
+    seguridad-beta-url: ${SUNAT_API_SEGURIDAD_BETA_URL:https://api-seguridad.sunat.gob.pe}
+    consulta-url: ${SUNAT_API_CONSULTA_URL:https://api.sunat.gob.pe}
+    consulta-beta-url: ${SUNAT_API_CONSULTA_BETA_URL:https://api.sunat.gob.pe}
+    # Tope de cada llamada (token o consulta), 1 a 120 s. Corto a propósito: si no responde, se cae a billValidService (SOAP) cuando hay clave SOL.
+    timeout-seconds: ${SUNAT_API_TIMEOUT_SECONDS:10}
+    # #39: la guía de remisión electrónica (envío y ticket en <gre>/v1/contribuyente/gem/comprobantes/…; token del grant password en <seguridad>/v1/clientessol/…).
+    # SUNAT no publica una API de pruebas para la GRE y la de producción emite guías con validez tributaria: sin SUNAT_API_GRE_BETA_URL, una empresa en BETA no
+    # envía guías (se pueden emitir sin enviar). Ver deploy/README.md §14.
+    # H1: apagado por defecto. El contrato con la API GRE no se verificó contra SUNAT: el dueño lo enciende solo tras la corrida controlada de §14.
+    gre-habilitada: ${SUNAT_API_GRE_HABILITADA:false}
+    gre-url: ${SUNAT_API_GRE_URL:https://api-cpe.sunat.gob.pe}
+    # La beta (una API de pruebas de terceros) lleva su propio token: el bearer de la empresa no sale del api-seguridad real hacia un tercero. Una beta que apunte a
+    # la API o al token reales de SUNAT no deja arrancar.
+    gre-beta-url: ${SUNAT_API_GRE_BETA_URL:}
+    gre-seguridad-beta-url: ${SUNAT_API_GRE_SEGURIDAD_BETA_URL:}
+    # La GRE puede tardar más que una consulta: el envío lleva el ZIP del XML firmado.
+    gre-timeout-seconds: ${SUNAT_API_GRE_TIMEOUT_SECONDS:30}
+    # #322: la propuesta del RVIE del SIRE (api-sire.sunat.gob.pe; token del mismo api-seguridad). Solo lee. Apagado por defecto: el contrato con el SIRE no se
+    # verificó contra SUNAT; el dueño lo enciende tras la corrida controlada de deploy/README.md §15. SUNAT no publica una instancia de pruebas: beta usa la misma URL.
+    sire-habilitada: ${SUNAT_API_SIRE_HABILITADA:false}
+    sire-url: ${SUNAT_API_SIRE_URL:https://api-sire.sunat.gob.pe}
+    sire-beta-url: ${SUNAT_API_SIRE_BETA_URL:https://api-sire.sunat.gob.pe}
+    sire-timeout-seconds: ${SUNAT_API_SIRE_TIMEOUT_SECONDS:30}
   outbox:
     intervalo-ms: ${OUTBOX_INTERVALO_MS:10000}
     max-intentos: ${OUTBOX_MAX_INTENTOS:20}
+  # Padrón reducido de SUNAT (#361): ~18 millones de contribuyentes (RUC, razón social, estado, condición y domicilio). SUNAT lo renueva cada día; la carga baja ~400 MB y
+  # escribe la base, por eso está apagada por defecto. La consulta GET /v1/consultas/ruc/{ruc} responde 503 PADRON_NO_CARGADO hasta que corra la primera.
+  padron-ruc:
+    habilitado: ${PADRON_RUC_HABILITADO:false}
+    # URL de la descarga pública (.zip) o ruta de un archivo local (.zip o .txt, ISO-8859-1).
+    origen: ${PADRON_RUC_ORIGEN:https://www2.sunat.gob.pe/padron_reducido_ruc.zip}
+    # Cron de Spring, hora de Lima. SUNAT publica de madrugada.
+    cron: ${PADRON_RUC_CRON:0 30 4 * * *}
+    limite-de-descarga-minutos: ${PADRON_RUC_LIMITE_DESCARGA_MINUTOS:30}
+    # Filas mínimas de la PRIMERA carga (después se exige el 90 % de la anterior): un archivo de miles es una descarga equivocada, no el padrón.
+    minimo-primera-carga: ${PADRON_RUC_MINIMO_PRIMERA_CARGA:1000000}
+    # #378: la emisión rechaza un comprador cuyo RUC no figura en el padrón (1083) solo si la última carga tiene a lo sumo estos días; más atrasado (o sin cargar), deja pasar y avisa en el log.
+    maximo-dias-de-atraso: ${PADRON_RUC_MAXIMO_DIAS_DE_ATRASO:3}
   mail:
     habilitado: ${MAIL_HABILITADO:false}
     remitente: ${MAIL_REMITENTE:no-responder@khipu.pe}
   zona-horaria: America/Lima
+  # SOLO PARA PRUEBAS (#363). Duración ISO-8601 que se suma al reloj del backend para reproducir plazos que dependen de la fecha (-P8D = ocho días
+  # antes). Vacío = hora real. Con valor la app no arranca si hay empresas en PRODUCCION, no opera con las que pasen a serlo y deja un WARN al arrancar.
+  # Qué se mueve y qué no: deploy/README.md §10.
+  reloj-desplazamiento: ${RELOJ_DESPLAZAMIENTO:}
+# Los trabajos programados (envío a SUNAT, avisos, vigilante, webhooks) comparten estos hilos. Con uno solo (el valor por defecto de Spring), una llamada lenta
+# —un webhook o un SMTP que no responden, la descarga del padrón— frenaba el resto, incluido el envío a SUNAT. Cada trabajo sigue sin solaparse consigo mismo.
+spring.task.scheduling.pool.size: ${SCHEDULER_HILOS:4}
 spring.mail:
   host: ${MAIL_HOST:}
   port: ${MAIL_PORT:587}
   username: ${MAIL_USERNAME:}
   password: ${MAIL_PASSWORD:}
-  properties.mail.smtp.auth: true
+  # Con usuario y clave vacíos, Spring no autentica: contra un SMTP sin credenciales (Mailpit en local) hay que poner
+  # MAIL_SMTP_AUTH=false. Por defecto sigue siendo true, como en producción.
+  properties.mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
   properties.mail.smtp.starttls.enable: true
+  # Sin estos tiempos un SMTP que no responde cuelga al hilo que manda el correo indefinidamente (JavaMail no trae tope).
+  properties.mail.smtp.connectiontimeout: ${MAIL_TIMEOUT_MS:10000}
+  properties.mail.smtp.timeout: ${MAIL_TIMEOUT_MS:10000}
+  properties.mail.smtp.writetimeout: ${MAIL_TIMEOUT_MS:10000}

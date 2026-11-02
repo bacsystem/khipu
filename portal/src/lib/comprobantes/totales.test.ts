@@ -4,31 +4,46 @@ import { calcularTotales, esGratuita, factorIgv, redondear } from "./totales";
 const gravado = (cantidad: number, precioUnitario: number) => ({ cantidad, precioUnitario, tipoAfectacionIgv: "10" });
 
 describe("calcularTotales", () => {
+  /** #117: IVAP y exportación no se previsualizan; antes devolvían S/ 0.00 en silencio. Ahora lo dicen, para que la pantalla no lo muestre como importe. */
+  it("dice qué afectaciones no sabe calcular en vez de sumarlas como cero", () => {
+    const r = calcularTotales([gravado(1, 118), { cantidad: 1, precioUnitario: 50, tipoAfectacionIgv: "17" }, { cantidad: 1, precioUnitario: 30, tipoAfectacionIgv: "40" }, { cantidad: 1, precioUnitario: 7, tipoAfectacionIgv: "40" }], 18);
+    expect(r.noContempladas).toEqual(["17", "40"]);
+    expect(r.total).toBe(118);
+    expect(calcularTotales([gravado(1, 118)], 18).noContempladas).toEqual([]);
+  });
+
   it("separa el IGV del precio por línea, como el dominio", () => {
-    // 1000 / 1.18 = 847.4576271186 (10 dec) → × 2 = 1694.92 → IGV 305.09.
+    // 1000 / 1.18 = 847.4576271186 (10 dec) → × 2 = 1694.92 → IGV lo que falta para 2000.00: 305.08.
     expect(calcularTotales([gravado(2, 1000)], 18)).toEqual({
       gravado: 1694.92,
       exonerado: 0,
       inafecto: 0,
       gratuito: 0,
-      igv: 305.09,
-      total: 2000.01,
+      igv: 305.08,
+      total: 2000,
+      noContempladas: [],
     });
   });
 
-  it("el total puede no coincidir con precio × cantidad: el redondeo es por línea", () => {
-    // Calcular sobre el total (2000 / 1.18 = 1694.92, IGV 305.08, total 2000.00) da un céntimo menos que el
-    // comprobante real, porque SUNAT exige el importe de cada línea redondeado a 2 decimales.
-    const { total } = calcularTotales([gravado(2, 1000)], 18);
-    expect(total).toBe(2000.01);
-    expect(total).not.toBe(2000);
+  /** H9: antes el IGV salía de la base redondeada (1694.92 × 18 % = 305.09) y el total era 2000.01, o 9.99 por un precio de 10.00. */
+  it("el total es el precio con IGV por la cantidad: 10.00 se paga 10.00", () => {
+    expect(calcularTotales([gravado(2, 1000)], 18).total).toBe(2000);
+    expect(calcularTotales([gravado(1, 10)], 18)).toMatchObject({ gravado: 8.47, igv: 1.53, total: 10 });
+  });
+
+  /** Regla 3291: con muchas líneas el desvío de milésimos se acumula; pasado 0.50 el comprobante vuelve a base × tasa, como `Totales` en el dominio. */
+  it("si la suma del IGV se aleja más de 0.50 de base × tasa, vuelve a base × tasa", () => {
+    const lineas = (n: number) => Array.from({ length: n }, () => gravado(1, 10));
+    expect(calcularTotales(lineas(90), 18)).toMatchObject({ igv: 137.7, total: 900 });
+    expect(calcularTotales(lineas(100), 18)).toMatchObject({ igv: 152, total: 999 });
   });
 
   it("suma varias líneas gravadas acumulando línea por línea", () => {
     expect(calcularTotales([gravado(2, 1000), gravado(1, 500)], 18)).toMatchObject({
       gravado: 2118.65,
-      igv: 381.36,
-      total: 2500.01,
+      igv: 381.35,
+      total: 2500,
+      noContempladas: [],
     });
   });
 
@@ -54,6 +69,7 @@ describe("calcularTotales", () => {
       gratuito: 100,
       igv: 15.51,
       total: 551.7,
+      noContempladas: [],
     });
   });
 
@@ -73,10 +89,12 @@ describe("calcularTotales", () => {
    * de …0847. Un diezmilmillonésimo que acá se vuelve un céntimo. Contrastado contra la cadena de `ItemCalculado`.
    */
   it("acierta el céntimo con cantidades fraccionarias, donde el punto flotante fallaba", () => {
+    // 0.59 × 1208.79 = 713.1861 → se paga 713.19 (H9); la base es la del dominio.
     expect(calcularTotales([gravado(0.59, 1208.79)], 18)).toMatchObject({
       gravado: 604.39,
-      igv: 108.79,
-      total: 713.18,
+      igv: 108.8,
+      total: 713.19,
+      noContempladas: [],
     });
   });
 

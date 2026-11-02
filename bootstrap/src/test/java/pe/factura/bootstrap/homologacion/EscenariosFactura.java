@@ -37,7 +37,8 @@ final class EscenariosFactura {
     static List<Escenario> todos(String serie, String serieAnexo, LocalDate fecha) {
         String cab = "\"serie\":\"" + serie + "\",\"fecha_emision\":\"" + fecha + "\"";
         String cabAnexo = "\"serie\":\"" + serieAnexo + "\",\"fecha_emision\":\"" + fecha + "\"";
-        return List.of(
+        String cabBoleta = "\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
+        List<Escenario> base = List.of(
             new Escenario("01-gravada", "Venta interna gravada al contado",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"codigo\":\"SRV-001\",\"descripcion\":\"Servicio de consultoría\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]}"),
@@ -78,6 +79,11 @@ final class EscenariosFactura {
                 "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
                 "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // #288: el formulario del portal manda 1003 con el código 028 (transporte de pasajeros, 3129); la detracción 1001 ya estaba probada, esta no.
+            new Escenario("10b-detraccion-pasajeros", "Transporte de pasajeros con detracción (1003, código 028)",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1003\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de transporte de pasajeros\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"028\",\"porcentaje\":10,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
             new Escenario("11-retencion", "Con retención del IGV informada (62)",
                 "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
                 "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
@@ -152,9 +158,315 @@ final class EscenariosFactura {
                 "\"transporte\":{\"origen\":{\"ubigeo\":\"021801\",\"direccion\":\"Av. Los Pescadores 450, Chimbote\"},\"destino\":{\"ubigeo\":\"150101\",\"direccion\":\"Jr. de la Union 100, Lima\"}," +
                 "\"detalle_viaje\":\"Traslado de 20 t de harina de pescado en camion furgon\",\"valor_referencial\":{\"servicio\":2500,\"carga_efectiva\":2400,\"carga_util_nominal\":2600}," +
                 "\"tramos\":[{\"origen_ubigeo\":\"021801\",\"destino_ubigeo\":\"150101\",\"descripcion\":\"Chimbote - Lima por Panamericana Norte\",\"valor_carga_efectiva\":2400,\"vehiculos\":[{\"configuracion\":\"T3S3\",\"carga_util_tm\":30,\"carga_efectiva_tm\":20}]}]}}]," +
-                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}")
+                "\"detraccion\":{\"codigo_bien_servicio\":\"027\",\"porcentaje\":4,\"cuenta_banco_nacion\":\"00-000-123456\"}}"),
+            // #388: SUNAT no admite descuentos ni cargos en una nota (3271, 3277): la nota total de una factura con ellos sale con las líneas netas, sin AllowanceCharge.
+            new Escenario("44-desc-cargo-mixto", "Factura con descuento (00) y cargo (47) de línea, y descuento (02) y cargo (49) globales",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Con descuento\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}," +
+                "{\"descripcion\":\"Con flete\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"porcentaje\":10}]}," +
+                "{\"descripcion\":\"Sin ajuste\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"descuento_global\":{\"porcentaje\":2},\"cargos\":[{\"monto\":10.00}]}"),
+            new Escenario("29-nc-total-descuento-item", "Nota de crédito total (01) sobre la factura con descuentos y cargos de línea y globales (44)", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_MIXTO}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación por error en el pedido\"}"),
+            // #388: el cargo de línea (47) de una nota de débito pasa al valor de la línea.
+            new Escenario("30-nd-cargo-item", "Nota de débito (02) con cargo por ítem sobre la factura gravada", NOTAS,
+                "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${GRAVADA}}," +
+                "\"motivo\":\"02\",\"descripcion\":\"Aumento en el valor por gastos de envío\",\"items\":[" +
+                "{\"descripcion\":\"Aumento de valor\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"," +
+                "\"cargos\":[{\"monto\":10.00}]}]}"),
+            // #306: la nota de débito sobre una exportación hereda Incoterm (DeliveryTerms). El cargo global no afecta la base (la exportación no tiene ítems gravados): queda
+            // como estaba en la nota, que es lo que este escenario comprueba contra SUNAT. Un descuento que no afecta la base no va: la 3280 de la nota no lo resta del total.
+            new Escenario("31-nd-exportacion-cargo-global", "Nota de débito (01) sobre la exportación, con un cargo global que no afecta la base", NOTAS,
+                "{\"tipo\":\"08\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${EXPORTACION}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Intereses por mora de 30 días\",\"items\":[" +
+                "{\"descripcion\":\"Intereses por mora\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":100.00,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"cargos\":[{\"monto\":50.00,\"afecta_base_igv\":false}]}"),
+            // Un solo descuento, de línea o global: aíslan qué rechazaba e-beta en la nota total (3271 el de línea, 3277 el global).
+            new Escenario("40-desc-item", "Factura con un solo descuento de línea",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}]}"),
+            new Escenario("41-desc-global", "Factura con un solo descuento global",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}],\"descuento_global\":{\"porcentaje\":2}}"),
+            new Escenario("42-nc-desc-item", "NC total sobre la factura con un solo descuento de línea", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_ITEM}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            new Escenario("43-nc-desc-global", "NC total sobre la factura con un solo descuento global", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${DESC_GLOBAL}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            // #388: las reglas 3271/3277 de las hojas de nota dicen «si el documento que modifica es 01»; una nota sobre una boleta (03) se prueba aparte.
+            new Escenario("45-boleta-descuentos", "Boleta con descuento de línea y descuento global",
+                "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Monitor\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\",\"descuento\":{\"porcentaje\":10}}," +
+                "{\"descripcion\":\"Cable\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}],\"descuento_global\":{\"porcentaje\":2}}"),
+            new Escenario("46-nc-boleta-descuentos", "NC total (01) sobre la boleta con descuentos", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_DESC}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            // #387: boleta con una línea onerosa y una bonificación (15). Su baja (RC en estado 3) NO informa la gratuita: e-beta rechaza el 05 y el 06 (2256).
+            new Escenario("32-boleta-gratuita", "Boleta con bonificación gratuita (paso 1 de 2: la baja va al final, en el resumen diario)",
+                "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}"),
+            // #394: el 0401 es el único tipo de operación sin datos extra que e-beta acepta además de los de los escenarios anteriores. e-beta rechazó el 0112, 0301, 0302, 2002,
+            // 2100–2102, 2104 y 2106 (khipu ya no los numera) y aceptó el 2103, que khipu tampoco emite: es de RUC del SEE-Empresas supervisadas (1080). Hospedaje y paquete
+            // turístico (0202, 0205) nunca llegan a e-beta: se frenan por el huésped.
+            new Escenario("47-no-domiciliado", "Venta a no domiciliado que no califica como exportación (0401)",
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0401\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            // #296: la exportación y el 0401 en boleta. e-beta acepta al comprador con pasaporte, con DNI y sin documento, y rechaza con 2800 al comprador con RUC (Boleta2_0 fila 93).
+            new Escenario("49-boleta-exportacion", "Boleta de exportación de bienes (0200) a un comprador con pasaporte, afectación 40 e Incoterm FOB",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0200\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"7\",\"num_doc\":\"US123456\",\"razon_social\":\"JOHN SMITH\",\"pais\":\"US\"}," +
+                "\"items\":[{\"codigo\":\"CAF-01\",\"descripcion\":\"Café verde en grano\",\"unidad\":\"KGM\",\"cantidad\":10,\"precio_unitario\":4.50,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"incoterm\":\"FOB\"}}"),
+            new Escenario("50-boleta-exportacion-servicio", "Boleta de exportación de servicios (0201) con el país de uso",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0201\",\"moneda\":\"USD\"," +
+                "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\",\"pais\":\"US\"}," +
+                "\"items\":[{\"descripcion\":\"Servicio de consultoría\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"40\"}]," +
+                "\"exportacion\":{\"pais_uso\":\"US\"}}"),
+            new Escenario("51-boleta-no-domiciliado", "Boleta a no domiciliado sin documento (0401), hasta S/ 700",
+                "{" + cabBoleta + ",\"tipo_operacion\":\"0401\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("52-nc-boleta-exportacion", "NC total (01) sobre la boleta de exportación", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_EXPORTACION}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"),
+            // #295: anticipos en boleta (Boleta2_0 3211–3220, 3287). El comprobante del anticipo es una boleta (03) o una factura (02) del mismo comprador.
+            new Escenario("54-boleta-anticipo", "Boleta de anticipo (paso 1 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Anticipo por obra\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":590.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("55-boleta-anticipo-final", "Boleta final que regulariza el anticipo de una boleta (paso 2 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":2360.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"anticipos\":[{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ANTICIPO},\"monto\":500.00}]}"),
+            new Escenario("56-factura-anticipo-para-boleta", "Factura de anticipo que regulariza una boleta (paso 1 de 2)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Anticipo por obra\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("57-boleta-anticipo-de-factura", "Boleta final con RUC que regulariza el anticipo de una factura (paso 2 de 2)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Obra completa\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":3540.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"anticipos\":[{\"serie\":\"" + serie + "\",\"numero\":${ANTICIPO_PARA_BOLETA},\"monto\":1000.00}]}"),
+            // #317: otros tributos (9999) por línea y placa del vehículo (propiedad 7000), p. ej. un grifo. Los otros tributos suman al total y no a la base del IGV.
+            new Escenario("59-otros-tributos-y-placa", "Factura con otros tributos (9999, 3.5 %) y placa del vehículo (7000)",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":10,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}," +
+                "{\"descripcion\":\"Lubricante\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}"),
+            new Escenario("60-boleta-otros-tributos", "Boleta con otros tributos (9999, 2 %)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Gasolina 90\",\"unidad\":\"GLL\",\"cantidad\":5,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":2}}]}"),
+            // Combinaciones de 3223 que solo estaban en pruebas unitarias: ISC (al valor) + 9999 sobre una línea gravada y 9999 sobre una exonerada.
+            new Escenario("63-otros-tributos-con-isc-y-exonerada", "Otros tributos junto al ISC y sobre una línea exonerada",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Cerveza 620 ml (caja x 12)\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":129.80,\"tipo_afectacion_igv\":\"10\",\"isc\":{\"sistema\":\"01\",\"tasa\":10},\"otros_tributos\":{\"tasa\":2}}," +
+                "{\"descripcion\":\"Libro impreso\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"20\",\"otros_tributos\":{\"tasa\":5}}]}"),
+            new Escenario("61-nc-otros-tributos", "NC total (01) sobre la factura con otros tributos", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}")
         );
+        List<Escenario> todos = new java.util.ArrayList<>(base);
+        // #316: cada moneda del catálogo 02 que khipu admite emite una factura que SUNAT acepta (3088), con su tipo de cambio.
+        for (String moneda : pe.factura.domain.documento.Monedas.codigos()) {
+            if (List.of("PEN", "USD", "EUR").contains(moneda)) continue;
+            todos.add(new Escenario("65-moneda-" + moneda, "Factura en " + moneda + " con tipo de cambio",
+                "{" + cab + ",\"moneda\":\"" + moneda + "\",\"tipo_cambio\":3.125," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        }
+        // Boleta en dólares a un comprador sin documento: con tipo_cambio el tope de S/ 700 se mide en soles (100 USD × 3.75 = S/ 375).
+        todos.add(new Escenario("66-boleta-usd-sin-documento", "Boleta en USD sin documento, con tipo de cambio (S/ 375 ≤ 700)",
+                "{" + cabBoleta + ",\"moneda\":\"USD\",\"tipo_cambio\":3.75,\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":100.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        // #297: lo que el formulario del portal puede mandar en una boleta y no estaba probado de inmediato: NRUS (0113), detracción (1001) y percepción (2001).
+        String dni = "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"}";
+        todos.add(new Escenario("70-boleta-nrus", "Boleta de venta interna - NRUS (0113)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0113\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Pan\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":5.00,\"tipo_afectacion_igv\":\"10\"}]}"));
+        todos.add(new Escenario("71-boleta-detraccion", "Boleta con detracción (1001, código 022)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"));
+        todos.add(new Escenario("72-boleta-percepcion", "Boleta con percepción (2001, régimen 51), enviada de inmediato",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"percepcion\":{\"regimen\":\"51\"}}"));
+        // El formulario también permite estas dos combinaciones con el comprador sin documento («-»): totales de hasta S/ 700, el tope de esa identificación.
+        String sinDocumento = "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"}";
+        todos.add(new Escenario("71b-boleta-detraccion-sin-documento", "Boleta sin documento con detracción (1001, código 022)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"1001\"," + sinDocumento + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio de mantenimiento\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":590.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"detraccion\":{\"codigo_bien_servicio\":\"022\",\"porcentaje\":12,\"cuenta_banco_nacion\":\"00-000-123456\"}}"));
+        todos.add(new Escenario("72b-boleta-percepcion-sin-documento", "Boleta sin documento con percepción (2001, régimen 51)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," + sinDocumento + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"percepcion\":{\"regimen\":\"51\"}}"));
+        // #300: el formulario del portal ofrece guías (09, 31) y documentos relacionados en una boleta; la factura ya lo tenía en el escenario 14.
+        todos.add(new Escenario("73-boleta-guias-y-documentos", "Boleta con dos guías de remisión y dos documentos relacionados (04, 99)",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"guias\":[{\"tipo\":\"09\",\"numero\":\"T001-123\"},{\"tipo\":\"31\",\"numero\":\"V001-45\"}]," +
+                "\"documentos_relacionados\":[{\"tipo\":\"04\",\"numero\":\"ENAPU-0001\"},{\"tipo\":\"99\",\"numero\":\"OTRO-77\"}]}"));
+        // #313: con retención el formulario del portal propone como neto pendiente el total menos la retención (1180.00 − 35.40); SUNAT solo exige que no pase del total (3265) y que las cuotas lo sumen (3319).
+        todos.add(new Escenario("74-retencion-al-credito", "Factura al crédito con retención (62): neto pendiente = total − retención",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Servicio\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":1180.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"retencion_igv\":{\"porcentaje\":3}," +
+                "\"forma_pago\":{\"tipo\":\"credito\",\"monto_pendiente\":1144.60,\"cuotas\":[{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(30) + "\"},{\"monto\":572.30,\"vencimiento\":\"" + fecha.plusDays(60) + "\"}]}}"));
+        // #314: el formulario del portal puede mandar descuento global, cargos y observaciones en una nota parcial (NotaRequest ya los acepta).
+        todos.add(new Escenario("75-nc-parcial-descuento-y-cargo", "NC parcial (07) con descuento global y cargo propios, sobre la factura al crédito", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${CREDITO}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución parcial\",\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}]," +
+                "\"descuento_global\":{\"porcentaje\":2},\"cargos\":[{\"monto\":5.00}],\"observaciones\":\"Devolución recibida en tienda.\"}"));
+        // #314 (seguimiento de #401): la NC parcial desde el portal reenvía el 9999 y la placa de la línea. Va con su propia factura: la NC total del escenario 61 agota la del 59.
+        todos.add(new Escenario("77-factura-para-nc-parcial-otros-tributos", "Factura con otros tributos (9999) y placa, para una NC parcial",
+                "{" + cab + ",\"moneda\":\"PEN\"," + CLIENTE + ",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":10,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
+        todos.add(new Escenario("78-nc-parcial-otros-tributos", "NC parcial (07) que reenvía otros tributos (9999) y la placa de la línea", NOTAS,
+                "{\"tipo\":\"07\"," + cab + ",\"documento_afectado\":{\"serie\":\"" + serie + "\",\"numero\":${OTROS_TRIBUTOS_PARCIAL}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución de combustible\",\"items\":[" +
+                "{\"descripcion\":\"Diésel B5\",\"unidad\":\"GLL\",\"cantidad\":2,\"precio_unitario\":17.70,\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}]}"));
+        // #359: la boleta con DNI e ICBPER (el impuesto por bolsa va en la línea y en el total; viaja sola por sendBill, no por el RC) y las notas de crédito y débito que cuelgan de ella.
+        String boletaIcbper = "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":4,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bolsa plástica\",\"unidad\":\"NIU\",\"cantidad\":3,\"precio_unitario\":0.60,\"tipo_afectacion_igv\":\"10\",\"icbper\":true}]}";
+        todos.add(new Escenario("80-boleta-dni-icbper", "Boleta con DNI y bolsas plásticas (ICBPER)", boletaIcbper));
+        // #306 sobre la boleta: la nota de débito con cargo por ítem (el 47 pasa al valor de la línea) y la nota de crédito parcial por devolución.
+        todos.add(new Escenario("81-nd-boleta-cargo-item", "Nota de débito (02) con cargo por ítem sobre la boleta con ICBPER", NOTAS,
+                "{\"tipo\":\"08\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ICBPER}}," +
+                "\"motivo\":\"02\",\"descripcion\":\"Aumento en el valor por gastos de envío\",\"items\":[" +
+                "{\"descripcion\":\"Aumento de valor\",\"unidad\":\"ZZ\",\"cantidad\":1,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"monto\":3.00}]}]}"));
+        todos.add(new Escenario("82-nc-parcial-boleta", "Nota de crédito parcial (07) por devolución de un cuaderno de la boleta con ICBPER", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_ICBPER}}," +
+                "\"motivo\":\"07\",\"descripcion\":\"Devolución de un cuaderno\",\"items\":[" +
+                "{\"descripcion\":\"Cuaderno\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}]}"));
+        // #359: boleta con cargo de línea (47) y cargo global (49), y su NC total. SUNAT no admite cargos en la nota (3271, 3277): la NC sale con las líneas netas.
+        todos.add(new Escenario("83-boleta-cargos", "Boleta con DNI, cargo de línea y cargo global",
+                "{" + cabBoleta + ",\"moneda\":\"PEN\"," + dni + ",\"items\":[" +
+                "{\"descripcion\":\"Con flete\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\",\"cargos\":[{\"porcentaje\":10}]}," +
+                "{\"descripcion\":\"Sin ajuste\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":23.60,\"tipo_afectacion_igv\":\"10\"}],\"cargos\":[{\"monto\":5.00}]}"));
+        todos.add(new Escenario("84-nc-boleta-cargos", "NC total (01) sobre la boleta con cargos", NOTAS,
+                "{\"tipo\":\"07\",\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha + "\",\"documento_afectado\":{\"serie\":\"" + serieBoleta(serie) + "\",\"numero\":${BOLETA_CARGOS}}," +
+                "\"motivo\":\"01\",\"descripcion\":\"Anulación de la operación\"}"));
+        todos.addAll(liquidaciones(serieLiquidacion(serie), fecha));
+        todos.addAll(retencionesYPercepciones(serie, fecha));
+        return todos;
     }
+
+    static final String LIQUIDACIONES = "/v1/liquidaciones-compra";
+
+    /**
+     * #327: liquidaciones de compra (04, SelfBilledInvoice) a un vendedor sin RUC, con la retención de renta (3000) y el importe neto (4312). La hoja dice «NO APLICA PARA
+     * SEE-OSE»: e-beta del SEE-Del Contribuyente es justo el canal que usa khipu. El vendedor lleva un DNI con formato válido: e-beta no cruza el padrón de DNI (2450).
+     */
+    static List<Escenario> liquidaciones(String serieLiquidacion, LocalDate fecha) {
+        String cab = "\"serie\":\"" + serieLiquidacion + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String vendedorDni = "\"vendedor\":{\"tipo_doc\":\"1\",\"num_doc\":\"45678912\",\"nombre\":\"JUAN QUISPE MAMANI\",\"direccion\":\"Caserío Santa Rosa s/n\",\"ubigeo\":\"060101\",\"condicion\":\"02\"}";
+        String lugar = "\"lugar_operacion\":{\"direccion\":\"Fundo Santa Rosa, km 12 carretera a Bambamarca\",\"ubigeo\":\"060101\",\"condicion\":\"02\"}";
+        return List.of(
+            new Escenario("95-liquidacion-gravada", "Liquidación de compra gravada: retiene el IGV y el 1.5 % de renta", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\"," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"codigo\":\"CAF-01\",\"descripcion\":\"Café pergamino seco\",\"unidad\":\"KGM\",\"cantidad\":100,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"50201706\"}]}"),
+            new Escenario("96-liquidacion-exonerada-inafecta", "Liquidación de compra exonerada e inafecta: sin IGV, solo la retención de renta", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\"," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"descripcion\":\"Papa blanca\",\"unidad\":\"KGM\",\"cantidad\":500,\"precio_unitario\":1.20,\"tipo_afectacion_igv\":\"20\",\"codigo_sunat\":\"50405700\"}," +
+                "{\"descripcion\":\"Leña de eucalipto\",\"unidad\":\"KGM\",\"cantidad\":200,\"precio_unitario\":0.50,\"tipo_afectacion_igv\":\"30\",\"codigo_sunat\":\"15101800\"}]}"),
+            new Escenario("97-liquidacion-usd", "Liquidación de compra en dólares, con tipo de cambio y redondeo", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"USD\",\"tipo_cambio\":3.756," + vendedorDni + "," + lugar + ",\"items\":[" +
+                "{\"descripcion\":\"Cacao en grano\",\"unidad\":\"KGM\",\"cantidad\":300,\"precio_unitario\":2.36,\"tipo_afectacion_igv\":\"10\",\"codigo_sunat\":\"50161509\"}],\"redondeo\":0.50}"),
+            new Escenario("98-liquidacion-carne-guia-0502", "Liquidación de compra por anticipo (0502) a un vendedor con carné de extranjería, con guía y otro documento", LIQUIDACIONES,
+                "{" + cab + ",\"moneda\":\"PEN\",\"tipo_operacion\":\"0502\"," +
+                "\"vendedor\":{\"tipo_doc\":\"4\",\"num_doc\":\"001234567\",\"nombre\":\"MARIA SOUZA\",\"direccion\":\"Muelle artesanal, puesto 14\",\"ubigeo\":\"200501\",\"condicion\":\"03\"}," +
+                "\"lugar_operacion\":{\"direccion\":\"Muelle artesanal de Paita\",\"ubigeo\":\"200501\",\"condicion\":\"03\"},\"items\":[" +
+                "{\"descripcion\":\"Pota fresca\",\"unidad\":\"KGM\",\"cantidad\":250,\"precio_unitario\":3.00,\"tipo_afectacion_igv\":\"20\",\"codigo_sunat\":\"50121500\"}]," +
+                "\"guias\":[{\"tipo\":\"31\",\"numero\":\"V001-45\"}],\"documentos_relacionados\":[{\"tipo\":\"99\",\"numero\":\"ACTA-7\"}]}"));
+    }
+
+    static final String RETENCIONES = "/v1/retenciones", PERCEPCIONES = "/v1/percepciones";
+
+    /**
+     * #40: comprobantes de retención (20, Retention UBL 2.0) y de percepción (40, Perception) al servicio de otros CPE. e-beta no verifica que la empresa sea agente (2617/4285) ni
+     * que los documentos relacionados existan (2609) o sean al crédito (3329): los números de los documentos son de prueba. Todos los pagos son de la fecha de emisión (2625/2612).
+     */
+    static List<Escenario> retencionesYPercepciones(String serie, LocalDate fecha) {
+        String r = "\"serie\":\"" + serieRetencion(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String p = "\"serie\":\"" + seriePercepcion(serie) + "\",\"fecha_emision\":\"" + fecha + "\"";
+        String proveedor = "\"proveedor\":{\"ruc\":\"20131312955\",\"razon_social\":\"SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACION TRIBUTARIA\",\"direccion\":\"Av. Garcilaso de la Vega 1472\"}";
+        String cliente = "\"cliente\":{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"nombre\":\"CLIENTE MAYORISTA S.A.C.\"}";
+        String pago = "\"fecha\":\"" + fecha + "\"";
+        return List.of(
+            new Escenario("100-retencion-pen", "Retención del 3 % de una factura en soles", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"F001-123\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1180.00,"
+                + "\"pago\":{\"numero\":1," + pago + ",\"importe\":1180.00}}]}"),
+            new Escenario("101-retencion-usd", "Retención de una factura en soles y otra en dólares (tipo de cambio)", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"F001-124\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":590.00,"
+                + "\"pago\":{" + pago + ",\"importe\":590.00}},{\"tipo\":\"01\",\"numero\":\"E001-45\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1000.00,\"moneda\":\"USD\","
+                + "\"pago\":{" + pago + ",\"importe\":1000.00},\"tipo_cambio\":{\"factor\":3.756}}]}"),
+            new Escenario("102-retencion-nd-ticket-cuotas", "Retención de una nota de débito, un ticket y dos cuotas de una misma factura", RETENCIONES,
+                "{" + r + "," + proveedor + ",\"regimen\":\"01\",\"documentos\":["
+                + "{\"tipo\":\"08\",\"numero\":\"F001-7\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":236.00,\"pago\":{" + pago + ",\"importe\":236.00}},"
+                + "{\"tipo\":\"12\",\"numero\":\"FFCF123456-87\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":800.00,\"pago\":{" + pago + ",\"importe\":800.00}},"
+                + "{\"tipo\":\"01\",\"numero\":\"F001-125\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2000.00,\"pago\":{\"numero\":1," + pago + ",\"importe\":1000.00}},"
+                + "{\"tipo\":\"01\",\"numero\":\"F001-125\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2000.00,\"pago\":{\"numero\":2," + pago + ",\"importe\":1000.00}}]}"),
+            new Escenario("103-percepcion-venta-interna", "Percepción del 2 % (venta interna) de una factura al crédito", PERCEPCIONES,
+                "{" + p + "," + cliente + ",\"regimen\":\"01\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"" + serie + "-9\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":1000.00,"
+                + "\"pago\":{" + pago + ",\"importe\":1000.00}}]}"),
+            new Escenario("104-percepcion-boleta-dni-tasa-especial", "Percepción del 0.5 % (tasa especial) de una boleta a un cliente con DNI", PERCEPCIONES,
+                "{" + p + ",\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"45678912\",\"nombre\":\"JUAN PEREZ QUISPE\"},\"regimen\":\"03\",\"documentos\":[{\"tipo\":\"03\",\"numero\":\""
+                + serieBoleta(serie) + "-15\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":590.00,\"pago\":{" + pago + ",\"importe\":590.00}}]}"),
+            new Escenario("105-percepcion-combustible-usd", "Percepción del 1 % (combustible) de una factura en dólares", PERCEPCIONES,
+                "{" + p + "," + cliente + ",\"regimen\":\"02\",\"documentos\":[{\"tipo\":\"01\",\"numero\":\"" + serie + "-10\",\"fecha_emision\":\"" + fecha + "\",\"importe_total\":2500.00,"
+                + "\"moneda\":\"USD\",\"pago\":{" + pago + ",\"importe\":2500.00},\"tipo_cambio\":{\"factor\":3.756}}]}"));
+    }
+
+    /** Series de retención (R###) y percepción (P###) de la corrida: la misma base que la de factura (regla 1001 de Retenciones1_0 y Percepciones1_0). */
+    static String serieRetencion(String serieFactura) { return "R" + serieFactura.substring(1); }
+    static String seriePercepcion(String serieFactura) { return "P" + serieFactura.substring(1); }
+
+    /** Serie de liquidación de compra de la corrida: la misma base que la de factura con la letra L (L###, regla 1001 de LiquidacionCompra2_0). */
+    static String serieLiquidacion(String serieFactura) { return "L" + serieFactura.substring(1); }
+
+    /**
+     * #387: la misma boleta del escenario 32 con la fecha de hace {@value #DIAS_BOLETA_TARDIA} días: ya pasó el envío individual (1079), así que khipu la informa en un
+     * resumen diario en estado 1 (alta). Es la otra mitad de la plantilla del RC: la baja (estado 3) la prueba el escenario 33. No va en {@link #todos}: la
+     * respuesta no trae CDR (queda ENVIADO hasta que SUNAT responde el ticket) y {@code HomologacionBetaTest} la espera aparte.
+     */
+    static String boletaTardiaConGratuita(String serie, LocalDate fecha) {
+        return "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\"," +
+                "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":[" +
+                "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"}," +
+                "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}";
+    }
+
+    /** #289: la boleta tardía del escenario 34 con percepción 2001 (régimen 51) y un comprador con DNI: su alta en el resumen lleva el bloque de percepción. */
+    static String boletaTardiaConPercepcion(String serie, LocalDate fecha) {
+        return "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\",\"tipo_operacion\":\"2001\"," +
+                "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":[" +
+                "{\"descripcion\":\"Mercadería\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":118.00,\"tipo_afectacion_igv\":\"10\"}],\"percepcion\":{\"regimen\":\"51\"}}";
+    }
+
+    /**
+     * #301: tres boletas de la misma fecha tardía, firmadas sin enviar ({@code enviar_automatico: false}); al enviar una, khipu informa las tres en <b>un</b> resumen diario de tres
+     * líneas (una gravada con DNI, una exonerada sin documento y una con bonificación gratuita) y SUNAT lo acepta con un solo ticket y un solo CDR.
+     */
+    static List<String> boletasTardiasSinEnviar(String serie, LocalDate fecha) {
+        String comun = "{\"serie\":\"" + serieBoleta(serie) + "\",\"fecha_emision\":\"" + fecha.minusDays(DIAS_BOLETA_TARDIA) + "\",\"moneda\":\"PEN\",\"enviar_automatico\":false,";
+        return List.of(
+                comun + "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"12345678\",\"razon_social\":\"JUAN PEREZ\"},\"items\":["
+                        + "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":2,\"precio_unitario\":59.00,\"tipo_afectacion_igv\":\"10\"}]}",
+                comun + "\"cliente\":{\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"},\"items\":["
+                        + "{\"descripcion\":\"Libro\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":50.00,\"tipo_afectacion_igv\":\"20\"}]}",
+                comun + "\"cliente\":{\"tipo_doc\":\"1\",\"num_doc\":\"87654321\",\"razon_social\":\"MARIA GARCIA\"},\"items\":["
+                        + "{\"descripcion\":\"Producto\",\"unidad\":\"NIU\",\"cantidad\":10,\"precio_unitario\":11.80,\"tipo_afectacion_igv\":\"10\"},"
+                        + "{\"descripcion\":\"Bonificación\",\"unidad\":\"NIU\",\"cantidad\":1,\"precio_unitario\":10.00,\"tipo_afectacion_igv\":\"15\"}]}");
+    }
+
+    /** Pasó el envío individual (5 días) y sigue dentro de la ventana de emisión de khipu (7 días, 1079): 8 días la rechaza al emitir. */
+    static final int DIAS_BOLETA_TARDIA = 6;
+
+    /** Serie de boleta de la corrida: la misma base que la de factura con la letra B (B### vale para boleta, F### para factura). */
+    static String serieBoleta(String serieFactura) { return "B" + serieFactura.substring(1); }
 
     private static String muchosItems(int n) {
         StringBuilder sb = new StringBuilder();

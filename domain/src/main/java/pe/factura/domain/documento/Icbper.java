@@ -5,7 +5,8 @@ import java.time.LocalDate;
 
 /**
  * Impuesto al consumo de bolsas de plástico (Ley 30884, tributo 7152): monto fijo por bolsa según el año de emisión.
- * La línea debe ir en unidades (NIU) y la cantidad de bolsas es la cantidad del ítem (reglas 3236, 3237, 4320).
+ * La cantidad de bolsas es la cantidad del ítem (reglas 3236, 3237) y el BaseUnitMeasure va en NIU (4320, siempre en la plantilla); khipu exige además la unidad NIU en la línea
+ * ({@link Item}): el ICBPER es el monto por bolsa × cantidad.
  */
 public final class Icbper {
     private Icbper() {}

@@ -1,18 +1,26 @@
 import { expect, test } from "@playwright/test";
+import { elegirFecha, fechaElegida, fechaEsElegible } from "./fecha";
+import { esperarHidratacion } from "./hidratacion";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("/login?next=/comprobantes");
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  // Directo al listado, como antes del panel de inicio (#24): `next` lo pide y el login navega del lado del cliente. La URL se ancla sin la consulta: si no,
+  // la del propio login (`/login?next=/comprobantes`) ya calzaría antes de entrar.
+  await expect(page).toHaveURL(/^[^?]*\/comprobantes$/);
 });
 
 test("lista comprobantes con su estado y permite ver el detalle", async ({ page }) => {
+  // 50 por página: las 10 fixtures llenaban justo la primera página de 10, y lo que emiten los specs que corren antes (clientes, avisos-de-emision) las
+  // desplazaba a la segunda.
+  await page.goto("/comprobantes?por_pagina=50");
   const tabla = page.locator("table");
   await expect(page.getByText("F001-00000001")).toBeVisible();
-  // Un aceptado con CDR se etiqueta así en la tabla; el filtro de estado tiene un ítem "Aceptado" a secas.
-  await expect(tabla.getByText("Aceptado con CDR", { exact: true })).toBeVisible();
+  // Un aceptado con CDR se etiqueta así en la tabla; el filtro de estado tiene un ítem "Aceptado" a secas. `.first()`: las facturas de los specs
+  // anteriores también están aceptadas y se listan primero.
+  await expect(tabla.getByText("Aceptado con CDR", { exact: true }).first()).toBeVisible();
   // El segundo comprobante lo muta el test de reenvío (corre en paralelo): se comprueba la fila, no su estado.
   await expect(tabla.getByText("F001-00000002")).toBeVisible();
 
@@ -50,13 +58,18 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await expect(tabla.getByText("F001-00000004")).toBeVisible();
   await expect(tabla.getByText("F001-00000001")).toHaveCount(0);
   await expect(page.getByLabel("Serie")).toContainText("Serie: F001");
-  await expect(page.getByLabel("Desde")).toHaveValue("2026-09-02");
+  // Las fechas son las del design system (#531): un botón que abre el calendario, con su ✕ para quitarla.
+  const desde = page.locator("#filtro-desde");
+  const hasta = page.locator("#filtro-hasta");
+  expect(await fechaElegida(desde)).toBe("2026-09-02");
 
   // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista.
-  await page.getByLabel("Hasta").fill("2026-09-01");
-  await expect(page).toHaveURL(/hasta=2026-09-01/);
-  await page.getByLabel("Desde").fill("2026-09-01");
+  await esperarHidratacion(page, "#filtro-hasta");
+  // Primero «desde»: el calendario de «hasta» no ofrece días anteriores a «desde» (y al revés).
+  await elegirFecha(desde, "2026-09-01");
   await expect(page).toHaveURL(/desde=2026-09-01/);
+  await elegirFecha(hasta, "2026-09-01");
+  await expect(page).toHaveURL(/hasta=2026-09-01/);
   await expect(tabla.getByText("F001-00000001")).toBeVisible();
   await expect(tabla.getByText("F001-00000004")).toHaveCount(0);
 
@@ -67,6 +80,38 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await page.getByRole("link", { name: "Quitar filtros" }).click();
   await expect(page).toHaveURL(/\/comprobantes$/);
   await expect(tabla.getByText("F001-00000001")).toBeVisible();
+});
+
+test("filtra por tipo, cliente y número desde la URL y desde los controles (#326)", async ({ page }) => {
+  const tabla = page.locator("table");
+  // Desde la URL: la boleta del mock y nada más.
+  await page.goto("/comprobantes?tipo=03");
+  await expect(tabla.getByText("B001-00000021")).toBeVisible();
+  await expect(tabla.getByText("F001-00000004")).toHaveCount(0);
+  await expect(page.getByLabel("Tipo")).toContainText("Tipo: Boleta");
+
+  // Cliente por parte del nombre (sin distinguir mayúsculas): escribe, espera la pausa y la URL y la lista cambian.
+  await page.goto("/comprobantes");
+  await esperarHidratacion(page, "#filtro-cliente");
+  await page.getByLabel("Cliente", { exact: true }).fill("corporacion grafica");
+  await expect(page).toHaveURL(/cliente=corporacion\+grafica|cliente=corporacion%20grafica/);
+  await expect(tabla.getByText("F001-00000004")).toBeVisible();
+  await expect(tabla.getByText("F001-00000002")).toHaveCount(0);
+
+  // Por documento (empieza por) y por número, combinados con el tipo elegido en el selector.
+  await page.getByLabel("Cliente", { exact: true }).fill("2055419");
+  await expect(page).toHaveURL(/cliente=2055419/);
+  await page.getByLabel("Número", { exact: true }).fill("4");
+  await expect(page).toHaveURL(/numero=4/);
+  await expect(tabla.getByText("F001-00000004")).toBeVisible();
+  await expect(tabla.getByText("F001-00000001")).toHaveCount(0);
+  await page.getByLabel("Tipo").click();
+  await page.getByRole("option", { name: "Tipo: Boleta" }).click();
+  await expect(page).toHaveURL(/tipo=03/);
+  await expect(page.getByText("No hay comprobantes con esos filtros.")).toBeVisible();
+  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await expect(page).toHaveURL(/\/comprobantes$/);
+  await expect(page.getByLabel("Cliente", { exact: true })).toHaveValue("");
 });
 
 test("el detalle muestra el historial de intentos en hora de Lima (#7)", async ({ page }) => {
@@ -96,6 +141,25 @@ test("reenvía un comprobante en error y queda aceptado", async ({ page }) => {
 });
 
 /**
+ * #331: una boleta con el envío fallido y el 7.º día pasado no vence. La ficha avisa que al enviarla se informa fuera de plazo; al reenviarla va en un
+ * resumen diario de alta. El mock simula que SUNAT la observa con la 4443 (lo que la norma prevé; e-beta la aceptó sin observaciones), y la ficha la muestra.
+ */
+test("reenvía una boleta pasada del 7.º día: se informa en un resumen fuera de plazo y, si SUNAT la observa con la 4443, queda aceptada con observaciones", async ({ page }) => {
+  await page.goto("/comprobantes/b-fuera-de-plazo");
+  await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toContainText("resumen diario fuera de plazo");
+
+  await page.getByRole("button", { name: "Reenviar", exact: true }).click();
+
+  await expect(page.getByText("Aceptado con obs.", { exact: true }).first()).toBeVisible();
+  const baja = page.getByTestId("baja");
+  await expect(baja).toContainText("(alta)");
+  await expect(baja.getByTestId("aviso-fuera-de-plazo")).toContainText("4443");
+  await expect(page.getByTestId("aviso-envio-fuera-de-plazo")).toHaveCount(0);
+  // #362 B10: el CDR de la boleta es el del resumen, y la ficha lo dice (el archivo se sigue llamando R-<boleta>).
+  await expect(page.getByTestId("cdr-codigo")).toHaveAttribute("title", /del resumen diario RC-\d{8}-1/);
+});
+
+/**
  * «Reenviar» usaba `fetch` a pelo, sin mirar la respuesta ni capturar el rechazo. Importa más que en otros botones: un
  * comprobante en error de envío puede estar **aceptado** en SUNAT, así que un fallo silencioso es cómo el emisor se queda
  * sin saber el estado real y reintenta a ciegas.
@@ -120,6 +184,96 @@ test("reenviar: un rechazo del backend se muestra en la ficha", async ({ page })
   await page.getByRole("button", { name: "Reenviar", exact: true }).click();
 
   await expect(page.getByRole("alert").filter({ hasText: "ya fue aceptado por SUNAT" })).toBeVisible();
+});
+
+test("una nota parcial lleva su fecha, descuento global, cargo y observaciones, y la ficha de la nota muestra las observaciones (#314)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("emitir-nota").click();
+  const form = page.getByTestId("nota-form");
+  await form.getByLabel(/Motivo/).selectOption("07");
+  await form.getByLabel("Sustento").fill("Devolución parcial con descuento");
+  // Cantidad chica a propósito: los tests de este archivo comparten la factura y cada NC baja el tope de las siguientes.
+  await form.getByLabel(/Cantidad de .* en la nota/).fill("0.05");
+  await form.getByText("Descuento global y cargo de la nota").click();
+  await form.getByLabel("Descuento global de la nota: valor").fill("2");
+  await form.getByLabel("Cargo global de la nota: tipo").selectOption("monto");
+  await form.getByLabel("Cargo global de la nota: valor").fill("0.5");
+  await form.getByLabel(/Observaciones/).fill("Devolución recibida en tienda.");
+  // Desde el DS v0.5.0 la fecha es un calendario: arranca en un día elegido (hoy), no en un input con `max`.
+  expect(await fechaElegida(form.getByLabel("Fecha de emisión"))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({
+    descuento_global: { porcentaje: 2, afecta_base_igv: true },
+    cargos: [{ monto: 0.5, afecta_base_igv: true }],
+    observaciones: "Devolución recibida en tienda.",
+  });
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  await expect(page.getByTestId("observaciones")).toContainText("Devolución recibida en tienda.");
+});
+
+test("un comprobante enviado sin respuesta recupera su constancia de SUNAT y queda aceptado (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-enviada-recuperable");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+  await page.getByTestId("recuperar-cdr").click();
+  await expect(page.getByText("Aceptado", { exact: true }).first()).toBeVisible();
+  // Ya tiene su constancia: el botón desaparece.
+  await expect(page.getByTestId("recuperar-cdr")).toHaveCount(0);
+});
+
+test("si SUNAT todavía no tiene la constancia lo dice y el comprobante sigue enviado (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-enviada-sin-cdr");
+  await page.getByTestId("recuperar-cdr").click();
+  await expect(page.getByTestId("recuperar-cdr-mensaje")).toContainText("todavía no tiene la constancia");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+});
+
+test("una boleta enviada sin respuesta no ofrece recuperar la constancia: SUNAT no la expone para boletas (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/b-enviada");
+  await expect(page.getByText("Enviado", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("recuperar-cdr")).toHaveCount(0);
+});
+
+test("la ficha consulta la validez del comprobante en SUNAT (#315)", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("consultar-validez").click();
+  await expect(page.getByTestId("validez-resultado")).toContainText("Aceptado por SUNAT (0001)");
+  // Uno que SUNAT no recibió (enviado sin respuesta) no existe para SUNAT.
+  await page.goto("/comprobantes/f-enviada-sin-cdr");
+  await page.getByTestId("consultar-validez").click();
+  await expect(page.getByTestId("validez-resultado")).toContainText("SUNAT no tiene este comprobante (0011)");
+});
+
+test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la moneda y las líneas, y se emite con la fecha de hoy (#323)", async ({ page }) => {
+  await page.goto("/comprobantes?por_pagina=50"); // la F001-4 ya no cabe en la primera página de 10 tras lo que emiten los specs anteriores
+  await page.getByRole("button", { name: "Duplicar F001-00000004" }).click();
+  const dialogo = page.getByRole("dialog");
+  await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
+  await expect(dialogo.getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
+  await expect(dialogo.getByLabel(/Precio unit\./)).toHaveValue(/236/);
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  expect(await fechaElegida(dialogo.getByLabel("Fecha de emisión"))).toBe(hoy);
+
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/proxy/facturas"));
+  await dialogo.getByRole("button", { name: "Emitir factura" }).click();
+  const cuerpo = (await peticion).postDataJSON();
+  expect(cuerpo).toMatchObject({ fecha_emision: hoy, moneda: "PEN", cliente: { tipo_doc: "6", num_doc: "20554198211" } });
+  expect(cuerpo.items[0]).toMatchObject({ descripcion: "Soporte mensual", cantidad: 1, precio_unitario: 236 });
+  await expect(page).toHaveURL(/\/comprobantes\/f-/);
+});
+
+test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota no lo ofrece (#323)", async ({ page }) => {
+  await page.goto("/comprobantes/f-firmada");
+  // Un clic antes de hidratar se pierde: el diálogo escucha el pedido de duplicar (`alPedirDuplicado`) desde un useEffect. Corriendo detrás de otras specs fallaba.
+  await esperarHidratacion(page, '[data-testid="duplicar"]');
+  await page.getByTestId("duplicar").click();
+  await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  // La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Descartar" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("emite una nota de crédito parcial desde la factura y la factura la lista", async ({ page }) => {
@@ -153,13 +307,16 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
 
   // Aterriza en el detalle de la nota con el bloque "Nota de crédito sobre" y vuelve a la factura, que ya la lista.
   await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  const numeroNota = (await page.getByText(/^FC01-\d{8}$/).first().textContent()) ?? "";
   const nota = page.getByTestId("nota");
   await expect(nota.getByText("F001-1")).toBeVisible();
   await expect(nota.getByText("Devolución por ítem")).toBeVisible();
   await expect(page.getByText("Nota de crédito electrónica")).toBeVisible();
   await page.goto("/comprobantes/f-aceptada");
   const notas = page.getByTestId("notas");
-  await expect(notas.getByText("FC01-1")).toBeVisible();
+  // El número sale de la ficha de la nota (arriba): el test de la nota con descuento y cargo (#314) emite antes sobre esta misma factura (con un
+  // worker, siempre), así que la de este test no es la FC01-1.
+  await expect(notas.getByText(`FC01-${Number(numeroNota.slice("FC01-".length))}`)).toBeVisible();
   // `.first()`: otros tests emiten NC 07 sobre esta misma factura en paralelo y el panel puede traer dos «Devolución
   // por ítem» (medido: 1 rojo en 5 corridas por strict mode). Lo que se afirma es que el motivo se lista.
   await expect(notas.getByText("Devolución por ítem").first()).toBeVisible();
@@ -182,6 +339,9 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   await expect(page.getByTestId("nota").getByText(/Corrección o modificación/)).toBeVisible();
 
   await page.goto("/comprobantes/f-aceptada/nota");
+  // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
+  // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
+  await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   await form.getByLabel("Tipo de nota").selectOption("08");
   await expect(form.getByLabel("Serie")).toHaveValue("FD01");
   await form.getByLabel(/Motivo/).selectOption("01");
@@ -232,7 +392,8 @@ test("nota: si la red se corta, avisa y no deja el botón muerto", async ({ page
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
   const alerta = form.getByRole("alert");
   await expect(alerta).toContainText("Se cortó la conexión");
-  await expect(alerta).toContainText("pudo haberse emitido");
+  // Con la clave de idempotencia (#355) reintentar el mismo contenido es seguro: el mensaje lo dice, como en la factura (#115).
+  await expect(alerta).toContainText("Vuelve a emitir sin cambiar nada");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 });
 
@@ -414,12 +575,17 @@ test("NC 13: una cuota en blanco o vencida antes de la factura no deja emitir", 
   const n = await form.getByLabel(/Monto de la cuota/).count();
   await form.getByLabel(`Monto de la cuota ${n}`).fill("10");
   // Suma dentro del total (51.5 + 61.5 + 10 = 123) para que lo ÚNICO que bloquee sea la fecha: con 61.5 el 3320 tapaba
-  // al 3321 y una mutación `>=` en la fecha sobrevivía.
+  // al 3321.
   await form.getByLabel("Monto de la cuota 1").fill("51.5");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-01"); // el mismo día de la factura: 3321 exige posterior
+  // Con la cuota nueva sin vencimiento, lo único que bloquea es la fecha en blanco.
   await expect(boton).toBeDisabled();
-  await expect(form.getByLabel(`Vencimiento de la cuota ${n}`)).toHaveAttribute("min", "2026-09-02");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-02"); // el día siguiente ya vale
+  // La fecha es la `EntradaFecha` del design system: el mismo día de la factura no se puede elegir (3321 exige posterior)
+  // y el día siguiente sí.
+  const vencimiento = form.getByLabel(`Vencimiento de la cuota ${n}`);
+  expect(await fechaEsElegible(vencimiento, "2026-09-01")).toBe(false);
+  expect(await fechaEsElegible(vencimiento, "2026-09-02")).toBe(true);
+  await expect(boton).toBeDisabled();
+  await elegirFecha(vencimiento, "2026-09-02"); // el día siguiente ya vale
   await expect(boton).toBeEnabled();
   // Fecha válida pero 61.5 + 61.5 + 10 = 133 supera el total de la factura (123): 3320 bloquea.
   await form.getByLabel("Monto de la cuota 1").fill("61.5");
@@ -607,6 +773,9 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await page.getByTestId("dar-de-baja").click();
   const confirmacion = page.getByTestId("baja-confirmacion");
   await expect(confirmacion).toContainText("Quedan 7 días de plazo"); // emitida hoy
+  // #362 H8: en una factura el motivo sí va en el XML de la comunicación de baja, y la condición de la boleta no aplica.
+  await expect(confirmacion).toContainText("Va en el XML y lo ve SUNAT");
+  await expect(confirmacion.getByTestId("baja-boleta-condicion")).toHaveCount(0);
   // Sin motivo (mínimo 3 caracteres) no se puede confirmar: la baja es irreversible ante SUNAT.
   await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeDisabled();
   await confirmacion.getByLabel(/Motivo/).fill("  Error en el RUC del cliente  ");
@@ -618,6 +787,10 @@ test("da de baja una factura aceptada tras confirmar el motivo y queda anulada",
   await expect(confirmacion).toHaveCount(0);
   await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByTestId("baja")).toContainText("Error en el RUC del cliente");
+  // El CDR de un RA, como lo redacta SUNAT (y como lo da la consulta del ticket): «aceptada», no el «aceptado» del resumen diario (352-H2).
+  await expect(page.getByTestId("baja")).toContainText(/La Comunicacion de baja RA-\d{8}-\d+, ha sido aceptada/);
+  // #286: la factura sí se anula con una comunicación de baja, y su historial lo dice.
+  await expect(page.getByTestId("historial")).toContainText("Comunicación de baja aceptada por SUNAT");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("dar-de-baja")).toHaveCount(0);
 });
@@ -645,7 +818,7 @@ test("baja: una respuesta que no es JSON (HTML de un proxy) no cuelga el diálog
   const confirmacion = page.getByTestId("baja-confirmacion");
   await confirmacion.getByLabel(/Motivo/).fill("Error en el RUC del cliente");
   await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
-  await expect(confirmacion.getByRole("alert")).toContainText("Respuesta inválida del servidor (HTTP 504)");
+  await expect(confirmacion.getByRole("alert")).toContainText("La respuesta del servidor no se pudo interpretar");
   await expect(confirmacion.getByRole("button", { name: "Confirmar la baja" })).toBeEnabled();
 });
 
@@ -679,6 +852,9 @@ test("baja: si SUNAT sigue procesando, la ficha lo muestra en curso y permite re
   await panel.getByRole("button", { name: "Actualizar estado" }).click();
   await expect(panel).toContainText("Aceptada: comprobante anulado");
   await expect(page.getByText("Anulado", { exact: true }).first()).toBeVisible();
+  // #286 (352-H1): la anulación que llega por la consulta del ticket también queda en el historial, con su canal.
+  await expect(panel).toContainText(/La Comunicacion de baja RA-\d{8}-\d+, ha sido aceptada/);
+  await expect(page.getByTestId("historial")).toContainText("Comunicación de baja aceptada por SUNAT");
 });
 
 test("baja: un segundo clic durante el envío no manda otra comunicación", async ({ page }) => {
@@ -712,6 +888,7 @@ test("el mock de POST /v1/facturas/:id/baja rechaza lo que el backend rechaza: p
   let r = await post("f-aceptada", { motivo: "Fuera de plazo" }); // emitida el 2026-09-01: antes el mock daba 201
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("2957");
+  expect(r.texto).toContain("dentro de los 7 días calendario siguientes a su emisión"); // #302: el mismo mensaje que ComunicacionBaja.crear
   // Sobre f-baja-red (nadie la anula): f-obs la anula el test principal en paralelo y respondía 2105/2398.
   for (const motivo of ["ab", "Error\tRUC", "x".repeat(101), ""]) {
     r = await post("f-baja-red", { motivo });
@@ -744,6 +921,18 @@ test("el PDF se abre desde el detalle y el comprobante aceptado se envía por co
   await form.getByLabel(/Mensaje/).fill("Gracias por su compra.");
   await form.getByRole("button", { name: "Enviar", exact: true }).click();
   await expect(page.getByTestId("correo-enviado")).toHaveText("Enviado a compras@cliente.pe");
+});
+
+/** Sin SMTP en el servidor el correo no sale: el portal no puede decir «enviado» (#218). */
+test("si el servidor no tiene correo configurado lo dice y no lo da por enviado", async ({ page }) => {
+  await page.goto("/comprobantes/f-aceptada");
+  await page.getByTestId("enviar-correo").click();
+  const form = page.getByTestId("correo-form");
+  await form.getByLabel("Correo del cliente").fill("sin-smtp@cliente.pe");
+  await form.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(form.getByRole("alert")).toContainText("El envío de correos no está habilitado");
+  await expect(form.getByRole("alert")).toContainText("Descargue el PDF");
+  await expect(page.getByTestId("correo-enviado")).toHaveCount(0);
 });
 
 test("un comprobante firmado sin respuesta de SUNAT no ofrece envío por correo pero sí su PDF", async ({ page }) => {
@@ -853,6 +1042,102 @@ test("nota: tras un error el foco va al mensaje", async ({ page }) => {
   await expect(alerta).toBeFocused();
 });
 
+/**
+ * #355, el caso que lo motivó: el POST llegó y la nota se emitió, pero la respuesta se cortó antes de llegar al navegador. Antes, volver a emitir
+ * duplicaba la nota (otro correlativo); ahora el reintento lleva la misma clave y termina en la misma nota.
+ */
+test("nota: tras un corte en que la nota sí se emitió, volver a emitir sin cambiar nada lleva a la misma nota en vez de duplicarla", async ({ page }) => {
+  const { form } = await notaLista(page);
+  const claves: string[] = [];
+  let emitida = "";
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    const res = await r.fetch();
+    emitida = (await res.json()).datos.id;
+    await r.abort("connectionreset");
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Vuelve a emitir sin cambiar nada");
+  expect(emitida).toMatch(/^n-/);
+
+  await page.unroute("**/api/proxy/notas");
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.continue();
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/comprobantes/${emitida}$`));
+  expect(claves).toHaveLength(2);
+  expect(claves[0]).toMatch(/^[0-9a-f-]{36}$/);
+  expect(claves[1]).toBe(claves[0]);
+});
+
+test("nota: si después del corte se cambia el sustento, el reintento es otra nota con otra clave", async ({ page }) => {
+  const { form } = await notaLista(page);
+  const claves: string[] = [];
+  await page.route("**/api/proxy/notas", async (r) => {
+    claves.push(r.request().headers()["idempotency-key"]);
+    await r.abort("connectionreset");
+  });
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Se cortó la conexión");
+  await form.getByLabel("Sustento").fill("Otro sustento");
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  await expect(form.getByRole("alert")).toContainText("Se cortó la conexión");
+
+  expect(claves).toHaveLength(2);
+  expect(claves[1]).not.toBe(claves[0]);
+});
+
+test("el mock de POST /v1/notas cumple el contrato de Idempotency-Key del backend (#355)", async ({ page }) => {
+  // Sobre f-gratuitas (exonerada, 200): nadie más la acredita, y la nota va por poco para no mover los límites de otro test.
+  await page.goto("/comprobantes/f-gratuitas");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const cuerpo = (descripcion: string) =>
+    JSON.stringify({ tipo: "07", serie: "FC01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 18 }, motivo: "07", descripcion,
+      items: [{ descripcion: "Libro técnico", unidad: "NIU", cantidad: 1, precio_unitario: 5, tipo_afectacion_igv: "20" }] });
+  const post = (body: string, clave: string | null) =>
+    page.evaluate(async ([b, k]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json", ...(k ? { "idempotency-key": k } : {}) }, body: b as string });
+      return { status: r.status, json: await r.json() };
+    }, [body, clave]);
+  const clave = crypto.randomUUID();
+
+  const primera = await post(cuerpo("Contrato 1"), clave);
+  expect(primera.status, JSON.stringify(primera.json)).toBe(201);
+  // El mismo pedido con la misma clave: la misma nota, con 200 y sin otro correlativo.
+  const reintento = await post(cuerpo("Contrato 1"), clave);
+  expect(reintento.status).toBe(200);
+  expect(reintento.json.datos.id).toBe(primera.json.datos.id);
+  expect(reintento.json.datos.numero).toBe(primera.json.datos.numero);
+  // Otro contenido con la misma clave: 422 con el código y el mensaje del backend.
+  const otra = await post(cuerpo("Contrato 2"), clave);
+  expect(otra.status).toBe(422);
+  expect(otra.json.codigo).toBe("IDEMPOTENCIA_INVALIDA");
+  expect(otra.json.mensaje).toBe(`La clave de idempotencia ${clave} ya se usó con otro contenido: genere una clave nueva para otra nota`);
+  // La misma cadena en POST /v1/facturas es otra clave (el backend separa los alcances `factura:` y `nota:`): ni se confunde con la de la nota ni la rechaza.
+  const factura = await page.evaluate(async (k) => {
+    const body = { serie: "F001", fecha_emision: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }), moneda: "PEN", tipo_operacion: "0101",
+      cliente: { tipo_doc: "6", num_doc: "20601234565", razon_social: "CLIENTE SAC", direccion: "AV. LIMA 1" },
+      items: [{ codigo: "P001", descripcion: "Pan", unidad: "NIU", cantidad: 1, precio_unitario: 1, tipo_afectacion_igv: "10" }] };
+    const r = await fetch("/api/proxy/facturas", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": k }, body: JSON.stringify(body) });
+    return { status: r.status, json: await r.json() };
+  }, clave);
+  expect(factura.status, JSON.stringify(factura.json)).toBe(201);
+  const trasLaFactura = await post(cuerpo("Contrato 1"), clave);
+  expect(trasLaFactura.status).toBe(200);
+  expect(trasLaFactura.json.datos.id).toBe(primera.json.datos.id);
+  // Una clave mal formada se rechaza sin emitir; sin clave, cada pedido es una nota nueva.
+  const mala = await post(cuerpo("Contrato 3"), "corta");
+  expect(mala.status).toBe(422);
+  expect(mala.json.codigo).toBe("IDEMPOTENCIA_INVALIDA");
+  const sin1 = await post(cuerpo("Contrato 4"), null);
+  const sin2 = await post(cuerpo("Contrato 4"), null);
+  expect([sin1.status, sin2.status]).toEqual([201, 201]);
+  expect(sin2.json.datos.id).not.toBe(sin1.json.datos.id);
+});
+
 test("NC total sobre una factura con redondeo: la nota copia el redondeo y sale por el total exacto; una parcial por encima se bloquea (3286)", async ({ page }) => {
   // f-redondeo: ítems 118.44, redondeo −0.44, total 118. El backend copia el redondeo a la nota total (#123), así que la
   // NC 01 sale por 118.00 = PayableAmount de la factura. Una parcial por la unidad completa (118.44) supera el tope sin
@@ -956,7 +1241,7 @@ test("ND: el concepto se corta a 500 caracteres en el cliente (2027)", async ({ 
   await expect(form.getByLabel("Concepto")).toHaveValue("x".repeat(500));
 });
 
-test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend rechaza (2027) y la ND 13 sin ítems (3507)", async ({ page }) => {
+test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend rechaza (2027), la ND 13 sin ítems (3507) y la unidad fuera del catálogo 03 (2936)", async ({ page }) => {
   await page.goto("/comprobantes/f-cargos");
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
   const post = (body: Record<string, unknown>) =>
@@ -973,6 +1258,46 @@ test("el mock de POST /v1/notas rechaza la descripción de ítem que el backend 
   r = await post({ motivo: "13" });
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3507");
+
+  // #308: como `Item`, la unidad de un ítem propio de la nota existe en el catálogo 03 (2936).
+  r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: "XYZ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(JSON.parse(r.texto)).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje: expect.stringMatching(/^2936 - La unidad de medida XYZ no existe en el catálogo 03/) });
+
+  // #348-H2: en blanco no llega al dominio: el `@NotBlank` de `ItemDto` (que `NotaRequest` valida con @Valid) responde VALIDACION.
+  r = await post({ motivo: "01", items: [{ descripcion: "Intereses", unidad: " ", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10" }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(JSON.parse(r.texto)).toMatchObject({ codigo: "VALIDACION", errores: { "items[0].unidad": ["no debe estar vacío"] } });
+});
+
+/**
+ * #354: las reglas de la línea valen también en la nota: ICBPER (2892, 4320), precio en cero (2369) y valor de venta en 0.00 (2370) por ítem, y más de 999 líneas
+ * (2137, no 2023). La NC 13 queda fuera: sus ítems se ignoran y su única línea de valor 0 la arma el dominio (3315).
+ */
+test("el mock de POST /v1/notas rechaza las reglas de la línea que el backend rechaza antes de numerar (#354)", async ({ page }) => {
+  await page.goto("/comprobantes/f-cargos");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (items: Array<Record<string, unknown>>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, cuerpo: await r.json() };
+    }, [JSON.stringify({ tipo: "08", serie: "FD01", fecha_emision: hoy, documento_afectado: { serie: "F001", numero: 7 }, descripcion: "Prueba de contrato", motivo: "01", items })]);
+  const item = (extra: Record<string, unknown> = {}) => ({ descripcion: "Intereses", unidad: "NIU", cantidad: 1, precio_unitario: 10, tipo_afectacion_igv: "10", ...extra });
+  const bolsas = (extra: Record<string, unknown>) => item({ descripcion: "Bolsa", cantidad: 2, precio_unitario: 0.6, icbper: true, ...extra });
+
+  const casos: Array<[string, Array<Record<string, unknown>>, string]> = [
+    ["bolsas fraccionarias", [bolsas({ cantidad: 1.5 })], "2892 - La cantidad de bolsas del ICBPER es un entero de hasta 5 dígitos (1 a 99999); recibida 1.5"],
+    ["bolsas en kilos", [bolsas({ unidad: "KGM" })], "4320 - Un ítem con ICBPER va en unidades (unidad NIU, una bolsa por unidad); recibida KGM"],
+    ["precio 0", [item({ precio_unitario: 0 })], "2369 - El precio unitario debe ser mayor que cero"],
+    ["valor de venta 0.00", [bolsas({ precio_unitario: 0.5 })], "2370 - El valor de venta de la línea «Bolsa» debe ser mayor que 0.00: el precio_unitario incluye el ICBPER (S/ 0.50 por bolsa) y debe superarlo"],
+    ["1000 líneas", Array.from({ length: 1000 }, () => item({ precio_unitario: 1.18 })), "2137 - Una nota admite hasta 999 líneas (el número de orden del ítem es de hasta 3 dígitos); recibidas 1000: divida la operación en más de un comprobante"],
+  ];
+  for (const [caso, items, mensaje] of casos) {
+    const r = await post(items);
+    expect(r.status, caso).toBe(422);
+    expect(r.cuerpo, caso).toMatchObject({ codigo: "ITEM_INVALIDO", mensaje });
+  }
+  expect((await post([bolsas({})])).status).toBe(201);
 });
 
 test("NC por importe (09 disminución en el valor): una sola línea por el monto, gravada como la factura, y con tope", async ({ page }) => {
@@ -1233,4 +1558,113 @@ test("el mock rechaza la NC sin importe (2062) y limita las gratuitas por su cub
   ]);
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3503 - El IGV de las operaciones gratuitas");
+});
+
+test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen diario (RC), no en una comunicación de baja", async ({ page }) => {
+  await page.goto("/comprobantes/b-aceptada");
+  await page.getByTestId("emitir-nota").click();
+  await expect(page).toHaveURL(/\/comprobantes\/b-aceptada\/nota/);
+  await expect(page.getByRole("link", { name: "Volver a la boleta" })).toBeVisible();
+  const form = page.getByTestId("nota-form");
+  await expect(form.getByLabel("Serie")).toHaveValue("BC01");
+  await form.getByLabel(/Motivo/).selectOption("01");
+  await form.getByLabel("Sustento").fill("Anulación de la venta");
+  const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
+  await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
+  expect((await peticion).postDataJSON()).toMatchObject({ tipo: "07", serie: "BC01", motivo: "01", documento_afectado: { serie: "B001", numero: 21 } });
+
+  await expect(page).toHaveURL(/\/comprobantes\/n-/);
+  const nota = page.getByTestId("nota");
+  await expect(nota.getByText("Boleta modificada")).toBeVisible();
+  await expect(nota.getByText("B001-21")).toBeVisible();
+
+  // La nota B se anula como la boleta: en un resumen diario con estado 3 (RS 097-2012 art. 14.2; RA respondería 2310).
+  await page.getByTestId("dar-de-baja").click();
+  const confirmacion = page.getByTestId("baja-confirmacion");
+  await expect(confirmacion).toContainText("Resumen diario ante SUNAT con el comprobante anulado");
+  // 344-H1: lo que se anula es la nota, no la boleta; decir «la boleta anulada» en un diálogo irreversible confunde.
+  await expect(confirmacion).not.toContainText("la boleta anulada");
+  await expect(confirmacion).toContainText("Queda solo en khipu"); // #362 H8: la nota B va en el RC, que no lleva el motivo
+  await confirmacion.getByLabel(/Motivo/).fill("Nota emitida por error");
+  await confirmacion.getByRole("button", { name: "Confirmar la baja" }).click();
+  await expect(page.getByTestId("baja")).toContainText(/Resumen diario RC-\d{8}-\d+/);
+  await expect(page.getByTestId("baja")).toContainText("Aceptada: comprobante anulado");
+  // #286: la nota B también: su historial nombra el resumen diario.
+  await expect(page.getByTestId("historial")).toContainText("Anulación aceptada por SUNAT en el resumen diario");
+
+  // Y la boleta lista la nota.
+  await page.goto("/comprobantes/b-aceptada");
+  await expect(page.getByTestId("notas")).toContainText("Notas emitidas sobre esta boleta");
+});
+
+test("#294: sobre una boleta «sin documento» la nota toma ese comprador y no ofrece NC 04, 05, 08 ni 13", async ({ page }) => {
+  await page.goto("/comprobantes/b-sin-documento/nota");
+  await expect(page.getByTestId("nota-comprador")).toContainText("CLIENTES VARIOS (sin documento)");
+  const form = page.getByTestId("nota-form");
+  const motivo = form.getByLabel(/Motivo/);
+  await expect(motivo).toBeEnabled();
+  const codigos = await motivo.locator("option").evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  for (const c of ["04", "05", "08", "13"]) expect(codigos, c).not.toContain(c);
+  expect(codigos).toEqual(expect.arrayContaining(["01", "06", "07", "09"]));
+  await form.getByLabel("Tipo de nota").selectOption("08");
+  await expect(form.getByLabel("Serie")).toHaveValue("BD01");
+});
+
+test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend rechaza: 3259, 4367 y serie F (1001)", async ({ page }) => {
+  await page.goto("/comprobantes/b-sin-documento");
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const post = (body: Record<string, unknown>) =>
+    page.evaluate(async ([b]) => {
+      const r = await fetch("/api/proxy/notas", { method: "POST", headers: { "content-type": "application/json" }, body: b as string });
+      return { status: r.status, texto: await r.text() };
+    }, [JSON.stringify({ tipo: "07", fecha_emision: hoy, descripcion: "Prueba de contrato", documento_afectado: { serie: "B001", numero: 22 }, ...body })]);
+  const linea = [{ descripcion: "Descuento", unidad: "ZZ", cantidad: 1, precio_unitario: 1, tipo_afectacion_igv: "10" }];
+
+  let r = await post({ serie: "BC01", motivo: "13" });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3259");
+  for (const m of ["04", "05", "08"]) {
+    r = await post({ serie: "BC01", motivo: m, items: linea });
+    expect(r.status, r.texto).toBe(422);
+    expect(r.texto).toContain("4367");
+  }
+  r = await post({ serie: "FC01", motivo: "07", items: [{ ...linea[0], cantidad: 1, precio_unitario: 0.59 }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("1001");
+
+  // 344-H3: el 3286 tolera +1 sobre una boleta (fila 113), no sobre una factura. La boleta suma 29.50: 31.00 lo supera por
+  // 1.50 y se rechaza nombrando a la boleta (344-H2, como `nombre(afectado.tipo())`); 30.00 lo supera por 0.50 y pasa.
+  r = await post({ serie: "BC01", motivo: "07", items: [{ ...linea[0], precio_unitario: 31 }] });
+  expect(r.status, r.texto).toBe(422);
+  expect(r.texto).toContain("3286 - El importe total de la nota (31) supera el de la boleta B001-22");
+  r = await post({ serie: "BC01", motivo: "07", items: [{ ...linea[0], precio_unitario: 30 }] });
+  expect(r.status, r.texto).toBe(201);
+});
+
+test("descarga masiva: un ZIP con los archivos de lo que muestra la lista, con sus filtros (#324)", async ({ page }) => {
+  await page.goto("/comprobantes?serie=F001&desde=2026-09-02&hasta=2026-09-02");
+  await esperarHidratacion(page, "#filtro-hasta");
+  await page.getByRole("button", { name: "Descargar ZIP" }).click();
+  await page.getByLabel("CDR de SUNAT").uncheck();
+  const enlace = page.getByTestId("descarga-enlace");
+  await expect(enlace).toHaveAttribute("href", /serie=F001.*tipos=pdf%2Cxml|tipos=pdf%2Cxml/);
+
+  // El navegador pide el ZIP por el proxy: lo que vuelve es un ZIP con un XML y un PDF por comprobante firmado.
+  const respuesta = await page.request.get((await enlace.getAttribute("href"))!);
+  expect(respuesta.status()).toBe(200);
+  expect(respuesta.headers()["content-type"]).toBe("application/zip");
+  const cuerpo = await respuesta.body();
+  expect(cuerpo.subarray(0, 4).toString("hex")).toBe("504b0304"); // PK\x03\x04
+  const texto = cuerpo.toString("latin1");
+  expect(texto).toContain("20123456786-01-F001-00000004.xml");
+  expect(texto).toContain("20123456786-01-F001-00000004.pdf");
+  expect(texto).not.toContain("R-20123456786");
+});
+
+test("descarga masiva: sin resultados el panel lo dice y no ofrece el ZIP (#324)", async ({ page }) => {
+  await page.goto("/comprobantes?serie=F999");
+  await esperarHidratacion(page, "#filtro-hasta");
+  await page.getByRole("button", { name: "Descargar ZIP" }).click();
+  await expect(page.getByTestId("descarga-motivo")).toContainText("No hay comprobantes con estos filtros");
+  await expect(page.getByTestId("descarga-enlace")).toHaveCount(0);
 });

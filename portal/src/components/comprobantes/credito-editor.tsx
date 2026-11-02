@@ -1,0 +1,105 @@
+"use client";
+
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { useLocale, useMessages } from "next-intl";
+import { useState } from "react";
+import { Campo } from "khipu-design-system/formularios/campo";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { Button } from "khipu-design-system/ui/button";
+import { interpolar } from "@/i18n/mensajes";
+import { type CreditoForm, repartirEnCuotas, sumaDeCuotas } from "@/lib/comprobantes/credito";
+import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { formatearMonto, sumarDias } from "@/lib/formato";
+import { cn } from "@/lib/utils";
+
+
+/**
+ * Factura al crédito (#309): el neto pendiente y el calendario de cuotas. «Repartir» arma N cuotas iguales cada 30 días desde la emisión; se pueden editar o agregar a
+ * mano. Aquí solo se muestra la cuenta (cuánto suman contra el neto); el motivo por el que no vale lo calcula `errorDeCredito` y lo muestra el formulario.
+ */
+export function CreditoEditor({
+  credito,
+  onCambio,
+  neto,
+  moneda,
+  emision,
+  error,
+}: {
+  credito: CreditoForm;
+  onCambio: (c: CreditoForm) => void;
+  /** El total del comprobante: el neto pendiente por defecto. */
+  neto: number;
+  moneda: string;
+  emision: string;
+  error: string | null;
+}) {
+  const t = useMessages().comprobantes.editores.credito;
+  const locale = useLocale();
+  const [n, setN] = useState(2);
+  const pendiente = credito.montoPendiente.trim() === "" ? neto : Number(credito.montoPendiente);
+  const suma = sumaDeCuotas(credito.cuotas);
+  const poner = (i: number, cambio: Partial<CreditoForm["cuotas"][number]>) => onCambio({ ...credito, cuotas: credito.cuotas.map((q, j) => (j === i ? { ...q, ...cambio } : q)) });
+  return (
+    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="credito">
+      <div className="grid items-start gap-3 sm:grid-cols-[200px_1fr]">
+        <Campo id="nc-neto-pendiente" etiqueta={t.netoPendiente} ayuda={interpolar(t.netoPendienteAyuda, { total: formatearMonto(moneda, neto, locale) })}>
+          <input
+            id="nc-neto-pendiente"
+            value={credito.montoPendiente}
+            onChange={(e) => onCambio({ ...credito, montoPendiente: e.target.value })}
+            inputMode="decimal"
+            placeholder={neto.toFixed(2)}
+            className={cn(CAMPO, "font-mono tabular-nums")}
+          />
+        </Campo>
+        <div className="flex flex-wrap items-end gap-2">
+          <Campo id="nc-cuotas-n" etiqueta={t.repartirEn}>
+            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={cn(SELECT_NATIVO, "w-full")}>
+              {Array.from({ length: 11 }, (_, i) => i + 2).map((v) => (
+                <option key={v} value={v}>{interpolar(t.cuotasIguales, { n: v })}</option>
+              ))}
+            </select>
+          </Campo>
+          <button type="button" className={BOTON_SECUNDARIO} onClick={() => onCambio({ ...credito, cuotas: repartirEnCuotas(pendiente, n, emision) })} disabled={!(pendiente > 0)}>
+            {t.repartir}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        {credito.cuotas.map((q, i) => (
+          <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+            <Campo id={`nc-cuota-monto-${i}`} etiqueta={interpolar(t.cuotaMonto, { n: i + 1 })} className="[&>label]:sr-only">
+              <input id={`nc-cuota-monto-${i}`} value={q.monto} onChange={(e) => poner(i, { monto: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO, "font-mono tabular-nums")} />
+            </Campo>
+            <Campo id={`nc-cuota-fecha-${i}`} etiqueta={interpolar(t.cuotaVencimiento, { n: i + 1 })} className="[&>label]:sr-only">
+              <EntradaFecha id={`nc-cuota-fecha-${i}`} valor={q.vencimiento} onCambio={(v) => poner(i, { vencimiento: v })} min={sumarDias(emision, 1)} variante="filtro" />
+            </Campo>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={interpolar(t.quitarCuota, { n: i + 1 })}
+              onClick={() => onCambio({ ...credito, cuotas: credito.cuotas.filter((_, j) => j !== i) })}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <TrashIcon className="size-4" />
+            </Button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onCambio({ ...credito, cuotas: [...credito.cuotas, { monto: "", vencimiento: sumarDias(credito.cuotas.at(-1)?.vencimiento ?? emision, 30) }] })}
+          className="inline-flex items-center gap-1 justify-self-start text-control font-medium text-primary hover:underline"
+        >
+          <PlusIcon weight="bold" className="size-3.5" />
+          {t.agregarCuota}
+        </button>
+      </div>
+
+      <p className={cn(AYUDA_CAMPO, error ? "text-destructive" : undefined)} role={error ? "alert" : "status"} data-testid="credito-resumen">
+        {error ?? interpolar(t.resumen, { n: credito.cuotas.length, suma: formatearMonto(moneda, suma, locale), pendiente: formatearMonto(moneda, pendiente, locale) })}
+      </p>
+    </div>
+  );
+}

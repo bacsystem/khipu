@@ -32,4 +32,39 @@ class JdbcApiKeyRepositoryTest extends PersistenciaTestBase {
         assertThat(r.revocadaEn()).isEqualTo(t2);
         assertThat(repo.buscarPorHash("hash-1")).get().extracting(ApiKey::activa).isEqualTo(false);
     }
+
+    // --- S2: rotar API_KEY_PEPPER ------------------------------------------------------------------------------------------------
+
+    String huella(String hash) { return jdbc.queryForObject("SELECT pepper_huella FROM api_key WHERE key_hash = ?", String.class, hash); }
+
+    @Test void unaKeyNuevaSeGuardaConLaHuellaDelPepperVigente() {
+        var conHuella = new JdbcApiKeyRepository(jdbc, "huella-nueva");
+        conHuella.guardar(new ApiKey(UUID.randomUUID(), tenantDePrueba(), "h-nueva", "fk_nueva", true, null, null));
+        assertThat(huella("h-nueva")).isEqualTo("huella-nueva");
+    }
+
+    @Test void rehashearCambiaElHashYLaHuellaSoloSiNadieLoCambioAntes() {
+        UUID tenant = tenantDePrueba();
+        new JdbcApiKeyRepository(jdbc, "huella-vieja").guardar(new ApiKey(UUID.randomUUID(), tenant, "h-vieja", "fk_vieja", true, null, null));
+        ApiKey k = repo.buscarPorHash("h-vieja").orElseThrow();
+        var rotando = new JdbcApiKeyRepository(jdbc, "huella-nueva");
+
+        assertThat(rotando.rehashear(k.id(), "h-vieja", "h-nueva")).isTrue();
+        assertThat(repo.buscarPorHash("h-vieja")).isEmpty();
+        assertThat(repo.buscarPorHash("h-nueva")).get().extracting(ApiKey::id).isEqualTo(k.id());
+        assertThat(huella("h-nueva")).isEqualTo("huella-nueva");
+        assertThat(rotando.rehashear(k.id(), "h-vieja", "h-otra")).as("ya no tiene el hash viejo").isFalse();
+    }
+
+    @Test void completaLasHuellasQueFaltanYCuentaLasActivasConOtra() {
+        UUID tenant = tenantDePrueba();
+        repo.guardar(new ApiKey(UUID.randomUUID(), tenant, "h-sin-1", "fk_sin1", true, null, null));
+        repo.guardar(new ApiKey(UUID.randomUUID(), tenant, "h-sin-2", "fk_sin2", false, null, null));
+        new JdbcApiKeyRepository(jdbc, "huella-nueva").guardar(new ApiKey(UUID.randomUUID(), tenant, "h-con", "fk_con", true, null, null));
+        var rotando = new JdbcApiKeyRepository(jdbc, "huella-nueva");
+
+        assertThat(rotando.completarHuellas("huella-vieja")).isEqualTo(2);
+        assertThat(rotando.completarHuellas("huella-vieja")).as("idempotente").isZero();
+        assertThat(rotando.activasConOtraHuella("huella-nueva")).as("la revocada no cuenta").isEqualTo(1);
+    }
 }

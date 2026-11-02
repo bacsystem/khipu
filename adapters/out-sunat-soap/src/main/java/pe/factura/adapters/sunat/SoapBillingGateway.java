@@ -42,28 +42,31 @@ public class SoapBillingGateway implements SunatBillingGateway {
 
     @Override public byte[] sendBill(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
         byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);
-        String body = llamar(tenant, "sendBill", SoapEnvelope.sendBill(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
+        String body = llamar(tenant, nombreArchivo, "sendBill", SoapEnvelope.sendBill(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
         return base64(body, "applicationResponse");
     }
 
     @Override public String sendSummary(Tenant tenant, String nombreArchivo, byte[] xmlFirmado) {
         byte[] zip = ZipUtil.comprimir(nombreArchivo + ".xml", xmlFirmado);
-        String body = llamar(tenant, "sendSummary", SoapEnvelope.sendSummary(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
+        String body = llamar(tenant, nombreArchivo, "sendSummary", SoapEnvelope.sendSummary(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), nombreArchivo + ".zip", zip));
         String ticket = SoapEnvelope.textoDe(body, "ticket");
         if (ticket == null || ticket.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin ticket");
         return ticket;
     }
 
-    @Override public EstadoTicket getStatus(Tenant tenant, String ticket) {
-        String body = llamar(tenant, "getStatus", SoapEnvelope.getStatus(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), ticket));
+    @Override public EstadoTicket getStatus(Tenant tenant, String ticket) { return getStatus(tenant, null, ticket); }
+
+    /** #40: el ticket de un resumen de reversiones (RR) se consulta en el servicio de retenciones y percepciones, que lo emitió; los demás, en el de facturas. */
+    @Override public EstadoTicket getStatus(Tenant tenant, String nombreArchivo, String ticket) {
+        String body = llamar(tenant, nombreArchivo, "getStatus", SoapEnvelope.getStatus(tenant.sol().usernameToken(tenant.ruc()), tenant.sol().clave(), ticket));
         String statusCode = SoapEnvelope.textoDe(body, "statusCode");
         if (statusCode == null || statusCode.isBlank()) throw new SunatTransientException("0000", "Respuesta inesperada de SUNAT sin statusCode para el ticket " + ticket);
         String content = SoapEnvelope.textoDe(body, "content");
         return new EstadoTicket(statusCode.trim(), content == null || content.isBlank() ? null : Base64.getDecoder().decode(content.replaceAll("\\s", "")));
     }
 
-    private String llamar(Tenant tenant, String operacion, String cuerpo) {
-        return cliente.llamar(urls.para(tenant.entorno()), operacion, cuerpo);
+    private String llamar(Tenant tenant, String nombreArchivo, String operacion, String cuerpo) {
+        return cliente.llamar(urls.para(tenant.entorno(), nombreArchivo), operacion, cuerpo);
     }
 
     private static byte[] base64(String body, String elemento) {

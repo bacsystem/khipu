@@ -1,8 +1,11 @@
 import type { ChangeEvent, ComponentProps } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 
+/**
+ * Campo de un formulario hecho con react-hook-form: el `Campo` y la `Entrada` del panel (etiqueta de 12 px, control `CAMPO` de h-control, error en rojo o ayuda
+ * en mono), con el registro del formulario ya conectado. Los formularios de acceso (login, registro, recuperar, restablecer) lo usan para verse igual que el panel.
+ */
 export function FormField({
   id,
   label,
@@ -39,33 +42,22 @@ export function FormField({
         return register.onChange(e);
       }
     : register.onChange;
-  // El error se anuncia (`role="alert"`) y se ata al input (`aria-describedby`), como en `formularios/campo.tsx`: antes un
-  // lector de pantalla solo oía «campo inválido», sin el motivo.
+  // El error se anuncia (`role="alert"`, lo pone `Campo`) y se ata al input (`aria-describedby`): antes un lector de pantalla solo oía «campo inválido», sin el motivo.
   const descripcion = error ? `${id}-error` : hint ? `${id}-ayuda` : undefined;
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
+    <Campo id={id} etiqueta={label} error={error} ayuda={hint}>
+      <Entrada
         id={id}
         type={type}
         autoComplete={autoComplete}
         inputMode={inputMode}
         placeholder={placeholder}
         maxLength={maxLength}
-        aria-invalid={!!error}
+        invalido={!!error}
         aria-describedby={descripcion}
         {...register}
         onChange={onChange}
       />
-      {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : hint ? (
-        <p id={`${id}-ayuda`} className="text-sm text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
-    </div>
+    </Campo>
   );
 }

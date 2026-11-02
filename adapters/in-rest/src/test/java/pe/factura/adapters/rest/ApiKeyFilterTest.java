@@ -5,6 +5,7 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import pe.factura.application.port.out.ApiKeyRepository;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.service.ApiKeyGenerator;
 import pe.factura.domain.tenant.ApiKey;
 
@@ -28,7 +29,88 @@ class ApiKeyFilterTest {
         public Optional<ApiKey> buscar(UUID id) { return Optional.empty(); }
         public List<ApiKey> listarPorTenant(UUID tenantId) { return List.of(); }
     };
-    ApiKeyFilter filter = new ApiKeyFilter(repo, "pep");
+    java.util.Set<UUID> empresasSuspendidas = new java.util.HashSet<>();
+    int consultasDeSuspension = 0;
+    SuspensionRepository suspensiones = new SuspensionRepository() {
+        public boolean cuentaSuspendida(UUID c) { throw new AssertionError("el filtro de API key trabaja por empresa"); }
+        public boolean empresaSuspendida(UUID t) { consultasDeSuspension++; return empresasSuspendidas.contains(t); }
+        public boolean suspender(UUID c, java.time.Instant cuando) { throw new AssertionError("un filtro no suspende"); }
+        public boolean reactivar(UUID c) { throw new AssertionError("un filtro no reactiva"); }
+    };
+    ApiKeyFilter filter = new ApiKeyFilter(repo, "pep", suspensiones);
+
+    // --- #182: las empresas de una cuenta suspendida no emiten ---------------------------------------------------------------------
+
+    private MockHttpServletResponse pedir(String metodo, String uri, String apiKey, MockFilterChain chain, MockHttpServletRequest[] reqSalida) throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest(metodo, uri);
+        req.addHeader("X-Api-Key", apiKey);
+        if (reqSalida != null) reqSalida[0] = req;
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        filter.doFilter(req, res, chain);
+        return res;
+    }
+
+    @Test void laKeyDeUnaEmpresaDeUnaCuentaSuspendidaNoEmiteNiConsulta() throws Exception {
+        empresasSuspendidas.add(tenant);
+        for (String[] m : new String[][]{{"POST", "/v1/facturas"}, {"POST", "/v1/notas"}, {"GET", "/v1/facturas"}, {"GET", "/v1/facturas/1/pdf"}}) {
+            MockFilterChain chain = new MockFilterChain();
+            MockHttpServletRequest[] req = new MockHttpServletRequest[1];
+            MockHttpServletResponse res = pedir(m[0], m[1], key, chain, req);
+            assertThat(chain.getRequest()).as("%s %s", m[0], m[1]).isNull();
+            assertThat(res.getStatus()).as("%s %s", m[0], m[1]).isEqualTo(403);
+            assertThat(res.getContentAsString()).as("%s %s", m[0], m[1]).contains("\"codigo\":\"CUENTA_SUSPENDIDA\"").contains("\"estado\":\"error\"");
+            assertThat(req[0].getAttribute(TenantActual.ATRIBUTO)).as("no se llega a fijar la empresa activa").isNull();
+        }
+    }
+
+    @Test void reactivadaLaCuentaLaMismaKeyVuelveAEmitir() throws Exception {
+        empresasSuspendidas.add(tenant);
+        MockFilterChain bloqueada = new MockFilterChain();
+        pedir("POST", "/v1/facturas", key, bloqueada, null);
+        assertThat(bloqueada.getRequest()).isNull();
+
+        empresasSuspendidas.clear();
+        MockFilterChain pasa = new MockFilterChain();
+        MockHttpServletResponse res = pedir("POST", "/v1/facturas", key, pasa, null);
+
+        assertThat(pasa.getRequest()).isNotNull();
+        assertThat(res.getStatus()).isEqualTo(200);
+    }
+
+    @Test void suspenderOtraEmpresaNoAfectaAEstaYSeConsultaLaDeLaKey() throws Exception {
+        empresasSuspendidas.add(UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+
+        pedir("POST", "/v1/facturas", key, chain, null);
+
+        assertThat(chain.getRequest()).isNotNull();
+        assertThat(consultasDeSuspension).isEqualTo(1);
+    }
+
+    /** Quien no tiene una key válida no se entera de nada de ninguna cuenta: se rechaza antes de mirar el estado. */
+    @Test void conUnaKeyInvalidaOInactivaSeRechazaSinConsultarLaSuspension() throws Exception {
+        empresasSuspendidas.add(tenant);
+
+        MockHttpServletResponse invalida = pedir("POST", "/v1/facturas", "fk_otra", new MockFilterChain(), null);
+        MockHttpServletResponse inactiva = pedir("POST", "/v1/facturas", keyInactiva, new MockFilterChain(), null);
+
+        assertThat(invalida.getStatus()).isEqualTo(401);
+        assertThat(inactiva.getStatus()).isEqualTo(401);
+        assertThat(invalida.getContentAsString() + inactiva.getContentAsString()).doesNotContain("SUSPENDIDA");
+        assertThat(consultasDeSuspension).isZero();
+    }
+
+    @Test void unaPeticionYaAutenticadaPorJwtNoVuelveAConsultarPorKey() throws Exception {
+        empresasSuspendidas.add(tenant);
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(req, new MockHttpServletResponse(), chain);
+
+        assertThat(chain.getRequest()).as("ese caso lo cubre JwtFilter, que ya miró la cuenta").isNotNull();
+        assertThat(consultasDeSuspension).isZero();
+    }
 
     @Test void keyValidaDejaPasarYExponeTenant() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/facturas");
@@ -115,12 +197,105 @@ class ApiKeyFilterTest {
         }
     }
 
+    /** El aviso de mantenimiento (#199) lo muestra el portal antes de iniciar sesión: sin credenciales, pero solo esa ruta y no lo que cuelgue de un prefijo parecido. */
+    @Test void elAvisoDeMantenimientoEsPublicoPeroSoloEse() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/banner");
+        MockFilterChain chain = new MockFilterChain();
+        filter.doFilter(req, new MockHttpServletResponse(), chain);
+        assertThat(chain.getRequest()).isNotNull();
+
+        for (String uri : new String[]{"/v1/banner/otra", "/v1/banners", "/v1/banner/../facturas"}) {
+            MockHttpServletRequest otra = new MockHttpServletRequest("GET", uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            MockFilterChain cadena = new MockFilterChain();
+            filter.doFilter(otra, res, cadena);
+            assertThat(cadena.getRequest()).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(401);
+        }
+    }
+
     @Test void peticionYaAutenticadaPorJwtNoExigeApiKey() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
         req.setAttribute(CuentaActual.ATRIBUTO, UUID.randomUUID());
         MockFilterChain chain = new MockFilterChain();
         filter.doFilter(req, new MockHttpServletResponse(), chain);
         assertThat(chain.getRequest()).isNotNull();
+    }
+
+    // --- S2: rotar API_KEY_PEPPER sin invalidar las keys emitidas ---------------------------------------------------------------
+
+    /** Las keys guardadas con su hash, y las que se re-hashearon (de qué hash a cuál). */
+    final java.util.Map<String, ApiKey> porHash = new java.util.HashMap<>();
+    final List<String[]> rehasheos = new java.util.ArrayList<>();
+    final ApiKeyRepository repoRotando = new ApiKeyRepository() {
+        public void guardar(ApiKey k) {}
+        public Optional<ApiKey> buscarPorHash(String h) { return Optional.ofNullable(porHash.get(h)); }
+        public Optional<ApiKey> buscar(UUID id) { return Optional.empty(); }
+        public List<ApiKey> listarPorTenant(UUID t) { return List.of(); }
+    };
+    final pe.factura.application.port.out.PepperDeApiKeysRepository pepperRepo = new pe.factura.application.port.out.PepperDeApiKeysRepository() {
+        public boolean rehashear(UUID id, String anterior, String nuevo) {
+            rehasheos.add(new String[]{anterior, nuevo});
+            ApiKey k = porHash.remove(anterior);
+            porHash.put(nuevo, new ApiKey(k.id(), k.tenantId(), nuevo, k.prefijo(), k.activa(), k.creadaEn(), k.revocadaEn()));
+            return true;
+        }
+        public int completarHuellas(String huella) { throw new AssertionError("el filtro no completa huellas"); }
+        public int activasConOtraHuella(String huella) { throw new AssertionError("el filtro no cuenta"); }
+    };
+
+    @Test void conElPepperAnteriorUnaKeyViejaAutenticaYQuedaConElNuevo() throws Exception {
+        String vieja = "fk_de_antes_de_rotar";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_de_ante", true, null, null));
+        ApiKeyFilter rotando = new ApiKeyFilter(repoRotando, "pepper-nuevo", "pepper-viejo", pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockFilterChain chain = new MockFilterChain();
+        rotando.doFilter(req, new MockHttpServletResponse(), chain);
+
+        assertThat(chain.getRequest()).as("autenticó").isNotNull();
+        assertThat(req.getAttribute(TenantActual.ATRIBUTO)).isEqualTo(tenant);
+        assertThat(rehasheos).singleElement().satisfies(r -> assertThat(r).containsExactly(ApiKeyGenerator.hash(vieja, "pepper-viejo"), ApiKeyGenerator.hash(vieja, "pepper-nuevo")));
+
+        // La segunda vez ya la encuentra con el pepper nuevo: no se vuelve a re-hashear.
+        MockHttpServletRequest otra = new MockHttpServletRequest("GET", "/v1/facturas");
+        otra.addHeader("X-Api-Key", vieja);
+        MockFilterChain chain2 = new MockFilterChain();
+        rotando.doFilter(otra, new MockHttpServletResponse(), chain2);
+        assertThat(chain2.getRequest()).isNotNull();
+        assertThat(rehasheos).hasSize(1);
+    }
+
+    @Test void sinElPepperAnteriorUnaKeyViejaNoAutentica() throws Exception {
+        String vieja = "fk_de_antes_de_rotar";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_de_ante", true, null, null));
+        ApiKeyFilter sinAnterior = new ApiKeyFilter(repoRotando, "pepper-nuevo", null, pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+        sinAnterior.doFilter(req, res, chain);
+
+        assertThat(chain.getRequest()).isNull();
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(rehasheos).isEmpty();
+    }
+
+    /** Una key revocada no revive por estar con el pepper anterior, y no se re-hashea. */
+    @Test void unaKeyRevocadaConElPepperAnteriorSigueSinAutenticar() throws Exception {
+        String vieja = "fk_revocada_vieja";
+        porHash.put(ApiKeyGenerator.hash(vieja, "pepper-viejo"), new ApiKey(UUID.randomUUID(), tenant, ApiKeyGenerator.hash(vieja, "pepper-viejo"), "fk_revocad", false, null, null));
+        ApiKeyFilter rotando = new ApiKeyFilter(repoRotando, "pepper-nuevo", "pepper-viejo", pepperRepo, suspensiones);
+
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/facturas");
+        req.addHeader("X-Api-Key", vieja);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        rotando.doFilter(req, res, new MockFilterChain());
+
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(rehasheos).isEmpty();
     }
 
     @Test void rutaApiConParametroDeSegmentoSigueExigiendoApiKey() throws Exception {

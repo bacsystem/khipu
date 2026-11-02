@@ -6,23 +6,27 @@ import pe.factura.domain.documento.ComunicacionBaja;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Comunicación de baja de un comprobante: identificador RA, estado del trámite ante SUNAT y, cuando existe, el CDR. */
+/** Baja de un comprobante: identificador RA (o RC si es una boleta), estado del trámite ante SUNAT y, cuando existe, el CDR. */
 public record BajaResponse(
         @Schema(example = "5f2c1e6a-7b3d-4a2e-9c1f-3a2b1c4d5e6f") UUID id,
-        @Schema(example = "RA-20260918-1", description = "Identificador de la comunicación (uno por empresa y día, correlativo)") String identificador,
+        @Schema(example = "RA-20260918-1", description = "Identificador ante SUNAT: `RA-yyyymmdd-N` (comunicación de baja) o `RC-yyyymmdd-N` (resumen diario, para una boleta). Correlativo por empresa y día") String identificador,
         @Schema(example = "F001-125", description = "Comprobante dado de baja") String comprobante,
-        @Schema(example = "01", description = "Tipo del comprobante (01 factura, 07/08 notas)") String tipoComprobante,
+        @Schema(example = "01", description = "Tipo del comprobante (01 factura, 03 boleta, 07/08 notas)") String tipoComprobante,
         @Schema(example = "2026-09-18") LocalDate fechaGeneracion,
         @Schema(example = "2026-09-15", description = "Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate, reglas 2375/2671)") LocalDate fechaReferencia,
         @Schema(example = "Error en el RUC del cliente") String motivo,
+        @Schema(example = "BAJA", description = "`BAJA`: anula el comprobante. `ALTA`: informa en el resumen diario una boleta que pasó el envío individual (SUNAT ya no la recibe sola, 1079); al aceptarse, la boleta queda `ACEPTADO`, o `ACEPTADO_CON_OBS` si SUNAT la observó (por ejemplo con la 4443, si se informó fuera de plazo: `fuera_de_plazo`)") String condicion,
+        @Schema(example = "false", description = "Solo en un `ALTA`: `true` si el resumen se generó pasado el 7.º día desde la emisión de la boleta. SUNAT no la rechaza, pero la norma prevé que la observe con la 4443 «El comprobante fue informado fuera del plazo establecido» (entonces la boleta queda `ACEPTADO_CON_OBS`); en e-beta, con 8 y 30 días de atraso, la aceptó sin observaciones (`ACEPTADO`). SUNAT cuenta los 7 días hasta que recibe el resumen: si su envío falló y se reintentó otro día, puede observarlo con 4443 aunque aquí diga `false`; lo que manda es `cdr.observaciones` del comprobante. Una `BAJA` nunca sale fuera de plazo (2957)") boolean fueraDePlazo,
         @Schema(example = "ACEPTADA", description = "`GENERADA` (firmada, sin enviar) → `ENVIADA` (SUNAT devolvió ticket, en proceso) → `ACEPTADA` / `RECHAZADA`; `ERROR_ENVIO` cuando SUNAT no respondió y khipu reintentará") String estado,
         @Schema(example = "1789768174685", description = "Ticket del proceso en SUNAT (sendSummary), o `null`") String ticket,
         @Schema(description = "Constancia de SUNAT: `0` aceptada, 2000–3999 rechazada") ComprobanteResponse.CdrDto cdr,
         @Schema(example = "1") int intentos,
-        @Schema(example = "null") String ultimoError) {
+        @Schema(example = "null") String ultimoError,
+        @Schema(example = "1", description = "Posición (`LineID`) de este comprobante en su resumen diario. Siempre 1 en una comunicación de baja (RA) y en un resumen de una sola línea") int linea,
+        @Schema(example = "1", description = "Cuántas líneas tiene el resumen diario: las boletas de una misma fecha de emisión que se informan juntas viajan en un solo `RC` (hasta 500), con un mismo `identificador`, `ticket` y `cdr`. Si SUNAT lo rechaza entero (2987), cada boleta vuelve a informarse sola para aislar la defectuosa") int lineas) {
 
     public static BajaResponse de(ComunicacionBaja b) {
-        return new BajaResponse(b.id(), b.identificador(), b.serie() + "-" + b.numero(), b.tipoComprobante().codigo(), b.fechaGeneracion(), b.fechaReferencia(), b.motivo(), b.estado().name(), b.ticket(),
-                b.cdr() == null ? null : new ComprobanteResponse.CdrDto(b.cdr().codigo(), b.cdr().descripcion(), b.cdr().observaciones()), b.intentos(), b.ultimoError());
+        return new BajaResponse(b.id(), b.identificador(), b.serie() + "-" + b.numero(), b.tipoComprobante().codigo(), b.fechaGeneracion(), b.fechaReferencia(), b.motivo(), b.condicion().name(), b.fueraDePlazo(), b.estado().name(), b.ticket(),
+                b.cdr() == null ? null : new ComprobanteResponse.CdrDto(b.cdr().codigo(), b.cdr().descripcion(), b.cdr().observaciones(), null), b.intentos(), b.ultimoError(), b.linea(), b.lineas());
     }
 }
