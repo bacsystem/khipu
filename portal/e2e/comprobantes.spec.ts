@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { elegirFecha, fechaElegida } from "./fecha";
+import { elegirFecha, fechaElegida, fechaEsElegible } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 test.beforeEach(async ({ page }) => {
@@ -575,12 +575,17 @@ test("NC 13: una cuota en blanco o vencida antes de la factura no deja emitir", 
   const n = await form.getByLabel(/Monto de la cuota/).count();
   await form.getByLabel(`Monto de la cuota ${n}`).fill("10");
   // Suma dentro del total (51.5 + 61.5 + 10 = 123) para que lo ÚNICO que bloquee sea la fecha: con 61.5 el 3320 tapaba
-  // al 3321 y una mutación `>=` en la fecha sobrevivía.
+  // al 3321.
   await form.getByLabel("Monto de la cuota 1").fill("51.5");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-01"); // el mismo día de la factura: 3321 exige posterior
+  // Con la cuota nueva sin vencimiento, lo único que bloquea es la fecha en blanco.
   await expect(boton).toBeDisabled();
-  await expect(form.getByLabel(`Vencimiento de la cuota ${n}`)).toHaveAttribute("min", "2026-09-02");
-  await form.getByLabel(`Vencimiento de la cuota ${n}`).fill("2026-09-02"); // el día siguiente ya vale
+  // La fecha es la `EntradaFecha` del design system: el mismo día de la factura no se puede elegir (3321 exige posterior)
+  // y el día siguiente sí.
+  const vencimiento = form.getByLabel(`Vencimiento de la cuota ${n}`);
+  expect(await fechaEsElegible(vencimiento, "2026-09-01")).toBe(false);
+  expect(await fechaEsElegible(vencimiento, "2026-09-02")).toBe(true);
+  await expect(boton).toBeDisabled();
+  await elegirFecha(vencimiento, "2026-09-02"); // el día siguiente ya vale
   await expect(boton).toBeEnabled();
   // Fecha válida pero 61.5 + 61.5 + 10 = 133 supera el total de la factura (123): 3320 bloquea.
   await form.getByLabel("Monto de la cuota 1").fill("61.5");

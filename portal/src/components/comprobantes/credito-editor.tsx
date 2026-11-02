@@ -5,9 +5,10 @@ import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { type CreditoForm, repartirEnCuotas, sumaDeCuotas } from "@/lib/comprobantes/credito";
-import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearMonto, sumarDias } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ export function CreditoEditor({
         </Campo>
         <div className="flex flex-wrap items-end gap-2">
           <Campo id="nc-cuotas-n" etiqueta={t.repartirEn}>
-            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={CAMPO}>
+            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={cn(SELECT_NATIVO, "w-full")}>
               {Array.from({ length: 11 }, (_, i) => i + 2).map((v) => (
                 <option key={v} value={v}>{interpolar(t.cuotasIguales, { n: v })}</option>
               ))}
@@ -74,14 +75,16 @@ export function CreditoEditor({
             <Campo id={`nc-cuota-fecha-${i}`} etiqueta={interpolar(t.cuotaVencimiento, { n: i + 1 })} className="[&>label]:sr-only">
               <EntradaFecha id={`nc-cuota-fecha-${i}`} valor={q.vencimiento} onCambio={(v) => poner(i, { vencimiento: v })} min={sumarDias(emision, 1)} variante="filtro" />
             </Campo>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               aria-label={interpolar(t.quitarCuota, { n: i + 1 })}
               onClick={() => onCambio({ ...credito, cuotas: credito.cuotas.filter((_, j) => j !== i) })}
-              className="mb-1 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive"
             >
               <TrashIcon className="size-4" />
-            </button>
+            </Button>
           </div>
         ))}
         <button

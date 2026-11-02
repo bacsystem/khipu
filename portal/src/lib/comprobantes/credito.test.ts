@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CREDITO_VACIO, errorDeCredito, formaPagoAApi, montoValido, repartirEnCuotas, sumaDeCuotas, type CreditoForm } from "./credito";
+import { CREDITO_VACIO, cuotaDeNotaValida, errorDeCredito, formaPagoAApi, montoValido, repartirEnCuotas, sumaDeCuotas, type CreditoForm } from "./credito";
 import es from "@/messages/es.json";
 
 const EMISION = "2026-10-01";
@@ -76,5 +76,19 @@ describe("montoValido", () => {
     expect(montoValido("-1")).toBe(false);
     expect(montoValido("1.005")).toBe(false);
     expect(montoValido("")).toBe(false);
+  });
+});
+
+describe("cuotaDeNotaValida (NC 13, #533)", () => {
+  it("pide monto > 0 con hasta 2 decimales y un vencimiento posterior a la factura", () => {
+    expect(cuotaDeNotaValida({ monto: "100.50", vencimiento: "2026-09-02" }, "2026-09-01")).toBe(true);
+    expect(cuotaDeNotaValida({ monto: "0", vencimiento: "2026-09-02" }, "2026-09-01")).toBe(false);
+    expect(cuotaDeNotaValida({ monto: "10.123", vencimiento: "2026-09-02" }, "2026-09-01")).toBe(false);
+    expect(cuotaDeNotaValida({ monto: "10", vencimiento: "" }, "2026-09-01")).toBe(false);
+  });
+
+  /** 3321: posterior, no igual. El calendario ya no deja elegir el mismo día, así que solo esta prueba guarda el borde. */
+  it("rechaza una cuota que vence el mismo día de la factura", () => {
+    expect(cuotaDeNotaValida({ monto: "10", vencimiento: "2026-09-01" }, "2026-09-01")).toBe(false);
   });
 });

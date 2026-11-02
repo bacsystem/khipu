@@ -8,6 +8,17 @@ import { sumarDias } from "@/lib/formato";
  */
 export type CuotaForm = { monto: string; vencimiento: string };
 
+/** Hasta 12 enteros y 2 decimales (3253): `10.123` pasaba el formulario y el backend lo rechazaba después. */
+const DOS_DECIMALES_CUOTA = /^\d{1,12}(\.\d{1,2})?$/;
+
+/**
+ * Una cuota de la NC 13 que SUNAT acepta: monto mayor que cero con hasta 2 decimales (3253) y vencimiento posterior —no igual— a la emisión de la factura
+ * (3321). La prueba vive aquí porque el calendario ya no deja elegir el mismo día y ningún e2e llega a ese borde (#533).
+ */
+export function cuotaDeNotaValida(q: CuotaForm, fechaEmisionFactura: string): boolean {
+  return Number(q.monto) > 0 && DOS_DECIMALES_CUOTA.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > fechaEmisionFactura;
+}
+
 export type CreditoForm = {
   /** Neto pendiente tecleado; vacío = el total del comprobante. */
   montoPendiente: string;

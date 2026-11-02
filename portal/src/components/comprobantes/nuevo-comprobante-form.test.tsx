@@ -142,8 +142,8 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
     fireEvent.change(screen.getByLabelText("Cargo del ítem: tipo"), { target: { value: "monto" } });
     fireEvent.change(screen.getByLabelText("Cargo del ítem: valor"), { target: { value: "25" } });
     // El descuento reduce la base del IGV por defecto (00); el cargo paga IGV (47). Cada uno se puede cambiar al otro código.
-    const reduceBase = screen.getByLabelText("Reduce la base del IGV");
-    const pagaIgv = screen.getByLabelText("Paga IGV");
+    const reduceBase = screen.getByRole("checkbox", { name: "Reduce la base del IGV" });
+    const pagaIgv = screen.getByRole("checkbox", { name: "Paga IGV" });
     expect(reduceBase).toBeChecked();
     expect(pagaIgv).toBeChecked();
     fireEvent.click(reduceBase);   // descuento 01: no toca el IGV
@@ -163,7 +163,7 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
     fireEvent.change(screen.getByLabelText("Descuento global: tipo"), { target: { value: "monto" } });
     fireEvent.change(screen.getByLabelText("Descuento global: valor"), { target: { value: "5.50" } });
     fireEvent.change(screen.getByLabelText("Cargo global: valor"), { target: { value: "10" } });
-    fireEvent.click(screen.getByLabelText("Recargo al consumo (restaurantes, sin IGV)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Recargo al consumo (restaurantes, sin IGV)" }));
 
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ descuento_global: { monto: 5.5, afecta_base_igv: true }, cargos: [{ porcentaje: 10, afecta_base_igv: false, motivo: "recargo_consumo" }] }));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -239,7 +239,7 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
     fireEvent.change(screen.getByLabelText("Unidad de medida"), { target: { value: "ZZ" } });   // una unidad que no es NIU
-    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }));
     expect(screen.getByLabelText("Unidad de medida")).toHaveValue("NIU");                        // marcarlo la corrige
 
     fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "2.5" } });
@@ -468,19 +468,19 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
   it("el control es de la venta interna (factura o boleta, #297): la exportación no lo ofrece", () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Operación sujeta a detracción (SPOT)")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
-    expect(screen.queryByLabelText("Operación sujeta a detracción (SPOT)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" })).not.toBeInTheDocument();
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Operación sujeta a detracción (SPOT)")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" })).toBeInTheDocument();
   });
 
   it("al activarla pide el bien o servicio, sugiere el porcentaje, precarga la cuenta y fija el tipo de operación 1001", async () => {
     const fetch = stubConCalculo(TOTALES, undefined, CON_DETRACCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.getByLabelText("Cuenta del Banco de la Nación")).toHaveValue("00-000-123456");
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     // 004 y 027 llevan datos por ítem que el formulario no captura: no se ofrecen.
@@ -503,7 +503,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     const valores = () => [...screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option")].map((o) => o.getAttribute("value"));
     fireEvent.change(screen.getByLabelText("Buscar en el catálogo 54"), { target: { value: "arrend" } });
@@ -517,7 +517,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     const fetch = stubConCalculo(TOTALES, undefined, CON_DETRACCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
     await waitFor(() => expect(screen.getByTestId("detraccion-pie")).toHaveTextContent("Detracción S/ 142.00"));
@@ -532,7 +532,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     stubConCalculo(TOTALES, { codigo: "DETRACCION_INVALIDA", mensaje: "3129 - El tipo de operación 1003 exige el código de bien/servicio 028" });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
     await waitFor(() => expect(screen.getByTestId("calculo-rechazado")).toHaveTextContent(/3129/));
@@ -542,7 +542,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "028" } });
     fireEvent.change(screen.getByLabelText("Porcentaje"), { target: { value: "10" } });
@@ -555,7 +555,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "037" } });
     expect(screen.getByRole("link", { name: "configurarla" })).toHaveAttribute("href", "/empresa?seccion=datos");
@@ -571,7 +571,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     conCliente("1180");
     await waitFor(() => expect(screen.getByTestId("aviso-detraccion")).toHaveTextContent(/pasa de S\/ 700\.00.*SPOT/));
     expect(screen.getByRole("button", { name: "Emitir factura" })).toBeEnabled();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.queryByTestId("aviso-detraccion")).not.toBeInTheDocument();
   });
 
@@ -580,7 +580,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
     fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.getByLabelText("Monto a depositar, en soles")).toBeInTheDocument();
   });
 });
@@ -612,12 +612,12 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     linea("Pan", "5");
     fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0113" } });
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }));
     await waitFor(() => expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/3240.*NRUS/));
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     expect(emisiones(fetch)).toHaveLength(0);
 
-    fireEvent.click(screen.getByLabelText("Bolsas de plástico (ICBPER)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }));
     await waitFor(() => expect(screen.queryByTestId("tributos-incompatibles")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -629,7 +629,7 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
     linea("Servicio", "650");
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
     fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
@@ -643,7 +643,7 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
     linea("Mercadería", "118");
     expect(screen.queryByLabelText("Forma de pago")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     await waitFor(() => expect(screen.getByTestId("percepcion-pie")).toHaveTextContent("Percepción S/ 2.36 · Total a cobrar S/ 120.36"));
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -655,7 +655,7 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     const fetch = stubConCalculo(TOTALES, undefined, CON_PERCEPCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     expect([...screen.getByLabelText("Régimen de percepción").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["51", "52", "53"]);
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "2001", percepcion: { regimen: "51" } }));
     await waitFor(() => expect(screen.getByTestId("percepcion-pie")).toHaveTextContent("Percepción S/ 23.60 · Total a cobrar S/ 1,203.60"));
@@ -671,20 +671,20 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conComprador();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     expect(screen.getByTestId("percepcion-form")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.queryByTestId("percepcion-form")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Operación con percepción del IGV")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
-    expect(screen.getByLabelText("Operación con percepción del IGV")).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Operación con percepción del IGV" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
+    expect(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" })).not.toBeChecked();
   });
 
   it("la percepción en dólares o al crédito lo dice y no deja emitir (2788, 3330)", async () => {
     const fetch = stubConCalculo(TOTALES, undefined, CON_PERCEPCION);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
     expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent(/2788/);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -697,9 +697,9 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   it("el control de percepción es de la venta interna: la exportación no lo ofrece", () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Operación con percepción del IGV")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
-    expect(screen.queryByLabelText("Operación con percepción del IGV")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Operación con percepción del IGV" })).not.toBeInTheDocument();
   });
 });
 
@@ -800,17 +800,17 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     linea("Mercadería", "1180");
   }
-  const marcar = () => fireEvent.click(screen.getByLabelText("El cliente retiene el IGV (agente de retención)"));
+  const marcar = () => fireEvent.click(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" }));
 
   it("es de la factura de venta interna: ni la boleta ni la exportación la ofrecen", () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
-    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeInTheDocument();
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeInTheDocument();
   });
 
   it("arranca en 3 %, manda el porcentaje y el pie muestra la retención y el neto a cobrar del backend", async () => {
@@ -856,18 +856,18 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     conComprador();
     marcar();
     expect(screen.getByTestId("retencion-form")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Operación con percepción del IGV"));
+    expect(screen.queryByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
     // Apagada la percepción, la retención no reaparece marcada: quedó apagada, no escondida.
-    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeChecked();
     marcar();
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.queryByTestId("retencion-form")).not.toBeInTheDocument();
     // Apagada la detracción, la retención no reaparece marcada: quedó apagada, no escondida.
-    fireEvent.click(screen.getByLabelText("Operación sujeta a detracción (SPOT)"));
-    expect(screen.getByLabelText("El cliente retiene el IGV (agente de retención)")).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
+    expect(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeChecked();
   });
 });
 
@@ -1135,10 +1135,10 @@ describe("NuevoComprobanteForm — anticipos (#312)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     abrir();
-    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /F001-1/ })).toBeInTheDocument());
     expect(screen.queryByLabelText(/F001-2/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/F001-3/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText(/F001-1/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /F001-1/ }));
     expect(screen.getByLabelText("Valor a descontar de F001-1")).toHaveValue("500.00");
   });
 
@@ -1147,8 +1147,8 @@ describe("NuevoComprobanteForm — anticipos (#312)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     abrir();
-    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(/F001-1/));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /F001-1/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("checkbox", { name: /F001-1/ }));
     fireEvent.change(screen.getByLabelText("Valor a descontar de F001-1"), { target: { value: "300" } });
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ anticipos: [{ serie: "F001", numero: 1, monto: 300, afectacion: "gravado" }] }));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -1163,8 +1163,8 @@ describe("NuevoComprobanteForm — anticipos (#312)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     abrir();
-    await waitFor(() => expect(screen.getByLabelText(/F001-1/)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(/F001-1/));
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /F001-1/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("checkbox", { name: /F001-1/ }));
     expect(screen.getByLabelText("Valor a descontar de F001-1")).toHaveValue("300.00");
     fireEvent.change(screen.getByLabelText("Valor a descontar de F001-1"), { target: { value: "301" } });
     expect(screen.getByTestId("anticipos-error")).toHaveTextContent(/solo tiene 300\.00 por descontar en gravado \(ya se regularizaron 200\.00\)/);
@@ -1187,7 +1187,7 @@ describe("NuevoComprobanteForm — anticipos (#312)", () => {
     conComprador();
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "" } });
     abrir();
-    fireEvent.click(screen.getByLabelText("Esta factura es un anticipo"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Esta factura es un anticipo" }));
     expect(screen.getByLabelText("Descripción")).toHaveValue("Anticipo por ");
     expect(screen.getByTestId("anticipo-ayuda")).toHaveTextContent(/Descontar anticipos/);
     expect(screen.queryByTestId("anticipos-form")).not.toBeInTheDocument();
@@ -1204,7 +1204,7 @@ describe("NuevoComprobanteForm — anticipos (#312)", () => {
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "Juan Pérez" } });
     linea("Pan", "5");
     abrir();
-    await waitFor(() => expect(screen.getByLabelText(/B001-1/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /B001-1/ })).toBeInTheDocument());
   });
 });
 

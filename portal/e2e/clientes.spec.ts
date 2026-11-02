@@ -112,7 +112,7 @@ test("#319 al emitir guarda al comprador nuevo en «Clientes»", async ({ page }
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
   await dialogo.getByLabel(/Precio unit\./).fill("100");
-  await expect(dialogo.getByLabel("Guardar en mis clientes al emitir")).toBeChecked();
+  await expect(dialogo.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).toBeChecked();
   // El guardado es un pedido aparte, después de emitir: se espera su respuesta antes de salir de la página, o la navegación lo abortaría.
   const guardado = page.waitForResponse((r) => r.url().includes("/api/proxy/clientes/documento/6/20554198211") && r.request().method() === "PUT");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
