@@ -14,7 +14,9 @@
     "cancelar": "Cancel",
     "cerrarSesion": "Sign out",
     "elegirFecha": "Pick a date",
-    "quitarFecha": "Clear the date"
+    "quitarFecha": "Clear the date",
+    "abrirOpciones": "Open options",
+    "sinResultados": "No results"
   },
   "referenciaTecnica": {
     "abrir": "Technical reference",

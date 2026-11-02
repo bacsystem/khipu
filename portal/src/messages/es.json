@@ -14,7 +14,9 @@
     "cancelar": "Cancelar",
     "cerrarSesion": "Cerrar sesión",
     "elegirFecha": "Elegir fecha",
-    "quitarFecha": "Quitar la fecha"
+    "quitarFecha": "Quitar la fecha",
+    "abrirOpciones": "Abrir opciones",
+    "sinResultados": "Sin resultados"
   },
   "referenciaTecnica": {
     "abrir": "Referencia técnica",
