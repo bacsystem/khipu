@@ -11,7 +11,6 @@ import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 type Entrada = { codigo: string; descripcion: string };
 
@@ -65,13 +64,13 @@ export function DetraccionEditor({
             onChange={(e) => setBusqueda(e.target.value)}
             aria-label={t.detraccion.buscarEtiqueta}
             placeholder={t.detraccion.buscarPlaceholder}
-            className={cn(CAMPO_DENSO, "mb-1.5")}
+            className={cn(CAMPO, "mb-1.5")}
           />
           <select
             id="nc-det-codigo"
             value={valor.codigo}
             onChange={(e) => set({ codigo: e.target.value, porcentaje: PORCENTAJE_SUGERIDO[e.target.value] !== undefined ? String(PORCENTAJE_SUGERIDO[e.target.value]) : valor.porcentaje })}
-            className={CAMPO_DENSO}
+            className={CAMPO}
           >
             <option value="">{t.detraccion.seleccione}</option>
             {ofrecidos.map((b) => (
@@ -88,13 +87,13 @@ export function DetraccionEditor({
             onChange={(e) => set({ porcentaje: e.target.value })}
             inputMode="decimal"
             placeholder="12"
-            className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+            className={cn(CAMPO, "font-mono tabular-nums")}
           />
         </Campo>
       </div>
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Campo id="nc-det-medio" etiqueta={t.detraccion.medioPago} ayuda={t.detraccion.catalogo59}>
-          <select id="nc-det-medio" value={valor.medioPago} onChange={(e) => set({ medioPago: e.target.value })} className={CAMPO_DENSO}>
+          <select id="nc-det-medio" value={valor.medioPago} onChange={(e) => set({ medioPago: e.target.value })} className={CAMPO}>
             {(medios ?? []).length === 0 ? <option value={valor.medioPago}>{interpolar(t.detraccion.depositoEnCuenta, { codigo: valor.medioPago })}</option> : null}
             {(medios ?? []).map((m) => (
               <option key={m.codigo} value={m.codigo}>
@@ -119,12 +118,12 @@ export function DetraccionEditor({
             )
           }
         >
-          <input id="nc-det-cuenta" value={valor.cuenta} onChange={(e) => set({ cuenta: e.target.value })} placeholder="00-000-123456" className={cn(CAMPO_DENSO, "font-mono")} />
+          <input id="nc-det-cuenta" value={valor.cuenta} onChange={(e) => set({ cuenta: e.target.value })} placeholder="00-000-123456" className={cn(CAMPO, "font-mono")} />
         </Campo>
       </div>
       {moneda !== "PEN" ? (
         <Campo id="nc-det-monto" etiqueta={t.detraccion.montoEnSoles} ayuda={interpolar(t.detraccion.montoEnSolesAyuda, { moneda })}>
-          <input id="nc-det-monto" value={valor.montoEnSoles} onChange={(e) => set({ montoEnSoles: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO_DENSO, "font-mono tabular-nums sm:max-w-[200px]")} />
+          <input id="nc-det-monto" value={valor.montoEnSoles} onChange={(e) => set({ montoEnSoles: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO, "font-mono tabular-nums sm:max-w-[200px]")} />
         </Campo>
       ) : null}
       <p className={cn(AYUDA_CAMPO, error ? "text-destructive" : undefined)} role={error ? "alert" : "status"} data-testid="detraccion-resumen">

@@ -3111,7 +3111,8 @@
         "ayuda": "Número del comprobante, sin la serie",
         "placeholder": "N.º"
       },
-      "fechaTitulo": "Fecha de emisión (inclusive)",
+      "quitarDesde": "Quitar la fecha desde",
+      "quitarHasta": "Quitar la fecha hasta",
       "desde": "Desde",
       "hasta": "Hasta",
       "refrescar": "Refrescar lista",
@@ -3789,7 +3790,8 @@
       "seriePlaceholder": "T001",
       "desde": "Desde",
       "hasta": "Hasta",
-      "aplicar": "Filtrar",
+      "quitarDesde": "Quitar la fecha desde",
+      "quitarHasta": "Quitar la fecha hasta",
       "limpiar": "Limpiar"
     },
     "detalle": {

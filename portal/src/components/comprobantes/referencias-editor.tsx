@@ -8,7 +8,6 @@ import { errorDeReferencias, MAX_DOCUMENTO, MAX_OBSERVACIONES, MAX_ORDEN_COMPRA,
 import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Datos adicionales (#300): orden de compra (solo factura), guías de remisión, otros documentos relacionados y observaciones. Ninguno cambia importes; el primer motivo por el
@@ -24,7 +23,7 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
     <div className="grid gap-4" data-testid="referencias-form">
       {boleta ? null : (
         <Campo id="nc-oc" etiqueta={t.ordenCompra} opcional ayuda={interpolar(t.ordenCompraAyuda, { max: MAX_ORDEN_COMPRA })}>
-          <input id="nc-oc" value={valor.ordenCompra} onChange={(e) => set({ ordenCompra: e.target.value })} maxLength={MAX_ORDEN_COMPRA} placeholder="OC-2026-0457" className={cn(CAMPO_DENSO, "font-mono sm:max-w-[260px]")} />
+          <input id="nc-oc" value={valor.ordenCompra} onChange={(e) => set({ ordenCompra: e.target.value })} maxLength={MAX_ORDEN_COMPRA} placeholder="OC-2026-0457" className={cn(CAMPO, "font-mono sm:max-w-[260px]")} />
         </Campo>
       )}
 
@@ -32,12 +31,12 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
         <legend className="mb-1 text-control font-medium">{t.guias}</legend>
         {valor.guias.map((g, i) => (
           <div key={i} className="flex items-start gap-2">
-            <select aria-label={interpolar(t.tipoGuia, { n: i + 1 })} value={g.tipo} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO_DENSO, "w-[230px] shrink-0")}>
+            <select aria-label={interpolar(t.tipoGuia, { n: i + 1 })} value={g.tipo} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO, "w-[230px] shrink-0")}>
               {tiposDeGuia(messages).map((g) => (
                 <option key={g.codigo} value={g.codigo}>{g.etiqueta}</option>
               ))}
             </select>
-            <input aria-label={interpolar(t.numeroGuia, { n: i + 1 })} value={g.numero} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} placeholder="T001-123" className={cn(CAMPO_DENSO, "font-mono")} />
+            <input aria-label={interpolar(t.numeroGuia, { n: i + 1 })} value={g.numero} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} placeholder="T001-123" className={cn(CAMPO, "font-mono")} />
             <button type="button" aria-label={interpolar(t.quitarGuia, { n: i + 1 })} onClick={() => set({ guias: valor.guias.filter((_, j) => j !== i) })} className="mt-1.5 text-muted-foreground hover:text-destructive">
               <TrashIcon className="size-4" />
             </button>
@@ -53,12 +52,12 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
         <legend className="mb-1 text-control font-medium">{t.documentos}</legend>
         {valor.documentos.map((d, i) => (
           <div key={i} className="flex items-start gap-2">
-            <select aria-label={interpolar(t.tipoDocumento, { n: i + 1 })} value={d.tipo} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO_DENSO, "w-[230px] shrink-0")}>
+            <select aria-label={interpolar(t.tipoDocumento, { n: i + 1 })} value={d.tipo} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(CAMPO, "w-[230px] shrink-0")}>
               {tiposDeDocumento.map((x) => (
                 <option key={x.codigo} value={x.codigo}>{x.etiqueta}</option>
               ))}
             </select>
-            <input aria-label={interpolar(t.numeroDocumento, { n: i + 1 })} value={d.numero} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} maxLength={MAX_DOCUMENTO + 10} placeholder="SCOP-8841203" className={cn(CAMPO_DENSO, "font-mono")} />
+            <input aria-label={interpolar(t.numeroDocumento, { n: i + 1 })} value={d.numero} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} maxLength={MAX_DOCUMENTO + 10} placeholder="SCOP-8841203" className={cn(CAMPO, "font-mono")} />
             <button type="button" aria-label={interpolar(t.quitarDocumento, { n: i + 1 })} onClick={() => set({ documentos: valor.documentos.filter((_, j) => j !== i) })} className="mt-1.5 text-muted-foreground hover:text-destructive">
               <TrashIcon className="size-4" />
             </button>
@@ -71,7 +70,7 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
       </fieldset>
 
       <Campo id="nc-observaciones" etiqueta={t.observaciones} opcional ayuda={t.observacionesAyuda}>
-        <textarea id="nc-observaciones" value={valor.observaciones} onChange={(e) => set({ observaciones: e.target.value })} rows={3} className={CAMPO_DENSO} />
+        <textarea id="nc-observaciones" value={valor.observaciones} onChange={(e) => set({ observaciones: e.target.value })} rows={3} className={cn(CAMPO, "h-auto py-2")} />
         <span className={cn(AYUDA_CAMPO, "justify-self-end tabular-nums")}>{valor.observaciones.length} / {MAX_OBSERVACIONES}</span>
       </Campo>
 

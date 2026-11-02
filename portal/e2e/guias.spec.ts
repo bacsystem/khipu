@@ -28,8 +28,9 @@ test("el menú lleva a las guías, que se listan con su estado y avisan que son 
 
 test("filtra por estado y por tipo, y los filtros viven en la URL", async ({ page }) => {
   await page.goto("/guias");
-  await page.getByLabel("Estado").selectOption("ERROR_ENVIO");
-  await page.getByRole("button", { name: "Filtrar" }).click();
+  // La barra de filtros del design system (#531): cada filtro se aplica al elegirlo, sin botón «Filtrar».
+  await page.getByRole("combobox", { name: "Estado" }).click();
+  await page.getByRole("option", { name: "Error de envío" }).click();
   await expect(page).toHaveURL(/estado=ERROR_ENVIO/);
   await expect(page.getByRole("row", { name: /T001-00000005/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /T001-00000008/ })).toHaveCount(0);
@@ -38,8 +39,12 @@ test("filtra por estado y por tipo, y los filtros viven en la URL", async ({ pag
   await expect(page.getByRole("row", { name: /V001-00000001/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /T001-00000008/ })).toHaveCount(0);
 
-  await page.goto("/guias?estado=ACEPTADO&serie=V001");
+  await page.goto("/guias?estado=ACEPTADO&serie=V001&desde=2026-10-01");
   await expect(page.getByText("Ninguna guía coincide con los filtros.")).toBeVisible();
+  // Una fecha se quita con su ✕ y sale de la URL; los demás filtros quedan.
+  await page.getByRole("button", { name: "Quitar la fecha desde" }).click();
+  await expect(page).not.toHaveURL(/desde=/);
+  await expect(page).toHaveURL(/serie=V001/);
   await page.getByRole("link", { name: "Limpiar" }).click();
   await expect(page).toHaveURL(/\/guias$/);
 });

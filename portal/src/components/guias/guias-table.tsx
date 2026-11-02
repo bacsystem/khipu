@@ -4,15 +4,17 @@ import { TrayIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
-import { type FormEvent } from "react";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
 import type { Locale } from "@/i18n/config";
 import { interpolar } from "@/i18n/mensajes";
 import { ESTADOS_DE_GUIA, numeroDeGuia, paramsDeFiltrosDeGuias, TIPOS_DE_GUIA, type FiltrosDeGuias, type Guia } from "@/lib/api/guias";
-import { CABECERA_TABLA, CAMPO_FILTRO, CONTROL_FILTRO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearFecha, formatearPrecioUnitario } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { EstadoGuiaBadge } from "./estado-guia-badge";
@@ -21,6 +23,8 @@ import { EstadoGuiaBadge } from "./estado-guia-badge";
  * El listado de guías (#39). El estado vive en la URL (filtros, página, tamaño): se puede compartir y recargar, y la página del servidor ya llega con los datos
  * de esa URL. Un clic en la fila abre la ficha; el número es un enlace real para abrirla en otra pestaña.
  */
+const TODOS = "todos";
+
 export function GuiasTable({
   datos,
   total,
@@ -50,76 +54,56 @@ export function GuiasTable({
     return texto ? `/guias?${texto}` : "/guias";
   }
 
-  function filtrar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const datosForm = new FormData(e.currentTarget);
-    const nuevos: FiltrosDeGuias = {};
-    for (const clave of ["estado", "tipo", "serie", "desde", "hasta"] as const) {
-      const valor = String(datosForm.get(clave) ?? "").trim();
-      if (valor) nuevos[clave] = valor;
-    }
+  /** Cambia un filtro en la URL (compartible) y vuelve a la página 1; vacío lo quita. Como en comprobantes: sin botón «Filtrar». */
+  function cambiarFiltro(clave: keyof FiltrosDeGuias, valor: string | null | undefined) {
+    const nuevos: FiltrosDeGuias = { ...filtros };
+    const limpio = valor?.trim();
+    if (limpio) nuevos[clave] = clave === "serie" ? limpio.toUpperCase() : limpio;
+    else delete nuevos[clave];
     router.push(url(nuevos, 1, porPagina));
   }
 
+  // Listas y no objetos: el orden de las opciones es el de la lista («31» no salta delante de «Todos»).
+  const itemsEstado = [{ value: TODOS, label: t.filtros.todosLosEstados }, ...ESTADOS_DE_GUIA.map((e) => ({ value: e, label: t.estados[e] }))];
+  const itemsTipo = [{ value: TODOS, label: t.filtros.todosLosTipos }, ...TIPOS_DE_GUIA.map((tipo) => ({ value: tipo, label: t.tipos[tipo] }))];
+
   return (
     <div className="flex flex-col gap-3">
-      {/* `key` con los filtros: al limpiar o al llegar por un enlace, el formulario no conserva lo que se había escrito. */}
-      <form
-        key={JSON.stringify(filtros)}
-        role="search"
-        aria-label={t.filtros.etiqueta}
-        onSubmit={filtrar}
-        className="flex flex-wrap items-end gap-3"
-      >
-        <label className="flex flex-col gap-1">
-          <span className={ETIQUETA_CAMPO}>{t.filtros.estado}</span>
-          <select name="estado" defaultValue={filtros.estado ?? ""} className={cn(CONTROL_FILTRO, SELECT_NATIVO, "min-w-40")}>
-            <option value="">{t.filtros.todosLosEstados}</option>
-            {ESTADOS_DE_GUIA.map((e) => (
-              <option key={e} value={e}>
-                {t.estados[e]}
-              </option>
+      {/* La barra de filtros del design system (§12), la misma de comprobantes: cada filtro se aplica al cambiarlo. */}
+      <div role="search" aria-label={t.filtros.etiqueta} className="flex flex-wrap items-center justify-end gap-2.5">
+        <Select items={itemsEstado} value={filtros.estado ?? TODOS} onValueChange={(v) => cambiarFiltro("estado", v === TODOS ? null : v)}>
+          <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-40 pl-3")} aria-label={t.filtros.estado}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {itemsEstado.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={ETIQUETA_CAMPO}>{t.filtros.tipo}</span>
-          <select name="tipo" defaultValue={filtros.tipo ?? ""} className={cn(CONTROL_FILTRO, SELECT_NATIVO, "min-w-40")}>
-            <option value="">{t.filtros.todosLosTipos}</option>
-            {TIPOS_DE_GUIA.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {t.tipos[tipo]}
-              </option>
+          </SelectContent>
+        </Select>
+        <Select items={itemsTipo} value={filtros.tipo ?? TODOS} onValueChange={(v) => cambiarFiltro("tipo", v === TODOS ? null : v)}>
+          <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-40 pl-3")} aria-label={t.filtros.tipo}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {itemsTipo.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={ETIQUETA_CAMPO}>{t.filtros.serie}</span>
-          <input
-            name="serie"
-            defaultValue={filtros.serie ?? ""}
-            placeholder={t.filtros.seriePlaceholder}
-            maxLength={4}
-            className={cn(CAMPO_FILTRO, "w-24 font-mono")}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={ETIQUETA_CAMPO}>{t.filtros.desde}</span>
-          <input name="desde" type="date" defaultValue={filtros.desde ?? ""} className={cn(CAMPO_FILTRO, "w-40")} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={ETIQUETA_CAMPO}>{t.filtros.hasta}</span>
-          <input name="hasta" type="date" defaultValue={filtros.hasta ?? ""} className={cn(CAMPO_FILTRO, "w-40")} />
-        </label>
-        <button type="submit" className={cn(CONTROL_FILTRO, "px-4 font-medium transition-colors hover:bg-muted")}>
-          {t.filtros.aplicar}
-        </button>
+          </SelectContent>
+        </Select>
+        <BusquedaDelListado id="filtro-serie" etiqueta={t.filtros.serie} ayuda={t.filtros.serie} placeholder={t.filtros.seriePlaceholder} valor={filtros.serie ?? ""} onCambio={(v) => cambiarFiltro("serie", v)} ancho="w-28" maxLength={4} />
+        <EntradaFecha id="filtro-desde" enBarra limpiable etiquetaLimpiar={t.filtros.quitarDesde} placeholder={t.filtros.desde} valor={filtros.desde} max={filtros.hasta} onCambio={(v) => cambiarFiltro("desde", v)} className="w-40" />
+        <EntradaFecha id="filtro-hasta" enBarra limpiable etiquetaLimpiar={t.filtros.quitarHasta} placeholder={t.filtros.hasta} valor={filtros.hasta} min={filtros.desde} onCambio={(v) => cambiarFiltro("hasta", v)} className="w-40" />
         {hayFiltros ? (
-          <Link href="/guias" className="flex h-control items-center text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+          <Link href="/guias" className="flex h-control items-center px-1 text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
             {t.filtros.limpiar}
           </Link>
         ) : null}
-      </form>
+      </div>
 
       <div className={CONTENEDOR_TABLA}>
         <Table>

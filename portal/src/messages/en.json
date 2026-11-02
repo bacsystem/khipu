@@ -3111,7 +3111,8 @@
         "ayuda": "Document number, without the series",
         "placeholder": "No."
       },
-      "fechaTitulo": "Issue date (inclusive)",
+      "quitarDesde": "Clear the from date",
+      "quitarHasta": "Clear the to date",
       "desde": "From",
       "hasta": "To",
       "refrescar": "Refresh list",
@@ -3789,7 +3790,8 @@
       "seriePlaceholder": "T001",
       "desde": "From",
       "hasta": "To",
-      "aplicar": "Filter",
+      "quitarDesde": "Clear the from date",
+      "quitarHasta": "Clear the to date",
       "limpiar": "Clear"
     },
     "detalle": {

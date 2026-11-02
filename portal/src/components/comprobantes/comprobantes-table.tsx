@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowClockwiseIcon, CalendarBlankIcon, FileTextIcon, TrayIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, FileTextIcon, TrayIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useMemo } from "react";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { esClickSimple } from "khipu-design-system/lib/navegacion";
@@ -30,7 +31,7 @@ import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
-import { BusquedaDelListado } from "./busqueda-del-listado";
+import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
 import { DescargaMasiva } from "./descarga-masiva";
 import { ExportarComprobantes } from "./exportar-comprobantes";
 import { DuplicarButton } from "./duplicar-button";
@@ -114,15 +115,16 @@ export function ComprobantesTable({
   const ETIQUETAS_ESTADO = etiquetasEstado(messages);
   const ETIQUETAS_TIPO = etiquetasTipo(messages);
   const ETIQUETAS_TIPO_DOC = etiquetasTipoDoc(messages);
-  const itemsEstado: Record<string, string> = useMemo(
-    () => ({ [TODOS_LOS_ESTADOS]: t.estadoTodos, ...Object.fromEntries(ESTADOS.map((e) => [e, etiquetasEstado(messages)[e]])) }),
+  // Listas y no objetos: en un objeto, JavaScript ordena primero las claves que parecen enteros («20», «40») (#531).
+  const itemsEstado = useMemo(
+    () => [{ value: TODOS_LOS_ESTADOS, label: t.estadoTodos }, ...ESTADOS.map((e) => ({ value: e, label: etiquetasEstado(messages)[e] }))],
     [messages, t],
   );
-  const itemsTipo: Record<string, string> = useMemo(
-    () => ({
-      [TODOS_LOS_TIPOS]: t.tipoTodos,
-      ...Object.fromEntries(TIPOS_FILTRABLES.map((tp) => [tp, interpolar(t.tipoOpcion, { tipo: etiquetasTipo(messages)[tp] ?? tp })])),
-    }),
+  const itemsTipo = useMemo(
+    () => [
+      { value: TODOS_LOS_TIPOS, label: t.tipoTodos },
+      ...TIPOS_FILTRABLES.map((tp) => ({ value: tp, label: interpolar(t.tipoOpcion, { tipo: etiquetasTipo(messages)[tp] ?? tp }) })),
+    ],
     [messages, t],
   );
   const { estado, desde, hasta, serie, tipo, cliente, numero } = filtros;
@@ -169,7 +171,7 @@ export function ComprobantesTable({
   }
 
   const opcionesSerie = serie && !series.includes(serie) ? [serie, ...series] : series;
-  const itemsSerie: Record<string, string> = { [TODAS_LAS_SERIES]: t.serieTodas, ...Object.fromEntries(opcionesSerie.map((s) => [s, interpolar(t.serieOpcion, { serie: s })])) };
+  const itemsSerie = [{ value: TODAS_LAS_SERIES, label: t.serieTodas }, ...opcionesSerie.map((s) => ({ value: s, label: interpolar(t.serieOpcion, { serie: s }) }))];
 
   function hrefPagina(p: number) {
     const next = new URLSearchParams(params.toString());
@@ -233,28 +235,9 @@ export function ComprobantesTable({
           <BusquedaDelListado id="filtro-cliente" etiqueta={t.cliente.etiqueta} ayuda={t.cliente.ayuda} placeholder={t.cliente.placeholder} valor={cliente ?? ""} onCambio={(v) => cambiarFiltro("cliente", v.trim() || null)} ancho="w-48" maxLength={100} />
           <BusquedaDelListado id="filtro-numero" etiqueta={t.numero.etiqueta} ayuda={t.numero.ayuda} placeholder={t.numero.placeholder} valor={numero ? String(numero) : ""} onCambio={(v) => cambiarFiltro("numero", v.replace(/\D/g, "").replace(/^0+/, "") || null)} ancho="w-24" soloDigitos maxLength={12} />
 
-          <div className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3")} title={t.fechaTitulo}>
-            <CalendarBlankIcon className="size-4 text-muted-foreground/70" />
-            <label className="sr-only" htmlFor="filtro-desde">{t.desde}</label>
-            <input
-              id="filtro-desde"
-              type="date"
-              value={desde ?? ""}
-              max={hasta}
-              onChange={(e) => cambiarFiltro("desde", e.target.value)}
-              className="bg-transparent text-control text-foreground outline-none"
-            />
-            <span className="text-muted-foreground/70">–</span>
-            <label className="sr-only" htmlFor="filtro-hasta">{t.hasta}</label>
-            <input
-              id="filtro-hasta"
-              type="date"
-              value={hasta ?? ""}
-              min={desde}
-              onChange={(e) => cambiarFiltro("hasta", e.target.value)}
-              className="bg-transparent text-control text-foreground outline-none"
-            />
-          </div>
+          {/* Las fechas del design system: en iOS un <input type="date"> vacío no mostraba nada, y cada una se quita con su ✕. */}
+          <EntradaFecha id="filtro-desde" enBarra limpiable etiquetaLimpiar={t.quitarDesde} placeholder={t.desde} valor={desde} max={hasta} onCambio={(v) => cambiarFiltro("desde", v)} className="w-40" />
+          <EntradaFecha id="filtro-hasta" enBarra limpiable etiquetaLimpiar={t.quitarHasta} placeholder={t.hasta} valor={hasta} min={desde} onCambio={(v) => cambiarFiltro("hasta", v)} className="w-40" />
 
           <DescargaMasiva filtros={filtros} total={total} />
 

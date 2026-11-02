@@ -9,7 +9,6 @@ import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import type { AnticiposDisponibles } from "./use-anticipos-disponibles";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Descontar anticipos (#312): las facturas o boletas aceptadas del mismo cliente y moneda, cada una con lo que queda por descontar. Al marcar una se propone descontar todo
@@ -73,14 +72,14 @@ export function AnticiposEditor({
                 {elegido ? (
                   <div className="grid items-start gap-3 sm:grid-cols-[1fr_160px]">
                     <Campo id={`nc-ant-monto-${c.etiqueta}`} etiqueta={interpolar(t.valorADescontar, { etiqueta: c.etiqueta })} ayuda={t.sinIgv}>
-                      <input id={`nc-ant-monto-${c.etiqueta}`} value={elegido.monto} onChange={(e) => cambiar(i, { monto: e.target.value })} inputMode="decimal" className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                      <input id={`nc-ant-monto-${c.etiqueta}`} value={elegido.monto} onChange={(e) => cambiar(i, { monto: e.target.value })} inputMode="decimal" className={cn(CAMPO, "font-mono tabular-nums")} />
                     </Campo>
                     <Campo id={`nc-ant-afect-${c.etiqueta}`} etiqueta={t.afectacion}>
                       <select
                         id={`nc-ant-afect-${c.etiqueta}`}
                         value={elegido.afectacion}
                         onChange={(e) => cambiar(i, { afectacion: e.target.value as AnticipoForm["afectacion"], monto: c.disponible[e.target.value as AnticipoForm["afectacion"]].toFixed(2) })}
-                        className={CAMPO_DENSO}
+                        className={CAMPO}
                       >
                         {AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0).map((a) => (
                           <option key={a} value={a}>{afectacion[a]}</option>
