@@ -1,11 +1,14 @@
 "use client";
 
-import { PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { BuildingsIcon, CarIcon, ChatTextIcon, ClipboardTextIcon, FilesIcon, FileTextIcon, IdentificationCardIcon, PackageIcon, PaperPlaneTiltIcon, PlusIcon, SteeringWheelIcon, TrashIcon, TruckIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
+import type { IconoComponente } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
@@ -17,7 +20,7 @@ import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Guia } from "@/lib/api/guias";
 import type { Serie } from "@/lib/api/series";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import {
   conductorVacio,
   conTiposAplicables,
@@ -57,26 +60,18 @@ export type CatalogosDeGuia = {
   documentos: OpcionDeCatalogo[];
 };
 
-function Campo({ id, etiqueta, ayuda, children, className }: { id: string; etiqueta: string; ayuda?: string; children: ReactNode; className?: string }) {
+/**
+ * Una sección del formulario: tarjeta con la cabecera del design system. La ayuda va debajo, en el cuerpo, y no como `subtitulo` de la
+ * cabecera: el subtítulo se corta en una línea y estas ayudas son frases enteras.
+ */
+function Seccion({ titulo, icon, ayuda, children }: { titulo: string; icon: IconoComponente; ayuda?: string; children: ReactNode }) {
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <label htmlFor={id} className={ETIQUETA_CAMPO}>
-        {etiqueta}
-      </label>
-      {children}
-      {ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
-    </div>
-  );
-}
-
-function Seccion({ titulo, ayuda, children }: { titulo: string; ayuda?: string; children: ReactNode }) {
-  return (
-    <section className={cn(TARJETA, "flex flex-col gap-4 p-4")}>
-      <div className="flex flex-col gap-1">
-        <h2 className={TITULO_SECCION}>{titulo}</h2>
+    <section className={TARJETA}>
+      <CabeceraSeccion icon={icon} titulo={titulo} />
+      <div className="flex flex-col gap-4 px-4 pb-4">
         {ayuda ? <p className={AYUDA_CAMPO}>{ayuda}</p> : null}
+        {children}
       </div>
-      {children}
     </section>
   );
 }
@@ -262,7 +257,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" data-testid="nueva-guia-form" noValidate>
-      <Seccion titulo={t.titulo}>
+      <Seccion titulo={t.titulo} icon={FileTextIcon}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="guia-serie" etiqueta={t.serie} ayuda={t.serieAyuda}>
             <Seleccion
@@ -280,19 +275,19 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         </div>
       </Seccion>
 
-      <Seccion titulo={t.destinatario}>
+      <Seccion titulo={t.destinatario} icon={IdentificationCardIcon}>
         <Parte prefijo="destinatario" parte={f.destinatario} alCambiar={(destinatario) => cambiar({ destinatario })} tipos={tiposDocumento} />
       </Seccion>
 
       {transportista ? (
-        <Seccion titulo={t.remitente}>
+        <Seccion titulo={t.remitente} icon={BuildingsIcon}>
           <Parte prefijo="remitente" parte={f.remitente} alCambiar={(remitente) => cambiar({ remitente })} tipos={tiposDocumento} />
           <Campo id="guia-mtc" etiqueta={t.registroMtc} ayuda={t.registroMtcObligatorio}>
             <input id="guia-mtc" value={f.registro_mtc} onChange={(e) => cambiar({ registro_mtc: e.target.value })} maxLength={20} className={cn(CAMPO, "font-mono")} />
           </Campo>
         </Seccion>
       ) : (
-        <Seccion titulo={t.motivo}>
+        <Seccion titulo={t.motivo} icon={ClipboardTextIcon}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo id="guia-motivo" etiqueta={t.motivo}>
               {catalogos.motivos.length > 0 ? (
@@ -330,7 +325,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         </Seccion>
       )}
 
-      <Seccion titulo={t.traslado}>
+      <Seccion titulo={t.traslado} icon={TruckIcon}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Campo id="guia-inicio" etiqueta={t.fechaInicio} ayuda={t.fechaInicioAyuda}>
             <EntradaFecha id="guia-inicio" valor={f.fecha_inicio} min={f.fecha_emision} onCambio={(fecha_inicio) => cambiar({ fecha_inicio })} />
@@ -362,7 +357,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
       </Seccion>
 
       {conVehiculos ? (
-        <Seccion titulo={t.vehiculos} ayuda={t.vehiculosAyuda}>
+        <Seccion titulo={t.vehiculos} icon={CarIcon} ayuda={t.vehiculosAyuda}>
           <div className="flex flex-col gap-2">
             {f.vehiculos.map((placa, i) => (
               <div key={i} className="flex items-end gap-2">
@@ -387,7 +382,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
       ) : null}
 
       {conVehiculos ? (
-        <Seccion titulo={t.conductores} ayuda={t.conductoresAyuda}>
+        <Seccion titulo={t.conductores} icon={SteeringWheelIcon} ayuda={t.conductoresAyuda}>
           <div className="flex flex-col gap-4">
             {f.conductores.map((c, i) => (
               <ConductorFila key={i} i={i} conductor={c} tipos={tiposDocumento} alCambiar={(nuevo) => cambiar({ conductores: reemplazar(f.conductores, i, nuevo) })} alQuitar={i > 0 ? () => cambiar({ conductores: f.conductores.filter((_, n) => n !== i) }) : undefined} />
@@ -402,7 +397,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         </Seccion>
       ) : null}
 
-      <Seccion titulo={t.bienes} ayuda={t.bienesAyuda}>
+      <Seccion titulo={t.bienes} icon={PackageIcon} ayuda={t.bienesAyuda}>
         <div className="flex flex-col gap-4">
           {f.items.map((it, i) => (
             <ItemFila key={i} i={i} item={it} alCambiar={(nuevo) => cambiar({ items: reemplazar(f.items, i, nuevo) })} alQuitar={f.items.length > 1 ? () => cambiar({ items: f.items.filter((_, n) => n !== i) }) : undefined} />
@@ -414,7 +409,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         </div>
       </Seccion>
 
-      <Seccion titulo={t.documentos} ayuda={t.documentosAyuda}>
+      <Seccion titulo={t.documentos} icon={FilesIcon} ayuda={t.documentosAyuda}>
         <div className="flex flex-col gap-4">
           {f.documentos.map((d, i) => (
             <DocumentoFila key={i} i={i} documento={d} opciones={documentosAplicables} alCambiar={(nuevo) => cambiar({ documentos: reemplazar(f.documentos, i, nuevo) })} alQuitar={() => cambiar({ documentos: f.documentos.filter((_, n) => n !== i) })} />
@@ -428,7 +423,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         </div>
       </Seccion>
 
-      <Seccion titulo={t.observaciones}>
+      <Seccion titulo={t.observaciones} icon={ChatTextIcon}>
         <Campo id="guia-observaciones" etiqueta={t.observaciones} ayuda={t.observacionesAyuda}>
           <input id="guia-observaciones" value={f.observaciones} onChange={(e) => cambiar({ observaciones: e.target.value })} maxLength={MAX_OBSERVACIONES} className={CAMPO} />
         </Campo>

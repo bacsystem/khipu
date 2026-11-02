@@ -282,6 +282,11 @@ describe("NotaForm — Idempotency-Key (#355)", () => {
   });
 });
 
+/** El descuento y el cargo propios van en un `Acordeon` del DS, cerrado mientras están vacíos: se abre como lo haría el usuario. */
+function abrirAjustes() {
+  fireEvent.click(screen.getByRole("button", { name: "Descuento global y cargo de la nota" }));
+}
+
 describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", () => {
   async function parcial(factura = documento("01")) {
     const fetch = stubApi();
@@ -340,6 +345,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
 
   it("el descuento global y el cargo de una nota parcial viajan siempre afectando la base del IGV", async () => {
     const fetch = await parcial();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
     await elegirOpcion(screen.getByLabelText("Cargo global de la nota: tipo"), "Monto");
@@ -352,6 +358,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
 
   it("un descuento mal escrito no deja emitir", async () => {
     const fetch = await parcial();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "abc" } });
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
     expect(notasEnviadas(fetch)).toHaveLength(0);
@@ -411,6 +418,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "2" } });
     const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
     expect(emitir).toBeDisabled();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
     expect(emitir).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "50" } });

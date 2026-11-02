@@ -1,5 +1,5 @@
 import { WebhooksLogoIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import type { Webhook } from "@/lib/api/webhooks";
@@ -16,24 +16,20 @@ export function WebhooksSection({ webhooks }: { webhooks: Webhook[] | null }) {
   const t = useMessages().webhooks.seccion;
   return (
     <section aria-labelledby="webhooks-titulo" className="grid min-w-0 grid-cols-1 gap-4" data-testid="webhooks">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <WebhooksLogoIcon weight={PESO_ICONO} className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 id="webhooks-titulo" className="text-cuerpo font-semibold text-foreground">
-              {t.titulo}
-            </h2>
-            <p className="text-control text-muted-foreground">
-              {t.descripcion}{" "}
-              <Link href="/developers/guia#webhooks" className="text-primary hover:underline">
-                {t.comoVerificar}
-              </Link>
-            </p>
-          </div>
-        </div>
-        {webhooks ? <NuevoWebhookDialog /> : null}
+      <div className="grid gap-1">
+        <CabeceraSeccion
+          icon={WebhooksLogoIcon}
+          titulo={<span id="webhooks-titulo">{t.titulo}</span>}
+          conBorde={false}
+          className="p-0"
+          derecha={webhooks ? <NuevoWebhookDialog /> : null}
+        />
+        <p className="text-control text-muted-foreground">
+          {t.descripcion}{" "}
+          <Link href="/developers/guia#webhooks" className="text-primary hover:underline">
+            {t.comoVerificar}
+          </Link>
+        </p>
       </div>
 
       {webhooks === null ? (

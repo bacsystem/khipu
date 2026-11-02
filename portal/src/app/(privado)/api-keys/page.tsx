@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 import { getLocale, getMessages } from "next-intl/server";
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
 import { esRolInsuficiente, SinPermisoDePagina } from "@/components/sin-permiso";
@@ -14,7 +15,8 @@ import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/compartidos/metrica";
 import { interpolar } from "@/i18n/mensajes";
-import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { AyudaMetrica, FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 import { ClockCounterClockwiseIcon, KeyIcon, LockIcon, ProhibitIcon } from "@phosphor-icons/react/dist/ssr";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,12 +31,7 @@ export default async function ApiKeysPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
@@ -65,7 +62,7 @@ export default async function ApiKeysPage() {
   const ultima = apiKeys[0]; // la API devuelve la más reciente primero
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+    <div className={CONTENEDOR_PAGINA}>
       <FilaMetricas>
         <Metrica
           etiqueta={t.activas} icono={KeyIcon} tono={activas.length > 0 ? "ok" : "aviso"}
@@ -73,30 +70,22 @@ export default async function ApiKeysPage() {
             activas.length > 0 && faltan === null ? (
               <span className="text-muted-foreground">{t.activasSinComprobar}</span>
             ) : activas.length > 0 && sinCertificado ? (
-              <Link href={enlaceASeccion("certificado")} className="flex items-center gap-1 text-warning-foreground hover:underline">
-                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
-                {t.faltaCertificado}
+              <Link href={enlaceASeccion("certificado")} className="min-w-0 hover:underline">
+                <AyudaMetrica tono="aviso">{t.faltaCertificado}</AyudaMetrica>
               </Link>
             ) : activas.length > 0 && sinSol ? (
-              <Link href={enlaceASeccion("sol")} className="flex items-center gap-1 text-warning-foreground hover:underline">
-                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
-                {t.faltaSol}
+              <Link href={enlaceASeccion("sol")} className="min-w-0 hover:underline">
+                <AyudaMetrica tono="aviso">{t.faltaSol}</AyudaMetrica>
               </Link>
             ) : activas.length > 0 ? (
-              <span className="flex items-center gap-1 text-success-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-success-solid" />
-                {t.listas}
-              </span>
+              <AyudaMetrica tono="ok">{t.listas}</AyudaMetrica>
             ) : (
-              <span className="flex items-center gap-1 text-warning-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-warning-solid" />
-                {t.sinAcceso}
-              </span>
+              <AyudaMetrica tono="aviso">{t.sinAcceso}</AyudaMetrica>
             )
           }
+          sufijo={interpolar(t.creadas, { total: apiKeys.length })}
         >
           {activas.length}
-          <span className="text-control font-normal text-muted-foreground">{interpolar(t.creadas, { total: apiKeys.length })}</span>
         </Metrica>
 
         <Metrica etiqueta={t.ultima} icono={ClockCounterClockwiseIcon} tono="neutro" ayuda={ultima ? formatearFechaHora(ultima.creada_en, locale) : t.ultimaVacia} texto>

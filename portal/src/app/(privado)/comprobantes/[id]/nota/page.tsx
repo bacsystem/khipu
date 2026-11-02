@@ -1,13 +1,12 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
-import Link from "next/link";
+import { EnlaceVolver } from "khipu-design-system/patrones/cabecera-pagina";
 import { notFound, redirect } from "next/navigation";
 import { NotaForm } from "@/components/comprobantes/nota-form";
 import { admiteNotas, etiquetasTipoDoc, obtenerFactura } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
 import { ApiError } from "@/lib/api/types";
-import { BOTON_SECUNDARIO, TARJETA } from "@/lib/estilos";
+import { CONTENEDOR_PAGINA, TARJETA } from "@/lib/estilos";
+import { TITULO_REGISTRO } from "@/lib/detalle";
 import { formatearMonto } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
@@ -49,16 +48,13 @@ export default async function NotaPage({ params }: { params: Promise<{ id: strin
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center gap-3 text-cuerpo">
-        <Link href={`/comprobantes/${id}`} className={cn(BOTON_SECUNDARIO, "h-auto px-2.5 py-1.5 text-etiqueta")}>
-          <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
-          {boleta ? t.volverABoleta : t.volverAFactura}
-        </Link>
+    <div className={CONTENEDOR_PAGINA}>
+      <div>
+        <EnlaceVolver href={`/comprobantes/${id}`}>{boleta ? t.volverABoleta : t.volverAFactura}</EnlaceVolver>
       </div>
-      <section className={cn(TARJETA, "p-6")}>
+      <section className={cn(TARJETA, "p-4")}>
         {/* El h1 de la página lo pone el top bar (la miga); este es el título de la tarjeta. */}
-        <h2 className="font-heading text-titulo-pagina font-bold tracking-tight text-foreground">{interpolar(t.emitirSobre, { numero: `${factura.serie}-${factura.numero}` })}</h2>
+        <h2 className={TITULO_REGISTRO}>{interpolar(t.emitirSobre, { numero: `${factura.serie}-${factura.numero}` })}</h2>
         <p className="mt-1 text-control text-muted-foreground" data-testid="nota-comprador">
           {comprador} · {formatearMonto(factura.moneda, factura.totales.total, locale)} · {boleta ? t.tomaDeBoleta : t.tomaDeFactura}
         </p>

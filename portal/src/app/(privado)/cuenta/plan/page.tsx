@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
+import { CalendarIcon, ChartBarIcon, CreditCardIcon, GaugeIcon } from "@phosphor-icons/react/dist/ssr";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { ProgresoLineal, type TonoProgreso } from "khipu-design-system/feedback/progreso";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Aviso } from "khipu-design-system/patrones/cabecera-dialogo";
 import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { interpolar } from "@/i18n/mensajes";
@@ -10,7 +15,7 @@ import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
 import { obtenerMiCuenta } from "@/lib/api/cuenta";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
 import { usoDelPlan } from "@/lib/cuenta/uso-del-plan";
-import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { CONTENEDOR_PAGINA, ETIQUETA_DATO, TARJETA } from "@/lib/estilos";
 import { formatearFecha, formatearFechaDeLima, formatearMes, ultimoDiaCubierto } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
@@ -27,14 +32,8 @@ const ESTADO = {
   VENCIDA: "error",
 } as const;
 
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
-      <p className="text-control text-foreground">{children}</p>
-    </div>
-  );
-}
+/** El color de la barra de consumo según el tono del uso (verde de la paleta, ámbar al acercarse al tope, rojo pasado). */
+const TONO_BARRA: Record<"ok" | "aviso" | "error", TonoProgreso> = { ok: "primary", aviso: "warning", error: "destructive" };
 
 /**
  * El plan del cliente (C1): cuál tiene, hasta cuándo está pagado y cuánto consumió este mes contra su tope. Solo lectura: el plan lo cambia el equipo de khipu
@@ -52,7 +51,7 @@ export default async function PlanPage() {
   const cuenta = await obtenerMiCuenta(access).catch(() => null);
   if (!cuenta) {
     return (
-      <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+      <div className={CONTENEDOR_PAGINA}>
         <Alerta tono="error" titulo={t.errorTitulo}>
           {tr.rich("errorDetalle", {
             link: (texto) => (
@@ -79,7 +78,7 @@ export default async function PlanPage() {
   const cubreHasta = plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(plan.hasta_cuando_cubre), locale) : null;
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
       {/* #250: «comunícate» tiene que decir por dónde. */}
       <AyudaDeSoporte />
@@ -100,79 +99,73 @@ export default async function PlanPage() {
           </Alerta>
         ))}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-plan">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-            <h2 id="titulo-plan" className={TITULO_SECCION}>
-              {interpolar(messages.nav.plan.etiqueta, { plan: plan.plan.nombre })}
-            </h2>
-            <PillEstado tono={estado.tono}>{estado.texto}</PillEstado>
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+        <section className={TARJETA} aria-labelledby="titulo-plan">
+          <CabeceraSeccion
+            icon={CreditCardIcon}
+            titulo={<span id="titulo-plan">{interpolar(messages.nav.plan.etiqueta, { plan: plan.plan.nombre })}</span>}
+            derecha={<PillEstado tono={estado.tono}>{estado.texto}</PillEstado>}
+          />
+          <div className="grid gap-3 px-4 pb-4">
+            <ListaDatos
+              datos={[
+                { etiqueta: t.precio, valor: plan.plan.precio_mensual === 0 ? t.gratis : interpolar(t.alMes, { precio: precioEnSoles(plan.plan.precio_mensual, messages, locale) }) },
+                { etiqueta: t.pagadoHasta, valor: pagadoHasta ?? t.noVence },
+                ...(plan.vence_en ? [{ etiqueta: t.diasDeGracia, valor: plan.dias_de_gracia === 1 ? t.unDia : interpolar(t.dias, { n: plan.dias_de_gracia }) }] : []),
+                ...(cubreHasta ? [{ etiqueta: t.seSirveHasta, valor: interpolar(t.graciaIncluida, { fecha: cubreHasta }) }] : []),
+                { etiqueta: t.limites, valor: limitesEnPalabras(plan.plan.limites, messages) },
+              ]}
+            />
+            <p className="text-control leading-relaxed text-muted-foreground">{t.retencionNota}</p>
+            {plan.programado ? (
+              <Aviso tono="neutro" icon={CalendarIcon}>
+                {tr.rich("programado", {
+                  fecha: formatearFechaDeLima(plan.programado.aplica_desde, locale),
+                  plan: plan.programado.plan.nombre,
+                  b: (texto) => <strong className="text-foreground">{texto}</strong>,
+                })}
+              </Aviso>
+            ) : null}
           </div>
-          <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-            <Dato etiqueta={t.precio}>{plan.plan.precio_mensual === 0 ? t.gratis : interpolar(t.alMes, { precio: precioEnSoles(plan.plan.precio_mensual, messages, locale) })}</Dato>
-            <Dato etiqueta={t.pagadoHasta}>{pagadoHasta ?? t.noVence}</Dato>
-            {plan.vence_en ? <Dato etiqueta={t.diasDeGracia}>{plan.dias_de_gracia === 1 ? t.unDia : interpolar(t.dias, { n: plan.dias_de_gracia })}</Dato> : null}
-            {cubreHasta ? <Dato etiqueta={t.seSirveHasta}>{interpolar(t.graciaIncluida, { fecha: cubreHasta })}</Dato> : null}
-            <div className="sm:col-span-2">
-              <Dato etiqueta={t.limites}>{limitesEnPalabras(plan.plan.limites, messages)}</Dato>
-              <p className="mt-2 text-control leading-relaxed text-muted-foreground">{t.retencionNota}</p>
-            </div>
-          </div>
-          {plan.programado ? (
-            <p className="mt-4 rounded-lg border border-border/80 bg-muted p-3 text-control text-muted-foreground">
-              {tr.rich("programado", {
-                fecha: formatearFechaDeLima(plan.programado.aplica_desde, locale),
-                plan: plan.programado.plan.nombre,
-                b: (texto) => <strong className="text-foreground">{texto}</strong>,
-              })}
-            </p>
-          ) : null}
         </section>
 
-        <section className={cn(TARJETA, "p-5")} aria-labelledby="titulo-consumo">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-            <h2 id="titulo-consumo" className={TITULO_SECCION}>
-              {interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}
-            </h2>
-            <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="consumo-del-mes">
-              {r.consumo}
-            </span>
+        <section className={TARJETA} aria-labelledby="titulo-consumo">
+          <CabeceraSeccion
+            icon={GaugeIcon}
+            titulo={<span id="titulo-consumo">{interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}</span>}
+            derecha={
+              <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="consumo-del-mes">
+                {r.consumo}
+              </span>
+            }
+          />
+          <div className="grid gap-3 px-4 pb-4">
+            {r.porcentaje !== null ? (
+              <ProgresoLineal valor={r.porcentaje} tono={TONO_BARRA[r.tono]} etiqueta={<span className="sr-only">{t.consumoTope}</span>} mostrarValor={false} />
+            ) : null}
+            <p className="text-control leading-relaxed text-muted-foreground">{t.nota}</p>
           </div>
-          {r.porcentaje !== null ? (
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.porcentaje} aria-label={t.consumoTope}>
-              <div
-                className={cn("h-full rounded-full", r.tono === "ok" && "bg-primary", r.tono === "aviso" && "bg-warning-solid", r.tono === "error" && "bg-destructive")}
-                style={{ width: `${r.porcentaje}%` }}
-              />
-            </div>
-          ) : null}
-          <p className="mt-3 text-control leading-relaxed text-muted-foreground">{t.nota}</p>
         </section>
 
-        <section className={cn(TARJETA, "p-5", "lg:col-span-2")} aria-labelledby="titulo-uso">
-          <h2 id="titulo-uso" className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>
-            {t.usoTitulo}
-          </h2>
-          <ul className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3">
-            {uso.map((u) => (
-              <li key={u.clave} data-testid={`uso-${u.clave}`}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className={ETIQUETA_DATO}>{t.uso[u.clave]}</span>
-                  <span className="font-mono text-cuerpo font-semibold text-foreground">{u.texto}</span>
-                </div>
-                {u.porcentaje !== null ? (
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={u.porcentaje} aria-label={t.uso[u.clave]}>
-                    <div
-                      className={cn("h-full rounded-full", u.tono === "ok" && "bg-primary", u.tono === "aviso" && "bg-warning-solid", u.tono === "error" && "bg-destructive")}
-                      style={{ width: `${u.porcentaje}%` }}
-                    />
+        <section className={cn(TARJETA, "lg:col-span-2")} aria-labelledby="titulo-uso">
+          <CabeceraSeccion icon={ChartBarIcon} titulo={<span id="titulo-uso">{t.usoTitulo}</span>} />
+          <div className="grid gap-4 px-4 pb-4">
+            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              {uso.map((u) => (
+                <li key={u.clave} data-testid={`uso-${u.clave}`} className="grid gap-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className={ETIQUETA_DATO}>{t.uso[u.clave]}</span>
+                    <span className="font-mono text-cuerpo font-semibold text-foreground">{u.texto}</span>
                   </div>
-                ) : null}
-                {u.aviso ? <p className={cn("mt-2 text-control leading-relaxed", u.tono === "error" ? "text-destructive" : "text-muted-foreground")}>{u.aviso}</p> : null}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-control leading-relaxed text-muted-foreground">{t.usoNota}</p>
+                  {u.porcentaje !== null ? (
+                    <ProgresoLineal valor={u.porcentaje} tono={TONO_BARRA[u.tono]} etiqueta={<span className="sr-only">{t.uso[u.clave]}</span>} mostrarValor={false} />
+                  ) : null}
+                  {u.aviso ? <p className={cn("text-control leading-relaxed", u.tono === "error" ? "text-destructive-texto" : "text-muted-foreground")}>{u.aviso}</p> : null}
+                </li>
+              ))}
+            </ul>
+            <p className="text-control leading-relaxed text-muted-foreground">{t.usoNota}</p>
+          </div>
         </section>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AvisosTabla } from "@/components/admin/avisos-tabla";
@@ -8,6 +9,7 @@ import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefEmpresas } from "@/lib/api/admin-empresas";
 import { hrefAvisos, hrefSiFueraDeRango, listarCertificadosEnRiesgo, listarCredencialesSolFallando, paramsAvisosDesdeUrl } from "@/lib/api/admin-avisos";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -37,18 +39,20 @@ export default async function AdminAvisosPage({ searchParams }: { searchParams: 
   if (corregida) redirect(corregida);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{messages.admin.avisos.titulo}</h1>
-        <p className="max-w-4xl text-cuerpo text-muted-foreground">{messages.admin.avisos.descripcion}</p>
-        {/* H21: una empresa que nunca cargó certificado tampoco puede emitir, y no tiene nada que vencer: no sale en estas listas. */}
-        <p className="max-w-4xl text-cuerpo text-muted-foreground">
-          {messages.admin.avisos.sinCertificado}{" "}
-          <Link href={hrefEmpresas({ certificado: "SIN_CERTIFICADO", pagina: 1, porPagina: POR_PAGINA_DEFECTO })} className="font-medium text-primary hover:underline">
-            {messages.admin.avisos.verSinCertificado}
-          </Link>
-        </p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina
+        titulo={messages.admin.avisos.titulo}
+        descripcion={
+          <>
+            {messages.admin.avisos.descripcion}{" "}
+            {/* H21: una empresa que nunca cargó certificado tampoco puede emitir, y no tiene nada que vencer: no sale en estas listas. */}
+            {messages.admin.avisos.sinCertificado}{" "}
+            <Link href={hrefEmpresas({ certificado: "SIN_CERTIFICADO", pagina: 1, porPagina: POR_PAGINA_DEFECTO })} className="font-medium text-primary hover:underline">
+              {messages.admin.avisos.verSinCertificado}
+            </Link>
+          </>
+        }
+      />
 
       {resultado.r ? (
         <AvisosTabla params={params} certificados={resultado.r.certificados} sol={resultado.r.sol} />

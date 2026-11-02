@@ -1,11 +1,10 @@
 import { EnvelopeSimpleIcon, EnvelopeSimpleOpenIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { useLocale, useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
 import type { EnvioAlCliente } from "@/lib/api/facturas";
 import { formatearFechaHora } from "@/lib/formato";
-import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { TARJETA } from "@/lib/estilos";
 
 /** El tono y el icono de cada estado; el título está en `messages.comprobantes.envioAlCliente.titulos` (#25). */
 const PRESENTACION: Record<EnvioAlCliente["estado"], { tono: string; Icono: typeof EnvelopeSimpleIcon }> = {
@@ -22,11 +21,10 @@ export function EnvioAlClienteEstado({ envio }: { envio: EnvioAlCliente }) {
   const { tono, Icono } = PRESENTACION[envio.estado];
   const titulo = t.titulos[envio.estado];
   return (
-    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="envio-al-cliente" data-estado={envio.estado}>
-      <div className={cn(TITULO_SECCION, "mb-2", tono)}>
-        <Icono weight={PESO_ICONO} className="size-4" />
-        {titulo}
-      </div>
+    <section className={TARJETA} data-testid="envio-al-cliente" data-estado={envio.estado}>
+      {/* El título lleva el color del estado: el icono de la cabecera va en el de la paleta, como en todas las secciones. */}
+      <CabeceraSeccion icon={Icono} titulo={<span className={tono}>{titulo}</span>} />
+      <div className="px-4 pb-4">
       <p className="text-control text-foreground/90">
         {envio.estado === "ENVIADO" ? t.salieronA : t.destinatario}
         <span className="font-mono">{envio.destinatario}</span>
@@ -50,6 +48,7 @@ export function EnvioAlClienteEstado({ envio }: { envio: EnvioAlCliente }) {
           {envio.ultimo_error}
         </p>
       ) : null}
+      </div>
     </section>
   );
 }

@@ -132,7 +132,8 @@ describe("PanelDelMonitor (#195)", () => {
   it("la tabla por hora trae lo mismo que el gráfico, en hora de Lima", () => {
     render(<PanelDelMonitor inicial={monitor()} />);
 
-    const filas = within(screen.getByText("Ver los números por hora").closest("details") as HTMLElement).getAllByRole("row");
+    fireEvent.click(screen.getByRole("button", { name: "Ver los números por hora" }));
+    const filas = within(screen.getByTestId("monitor-tabla-horas")).getAllByRole("row");
     expect(filas).toHaveLength(25);
     const ultima = within(filas[24]).getAllByRole("cell").map((c) => c.textContent);
     expect(ultima).toEqual(["10:00", "117", "97", "10", "5", "2", "3"]);

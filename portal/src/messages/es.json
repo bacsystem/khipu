@@ -3741,6 +3741,7 @@
       "nueva": "Nueva guía",
       "experimentalTitulo": "Función experimental",
       "experimentalTexto": "El envío de guías a SUNAT está apagado hasta que el operador lo encienda tras una corrida controlada, y SUNAT no ofrece un ambiente de pruebas para la guía de remisión. Hasta entonces puedes emitir sin enviar para revisar el XML y el PDF; la guía queda firmada y se envía después desde su ficha.",
+      "sinSerieTitulo": "Aún no tienes una serie de guía",
       "sinSerie": "Para emitir una guía necesitas una serie de guía de remisión (T### para la remitente, V### para la transportista).",
       "crearSerie": "Crear una serie"
     },

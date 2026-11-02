@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 import { SeriesTable } from "@/components/series/series-table";
 import { etiquetasTipo, listarFacturas } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
@@ -10,7 +10,8 @@ import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
 import { interpolar } from "@/i18n/mensajes";
 import type { Locale } from "@/i18n/config";
-import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { AyudaMetrica, FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 import { ListNumbersIcon, ReceiptIcon, ShieldCheckIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,12 +35,7 @@ export default async function SeriesPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
@@ -55,19 +51,14 @@ export default async function SeriesPage() {
   const porcentaje = series.length === 0 ? 0 : Math.round((activas / series.length) * 100);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+    <div className={CONTENEDOR_PAGINA}>
       <FilaMetricas>
         <Metrica
           etiqueta={t.seriesHabilitadas} icono={ListNumbersIcon} tono={porcentaje === 100 ? "ok" : "aviso"}
-          ayuda={
-            <span className={cn("flex items-center gap-1", porcentaje === 100 ? "text-success-foreground" : "text-warning-foreground")}>
-              <span className={cn("size-1.5 shrink-0 rounded-full", porcentaje === 100 ? "bg-success-solid" : "bg-warning-solid")} />
-              {interpolar(t.operativas, { porcentaje })}
-            </span>
-          }
+          ayuda={<AyudaMetrica tono={porcentaje === 100 ? "ok" : "aviso"}>{interpolar(t.operativas, { porcentaje })}</AyudaMetrica>}
+          sufijo={interpolar(t.configuradas, { total: series.length })}
         >
           {activas}
-          <span className="text-control font-normal text-muted-foreground">{interpolar(t.configuradas, { total: series.length })}</span>
         </Metrica>
 
         <Metrica
@@ -105,25 +96,22 @@ export default async function SeriesPage() {
               <span className="shrink-0 text-primary">{messages.nav.ubl}</span>
             </>
           }
+          sufijo={interpolar(t.tipos, { total: TIPOS_SOPORTADOS.length })}
         >
           {cubiertos.length}
-          <span className="text-control font-normal text-muted-foreground">{interpolar(t.tipos, { total: TIPOS_SOPORTADOS.length })}</span>
         </Metrica>
 
         <Metrica
           etiqueta={t.tiposSinSerie} icono={WarningCircleIcon} tono={sinSerie.length > 0 ? "error" : "ok"}
           ayuda={
             sinSerie.length > 0 ? (
-              <span className="flex min-w-0 items-center gap-1 text-destructive">
-                <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-                <span className="truncate">{sinSerie.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}</span>
-              </span>
+              <AyudaMetrica tono="error">{sinSerie.map((t) => `${t} ${ABREV_TIPO[t]}`).join(", ")}</AyudaMetrica>
             ) : (
-              <span className="text-success-foreground">{t.todosCubiertos}</span>
+              <AyudaMetrica tono="ok">{t.todosCubiertos}</AyudaMetrica>
             )
           }
         >
-          <span className={cn(sinSerie.length > 0 && "text-destructive")}>{sinSerie.length}</span>
+          <span className={cn(sinSerie.length > 0 && "text-destructive-texto")}>{sinSerie.length}</span>
         </Metrica>
       </FilaMetricas>
 

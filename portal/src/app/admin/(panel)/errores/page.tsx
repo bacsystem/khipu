@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ColaDeErroresTabla } from "@/components/admin/cola-de-errores-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefErrores, hrefSiFueraDeRango, listarErrores, paramsErroresDesdeUrl } from "@/lib/api/admin-errores";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -31,11 +33,8 @@ export default async function AdminErroresPage({ searchParams }: { searchParams:
   if (corregida) redirect(corregida);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{messages.admin.errores.titulo}</h1>
-        <p className="max-w-4xl text-cuerpo text-muted-foreground">{messages.admin.errores.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={messages.admin.errores.titulo} descripcion={messages.admin.errores.descripcion} />
 
       {resultado.pagina ? (
         <ColaDeErroresTabla errores={resultado.pagina.errores} total={resultado.pagina.total} params={params} />

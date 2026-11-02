@@ -19,6 +19,7 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 import { Chip, PillEstado } from "khipu-design-system/patrones/pill-estado";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -221,20 +222,6 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
   );
 }
 
-function Encabezado({ icono: Icono, titulo, detalle }: { icono: typeof UsersIcon; titulo: string; detalle: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-        <Icono className="size-4" />
-      </div>
-      <div className="min-w-0">
-        <h2 className="text-cuerpo font-semibold text-foreground">{titulo}</h2>
-        <p className="truncate font-mono text-etiqueta text-muted-foreground">{detalle}</p>
-      </div>
-    </div>
-  );
-}
-
 /** #21: los usuarios de la cuenta con su rol, y las invitaciones pendientes. */
 export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEquipo[]; invitaciones: InvitacionAlEquipo[] }) {
   const t = useMessages().equipo;
@@ -242,7 +229,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
   return (
     <div className="grid min-w-0 grid-cols-1 gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.usuarios}>
-        <Encabezado icono={UsersIcon} titulo={t.usuarios} detalle={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} />
+        <CabeceraSeccion icon={UsersIcon} titulo={t.usuarios} subtitulo={interpolar(t.resumenUsuarios, { activos, total: miembros.length })} conBorde={false} className="p-0" />
         <div className={CONTENEDOR_TABLA}>
           <Table>
             <TableHeader>
@@ -263,7 +250,7 @@ export function EquipoView({ miembros, invitaciones }: { miembros: MiembroDelEqu
       </section>
 
       <section className="grid min-w-0 grid-cols-1 gap-3" aria-label={t.invitaciones}>
-        <Encabezado icono={EnvelopeSimpleIcon} titulo={t.invitaciones} detalle={interpolar(t.pendientes, { n: invitaciones.length })} />
+        <CabeceraSeccion icon={EnvelopeSimpleIcon} titulo={t.invitaciones} subtitulo={interpolar(t.pendientes, { n: invitaciones.length })} conBorde={false} className="p-0" />
         <div className={CONTENEDOR_TABLA}>
           <Table>
             <TableHeader>

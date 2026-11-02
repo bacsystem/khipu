@@ -1,11 +1,12 @@
-import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react/dist/ssr";
+import { CheckCircleIcon, CircleIcon, ListChecksIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Chip } from "khipu-design-system/patrones/pill-estado";
 import Link from "next/link";
 import { useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
 import { hayPasosPendientes, type PasoGuia } from "@/lib/empresa/guia-emision";
-import { ACCION_SECUNDARIA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_SECUNDARIA, TARJETA } from "@/lib/estilos";
 
 /**
  * «Para empezar a emitir» (#375): lo que le falta a la empresa, en un solo lugar y con un enlace a cada paso. No se muestra cuando
@@ -17,16 +18,13 @@ export function GuiaParaEmitir({ pasos }: { pasos: PasoGuia[] }) {
   const listos = pasos.filter((p) => p.listo).length;
 
   return (
-    <section aria-labelledby="guia-emitir-titulo" data-testid="guia-emitir" className={cn(TARJETA, "p-5")}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-        <h2 id="guia-emitir-titulo" className={TITULO_SECCION}>
-          {t.titulo}
-        </h2>
-        <span className="font-mono text-etiqueta text-muted-foreground" data-testid="guia-emitir-avance">
-          {interpolar(t.avance, { listos, total: pasos.length })}
-        </span>
-      </div>
-      <ol className="mt-3 divide-y divide-border/60">
+    <section aria-labelledby="guia-emitir-titulo" data-testid="guia-emitir" className={TARJETA}>
+      <CabeceraSeccion
+        icon={ListChecksIcon}
+        titulo={<span id="guia-emitir-titulo">{t.titulo}</span>}
+        derecha={<Chip><span data-testid="guia-emitir-avance">{interpolar(t.avance, { listos, total: pasos.length })}</span></Chip>}
+      />
+      <ol className="divide-y divide-border/60 px-4 pb-2">
         {pasos.map((paso) => (
           <li key={paso.id} data-paso={paso.id} data-listo={paso.listo} className="flex flex-wrap items-center gap-3 py-2.5">
             {paso.listo ? (
