@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { elegirOpcion } from "./combo";
+import { abrirDatosDelCliente } from "./cliente";
 
 /**
  * #379: al digitar el RUC del cliente en «Nuevo comprobante», el portal consulta el padrón de SUNAT (`GET /v1/consultas/ruc/{ruc}`, por el proxy) y rellena el
@@ -39,13 +40,17 @@ test("rellena la razón social y la dirección al completar el RUC, con una sola
   const consultas = contarConsultas(page);
   const dialogo = await abrirFactura(page);
 
-  // Dígito a dígito, como se teclea: el pedido sale solo con el RUC completo.
-  await dialogo.getByLabel("RUC").pressSequentially("20100070970");
+  // #557: en el campo «Cliente», dígito a dígito, como se teclea: con el RUC completo se toma como documento y el pedido sale solo entonces.
+  await dialogo.getByLabel("Cliente").pressSequentially("20100070970");
 
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText("RUC 20100070970");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).toHaveText("TIENDAS DEL SUR S.A.C.");
+  await expect(dialogo.getByTestId("tarjeta-cliente-direccion")).toHaveText("AV. REPUBLICA DE PANAMA NRO. 2457");
+  await expect(dialogo.getByTestId("tarjeta-cliente").getByTestId("consulta-ruc")).toContainText("Encontrado en SUNAT · ACTIVO · HABIDO");
+  expect(consultas).toEqual(["20100070970"]);
+  await abrirDatosDelCliente(dialogo);
   await expect(dialogo.getByLabel("Razón social")).toHaveValue("TIENDAS DEL SUR S.A.C.");
   await expect(dialogo.getByLabel(/Dirección/)).toHaveValue("AV. REPUBLICA DE PANAMA NRO. 2457");
-  await expect(dialogo.getByTestId("consulta-ruc")).toContainText("Encontrado en SUNAT · ACTIVO · HABIDO");
-  expect(consultas).toEqual(["20100070970"]);
 
   // Se puede corregir y se emite con lo que quedó escrito.
   await dialogo.getByLabel("Razón social").fill("TIENDAS DEL SUR SAC");
@@ -57,6 +62,7 @@ test("rellena la razón social y la dirección al completar el RUC, con una sola
 test("un RUC de baja y no habido avisa 4013 y 4014 antes de emitir, sin bloquear", async ({ page }) => {
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20160109441");
 
   await expect(dialogo.getByTestId("aviso-ruc-4013")).toContainText("BAJA DE OFICIO");
@@ -71,6 +77,7 @@ test("un RUC de baja y no habido avisa 4013 y 4014 antes de emitir, sin bloquear
 test("un RUC activo pero no habido avisa solo 4014", async ({ page }) => {
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20602160280");
 
   await expect(dialogo.getByTestId("aviso-ruc-4014")).toBeVisible();
@@ -80,6 +87,7 @@ test("un RUC activo pero no habido avisa solo 4014", async ({ page }) => {
 test("un RUC que el padrón no tiene avisa y se digitan los datos a mano", async ({ page }) => {
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
 
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveAttribute("data-estado", "no-encontrado");
@@ -92,6 +100,7 @@ test("un RUC que el padrón no tiene avisa y se digitan los datos a mano", async
 
 test("no pisa lo ya escrito y al cambiar de RUC quita solo lo rellenado", async ({ page }) => {
   const dialogo = await abrirFactura(page);
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("Razón social").fill("Mi cliente de siempre");
 
   await dialogo.getByLabel("RUC").fill("20100070970");
@@ -108,6 +117,7 @@ test("con el cupo agotado avisa y se puede digitar a mano; «Consultar de nuevo�
   const consultas = contarConsultas(page);
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20999999990");
 
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveAttribute("data-estado", "cupo");
@@ -121,6 +131,7 @@ test("con el cupo agotado avisa y se puede digitar a mano; «Consultar de nuevo�
 test("con el padrón sin cargar o la conexión caída avisa y deja digitar a mano", async ({ page }) => {
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20777777778");
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveAttribute("data-estado", "sin-padron");
 
@@ -134,6 +145,7 @@ test("un RUC con el dígito verificador mal no se consulta", async ({ page }) =>
   const consultas = contarConsultas(page);
   const dialogo = await abrirFactura(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20100070971");
 
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveCount(0);
@@ -145,6 +157,7 @@ test("la boleta consulta el RUC solo si el documento del comprador es RUC", asyn
   const dialogo = await abrirFactura(page);
   await dialogo.getByRole("button", { name: "Boleta" }).click();
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveCount(0);
 

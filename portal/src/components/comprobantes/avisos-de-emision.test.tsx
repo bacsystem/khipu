@@ -7,9 +7,11 @@ import { guardarAvisosDeEmision, leerAvisosDeEmisionCrudos } from "@/lib/comprob
 import { AvisosDeEmision } from "./avisos-de-emision";
 import { NotaForm } from "./nota-form";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
+import { abrirDatosDelCliente } from "@/test/cliente-del-comprobante";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
+vi.mock("@/lib/use-preferencias-de-emision", () => ({ usePreferenciasDeEmision: () => ({ opcionesAvanzadas: true, cargando: false }) }));
 
 const AVISO_4013 = { codigo: "4013", mensaje: "El RUC 20160109441 del comprador no está activo en SUNAT (BAJA DE OFICIO): SUNAT aceptará el comprobante con una observación" };
 const AVISO_4014 = { codigo: "4014", mensaje: "El RUC 20160109441 del comprador figura como no habido en SUNAT: SUNAT aceptará el comprobante con una observación" };
@@ -134,12 +136,13 @@ describe("guardarAvisosDeEmision", () => {
 describe("los formularios de emisión dejan los avisos para la ficha (#382)", () => {
   async function emitirFactura() {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20100066603" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "CLIENTE SAC" } });
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
     await waitFor(() => expect(push).toHaveBeenCalled());
   }
 
@@ -164,13 +167,14 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
   it("la boleta con RUC que devuelve avisos también los deja para su ficha", async () => {
     stubEmision("b-9", [AVISO_4014]);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     await elegirDocumento("6");
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "20100066603" } });
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "CLIENTE SAC" } });
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
     await waitFor(() => expect(push).toHaveBeenCalled());
 
     expect(push).toHaveBeenCalledWith("/comprobantes/b-9");

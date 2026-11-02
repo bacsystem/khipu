@@ -250,8 +250,9 @@ test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la mone
   await page.goto("/comprobantes?por_pagina=50"); // la F001-4 ya no cabe en la primera página de 10 tras lo que emiten los specs anteriores
   await page.getByRole("button", { name: "Duplicar F001-00000004" }).click();
   const dialogo = page.getByRole("dialog");
-  await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
-  await expect(dialogo.getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  // #557: el cliente copiado se ve en su tarjeta.
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText("RUC 20554198211");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).toHaveText("CORPORACION GRAFICA ANDINA S.A.C.");
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
   await expect(dialogo.getByLabel(/Precio unit\./)).toHaveValue(/236/);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
@@ -270,7 +271,7 @@ test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota 
   // Un clic antes de hidratar se pierde: el diálogo escucha el pedido de duplicar (`alPedirDuplicado`) desde un useEffect. Corriendo detrás de otras specs fallaba.
   await esperarHidratacion(page, '[data-testid="duplicar"]');
   await page.getByTestId("duplicar").click();
-  await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  await expect(page.getByRole("dialog").getByTestId("tarjeta-cliente-nombre")).toHaveText("CORPORACION GRAFICA ANDINA S.A.C.");
   // La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Descartar" }).click();
