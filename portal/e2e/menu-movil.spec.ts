@@ -26,5 +26,17 @@ test("en una pantalla baja se llega al menú de usuario desde el cajón y se abr
 
   await menuDeUsuario.click();
   await page.getByRole("menuitem", { name: "Apariencia…" }).click();
-  await expect(page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Apariencia", level: 2 }) })).toBeVisible();
+  const panel = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Apariencia", level: 2 }) });
+  await expect(panel).toBeVisible();
+
+  // Design system 0.5.4: en el teléfono el panel ocupa el ancho (menos los márgenes) y nada se sale de él; ya no ofrece otro «Diseño».
+  const ancho = page.viewportSize()?.width ?? 0;
+  const caja = await panel.boundingBox();
+  expect(caja?.width ?? 0).toBeGreaterThan(ancho * 0.85);
+  const fuera = await panel.evaluate((p) => {
+    const borde = p.getBoundingClientRect().right;
+    return [...p.querySelectorAll("button, [role=radio]")].filter((el) => el.getBoundingClientRect().right > borde + 1).length;
+  });
+  expect(fuera).toBe(0);
+  await expect(panel.getByText("Diseño", { exact: true })).toHaveCount(0);
 });
