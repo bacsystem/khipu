@@ -22,14 +22,14 @@ test("con las credenciales SOL rechazadas el panel lo dice, y guardarlas de nuev
   const aviso = page.getByTestId("credenciales-sol-rechazadas");
   await expect(aviso).toContainText("SUNAT rechazó tus credenciales SOL");
   await expect(aviso).toContainText("0102 - Usuario o contrasena incorrectos");
-  await expect(page.getByText("RECHAZADAS", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-metrica="Credenciales SOL"]').getByText("Rechazadas", { exact: true })).toBeVisible();
 
   await page.getByLabel("Usuario SOL secundario").fill("NUEVOUSR");
   await page.getByLabel("Clave SOL").fill("clave-nueva");
   await page.getByRole("button", { name: "Reemplazar credenciales" }).click();
 
   await expect(aviso).toHaveCount(0);
-  await expect(page.getByText("CONFIGURADAS", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-metrica="Credenciales SOL"]').getByText("Configuradas", { exact: true })).toBeVisible();
   // Guardar refresca la página: sigue en la misma pestaña, que ya no está pendiente.
   await expect(page.getByRole("tab", { name: "Credenciales SOL" })).toHaveAttribute("aria-selected", "true");
 });

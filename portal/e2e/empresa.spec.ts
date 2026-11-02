@@ -86,3 +86,12 @@ test("sube y quita el logo del PDF", async ({ page }) => {
   await panel.getByTitle("Quitar logo").click();
   await expect(panel.getByTestId("logo-actual")).toHaveCount(0);
 });
+
+/** En un teléfono las cinco pestañas no entran: se desplazan ellas y la página no se corre a lo ancho (design system 0.5.4). */
+test("en un teléfono la página de la empresa no se desborda a lo ancho", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/empresa");
+  await expect(page.getByRole("tablist")).toBeVisible();
+  const desborde = await page.evaluate(() => (document.querySelector("main")?.scrollWidth ?? 0) - window.innerWidth);
+  expect(desborde).toBeLessThanOrEqual(0);
+});
