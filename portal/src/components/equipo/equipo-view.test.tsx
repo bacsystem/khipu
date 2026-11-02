@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InvitacionAlEquipo, MiembroDelEquipo } from "@/lib/api/equipo";
 import { SoloLectura } from "@/lib/solo-lectura";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { EquipoView } from "./equipo-view";
 
 const refresh = vi.fn();
@@ -22,7 +23,7 @@ const caro: InvitacionAlEquipo = { id: "i1", email: "caro@estudio.pe", rol: "LEC
 describe("EquipoView (#21)", () => {
   it("lista usuarios con su rol e invitaciones pendientes", () => {
     render(<EquipoView miembros={[ana, beto]} invitaciones={[caro]} />);
-    expect((screen.getByLabelText("Rol de beto@torres.pe") as HTMLSelectElement).value).toBe("EMISOR");
+    expect(screen.getByLabelText("Rol de beto@torres.pe")).toHaveTextContent("Emisor");
     expect(within(screen.getByTestId("miembro-ana@torres.pe")).getByText("Tú")).toBeTruthy();
     expect(within(screen.getByTestId("invitacion-caro@estudio.pe")).getByText("Solo lectura")).toBeTruthy();
   });
@@ -31,7 +32,7 @@ describe("EquipoView (#21)", () => {
     apiRequest.mockResolvedValue({ estado: "exito", datos: { ...beto, rol: "LECTURA" } });
     render(<EquipoView miembros={[ana, beto]} invitaciones={[]} />);
 
-    fireEvent.change(screen.getByLabelText("Rol de beto@torres.pe"), { target: { value: "LECTURA" } });
+    await elegirOpcion(screen.getByLabelText("Rol de beto@torres.pe"), "Solo lectura");
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/proxy/cuenta/usuarios/u2/rol", { method: "PUT", body: { rol: "LECTURA" } }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
@@ -41,7 +42,7 @@ describe("EquipoView (#21)", () => {
     apiRequest.mockResolvedValue({ estado: "error", codigo: "ULTIMO_ADMINISTRADOR", datos: null, mensaje: "x", errores: null });
     render(<EquipoView miembros={[ana]} invitaciones={[]} />);
 
-    fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "EMISOR" } });
+    await elegirOpcion(screen.getByLabelText("Rol de ana@torres.pe"), "Emisor");
     fireEvent.click(await screen.findByRole("button", { name: "Sí, dejar de ser administrador" }));
 
     expect((await screen.findAllByRole("alert")).map((a) => a.textContent).join(" ")).toContain("al menos un administrador");
@@ -52,7 +53,7 @@ describe("EquipoView (#21)", () => {
     apiRequest.mockResolvedValue({ estado: "exito", datos: { ...ana, rol: "LECTURA" } });
     render(<EquipoView miembros={[ana, beto]} invitaciones={[]} />);
 
-    fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "LECTURA" } });
+    await elegirOpcion(screen.getByLabelText("Rol de ana@torres.pe"), "Solo lectura");
     const dialogo = await screen.findByRole("dialog");
     expect(dialogo.textContent).toContain("perderás el acceso de administrador");
     expect(dialogo.textContent).toContain("Solo lectura");
@@ -62,7 +63,7 @@ describe("EquipoView (#21)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(apiRequest).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText("Rol de ana@torres.pe"), { target: { value: "LECTURA" } });
+    await elegirOpcion(screen.getByLabelText("Rol de ana@torres.pe"), "Solo lectura");
     fireEvent.click(await screen.findByRole("button", { name: "Sí, dejar de ser administrador" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/proxy/cuenta/usuarios/u1/rol", { method: "PUT", body: { rol: "LECTURA" } }));
   });
@@ -70,7 +71,7 @@ describe("EquipoView (#21)", () => {
   it("cambiar el rol de otro no pide confirmación", async () => {
     apiRequest.mockResolvedValue({ estado: "exito", datos: { ...beto, rol: "ADMIN" } });
     render(<EquipoView miembros={[ana, beto]} invitaciones={[]} />);
-    fireEvent.change(screen.getByLabelText("Rol de beto@torres.pe"), { target: { value: "ADMIN" } });
+    await elegirOpcion(screen.getByLabelText("Rol de beto@torres.pe"), "Administrador");
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
   });
@@ -121,7 +122,7 @@ describe("EquipoView (#21)", () => {
         <EquipoView miembros={[ana, beto]} invitaciones={[caro]} />
       </SoloLectura>,
     );
-    expect((screen.getByLabelText("Rol de beto@torres.pe") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Rol de beto@torres.pe") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /Reenviar/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 

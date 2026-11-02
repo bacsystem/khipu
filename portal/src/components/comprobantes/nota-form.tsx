@@ -13,12 +13,13 @@ import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { AreaTexto } from "khipu-design-system/formularios/campo";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -323,19 +324,20 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>{t.tipoNota}</label>
-          <select id="nota-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={cn(SELECT_NATIVO, "w-full")}>
-            <option value="07">{t.tipoNC}</option>
-            <option value="08">{t.tipoND}</option>
-          </select>
+          <SelectCampo
+            id="nota-tipo"
+            valor={tipo}
+            onCambio={(v) => setTipo(v as Tipo)}
+            opciones={[
+              { value: "07", label: t.tipoNC },
+              { value: "08", label: t.tipoND },
+            ]}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-serie" className={ETIQUETA_CAMPO}>{t.serie}</label>
           {seriesDelTipo.length ? (
-            <select id="nota-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-              {seriesDelTipo.map((s) => (
-                <option key={s.serie} value={s.serie}>{s.serie}</option>
-              ))}
-            </select>
+            <SelectCampo id="nota-serie" valor={serie} onCambio={setSerie} opciones={seriesDelTipo.map((s) => ({ value: s.serie, label: s.serie }))} mono />
           ) : (
             <p className="text-control leading-relaxed text-destructive">
               {interpolar(t.sinSeries, { nota: esNc ? t.notaCredito : t.notaDebito, documentos: t.documentoPlural[claseDocumento] })}{" "}
@@ -346,12 +348,16 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-motivo" className={ETIQUETA_CAMPO}>{interpolar(t.motivo, { catalogo: esNc ? "09" : "10" })}</label>
-          <select id="nota-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")} disabled={!catalogos[tipo]}>
-            <option value="">{catalogos[tipo] ? t.seleccione : messages.comun.cargando}</option>
-            {motivos.map((m) => (
-              <option key={m.codigo} value={m.codigo}>{m.codigo} · {m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}</option>
-            ))}
-          </select>
+          <SelectCampo
+            id="nota-motivo"
+            valor={motivo}
+            onCambio={setMotivo}
+            disabled={!catalogos[tipo]}
+            opciones={[
+              { value: "", label: catalogos[tipo] ? t.seleccione : messages.comun.cargando },
+              ...motivos.map((m) => ({ value: m.codigo, label: `${m.codigo} · ${m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}` })),
+            ]}
+          />
         </div>
       </div>
 

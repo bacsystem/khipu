@@ -1,10 +1,14 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { codigoDeOpcion, codigosDe, documentosOfrecidos, elegirCodigo, elegirDocumento, elegirEnCombobox, opcionesDeCombobox } from "@/test/combos-del-comprobante";
 import { elegirFecha, fechaEsElegible } from "@/test/fecha-de-prueba";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hoyLima, sumarDias } from "@/lib/formato";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+// Varias pruebas eligen muchos combos del design system (#555), y cada uno abre y cierra su lista: con la suite entera en paralelo, los 5 s por defecto no alcanzan.
+vi.setConfig({ testTimeout: 20_000 });
 
 const SERIES = [
   { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
@@ -33,12 +37,16 @@ const CATALOGO_54 = { id: "54", nombre: "Detracciones", columnas: ["Código", "D
   { codigo: "004", descripcion: "Recursos hidrobiológicos" }, { codigo: "019", descripcion: "Arrendamiento de bienes muebles" }, { codigo: "022", descripcion: "Otros servicios empresariales" },
   { codigo: "027", descripcion: "Servicio de transporte de carga" }, { codigo: "028", descripcion: "Transporte de pasajeros" }, { codigo: "037", descripcion: "Demás servicios gravados con el IGV" },
 ] };
-const CATALOGO_59 = { id: "59", nombre: "Medios de pago", columnas: ["Código", "Descripción"], entradas: [{ codigo: "001", descripcion: "Depósito en cuenta" }, { codigo: "002", descripcion: "Giro" }] };
+const CATALOGO_03 = { id: "03", nombre: "Unidades de medida", columnas: ["Código", "Descripción"], entradas: [
+  { codigo: "NIU", descripcion: "Unidad (bienes)", extra: { "Más usada": "Sí" } }, { codigo: "ZZ", descripcion: "Unidad (servicios)", extra: { "Más usada": "Sí" } },
+] };
+const CATALOGO_59 ={ id: "59", nombre: "Medios de pago", columnas: ["Código", "Descripción"], entradas: [{ codigo: "001", descripcion: "Depósito en cuenta" }, { codigo: "002", descripcion: "Giro" }] };
 
 function stubConCalculo(totales: Record<string, number>, rechazo?: { codigo: string; mensaje: string }, datosExtra: Record<string, unknown> = {}) {
   const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
     if (String(url).includes("/catalogos/54")) return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: CATALOGO_54, mensaje: null, codigo: null, errores: null })));
     if (String(url).includes("/catalogos/59")) return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: CATALOGO_59, mensaje: null, codigo: null, errores: null })));
+    if (String(url).includes("/catalogos/03")) return Promise.resolve(new Response(JSON.stringify({ estado: "exito", datos: CATALOGO_03, mensaje: null, codigo: null, errores: null })));
     const esCalculo = String(url).includes("/facturas/calcular");
     if (esCalculo && rechazo) return Promise.resolve(new Response(JSON.stringify({ estado: "error", datos: null, mensaje: rechazo.mensaje, codigo: rechazo.codigo, errores: null }), { status: 422 }));
     const datos = esCalculo ? { totales, total_en_soles: null, ...datosExtra } : { id: "c-1" };
@@ -74,9 +82,7 @@ describe("NuevoComprobanteForm — unidad de medida (#308)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    const unidad = screen.getByLabelText("Unidad de medida");
-    await waitFor(() => expect(unidad.querySelectorAll("option")).toHaveLength(2));
-    expect([...unidad.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["NIU", "ZZ"]);
+    await waitFor(async () => expect((await opcionesDeCombobox("Unidad de medida")).map(codigoDeOpcion)).toEqual(["NIU", "ZZ"]));
   });
 });
 
@@ -139,7 +145,7 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
 
     fireEvent.change(screen.getByLabelText("Descuento del ítem: valor"), { target: { value: "10" } });
-    fireEvent.change(screen.getByLabelText("Cargo del ítem: tipo"), { target: { value: "monto" } });
+    await elegirOpcion(screen.getByLabelText("Cargo del ítem: tipo"), "Monto");
     fireEvent.change(screen.getByLabelText("Cargo del ítem: valor"), { target: { value: "25" } });
     // El descuento reduce la base del IGV por defecto (00); el cargo paga IGV (47). Cada uno se puede cambiar al otro código.
     const reduceBase = screen.getByRole("checkbox", { name: "Reduce la base del IGV" });
@@ -160,7 +166,7 @@ describe("NuevoComprobanteForm — descuentos y cargos (#310)", () => {
     conCliente();
     fireEvent.click(screen.getByText("Más opciones del comprobante"));
 
-    fireEvent.change(screen.getByLabelText("Descuento global: tipo"), { target: { value: "monto" } });
+    await elegirOpcion(screen.getByLabelText("Descuento global: tipo"), "Monto");
     fireEvent.change(screen.getByLabelText("Descuento global: valor"), { target: { value: "5.50" } });
     fireEvent.change(screen.getByLabelText("Cargo global: valor"), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Recargo al consumo (restaurantes, sin IGV)" }));
@@ -196,13 +202,26 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
   }
 
-  it("ofrece las afectaciones agrupadas del catálogo 07: onerosas, IVAP y las gratuitas", () => {
+  it("ofrece las afectaciones agrupadas del catálogo 07: onerosas, IVAP y las gratuitas", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    const select = screen.getByLabelText("Afectación del IGV");
-    expect([...select.querySelectorAll("optgroup")].map((g) => g.getAttribute("label"))).toEqual(["Onerosas", "Gratuitas gravadas", "Gratuitas exoneradas", "Gratuitas inafectas"]);
-    expect([...select.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["10", "20", "30", "17", "11", "12", "13", "14", "15", "16", "21", "31", "32", "33", "34", "35", "36", "37"]);
+    const combo = screen.getByLabelText("Afectación del IGV");
+    await act(async () => {
+      fireEvent.click(combo);
+    });
+    const grupos = within(await screen.findByRole("listbox")).getAllByRole("group");
+    expect(grupos.map((g) => g.getAttribute("aria-label") ?? document.getElementById(g.getAttribute("aria-labelledby") ?? "")?.textContent)).toEqual([
+      "Onerosas",
+      "Gratuitas gravadas",
+      "Gratuitas exoneradas",
+      "Gratuitas inafectas",
+    ]);
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    expect(await codigosDe("Afectación del IGV")).toEqual(["10", "20", "30", "17", "11", "12", "13", "14", "15", "16", "21", "31", "32", "33", "34", "35", "36", "37"]);
   });
 
   it("el ISC viaja con los campos de su sistema (01 tasa, 02 monto por unidad, 03 tasa y PVP)", async () => {
@@ -210,12 +229,12 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
 
-    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "03" } });
+    await elegirCodigo("Sistema del ISC", "03");
     fireEvent.change(screen.getByLabelText("Tasa del ISC (%)"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Precio de venta al público sugerido"), { target: { value: "3.50" } });
     await waitFor(() => expect(calculos(fetch).at(-1)?.items[0]).toMatchObject({ isc: { sistema: "03", tasa: 30, base_pvp: 3.5 } }));
 
-    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "02" } });
+    await elegirCodigo("Sistema del ISC", "02");
     expect(screen.queryByLabelText("Tasa del ISC (%)")).not.toBeInTheDocument();   // cambiar de sistema limpia lo del anterior
     fireEvent.change(screen.getByLabelText("Monto por unidad del ISC"), { target: { value: "2.25" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -227,7 +246,7 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
-    fireEvent.change(screen.getByLabelText("Sistema del ISC"), { target: { value: "01" } });
+    await elegirCodigo("Sistema del ISC", "01");
     expect(screen.getByText("La tasa es un porcentaje mayor que cero, con hasta 5 decimales.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/Corrija los descuentos, cargos o tributos/));
@@ -238,9 +257,10 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
-    fireEvent.change(screen.getByLabelText("Unidad de medida"), { target: { value: "ZZ" } });   // una unidad que no es NIU
+    await elegirEnCombobox("Unidad de medida", "ZZ", /^ZZ · /);                                 // una unidad que no es NIU
+    expect(screen.getByLabelText("Unidad de medida")).toHaveValue("ZZ · Unidad (servicios)");
     fireEvent.click(screen.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }));
-    expect(screen.getByLabelText("Unidad de medida")).toHaveValue("NIU");                        // marcarlo la corrige
+    expect(screen.getByLabelText("Unidad de medida")).toHaveValue("NIU · Unidad (bienes)");     // marcarlo la corrige
 
     fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "2.5" } });
     expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/entero de 1 a 99999/);
@@ -258,7 +278,7 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    await elegirCodigo("Afectación del IGV", "17");
     fireEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
     fireEvent.change(screen.getAllByLabelText("Descripción")[1], { target: { value: "Otro" } });
     fireEvent.change(screen.getAllByLabelText(/Precio unit\./)[1], { target: { value: "10" } });
@@ -274,7 +294,7 @@ describe("NuevoComprobanteForm — afectaciones, ISC, ICBPER e IVAP (#298)", () 
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "15" } });
+    await elegirCodigo("Afectación del IGV", "15");
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0].items[0].tipo_afectacion_igv).toBe("15");
@@ -288,16 +308,16 @@ describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     linea("Proyecto", "1180");
-    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    await elegirOpcion(screen.getByLabelText("Forma de pago"), "Al crédito (cuotas)");
     // El neto pendiente por defecto es el total que calculó el backend: se espera a que llegue.
     await waitFor(() => expect(screen.getByLabelText("Neto pendiente")).toHaveAttribute("placeholder", "1180.00"));
     expect(fetch).toBeDefined();
   }
 
-  it("el selector de forma de pago es solo de la factura: la boleta se emite al contado", () => {
+  it("el selector de forma de pago es solo de la factura: la boleta se emite al contado", async () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect(screen.getByLabelText("Forma de pago")).toHaveValue("contado");
+    expect(screen.getByLabelText("Forma de pago")).toHaveTextContent("Al contado");
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
     expect(screen.queryByLabelText("Forma de pago")).not.toBeInTheDocument();
@@ -343,7 +363,7 @@ describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
     await waitFor(() => expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" ")).toMatch(/al menos una cuota/));
     expect(emisiones(fetch)).toHaveLength(0);
 
-    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "contado" } });
+    await elegirOpcion(screen.getByLabelText("Forma de pago"), "Al contado");
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0].forma_pago).toBeUndefined();
@@ -353,23 +373,22 @@ describe("NuevoComprobanteForm — factura al crédito (#309)", () => {
 describe("NuevoComprobanteForm — exportación (#311)", () => {
   const TOTALES = { gravado: 0, exonerado: 0, inafecto: 0, igv: 0, total: 4500 };
 
-  function exportar(operacion = "0200") {
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: operacion } });
+  async function exportar(operacion = "0200") {
+    await elegirCodigo("Tipo de operación", operacion);
     linea("Café verde en grano", "4500");
   }
 
-  it("al elegir una exportación: afectación 40, moneda en dólares y un comprador del exterior sin RUC", () => {
+  it("al elegir una exportación: afectación 40, moneda en dólares y un comprador del exterior sin RUC", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    await elegirCodigo("Tipo de operación", "0200");
 
-    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    expect(screen.getByLabelText("Moneda")).toHaveTextContent("(USD)");
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    const afectacion = screen.getByLabelText("Afectación del IGV");
-    expect([...afectacion.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["40"]);
-    expect(afectacion).toHaveValue("40");
+    expect(await codigosDe("Afectación del IGV")).toEqual(["40"]);
+    expect(screen.getByLabelText("Afectación del IGV")).toHaveTextContent(/^40 · /);
     // El cliente se elige por su documento (catálogo 06) y su país; el RUC no vale en 0200 (2800).
-    const documentos = [...screen.getByLabelText("Documento del comprador").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    const documentos = await documentosOfrecidos();
     expect(documentos).toEqual(["1", "4", "7", "0", "A", "B", "C", "D", "E", "G"]);
     expect(screen.getByLabelText("País del cliente")).toBeInTheDocument();
     expect(screen.getByLabelText(/^Incoterm/)).toBeInTheDocument();
@@ -379,11 +398,11 @@ describe("NuevoComprobanteForm — exportación (#311)", () => {
   it("emite con el tipo de operación, el país del cliente, el incoterm y las líneas en 40", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    exportar();
+    await exportar();
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
-    fireEvent.change(screen.getByLabelText("País del cliente"), { target: { value: "US" } });
-    fireEvent.change(screen.getByLabelText(/^Incoterm/), { target: { value: "FOB" } });
+    await elegirEnCombobox("País del cliente", "Estados", "Estados Unidos");
+    await elegirOpcion(screen.getByLabelText(/^Incoterm/), "FOB");
 
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "0200", moneda: "USD", exportacion: { incoterm: "FOB" }, items: [{ tipo_afectacion_igv: "40" }] }));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -400,7 +419,7 @@ describe("NuevoComprobanteForm — exportación (#311)", () => {
   it("una factura de exportación sin país del cliente no sale", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    exportar();
+    await exportar();
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
     expect(screen.getByTestId("error-exportacion")).toHaveTextContent(/país/);
@@ -412,41 +431,41 @@ describe("NuevoComprobanteForm — exportación (#311)", () => {
   it("los servicios 0201 y 0208 piden el país de uso, y lo mandan", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    exportar("0201");
+    await exportar("0201");
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456789" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "ACME IMPORTS LLC" } });
-    fireEvent.change(screen.getByLabelText("País del cliente"), { target: { value: "US" } });
+    await elegirEnCombobox("País del cliente", "Estados", "Estados Unidos");
     expect(screen.getByTestId("error-exportacion")).toHaveTextContent(/3098/);
 
-    fireEvent.change(screen.getByLabelText("País de uso del servicio"), { target: { value: "CL" } });
+    expect(await opcionesDeCombobox("País de uso del servicio")).not.toContain("Perú");
+    await elegirEnCombobox("País de uso del servicio", "Chile");
     expect(screen.queryByTestId("error-exportacion")).not.toBeInTheDocument();
-    expect([...screen.getByLabelText("País de uso del servicio").querySelectorAll("option")].some((o) => o.getAttribute("value") === "PE")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0]).toMatchObject({ tipo_operacion: "0201", exportacion: { pais_uso: "CL" } });
   });
 
-  it("volver a la venta interna restablece la afectación, la moneda y el cliente con RUC", () => {
+  it("volver a la venta interna restablece la afectación, la moneda y el cliente con RUC", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    exportar();
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0101" } });
+    await exportar();
+    await elegirCodigo("Tipo de operación", "0101");
 
-    expect(screen.getByLabelText("Moneda")).toHaveValue("PEN");
+    expect(screen.getByLabelText("Moneda")).toHaveTextContent("(PEN)");
     expect(screen.getByLabelText("RUC")).toBeInTheDocument();
     expect(screen.queryByTestId("datos-exportacion")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("10");
+    expect(screen.getByLabelText("Afectación del IGV")).toHaveTextContent(/^10 · /);
   });
 
   it("la boleta también exporta (#296): comprador sin RUC, país opcional", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    exportar();
-    const documentos = [...screen.getByLabelText("Documento del comprador").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    await exportar();
+    const documentos = await documentosOfrecidos();
     expect(documentos).not.toContain("6");
     expect(documentos).toContain("-");
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "7" } });
+    await elegirDocumento("7");
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "US123456" } });
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "John Smith" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
@@ -465,11 +484,11 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     linea("Servicio", precio);
   }
 
-  it("el control es de la venta interna (factura o boleta, #297): la exportación no lo ofrece", () => {
+  it("el control es de la venta interna (factura o boleta, #297): la exportación no lo ofrece", async () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    await elegirCodigo("Tipo de operación", "0200");
     expect(screen.queryByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" })).not.toBeInTheDocument();
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
@@ -482,12 +501,12 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.getByLabelText("Cuenta del Banco de la Nación")).toHaveValue("00-000-123456");
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
     // 004 y 027 llevan datos por ítem que el formulario no captura: no se ofrecen.
-    expect([...screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["", "019", "022", "028", "037"]);
+    expect(await opcionesDe(screen.getByLabelText("Bien o servicio sujeto"))).toEqual(["Seleccione", "019 · Arrendamiento de bienes muebles", "022 · Otros servicios empresariales", "028 · Transporte de pasajeros", "037 · Demás servicios gravados con el IGV"]);
 
     expect(screen.getByTestId("detraccion-resumen")).toHaveTextContent(/Elija el bien o servicio/);
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await elegirCodigo("Bien o servicio sujeto", "022");
     expect(screen.getByLabelText("Porcentaje")).toHaveValue("12");
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022", porcentaje: 12, medio_pago: "001", cuenta_banco_nacion: "00-000-123456" } }));
     // El monto y el neto a cobrar son los del backend.
@@ -504,13 +523,14 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    const valores = () => [...screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    const valores = () => codigosDe("Bien o servicio sujeto");
     fireEvent.change(screen.getByLabelText("Buscar en el catálogo 54"), { target: { value: "arrend" } });
-    expect(valores()).toEqual(["", "019"]);
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "019" } });
+    expect(await valores()).toEqual(["019"]);
+    expect(await opcionesDe(screen.getByLabelText("Bien o servicio sujeto"))).toContain("Seleccione");
+    await elegirCodigo("Bien o servicio sujeto", "019");
     fireEvent.change(screen.getByLabelText("Buscar en el catálogo 54"), { target: { value: "037" } });
-    expect(valores()).toEqual(["", "019", "037"]);
+    expect(await valores()).toEqual(["019", "037"]);
   });
 
   it("al crédito, el neto pendiente por defecto es el total menos la detracción (en soles)", async () => {
@@ -518,10 +538,10 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    await elegirCodigo("Bien o servicio sujeto", "022");
     await waitFor(() => expect(screen.getByTestId("detraccion-pie")).toHaveTextContent("Detracción S/ 142.00"));
-    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    await elegirOpcion(screen.getByLabelText("Forma de pago"), "Al crédito (cuotas)");
     fireEvent.click(screen.getByRole("button", { name: "Repartir" }));
     // 1180.00 de total menos 142.00 de detracción: lo que queda por cobrar a plazos.
     await waitFor(() => expect(screen.getByTestId("credito-resumen")).toHaveTextContent("de S/ 1,038.00 pendientes"));
@@ -533,8 +553,8 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    await elegirCodigo("Bien o servicio sujeto", "022");
     await waitFor(() => expect(screen.getByTestId("calculo-rechazado")).toHaveTextContent(/3129/));
   });
 
@@ -543,8 +563,8 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "028" } });
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    await elegirCodigo("Bien o servicio sujeto", "028");
     fireEvent.change(screen.getByLabelText("Porcentaje"), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -556,8 +576,8 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conCliente();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "037" } });
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    await elegirCodigo("Bien o servicio sujeto", "037");
     expect(screen.getByRole("link", { name: "configurarla" })).toHaveAttribute("href", "/empresa?seccion=datos");
     expect(screen.getByTestId("detraccion-resumen")).toHaveTextContent(/Falta la cuenta de detracciones/);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -579,7 +599,7 @@ describe("NuevoComprobanteForm — detracción (#288)", () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conCliente();
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await elegirCodigo("Moneda", "USD");
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
     expect(screen.getByLabelText("Monto a depositar, en soles")).toBeInTheDocument();
   });
@@ -594,23 +614,23 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     linea("Mercadería", "1180");
   }
-  const opciones = () => [...screen.getByLabelText("Tipo de operación").querySelectorAll("option")].map((o) => o.getAttribute("value"));
+  const opciones = () => codigosDe("Tipo de operación");
 
-  it("el NRUS (0113) solo se ofrece en la boleta", () => {
+  it("el NRUS (0113) solo se ofrece en la boleta", async () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect(opciones()).not.toContain("0113");
+    expect(await opciones()).not.toContain("0113");
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    expect(opciones()).toContain("0113");
+    expect(await opciones()).toContain("0113");
   });
 
   it("una boleta NRUS sale con la operación 0113, y con bolsas de plástico no se emite (3240)", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Pan", "5");
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0113" } });
+    await elegirCodigo("Tipo de operación", "0113");
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }));
     await waitFor(() => expect(screen.getByTestId("tributos-incompatibles")).toHaveTextContent(/3240.*NRUS/));
@@ -627,11 +647,11 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   it("la boleta lleva la detracción como la factura: la operación pasa a 1001", async () => {
     const fetch = stubConCalculo(TOTALES, undefined, { detraccion: { codigo_bien_servicio: "022", porcentaje: 12, monto: 142, cuenta_banco_nacion: "00-000-123456", medio_pago: "001" } });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Servicio", "650");
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }));
-    await waitFor(() => expect(screen.getByLabelText("Bien o servicio sujeto").querySelectorAll("option").length).toBeGreaterThan(1));
-    fireEvent.change(screen.getByLabelText("Bien o servicio sujeto"), { target: { value: "022" } });
+    await waitFor(async () => expect((await codigosDe("Bien o servicio sujeto")).length).toBeGreaterThan(0));
+    await elegirCodigo("Bien o servicio sujeto", "022");
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0]).toMatchObject({ serie: "B001", tipo_operacion: "1001", detraccion: { codigo_bien_servicio: "022" } });
@@ -640,7 +660,7 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
   it("la boleta también lleva percepción: 2001 con el régimen, sin forma de pago, y el pie suma el monto", async () => {
     const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 }, undefined, { percepcion: { regimen: "51", descripcion: "Percepción venta interna - Tasa 2%", porcentaje: 2, base: 118, monto: 2.36, total_con_percepcion: 120.36 } });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Mercadería", "118");
     expect(screen.queryByLabelText("Forma de pago")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
@@ -656,11 +676,11 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
-    expect([...screen.getByLabelText("Régimen de percepción").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["51", "52", "53"]);
+    expect(await codigosDe("Régimen de percepción")).toEqual(["51", "52", "53"]);
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ tipo_operacion: "2001", percepcion: { regimen: "51" } }));
     await waitFor(() => expect(screen.getByTestId("percepcion-pie")).toHaveTextContent("Percepción S/ 23.60 · Total a cobrar S/ 1,203.60"));
 
-    fireEvent.change(screen.getByLabelText("Régimen de percepción"), { target: { value: "52" } });
+    await elegirCodigo("Régimen de percepción", "52");
     fireEvent.change(screen.getByLabelText(/Base de la percepción/), { target: { value: "500" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -685,20 +705,20 @@ describe("NuevoComprobanteForm — NRUS, detracción y percepción en boleta y f
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     fireEvent.click(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" }));
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await elegirCodigo("Moneda", "USD");
     expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent(/2788/);
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     expect(emisiones(fetch)).toHaveLength(0);
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "PEN" } });
-    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    await elegirCodigo("Moneda", "PEN");
+    await elegirOpcion(screen.getByLabelText("Forma de pago"), "Al crédito (cuotas)");
     expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent(/3330/);
   });
 
-  it("el control de percepción es de la venta interna: la exportación no lo ofrece", () => {
+  it("el control de percepción es de la venta interna: la exportación no lo ofrece", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByRole("checkbox", { name: "Operación con percepción del IGV" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    await elegirCodigo("Tipo de operación", "0200");
     expect(screen.queryByRole("checkbox", { name: "Operación con percepción del IGV" })).not.toBeInTheDocument();
   });
 });
@@ -712,12 +732,13 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     linea("Servicio", precio);
   }
 
-  it("ofrece las 17 monedas del catálogo 02 que admite el backend", () => {
+  it("ofrece las 17 monedas del catálogo 02 que admite el backend", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    expect([...screen.getByLabelText("Moneda").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toHaveLength(17);
-    expect(screen.getByLabelText("Moneda").querySelector('option[value="GBP"]')).not.toBeNull();
-    expect(screen.getByLabelText("Moneda").querySelector('option[value="PYG"]')).not.toBeNull();
+    const monedas = await codigosDe("Moneda");
+    expect(monedas).toHaveLength(17);
+    expect(monedas).toContain("GBP");
+    expect(monedas).toContain("PYG");
   });
 
   it("el tipo de cambio solo aparece fuera de soles y viaja como número; en soles no se manda", async () => {
@@ -725,7 +746,7 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
     expect(screen.queryByLabelText(/Tipo de cambio/)).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "GBP" } });
+    await elegirCodigo("Moneda", "GBP");
     fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "3.75" } });
     await waitFor(() => expect(calculos(fetch).at(-1)).toMatchObject({ moneda: "GBP", tipo_cambio: 3.75 }));
     await waitFor(() => expect(screen.getByTestId("total-en-soles")).toHaveTextContent("Equivale a S/ 442.50 al tipo de cambio 3.75"));
@@ -734,7 +755,7 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     expect(emisiones(fetch)[0]).toMatchObject({ moneda: "GBP", tipo_cambio: 3.75 });
 
     // Al volver a soles el campo desaparece y el valor no se manda.
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "PEN" } });
+    await elegirCodigo("Moneda", "PEN");
     expect(screen.queryByLabelText(/Tipo de cambio/)).not.toBeInTheDocument();
     await waitFor(() => expect(calculos(fetch).at(-1)).not.toHaveProperty("tipo_cambio"));
   });
@@ -743,9 +764,9 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "JPY" } });
+    await elegirCodigo("Moneda", "JPY");
     fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "0.025" } });
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await elegirCodigo("Moneda", "USD");
     expect(screen.getByLabelText(/Tipo de cambio/)).toHaveValue("");
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
@@ -757,7 +778,7 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conComprador();
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await elegirCodigo("Moneda", "USD");
     fireEvent.change(screen.getByLabelText(/Tipo de cambio/), { target: { value: "3.7567" } });
     expect(screen.getByText(/soles por 1 USD: un número mayor que cero/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
@@ -771,9 +792,9 @@ describe("NuevoComprobanteForm — monedas y tipo de cambio (#316)", () => {
   it("una boleta en dólares sin documento: con tipo de cambio el tope de S/ 700 se mide en soles; sin él se pide el documento", async () => {
     const fetch = stubConCalculo({ gravado: 100, exonerado: 0, inafecto: 0, igv: 18, total: 118 });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Servicio", "118");
-    fireEvent.change(screen.getByLabelText("Moneda"), { target: { value: "USD" } });
+    await elegirCodigo("Moneda", "USD");
     await waitFor(() => expect(screen.getByTestId("aviso-sin-documento")).toHaveTextContent(/no indica el tipo de cambio/));
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
     expect(emisiones(fetch)).toHaveLength(0);
@@ -802,11 +823,11 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
   }
   const marcar = () => fireEvent.click(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" }));
 
-  it("es de la factura de venta interna: ni la boleta ni la exportación la ofrecen", () => {
+  it("es de la factura de venta interna: ni la boleta ni la exportación la ofrecen", async () => {
     stubConCalculo(TOTALES);
     const { unmount } = render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    await elegirCodigo("Tipo de operación", "0200");
     expect(screen.queryByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" })).not.toBeInTheDocument();
     unmount();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
@@ -844,13 +865,13 @@ describe("NuevoComprobanteForm — retención del IGV (#313)", () => {
     conComprador();
     marcar();
     await waitFor(() => expect(screen.getByTestId("retencion-pie")).toHaveTextContent("Retención S/ 35.40"));
-    fireEvent.change(screen.getByLabelText("Forma de pago"), { target: { value: "credito" } });
+    await elegirOpcion(screen.getByLabelText("Forma de pago"), "Al crédito (cuotas)");
     fireEvent.click(screen.getByRole("button", { name: "Repartir" }));
     await waitFor(() => expect(screen.getByTestId("credito-resumen")).toHaveTextContent("de S/ 1,144.60 pendientes"));
     await waitFor(() => expect(calculos(fetch).at(-1)?.forma_pago).toMatchObject({ tipo: "credito", monto_pendiente: 1144.6 }));
   });
 
-  it("se excluye con la percepción y con la detracción: activar una apaga la otra", () => {
+  it("se excluye con la percepción y con la detracción: activar una apaga la otra", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} cuentaDetracciones="00-000-123456" />);
     conComprador();
@@ -879,37 +900,36 @@ describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
   };
 
-  it("la etiqueta del precio dice si lleva IGV según la afectación de la línea", () => {
+  it("la etiqueta del precio dice si lleva IGV según la afectación de la línea", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByLabelText("Precio unit. (con IGV)")).toBeInTheDocument();
     abrirLinea();
     for (const [afectacion, etiqueta] of [["20", "Precio unit. (sin IGV)"], ["30", "Precio unit. (sin IGV)"], ["15", "Precio unit. (sin IGV)"], ["17", "Precio unit. (con IVAP)"], ["10", "Precio unit. (con IGV)"]] as const) {
-      fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: afectacion } });
+      await elegirCodigo("Afectación del IGV", afectacion);
       expect(screen.getByLabelText(etiqueta), afectacion).toBeInTheDocument();
     }
   });
 
-  it("una factura toda exonerada no muestra «IGV (18 %) S/ 0.00»; con una línea gravada, sí", () => {
+  it("una factura toda exonerada no muestra «IGV (18 %) S/ 0.00»; con una línea gravada, sí", async () => {
     stubConCalculo({ gravado: 0, exonerado: 100, inafecto: 0, igv: 0, total: 100 });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     const pie = () => screen.getByTestId("totales-previsualizados");
     expect(pie()).toHaveTextContent("IGV (18 %)"); // vacío: se muestra la tasa de la empresa
     conRuc();
     abrirLinea();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "20" } });
+    await elegirCodigo("Afectación del IGV", "20");
     linea("Libro", "100");
     expect(pie()).not.toHaveTextContent("IGV");
     expect(pie()).toHaveTextContent("Exonerado");
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "10" } });
+    await elegirCodigo("Afectación del IGV", "10");
     expect(pie()).toHaveTextContent("IGV (18 %)");
   });
 
-  it("la serie anuncia el último emitido (no un «siguiente» que otra pestaña pudo gastar) o que aún no emitió", () => {
+  it("la serie anuncia el último emitido (no un «siguiente» que otra pestaña pudo gastar) o que aún no emitió", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={[{ tipo: "01", serie: "F001", ultimo_numero: 12, activa: true, establecimiento: "0000" }, { tipo: "01", serie: "F002", ultimo_numero: 0, activa: true, establecimiento: "0000" }]} tasaIgv={18} />);
-    expect(screen.getByRole("option", { name: "F001 · último emitido N.º 12" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "F002 · aún sin emitir" })).toBeInTheDocument();
+    expect(await opcionesDe(screen.getByLabelText("Serie"))).toEqual(["F001 · último emitido N.º 12", "F002 · aún sin emitir"]);
     expect(screen.queryByText(/siguiente/i)).not.toBeInTheDocument();
   });
 
@@ -919,7 +939,7 @@ describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conRuc();
     abrirLinea();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    await elegirCodigo("Afectación del IGV", "17");
     linea("Arroz", "104");
     expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("—");
     expect(screen.getByTestId("importe-por-calcular")).toHaveTextContent("Lo calcula khipu");
@@ -930,29 +950,29 @@ describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conRuc();
     abrirLinea();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "17" } });
+    await elegirCodigo("Afectación del IGV", "17");
     linea("Arroz", "104");
     await waitFor(() => expect(screen.getByTestId("total-a-pagar")).toHaveTextContent("S/ 104.00"));
     expect(screen.queryByTestId("importe-por-calcular")).not.toBeInTheDocument();
   });
 
-  it("el encabezado de la columna de precio sigue a las líneas: igual afectación lo dice, mezcladas no afirma ninguna", () => {
+  it("el encabezado de la columna de precio sigue a las líneas: igual afectación lo dice, mezcladas no afirma ninguna", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     const encabezado = () => screen.getByTestId("encabezado-precio");
     expect(encabezado()).toHaveTextContent("Precio unit. (con IGV)");
     abrirLinea();
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "20" } });
+    await elegirCodigo("Afectación del IGV", "20");
     expect(encabezado()).toHaveTextContent("Precio unit. (sin IGV)");
     fireEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
     expect(encabezado().textContent).toBe("Precio unit.");
   });
 
-  it("una exportación mientras el backend no responde no muestra filas de 0.00 ni «IGV (18 %)»: solo que lo calcula khipu", () => {
+  it("una exportación mientras el backend no responde no muestra filas de 0.00 ni «IGV (18 %)»: solo que lo calcula khipu", async () => {
     vi.stubGlobal("fetch", vi.fn<(url: string) => Promise<Response>>(() => new Promise<Response>(() => {})));
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     conRuc();
-    fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+    await elegirCodigo("Tipo de operación", "0200");
     linea("Café", "100");
     const pie = screen.getByTestId("totales-previsualizados");
     expect(pie).not.toHaveTextContent("IGV (18 %)");
@@ -972,7 +992,7 @@ describe("NuevoComprobanteForm — menores de la certificación (#117)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/El servidor tardó demasiado en responder mientras se emitía\. Vuelve a emitir sin cambiar nada/);
   });
 
-  it("Enter en un campo con el formulario incompleto no emite ni queda mudo: muestra qué falta", () => {
+  it("Enter en un campo con el formulario incompleto no emite ni queda mudo: muestra qué falta", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     const form = screen.getByTestId("form-nuevo-comprobante") as HTMLFormElement;
@@ -993,7 +1013,7 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
   }
   const abrir = () => fireEvent.click(screen.getByText(/Datos adicionales: guías/));
 
-  it("está colapsada y, en la factura, ofrece orden de compra, guías, documentos y observaciones", () => {
+  it("está colapsada y, en la factura, ofrece orden de compra, guías, documentos y observaciones", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     expect(screen.getByTestId("datos-adicionales")).not.toHaveAttribute("open");
@@ -1015,11 +1035,11 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
     fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
     fireEvent.change(screen.getByLabelText("Número de la guía 1"), { target: { value: "T001-123" } });
-    fireEvent.change(screen.getByLabelText("Tipo de la guía 2"), { target: { value: "31" } });
+    await elegirCodigo("Tipo de la guía 2", "31");
     fireEvent.change(screen.getByLabelText("Número de la guía 2"), { target: { value: "V001-45" } });
     fireEvent.click(screen.getByRole("button", { name: "Quitar la guía 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Agregar documento" }));
-    fireEvent.change(screen.getByLabelText("Tipo del documento 1"), { target: { value: "05" } });
+    await elegirCodigo("Tipo del documento 1", "05");
     fireEvent.change(screen.getByLabelText("Número del documento 1"), { target: { value: "SCOP-8841203" } });
     fireEvent.change(screen.getByLabelText(/Observaciones/), { target: { value: "Entrega en almacén central." } });
     // Escribir esto no cambia importes: ni pausa el cálculo ni pide otro. Pasado el rebote, el pie sigue siendo el del servidor y los pedidos no llevan los datos adicionales.
@@ -1051,7 +1071,7 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     expect(screen.getByTestId("referencias-error")).toBeInTheDocument();
   });
 
-  it("la sección no se cierra sola al borrar lo escrito mientras se usa", () => {
+  it("la sección no se cierra sola al borrar lo escrito mientras se usa", async () => {
     stubConCalculo({ gravado: 1000, exonerado: 0, inafecto: 0, igv: 180, total: 1180 });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     abrir();
@@ -1080,19 +1100,19 @@ describe("NuevoComprobanteForm — datos adicionales (#300)", () => {
     expect(screen.getByTestId("referencias-error")).toHaveTextContent(/2364/);
   });
 
-  it("en la boleta no hay orden de compra y los documentos 06 y 07 no se ofrecen (4009)", () => {
+  it("en la boleta no hay orden de compra y los documentos 06 y 07 no se ofrecen (4009)", async () => {
     stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
     abrir();
     expect(screen.queryByLabelText(/Orden de compra/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Agregar documento" }));
-    expect([...screen.getByLabelText("Tipo del documento 1").querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["04", "05", "08", "09", "99"]);
+    expect(await codigosDe("Tipo del documento 1")).toEqual(["04", "05", "08", "09", "99"]);
   });
 
   it("la boleta lleva sus guías y observaciones", async () => {
     const fetch = stubConCalculo(TOTALES);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Pan", "5");
     abrir();
     fireEvent.click(screen.getByRole("button", { name: "Agregar guía" }));
@@ -1213,7 +1233,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     const fetch = stubEmision();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
     linea("Pan", "5");
@@ -1228,10 +1248,9 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     const fetch = stubEmision();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
 
-    const select = screen.getByLabelText("Documento del comprador");
-    expect([...select.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["1", "4", "7", "6", "0", "A", "B", "C", "D", "E", "F", "G", "H", "-"]);
+    expect(await documentosOfrecidos()).toEqual(["1", "4", "7", "6", "0", "A", "B", "C", "D", "E", "F", "G", "H", "-"]);
 
-    fireEvent.change(select, { target: { value: "A" } });
+    await elegirDocumento("A");
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "CD-1234 " } });
     expect(screen.getByLabelText("Número de documento")).toHaveValue("CD-1234");   // sin espacios (4208)
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "Embajada de Chile" } });
@@ -1246,7 +1265,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     const fetch = stubEmision();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Televisor", "700.01");
 
     expect(screen.getByTestId("aviso-sin-documento")).toHaveTextContent("S/ 700.00");
@@ -1256,7 +1275,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
   });
 
   /** #303: `Receptor` cuenta el nombre sin los espacios de los extremos (2022); `minLength` sola dejaba pasar «  JP  » hasta el 422. */
-  it("el nombre del comprador tiene al menos 3 caracteres sin contar los espacios de los extremos", () => {
+  it("el nombre del comprador tiene al menos 3 caracteres sin contar los espacios de los extremos", async () => {
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
     const nombre = screen.getByLabelText("Nombre del comprador");
 
@@ -1272,7 +1291,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
 
     // Sin documento el nombre propuesto cumple la regla.
     fireEvent.change(nombre, { target: { value: "" } });
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
     expect(screen.getByLabelText("Nombre del comprador")).toBeValid();
   });
@@ -1311,7 +1330,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     const cancelar = vi.fn();
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} onCancelar={cancelar} />);
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Pan", "5");
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
 
@@ -1337,7 +1356,7 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     );
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} onCancelar={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
     linea("Pan", "5");
     fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
 
@@ -1374,15 +1393,15 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(screen.getByTestId("aviso-resumen-diario")).toHaveTextContent(/resumen diario/);
   });
 
-  it("la factura sigue pidiendo RUC y usa solo series F", () => {
+  it("la factura sigue pidiendo RUC y usa solo series F", async () => {
     stubEmision();
     render(<NuevoComprobanteForm tipo="factura" series={SERIES} tasaIgv={18} />);
     expect(screen.getByLabelText("RUC")).toHaveAttribute("pattern", "[0-9]{11}");
-    expect(screen.queryByRole("option", { name: /B001/ })).not.toBeInTheDocument();
+    expect(await opcionesDe(screen.getByLabelText("Serie"))).not.toContainEqual(expect.stringMatching(/B001/));
     expect(screen.getByRole("button", { name: "Emitir factura" })).toBeInTheDocument();
   });
 
-  it("la razón social de la factura sigue la misma regla 2022, sin contar los espacios de los extremos", () => {
+  it("la razón social de la factura sigue la misma regla 2022, sin contar los espacios de los extremos", async () => {
     render(<NuevoComprobanteForm tipo="factura" series={SERIES} tasaIgv={18} />);
     const razon = screen.getByLabelText("Razón social");
     fireEvent.change(razon, { target: { value: "  AB  " } });

@@ -8,7 +8,9 @@ import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { listarPaises } from "@/lib/comprobantes/paises";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { Combobox } from "khipu-design-system/formularios/combobox";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
@@ -26,7 +28,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [direccion, setDireccion] = useState(existente?.direccion ?? "");
   const [pais, setPais] = useState(existente?.pais ?? "");
   const locale = useLocale();
-  const paises = useMemo(() => listarPaises(locale), [locale]);
+  const itemsPais = useMemo(() => [{ value: "", label: t.sinPais }, ...listarPaises(locale).map((p) => ({ value: p.codigo, label: p.nombre }))], [locale, t.sinPais]);
   const [email, setEmail] = useState(existente?.email ?? "");
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -65,21 +67,15 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="cliente-form">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[220px_1fr]">
         <Campo id="cli-tipo-doc" etiqueta={t.documento}>
-          <select
+          <SelectCampo
             id="cli-tipo-doc"
-            value={tipoDoc}
-            onChange={(e) => {
-              setTipoDoc(e.target.value);
+            valor={tipoDoc}
+            onCambio={(v) => {
+              setTipoDoc(v);
               setNumDoc("");
             }}
-            className={cn(SELECT_NATIVO, "w-full")}
-          >
-            {DOCUMENTOS_DE_CLIENTE.map((d) => (
-              <option key={d.codigo} value={d.codigo}>
-                {d.etiqueta}
-              </option>
-            ))}
-          </select>
+            opciones={DOCUMENTOS_DE_CLIENTE.map((d) => ({ value: d.codigo, label: d.etiqueta }))}
+          />
         </Campo>
         <Campo id="cli-num-doc" etiqueta={t.numero} error={intento ? errorDoc : null} ayuda={documento.titulo}>
           <input
@@ -101,14 +97,16 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
         <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO} />
       </Campo>
       <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
-        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-          <option value="">{t.sinPais}</option>
-          {paises.map((p) => (
-            <option key={p.codigo} value={p.codigo}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        {/* Unos 250 países: se escribe para buscar. «Sin país» sigue siendo una opción más, la primera de la lista. */}
+        <Combobox
+          id="cli-pais"
+          valor={pais}
+          onCambio={(v) => setPais(v ?? "")}
+          items={itemsPais}
+          placeholder={t.sinPais}
+          vacio={messages.comun.sinResultados}
+          etiquetaAbrir={messages.comun.abrirOpciones}
+        />
       </Campo>
       <Campo id="cli-email" etiqueta={t.correo} opcional error={intento ? errorCorreo : null} ayuda={t.correoAyuda}>
         <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO} />

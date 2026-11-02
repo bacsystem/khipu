@@ -4,10 +4,11 @@ import { FileXlsIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
-import { CONTROL_FILTRO, SELECT_NATIVO, TARJETA } from "@/lib/estilos";
+import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
 import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
@@ -104,13 +105,20 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
             />
           </fieldset>
           {formato === "csv" ? (
-            <label className="grid gap-1 text-control font-medium">
-              {t.separador}
-              <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(SELECT_NATIVO, "w-full font-normal")}>
-                <option value="coma">{t.coma}</option>
-                <option value="punto_y_coma">{t.puntoYComa}</option>
-              </select>
-            </label>
+            <div className="grid gap-1">
+              <label htmlFor="exportar-separador" className="text-control font-medium">
+                {t.separador}
+              </label>
+              <SelectCampo
+                id="exportar-separador"
+                valor={separador}
+                onCambio={(v) => setSeparador(v as SeparadorCsv)}
+                opciones={[
+                  { value: "coma", label: t.coma },
+                  { value: "punto_y_coma", label: t.puntoYComa },
+                ]}
+              />
+            </div>
           ) : null}
           {motivo ? (
             <p role="status" className="text-control text-warning-foreground" data-testid="exportar-motivo">

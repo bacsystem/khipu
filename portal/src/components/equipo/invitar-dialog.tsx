@@ -7,10 +7,10 @@ import { type FormEvent, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionEnviada, type Rol } from "@/lib/api/equipo";
-import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
-import { cn } from "@/lib/utils";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** #21: invitar a alguien a la cuenta con un rol. Solo un administrador (el backend lo vuelve a exigir). */
@@ -91,13 +91,12 @@ export function InvitarDialog({ className }: { className?: string }) {
             <label htmlFor="invitar-rol" className={ETIQUETA_CAMPO}>
               {t.rol}
             </label>
-            <select id="invitar-rol" value={rol} onChange={(e) => setRol(e.target.value as Rol)} className={cn(SELECT_NATIVO, "w-full")}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {roles.etiquetas[r]}
-                </option>
-              ))}
-            </select>
+            <SelectCampo
+              id="invitar-rol"
+              opciones={ROLES.map((r) => ({ value: r, label: roles.etiquetas[r] }))}
+              valor={rol}
+              onCambio={(v) => setRol(v as Rol)}
+            />
             <span className={AYUDA_CAMPO}>{roles.descripciones[rol]}</span>
           </div>
 

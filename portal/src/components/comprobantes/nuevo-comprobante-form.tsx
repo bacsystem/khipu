@@ -8,8 +8,10 @@ import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
+import { Combobox } from "khipu-design-system/formularios/combobox";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { EntradaMonto } from "khipu-design-system/formularios/entrada-monto";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Button } from "khipu-design-system/ui/button";
@@ -41,7 +43,7 @@ import { errorDeIsc, gruposAfectacion, incompatibilidadDeTributos, ISC_VACIO, is
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -595,13 +597,13 @@ export function NuevoComprobanteForm({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
         <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
-          <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-            {seriesDelTipo.map((s) => (
-              <option key={s.serie} value={s.serie}>
-                {s.serie} · {s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}
-              </option>
-            ))}
-          </select>
+          <SelectCampo
+            id="nc-serie"
+            valor={serie}
+            onCambio={setSerie}
+            opciones={seriesDelTipo.map((s) => ({ value: s.serie, label: `${s.serie} · ${s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}` }))}
+            mono
+          />
         </Campo>
 
         <Campo id="nc-fecha" etiqueta={t.fechaEmision} ayuda={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
@@ -618,13 +620,12 @@ export function NuevoComprobanteForm({
         </Campo>
 
         <Campo id="nc-moneda" etiqueta={t.moneda}>
-          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={cn(SELECT_NATIVO, "w-full")}>
-            {monedas(messages).map((m) => (
-              <option key={m.codigo} value={m.codigo}>
-                {m.etiqueta}
-              </option>
-            ))}
-          </select>
+          <SelectCampo
+            id="nc-moneda"
+            valor={moneda}
+            onCambio={(v) => { setMoneda(v); setTipoCambio(""); }}
+            opciones={monedas(messages).map((m) => ({ value: m.codigo, label: m.etiqueta }))}
+          />
         </Campo>
         {moneda === "PEN" ? null : (
           <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional ayuda={interpolar(t.ayudaTipoCambio, { moneda })} error={errorTipoCambio ?? undefined}>
@@ -649,13 +650,7 @@ export function NuevoComprobanteForm({
         {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta={t.documentoComprador}>
-              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-                {documentosOfrecidos.map((d) => (
-                  <option key={d.codigo} value={d.codigo}>
-                    {d.etiqueta}
-                  </option>
-                ))}
-              </select>
+              <SelectCampo id="nc-tipo-doc" valor={tipoDoc} onCambio={cambiarTipoDoc} opciones={documentosOfrecidos.map((d) => ({ value: d.codigo, label: d.etiqueta }))} />
             </Campo>
             {sinDocumento ? (
               <p className={cn(AYUDA_CAMPO, "self-center")}>{interpolar(t.sinDocumentoAyuda, { tope: TOPE_SIN_DOCUMENTO })}</p>
@@ -694,14 +689,15 @@ export function NuevoComprobanteForm({
             {exportacion ? (
               <>
                 <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
-                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-                    <option value="">{t.seleccione}</option>
-                    {paises.map((p) => (
-                      <option key={p.codigo} value={p.codigo}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
+                  <Combobox
+                    id="nc-pais"
+                    items={paises.map((p) => ({ value: p.codigo, label: p.nombre }))}
+                    valor={pais}
+                    onCambio={(v) => setPais(v ?? "")}
+                    placeholder={t.seleccione}
+                    vacio={messages.comun.sinResultados}
+                    etiquetaAbrir={messages.comun.abrirOpciones}
+                  />
                 </Campo>
                 {boleta ? null : (
                   <div className="sm:col-span-2">
@@ -796,49 +792,47 @@ export function NuevoComprobanteForm({
         <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
           <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
-            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-              {GRUPOS_OPERACION.map((g) => (
-                <optgroup key={g} label={messages.documentos.grupoOperacion[g]}>
-                  {operaciones(messages).filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
-                    <option key={o.codigo} value={o.codigo}>
-                      {o.codigo} · {o.etiqueta}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <SelectCampo
+              id="nc-operacion"
+              valor={operacion}
+              onCambio={cambiarOperacion}
+              opciones={GRUPOS_OPERACION.flatMap((g) =>
+                operaciones(messages)
+                  .filter((o) => o.grupo === g && (boleta || !o.soloBoleta))
+                  .map((o) => ({ value: o.codigo, label: `${o.codigo} · ${o.etiqueta}`, grupo: messages.documentos.grupoOperacion[g] })),
+              )}
+            />
           </Campo>
           {boleta ? null : (
             <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
-              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={cn(SELECT_NATIVO, "w-full")}>
-                <option value="contado">{t.alContado}</option>
-                <option value="credito">{t.alCredito}</option>
-              </select>
+              <SelectCampo
+                id="nc-forma-pago"
+                valor={alCredito ? "credito" : "contado"}
+                onCambio={(v) => setAlCredito(v === "credito")}
+                opciones={[
+                  { value: "contado", label: t.alContado },
+                  { value: "credito", label: t.alCredito },
+                ]}
+              />
             </Campo>
           )}
         </div>
         {exportacion ? (
           <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
             <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
-              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-                <option value="">{t.sinIncoterm}</option>
-                {INCOTERMS.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </select>
+              <SelectCampo id="nc-incoterm" valor={incoterm} onCambio={setIncoterm} opciones={[{ value: "", label: t.sinIncoterm }, ...INCOTERMS.map((i) => ({ value: i, label: i }))]} />
             </Campo>
             {EXIGE_PAIS_DE_USO.has(operacion) ? (
               <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
-                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-                  <option value="">{t.seleccione}</option>
-                  {paises.filter((p) => p.codigo !== "PE").map((p) => (
-                    <option key={p.codigo} value={p.codigo}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </select>
+                <Combobox
+                  id="nc-pais-uso"
+                  items={paises.filter((p) => p.codigo !== "PE").map((p) => ({ value: p.codigo, label: p.nombre }))}
+                  valor={paisDeUso}
+                  onCambio={(v) => setPaisDeUso(v ?? "")}
+                  placeholder={t.seleccione}
+                  vacio={messages.comun.sinResultados}
+                  etiquetaAbrir={messages.comun.abrirOpciones}
+                />
               </Campo>
             ) : null}
           </div>
@@ -986,49 +980,50 @@ export function NuevoComprobanteForm({
               {detalle === i ? (
                 <div className="mt-3 grid gap-3 rounded-lg bg-muted/40 px-3 py-3 sm:grid-cols-2">
                   <Campo id={`nc-unidad-${i}`} etiqueta={t.unidadMedida} ayuda={t.catalogo03}>
-                    <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-                      {(unidades ?? []).length === 0 ? <option value={linea.unidad}>{linea.unidad}</option> : null}
-                      {(unidades ?? []).map((u) => (
-                        <option key={u.codigo} value={u.codigo}>
-                          {u.codigo} · {u.descripcion}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Catálogo 03 (cientos de unidades): se escribe para buscar. Vaciar el texto no deja la línea sin unidad: se queda la que tenía. */}
+                    <Combobox
+                      id={`nc-unidad-${i}`}
+                      items={
+                        (unidades ?? []).length === 0
+                          ? [{ value: linea.unidad, label: linea.unidad }]
+                          : (unidades ?? []).map((u) => ({ value: u.codigo, label: `${u.codigo} · ${u.descripcion}` }))
+                      }
+                      valor={linea.unidad}
+                      onCambio={(v) => {
+                        if (v) actualizar(i, { unidad: v });
+                      }}
+                      vacio={messages.comun.sinResultados}
+                      etiquetaAbrir={messages.comun.abrirOpciones}
+                      className="font-mono"
+                    />
                   </Campo>
                   <Campo id={`nc-afect-${i}`} etiqueta={t.afectacionIgv} ayuda={t.catalogo07}>
-                    <select
+                    <SelectCampo
                       id={`nc-afect-${i}`}
-                      value={linea.tipoAfectacionIgv}
-                      onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
-                      className={cn(SELECT_NATIVO, "w-full")}
-                    >
-                      {exportacion ? <option value="40">{t.exportacion40}</option> : null}
-                      {(exportacion ? [] : gruposAfectacion(messages)).map((g) => (
-                        <optgroup key={g.grupo} label={g.grupo}>
-                          {g.opciones.map((a) => (
-                            <option key={a.codigo} value={a.codigo}>
-                              {a.codigo} · {a.etiqueta}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                      valor={linea.tipoAfectacionIgv}
+                      onCambio={(v) => actualizar(i, { tipoAfectacionIgv: v })}
+                      opciones={
+                        exportacion
+                          ? [{ value: "40", label: t.exportacion40 }]
+                          : gruposAfectacion(messages).flatMap((g) => g.opciones.map((a) => ({ value: a.codigo, label: `${a.codigo} · ${a.etiqueta}`, grupo: g.grupo })))
+                      }
+                    />
                   </Campo>
                   {/* #298: ISC (catálogo 08) y bolsas de plástico (ICBPER). El precio que se escribe ya los incluye; el importe de cada tributo lo calcula el backend. */}
                   <fieldset className="grid content-start gap-1.5">
                     <legend className="mb-1 text-control font-medium text-foreground">{t.iscItem}</legend>
                     <Campo id={`nc-isc-sistema-${i}`} etiqueta={t.sistemaIsc} className="[&>label]:sr-only">
-                      <select
+                      <SelectCampo
                         id={`nc-isc-sistema-${i}`}
-                        value={linea.isc.sistema}
-                        onChange={(e) => actualizar(i, { isc: { ...ISC_VACIO, sistema: e.target.value as IscForm["sistema"] } })}
-                        className={cn(SELECT_NATIVO, "w-full")}
-                      >
-                        <option value="">{t.sinIsc}</option>
-                        <option value="01">{t.isc01}</option>
-                        <option value="02">{t.isc02}</option>
-                        <option value="03">{t.isc03}</option>
-                      </select>
+                        valor={linea.isc.sistema}
+                        onCambio={(v) => actualizar(i, { isc: { ...ISC_VACIO, sistema: v as IscForm["sistema"] } })}
+                        opciones={[
+                          { value: "", label: t.sinIsc },
+                          { value: "01", label: t.isc01 },
+                          { value: "02", label: t.isc02 },
+                          { value: "03", label: t.isc03 },
+                        ]}
+                      />
                     </Campo>
                     {linea.isc.sistema === "02" ? (
                       <Campo id={`nc-isc-monto-${i}`} etiqueta={t.montoIsc} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>

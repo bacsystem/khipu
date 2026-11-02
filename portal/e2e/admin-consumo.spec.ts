@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
+import { elegirOpcion, esperarOpcion } from "./combo";
 
 // El mock (src/mocks/handlers.ts) siembra el consumo de las cuentas con el plan de cada una. Las specs de la corrida comparten ese mock en paralelo (y algunas
 // cambian el plan de SU cuenta o crean cuentas nuevas), así que esta spec solo lee y solo afirma sobre cuentas que nadie muta, y nunca sobre totales de la lista sin
@@ -105,7 +106,7 @@ test("con una vista y un orden en la URL, ese estado se ve al abrirla (el enlace
   await page.goto("/admin/consumo?filtro=PLAN_VENCIDO&orden=DOCUMENTOS");
 
   await expect(page.getByRole("link", { name: "Plan vencido" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByLabel("Ordenar por")).toHaveValue("DOCUMENTOS");
+  await esperarOpcion(page.getByLabel("Ordenar por"), "Documentos consumidos");
   await expect(page.locator("tbody tr")).toHaveCount(2);
 });
 
@@ -113,7 +114,7 @@ test("un filtro o un orden raros en la URL no rompen la página: valen los de po
   await page.goto("/admin/consumo?filtro=cualquiera&orden=nada&mes=octubre");
 
   await expect(page.getByRole("link", { name: "Todas" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByLabel("Ordenar por")).toHaveValue("PORCENTAJE");
+  await esperarOpcion(page.getByLabel("Ordenar por"), "Porcentaje usado");
   await expect(fila(page, "Panadería Sol")).toBeVisible();
 });
 
@@ -122,7 +123,7 @@ test("un filtro o un orden raros en la URL no rompen la página: valen los de po
 test("ordenar por documentos pone arriba a quien más consumió", async ({ page }) => {
   await abrirHidratada(page, "/admin/consumo");
 
-  await page.getByLabel("Ordenar por").selectOption("DOCUMENTOS");
+  await elegirOpcion(page.getByLabel("Ordenar por"), "Documentos consumidos");
 
   await expect(page).toHaveURL(/orden=DOCUMENTOS/);
   await expect(page.locator("tbody tr").first()).toContainText("Cliente 07");

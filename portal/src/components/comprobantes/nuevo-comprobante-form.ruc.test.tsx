@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { elegirDocumento } from "@/test/combos-del-comprobante";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
@@ -248,7 +249,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "12345678" } });
     expect(consultas(fetch)).toEqual([]);
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "6" } });
+    await elegirDocumento("6");
     digitar("Número de documento", "20100066603");
 
     await waitFor(() => expect((screen.getByLabelText("Nombre del comprador") as HTMLInputElement).value).toBe("TIENDAS DEL SUR S.A.C."));
@@ -271,7 +272,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
 
     for (const documento of ["4", "7"]) {
-      fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: documento } });
+      await elegirDocumento(documento);
       digitar("Número de documento", "20100066603");
     }
     await act(async () => {});
@@ -283,11 +284,11 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
   it("al volver a «sin documento» el nombre rellenado se cambia por el habitual", async () => {
     stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "6" } });
+    await elegirDocumento("6");
     digitar("Número de documento", "20100066603");
     await waitFor(() => expect((screen.getByLabelText("Nombre del comprador") as HTMLInputElement).value).toBe("TIENDAS DEL SUR S.A.C."));
 
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "-" } });
+    await elegirDocumento("-");
 
     expect((screen.getByLabelText("Nombre del comprador") as HTMLInputElement).value).toBe("CLIENTES VARIOS");
   });

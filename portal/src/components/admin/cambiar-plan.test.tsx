@@ -4,6 +4,7 @@ import type { PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { CambiarPlan } from "./cambiar-plan";
 
 const refresh = vi.fn();
@@ -60,18 +61,20 @@ function abrir(actual: PlanAdmin = EMPRENDE) {
   fireEvent.click(screen.getByTestId("cambiar-plan"));
 }
 
-const elegir = (id: string) => fireEvent.change(screen.getByLabelText("Plan nuevo"), { target: { value: id } });
+/** Elige el plan por su nombre en el combo; `""` vuelve a «Elige un plan». */
+const elegir = (id: string) =>
+  elegirOpcion(screen.getByLabelText("Plan nuevo"), id === "" ? "Elige un plan" : new RegExp(`^${PLANES.find((p) => p.id === id)?.nombre} —`));
 const dialogo = () => screen.getByTestId("cambiar-plan-dialogo");
 
 const llamadasPost = () => apiRequest.mock.calls.filter((c) => c[1].method === "POST");
 
 /** Cambiar el plan de una cuenta (#191): el modal dice qué pasa con el consumo del mes y cuándo entra el cambio **antes** de confirmar. */
 describe("CambiarPlan — antes de confirmar", () => {
-  it("abrirlo no envía nada y ofrece los planes, con el actual marcado", () => {
+  it("abrirlo no envía nada y ofrece los planes, con el actual marcado", async () => {
     abrir();
 
     expect(dialogo().textContent).toContain("Cambiar el plan de Mi negocio");
-    const opciones = Array.from(screen.getByLabelText("Plan nuevo").querySelectorAll("option")).map((o) => o.textContent);
+    const opciones = await opcionesDe(screen.getByLabelText("Plan nuevo"));
     expect(opciones).toEqual(["Elige un plan", "Gratis — Gratis", "Emprende — S/ 29.00 (plan actual)", "Negocio — S/ 69.00"]);
     expect(apiRequest).not.toHaveBeenCalled();
     expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(true);
@@ -82,7 +85,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     apiRequest.mockReturnValue(new Promise((r) => (resolver = r)));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(`/api/admin/cuentas/${CUENTA}/plan/previsualizacion?plan_id=${NEGOCIO.id}`, { method: "GET" }));
     expect(screen.getByTestId("cambiar-plan-previa").textContent).toContain("Calculando lo que pasaría…");
@@ -94,7 +97,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa()));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").getAttribute("data-direccion")).toBe("SUBIDA"));
     const texto = screen.getByTestId("cambiar-plan-previa").textContent ?? "";
@@ -109,7 +112,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ plan_actual: resumen(NEGOCIO), plan_nuevo: resumen(EMPRENDE), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z" })));
     abrir(NEGOCIO);
 
-    elegir(EMPRENDE.id);
+    await elegir(EMPRENDE.id);
 
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").getAttribute("data-direccion")).toBe("BAJADA"));
     const texto = screen.getByTestId("cambiar-plan-previa").textContent ?? "";
@@ -122,7 +125,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ plan_nuevo: resumen(EMPRENDE), direccion: "RENOVACION" })));
     abrir();
 
-    elegir(EMPRENDE.id);
+    await elegir(EMPRENDE.id);
 
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").textContent).toContain("Renovación del mismo plan"));
   });
@@ -131,7 +134,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ plan_actual: resumen(NEGOCIO), plan_nuevo: resumen(NEGOCIO), direccion: "RENOVACION", programado_que_se_descarta: { plan: resumen(EMPRENDE), aplica_desde: "2026-11-01T05:00:00Z" } })));
     abrir(NEGOCIO);
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     const aviso = await screen.findByTestId("cambiar-plan-descarta");
     expect(aviso.textContent).toContain("Cancela el paso a Emprende programado para el 1 Nov 2026");
@@ -140,7 +143,7 @@ describe("CambiarPlan — antes de confirmar", () => {
   it("si había una bajada esperando, otra bajada dice que la reemplaza; sin ninguna no se menciona", async () => {
     responder(exito(previa({ plan_actual: resumen(NEGOCIO), plan_nuevo: resumen(EMPRENDE), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z", programado_que_se_descarta: { plan: resumen(GRATIS), aplica_desde: "2026-11-01T05:00:00Z" } })));
     abrir(NEGOCIO);
-    elegir(EMPRENDE.id);
+    await elegir(EMPRENDE.id);
     const aviso = await screen.findByTestId("cambiar-plan-descarta");
     expect(aviso.textContent).toContain("Reemplaza el paso a Gratis programado para el 1 Nov 2026");
   });
@@ -148,7 +151,7 @@ describe("CambiarPlan — antes de confirmar", () => {
   it("sin bajada esperando no dice nada de descartarla", async () => {
     responder(exito(previa()));
     abrir();
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").getAttribute("data-efecto")).toBe("INMEDIATO"));
     expect(screen.queryByTestId("cambiar-plan-descarta")).toBeNull();
   });
@@ -157,7 +160,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ consumo_del_mes: 400, limite_de_documentos: { maximo: 300, ilimitado: false }, supera_el_limite: true })));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     const aviso = await screen.findByTestId("cambiar-plan-supera");
     expect(aviso.textContent).toContain("Ya supera ese tope: con el cambio inmediato, la cuenta quedaría por encima de su límite de este mes.");
@@ -167,7 +170,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z", consumo_del_mes: 400, supera_el_limite: true })));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     const aviso = await screen.findByTestId("cambiar-plan-supera");
     expect(aviso.textContent).toContain("Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy.");
@@ -178,7 +181,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(exito(previa({ limite_de_documentos: { ilimitado: true } })));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").textContent).toContain("no tiene tope de documentos."));
   });
@@ -187,7 +190,7 @@ describe("CambiarPlan — antes de confirmar", () => {
     responder(error("PLAN_INACTIVO", "El plan «Negocio» está fuera de la oferta: no se puede asignar"));
     abrir();
 
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
 
     await waitFor(() => expect(screen.getByTestId("cambiar-plan-previa").textContent).toContain("El plan «Negocio» está fuera de la oferta"));
     expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(true);
@@ -199,8 +202,8 @@ describe("CambiarPlan — antes de confirmar", () => {
     apiRequest.mockImplementation((ruta: string) => new Promise((r) => { resolvers[new URL(ruta, "http://x").searchParams.get("plan_id")!] = r; }));
     abrir();
 
-    elegir(NEGOCIO.id);
-    elegir(GRATIS.id);
+    await elegir(NEGOCIO.id);
+    await elegir(GRATIS.id);
     await waitFor(() => expect(Object.keys(resolvers)).toHaveLength(2));
     await act(async () => resolvers[GRATIS.id](exito(previa({ plan_nuevo: resumen(GRATIS), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z" }))));
     await act(async () => resolvers[NEGOCIO.id](exito(previa({ plan_nuevo: resumen(NEGOCIO), direccion: "SUBIDA" }))));
@@ -212,10 +215,10 @@ describe("CambiarPlan — antes de confirmar", () => {
   it("volver a «Elige un plan» limpia la previsualización", async () => {
     responder(exito(previa()));
     abrir();
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
     await screen.findByTestId("cambiar-plan-previa");
 
-    elegir("");
+    await elegir("");
 
     expect(screen.queryByTestId("cambiar-plan-previa")).toBeNull();
   });
@@ -225,7 +228,7 @@ describe("CambiarPlan — confirmar", () => {
   async function listoParaConfirmar(extra: Partial<PrevisualizacionDePlanAdmin> = {}, cambio: ApiEnvelope<unknown> = exito()) {
     responder(exito(previa(extra)), cambio);
     abrir();
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
   }
 
@@ -263,7 +266,7 @@ describe("CambiarPlan — confirmar", () => {
     expect(dialogo().textContent).toContain("Un plan de pago necesita la fecha");
     expect(dialogo().textContent).toContain("Los días de gracia van de 0 a 90.");
 
-    elegir(EMPRENDE.id);
+    await elegir(EMPRENDE.id);
 
     expect(dialogo().textContent).not.toContain("Un plan de pago necesita la fecha");
     expect(dialogo().textContent).toContain("Los días de gracia van de 0 a 90.");
@@ -272,7 +275,7 @@ describe("CambiarPlan — confirmar", () => {
   it("un plan gratis se confirma sin fecha", async () => {
     responder(exito(previa({ plan_nuevo: resumen(GRATIS), direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", aplica_desde: "2026-11-01T05:00:00Z" })));
     abrir();
-    elegir(GRATIS.id);
+    await elegir(GRATIS.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
 
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
@@ -322,7 +325,7 @@ describe("CambiarPlan — confirmar", () => {
     let resolver: (v: ApiEnvelope<unknown>) => void = () => {};
     apiRequest.mockImplementation((_: string, init: { method: string }) => (init.method === "POST" ? new Promise((r) => (resolver = r)) : Promise.resolve(exito(previa()))));
     abrir();
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
     await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
@@ -339,7 +342,7 @@ describe("CambiarPlan — confirmar", () => {
     let resolver: (v: ApiEnvelope<unknown>) => void = () => {};
     apiRequest.mockImplementation((_: string, init: { method: string }) => (init.method === "POST" ? new Promise((r) => (resolver = r)) : Promise.resolve(exito(previa()))));
     abrir();
-    elegir(NEGOCIO.id);
+    await elegir(NEGOCIO.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
     await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
@@ -360,7 +363,7 @@ describe("CambiarPlan — confirmar", () => {
     fireEvent.click(screen.getByText("Cancelar"));
     fireEvent.click(screen.getByTestId("cambiar-plan"));
 
-    expect((screen.getByLabelText("Plan nuevo") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Plan nuevo")).toHaveTextContent("Elige un plan");
     expect(await fechaElegida("Pagado hasta (inclusive)")).toBeNull();
     expect(screen.queryByTestId("cambiar-plan-previa")).toBeNull();
   });

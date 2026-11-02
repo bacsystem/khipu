@@ -4,13 +4,14 @@ import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, EnvelopeSimpleIcon, Pape
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
 import { useState, useTransition } from "react";
 import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
-import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, SELECT_NATIVO } from "@/lib/estilos";
+import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -106,21 +107,15 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
         </div>
       </TableCell>
       <TableCell className="px-3 py-2">
-        <div className="w-40">
-          <select
-            aria-label={t.cambiarRol.replace("{email}", m.email)}
-            value={m.rol}
+        <div className="w-40" title={sinPermiso ?? undefined}>
+          <SelectCampo
+            id={`rol-${m.id}`}
+            etiqueta={t.cambiarRol.replace("{email}", m.email)}
+            opciones={ROLES.map((r) => ({ value: r, label: etiquetas[r] }))}
+            valor={m.rol}
             disabled={bloqueado}
-            title={sinPermiso ?? undefined}
-            onChange={(e) => cambiarRol(e.target.value as Rol)}
-            className={cn(SELECT_NATIVO, "w-full")}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {etiquetas[r]}
-              </option>
-            ))}
-          </select>
+            onCambio={(v) => cambiarRol(v as Rol)}
+          />
         </div>
       </TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">

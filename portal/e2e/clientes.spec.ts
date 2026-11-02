@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 // Los tests corren en paralelo contra el mismo mock en memoria: los que crean un cliente usan un documento propio y las aserciones van por fila, no por conteos globales.
 test.beforeEach(async ({ page }) => {
@@ -39,7 +40,7 @@ test("#319 crea un cliente, rechaza el mismo documento dos veces, lo edita y lo 
 
   await page.getByTestId("nuevo-cliente").click();
   const dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("Documento").selectOption("1");
+  await elegirOpcion(dialogo.getByLabel("Documento"), "DNI");
   await dialogo.getByLabel("Número").fill(dni);
   await dialogo.getByLabel("Nombre").fill("MARÍA TORRES VEGA");
   await dialogo.getByLabel("Correo").fill("maria@torres.pe");
@@ -50,7 +51,7 @@ test("#319 crea un cliente, rechaza el mismo documento dos veces, lo edita y lo 
 
   // El mismo documento otra vez: el backend contesta 409 y el formulario lo dice sin cerrarse.
   await page.getByTestId("nuevo-cliente").click();
-  await dialogo.getByLabel("Documento").selectOption("1");
+  await elegirOpcion(dialogo.getByLabel("Documento"), "DNI");
   await dialogo.getByLabel("Número").fill(dni);
   await dialogo.getByLabel("Nombre").fill("OTRA PERSONA");
   await dialogo.getByRole("button", { name: "Guardar cliente" }).click();
@@ -71,13 +72,14 @@ test("#319 editar un cliente del exterior conserva su país", async ({ page }) =
   await page.goto("/clientes");
   await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
   const dialogo = page.getByRole("dialog");
-  await expect(dialogo.getByLabel("País")).toHaveValue("DE");
+  // El país es un combo con búsqueda (#555): su campo muestra el nombre, no el código.
+  await expect(dialogo.getByLabel("País")).toHaveValue("Alemania");
   await dialogo.getByLabel("Dirección").fill("Berlín, Alemania");
   await dialogo.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(fila(page, "Berlín, Alemania")).toBeVisible();
 
   await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
-  await expect(page.getByRole("dialog").getByLabel("País")).toHaveValue("DE");
+  await expect(page.getByRole("dialog").getByLabel("País")).toHaveValue("Alemania");
 });
 
 test("#319 «Nuevo comprobante» busca entre los clientes guardados y rellena al comprador", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 // Los tests corren en paralelo contra el mismo mock en memoria: los que crean un producto usan un código propio y las aserciones van por fila, no por conteos globales.
 test.beforeEach(async ({ page }) => {
@@ -38,8 +39,8 @@ test("#320 crea un producto, rechaza el mismo código dos veces, lo edita y lo e
   await page.getByTestId("nuevo-producto").click();
   const dialogo = page.getByRole("dialog");
   await dialogo.getByLabel("Descripción").fill("Mantenimiento mensual");
-  await dialogo.getByLabel("Unidad de medida").selectOption("ZZ");
-  await dialogo.getByLabel("Afectación del IGV").selectOption("10");
+  await elegirOpcion(dialogo.getByLabel("Unidad de medida"), /^ZZ · /);
+  await elegirOpcion(dialogo.getByLabel("Afectación del IGV"), /^10 · /);
   await dialogo.getByLabel(/Precio unit\./).fill("236");
   await dialogo.getByLabel(/Código interno/).fill(codigo);
   await dialogo.getByRole("button", { name: "Guardar producto" }).click();

@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { nombreDeDocumento } from "@/test/combos-del-comprobante";
 import { fechaElegida } from "@/test/fecha-de-prueba";
+import { opcionesDe } from "@/test/select-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
@@ -280,13 +282,13 @@ describe("NuevoComprobanteDialog", () => {
 
     render(<NuevoComprobanteDialog />);
     await abrir();
-    expect(screen.getByRole("option", { name: /F001/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Serie")).toHaveTextContent(/F001/);
     expect(screen.getByLabelText("RUC")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
 
-    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument());
-    expect(screen.queryByRole("option", { name: /F001/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toHaveTextContent(/B001 · último emitido N\.º 9/));
+    expect(await opcionesDe(screen.getByLabelText("Serie"))).toEqual(["B001 · último emitido N.º 9"]);
     expect(screen.getByLabelText("Documento del comprador")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
   });
@@ -300,7 +302,7 @@ describe("NuevoComprobanteDialog", () => {
     await abrir();
 
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Serie")).toHaveTextContent(/B001 · último emitido N\.º 9/);
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
     expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
     // La factura sigue a un clic: abrir en Boleta no esconde la otra opción.
@@ -399,7 +401,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
 
     await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20554198211"));
     expect(screen.getByLabelText("Razón social")).toHaveValue("CLIENTE SAC");
-    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    expect(screen.getByLabelText("Moneda")).toHaveTextContent("(USD)");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
     expect(await fechaElegida("Fecha de emisión")).toBe(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
   });
@@ -452,7 +454,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     });
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("b-2");
-    await waitFor(() => expect(screen.getByLabelText("Documento del comprador")).toHaveValue("-"));
+    await waitFor(() => expect(screen.getByLabelText("Documento del comprador")).toHaveTextContent(nombreDeDocumento("-")));
     expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
   });
 

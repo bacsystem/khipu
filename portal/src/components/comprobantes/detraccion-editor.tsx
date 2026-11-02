@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useLocale, useMessages } from "next-intl";
 import { useEffect, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import { CODIGOS_SIN_FORMULARIO, errorDeDetraccion, PORCENTAJE_SUGERIDO, type DetraccionForm } from "@/lib/comprobantes/detraccion";
-import { AYUDA_CAMPO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -66,19 +67,12 @@ export function DetraccionEditor({
             placeholder={t.detraccion.buscarPlaceholder}
             className={cn(CAMPO, "mb-1.5")}
           />
-          <select
+          <SelectCampo
             id="nc-det-codigo"
-            value={valor.codigo}
-            onChange={(e) => set({ codigo: e.target.value, porcentaje: PORCENTAJE_SUGERIDO[e.target.value] !== undefined ? String(PORCENTAJE_SUGERIDO[e.target.value]) : valor.porcentaje })}
-            className={cn(SELECT_NATIVO, "w-full")}
-          >
-            <option value="">{t.detraccion.seleccione}</option>
-            {ofrecidos.map((b) => (
-              <option key={b.codigo} value={b.codigo}>
-                {b.codigo} · {b.descripcion}
-              </option>
-            ))}
-          </select>
+            valor={valor.codigo}
+            onCambio={(v) => set({ codigo: v, porcentaje: PORCENTAJE_SUGERIDO[v] !== undefined ? String(PORCENTAJE_SUGERIDO[v]) : valor.porcentaje })}
+            opciones={[{ value: "", label: t.detraccion.seleccione }, ...ofrecidos.map((b) => ({ value: b.codigo, label: `${b.codigo} · ${b.descripcion}` }))]}
+          />
         </Campo>
         <Campo id="nc-det-porcentaje" etiqueta={t.detraccion.porcentaje} ayuda={PORCENTAJE_SUGERIDO[valor.codigo] !== undefined ? t.detraccion.sugerido : t.detraccion.segunAnexo}>
           <input
@@ -93,14 +87,16 @@ export function DetraccionEditor({
       </div>
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Campo id="nc-det-medio" etiqueta={t.detraccion.medioPago} ayuda={t.detraccion.catalogo59}>
-          <select id="nc-det-medio" value={valor.medioPago} onChange={(e) => set({ medioPago: e.target.value })} className={cn(SELECT_NATIVO, "w-full")}>
-            {(medios ?? []).length === 0 ? <option value={valor.medioPago}>{interpolar(t.detraccion.depositoEnCuenta, { codigo: valor.medioPago })}</option> : null}
-            {(medios ?? []).map((m) => (
-              <option key={m.codigo} value={m.codigo}>
-                {m.codigo} · {m.descripcion}
-              </option>
-            ))}
-          </select>
+          <SelectCampo
+            id="nc-det-medio"
+            valor={valor.medioPago}
+            onCambio={(v) => set({ medioPago: v })}
+            opciones={
+              (medios ?? []).length === 0
+                ? [{ value: valor.medioPago, label: interpolar(t.detraccion.depositoEnCuenta, { codigo: valor.medioPago }) }]
+                : (medios ?? []).map((m) => ({ value: m.codigo, label: `${m.codigo} · ${m.descripcion}` }))
+            }
+          />
         </Campo>
         <Campo
           id="nc-det-cuenta"

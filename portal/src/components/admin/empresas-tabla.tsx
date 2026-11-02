@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -81,37 +82,25 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
           <label htmlFor="filtro-entorno" className="text-etiqueta font-medium text-muted-foreground">
             {t.filtroEntorno}
           </label>
-          <select
+          <SelectCampo
             id="filtro-entorno"
-            value={params.entorno ?? ""}
-            onChange={(e) => router.push(hrefEmpresas({ ...params, entorno: (e.target.value || undefined) as EntornoAdmin | undefined, pagina: 1 }))}
-            className={cn(CAMPO, "w-auto")}
-          >
-            <option value="">{t.todosEntornos}</option>
-            {ENTORNOS.map((x) => (
-              <option key={x} value={x}>
-                {x === "BETA" ? t.beta : t.produccion}
-              </option>
-            ))}
-          </select>
+            opciones={[{ value: "", label: t.todosEntornos }, ...ENTORNOS.map((x) => ({ value: x, label: x === "BETA" ? t.beta : t.produccion }))]}
+            valor={params.entorno ?? ""}
+            onCambio={(v) => router.push(hrefEmpresas({ ...params, entorno: (v || undefined) as EntornoAdmin | undefined, pagina: 1 }))}
+            className="w-auto"
+          />
         </div>
         <div className="grid gap-1">
           <label htmlFor="filtro-certificado" className="text-etiqueta font-medium text-muted-foreground">
             {t.filtroCertificado}
           </label>
-          <select
+          <SelectCampo
             id="filtro-certificado"
-            value={params.certificado ?? ""}
-            onChange={(e) => router.push(hrefEmpresas({ ...params, certificado: (e.target.value || undefined) as EstadoCertificadoAdmin | undefined, pagina: 1 }))}
-            className={cn(CAMPO, "w-auto")}
-          >
-            <option value="">{t.todosCertificados}</option>
-            {ESTADOS_CERTIFICADO.map((x) => (
-              <option key={x} value={x}>
-                {t.estados[x]}
-              </option>
-            ))}
-          </select>
+            opciones={[{ value: "", label: t.todosCertificados }, ...ESTADOS_CERTIFICADO.map((x) => ({ value: x, label: t.estados[x] }))]}
+            valor={params.certificado ?? ""}
+            onCambio={(v) => router.push(hrefEmpresas({ ...params, certificado: (v || undefined) as EstadoCertificadoAdmin | undefined, pagina: 1 }))}
+            className="w-auto"
+          />
         </div>
         <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefEmpresas({ ...params, bajas, pagina: 1 }))} />
         {hayFiltros ? (

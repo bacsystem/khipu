@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { elegirDocumento } from "@/test/combos-del-comprobante";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
 import { guardarAvisosDeEmision, leerAvisosDeEmisionCrudos } from "@/lib/comprobantes/avisos-de-emision";
@@ -162,7 +164,7 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
   it("la boleta con RUC que devuelve avisos también los deja para su ficha", async () => {
     stubEmision("b-9", [AVISO_4014]);
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("Documento del comprador"), { target: { value: "6" } });
+    await elegirDocumento("6");
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "20100066603" } });
     fireEvent.change(screen.getByLabelText("Nombre del comprador"), { target: { value: "CLIENTE SAC" } });
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
@@ -179,7 +181,7 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
   async function emitirNota() {
     render(<NotaForm factura={FACTURA} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirOpcion(screen.getByLabelText(/Motivo/), /^01 · /);
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la venta" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
     await waitFor(() => expect(push).toHaveBeenCalled());

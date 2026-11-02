@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 /**
  * #379: al digitar el RUC del cliente en «Nuevo comprobante», el portal consulta el padrón de SUNAT (`GET /v1/consultas/ruc/{ruc}`, por el proxy) y rellena el
@@ -147,7 +148,7 @@ test("la boleta consulta el RUC solo si el documento del comprador es RUC", asyn
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await expect(dialogo.getByTestId("consulta-ruc")).toHaveCount(0);
 
-  await dialogo.getByLabel("Documento del comprador").selectOption("6");
+  await elegirOpcion(dialogo.getByLabel("Documento del comprador"), "RUC");
   await dialogo.getByLabel("Número de documento").fill("20100070970");
   await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("TIENDAS DEL SUR S.A.C.");
   expect(consultas).toEqual(["20100070970"]);
