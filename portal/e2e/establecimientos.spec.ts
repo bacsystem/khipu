@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
@@ -18,9 +19,9 @@ test("registra un anexo, lo asigna a una serie nueva y no permite darlo de baja 
   await form.getByLabel("Código").fill("0003");
   await form.getByLabel("Nombre").fill("Almacén Callao");
   await expect(form.getByLabel("Departamento")).toBeEnabled();
-  await form.getByLabel("Departamento").selectOption("LIMA");
-  await form.getByLabel("Provincia").selectOption("LIMA");
-  await form.getByLabel("Distrito").selectOption({ label: "MIRAFLORES" });
+  await elegirOpcion(form.getByLabel("Departamento"), "LIMA");
+  await elegirOpcion(form.getByLabel("Provincia"), "LIMA");
+  await elegirOpcion(form.getByLabel("Distrito"), "MIRAFLORES");
   await form.getByLabel("Dirección").fill("Av. Argentina 2500");
   await form.getByRole("button", { name: "Registrar establecimiento" }).click();
 
@@ -33,7 +34,7 @@ test("registra un anexo, lo asigna a una serie nueva y no permite darlo de baja 
   await page.goto("/series");
   await page.getByRole("button", { name: "Nueva serie" }).click();
   await page.getByLabel("Código de serie").fill("F003");
-  await page.getByTestId("serie-establecimiento").selectOption("0003");
+  await elegirOpcion(page.getByLabel("Establecimiento", { exact: true }), "0003 · Almacén Callao");
   await page.getByRole("button", { name: /Guardar/ }).click();
   await expect(page.getByText("F003", { exact: true })).toBeVisible();
   await expect(page.getByRole("row", { name: /F003/ })).toContainText("0003");

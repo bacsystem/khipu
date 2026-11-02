@@ -4,12 +4,16 @@ import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Serie } from "@/lib/api/series";
 import { SoloLectura } from "@/lib/solo-lectura";
 import { apiRequest } from "@/lib/api/browser";
+import { codigoDeOpcion } from "@/test/combos-del-comprobante";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { NuevaGuiaForm, type CatalogosDeGuia } from "./nueva-guia-form";
 
 const push = vi.fn();
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn() }));
+// Llenar una guía elige siete combos del design system (#555), cada uno abre y cierra su lista: con la suite entera en paralelo, los 5 s por defecto no alcanzan.
+vi.setConfig({ testTimeout: 20_000 });
 
 const SERIES: Serie[] = [
   { tipo: "09", serie: "T001", ultimo_numero: 8, activa: true, establecimiento: "0000" },
@@ -62,17 +66,17 @@ async function llenarRemitentePrivada() {
   const form = screen.getByTestId("nueva-guia-form");
   fireEvent.change(form.querySelector("#destinatario-num")!, { target: { value: "20601234565" } });
   fireEvent.change(form.querySelector("#destinatario-nombre")!, { target: { value: "PESQUERA PACÍFICO S.A.C." } });
-  fireEvent.change(form.querySelector("#guia-motivo")!, { target: { value: "01" } });
+  await elegirOpcion(combo("#guia-motivo"), "01 · Venta");
   fireEvent.change(form.querySelector("#guia-peso")!, { target: { value: "25,5" } });
   await waitFor(() => expect(form.querySelector("#llegada-departamento")).not.toBeDisabled());
-  fireEvent.change(form.querySelector("#llegada-departamento")!, { target: { value: "LIMA" } });
-  fireEvent.change(form.querySelector("#llegada-provincia")!, { target: { value: "LIMA" } });
-  fireEvent.change(form.querySelector("#llegada-distrito")!, { target: { value: "150131" } });
+  await elegirOpcion(combo("#llegada-departamento"), "LIMA");
+  await elegirOpcion(combo("#llegada-provincia"), "LIMA");
+  await elegirOpcion(combo("#llegada-distrito"), "SAN ISIDRO");
   fireEvent.change(form.querySelector("#llegada-direccion")!, { target: { value: "Calle Los Pinos 450" } });
   // Sin domicilio fiscal cargado la partida nace como dirección (F3): también se llena.
-  fireEvent.change(form.querySelector("#partida-departamento")!, { target: { value: "LIMA" } });
-  fireEvent.change(form.querySelector("#partida-provincia")!, { target: { value: "LIMA" } });
-  fireEvent.change(form.querySelector("#partida-distrito")!, { target: { value: "150131" } });
+  await elegirOpcion(combo("#partida-departamento"), "LIMA");
+  await elegirOpcion(combo("#partida-provincia"), "LIMA");
+  await elegirOpcion(combo("#partida-distrito"), "SAN ISIDRO");
   fireEvent.change(form.querySelector("#partida-direccion")!, { target: { value: "Av. Argentina 1234" } });
   fireEvent.change(form.querySelector("#guia-placa-0")!, { target: { value: "abc123" } });
   fireEvent.change(form.querySelector("#guia-conductor-0-num")!, { target: { value: "45678912" } });
@@ -81,6 +85,9 @@ async function llenarRemitentePrivada() {
   fireEvent.change(form.querySelector("#guia-conductor-0-licencia")!, { target: { value: "Q45678912" } });
   fireEvent.change(form.querySelector("#guia-item-0-descripcion")!, { target: { value: "Laptop" } });
 }
+
+/** El disparador de un combo del formulario, por su id. */
+const combo = (selector: string) => screen.getByTestId("nueva-guia-form").querySelector<HTMLElement>(selector)!;
 
 function montar(series = SERIES) {
   return render(<NuevaGuiaForm series={series} establecimientos={ESTABLECIMIENTOS} catalogos={CATALOGOS} hoy="2026-10-20" />);
@@ -94,7 +101,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NuevaGuiaForm: qué se pide según la guía", () => {
-  it("la remitente pide motivo y modalidad, con vehículos y conductores en transporte privado", () => {
+  it("la remitente pide motivo y modalidad, con vehículos y conductores en transporte privado", async () => {
     responder(() => exito(null));
     montar();
 
@@ -103,23 +110,23 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     expect(screen.queryByLabelText("Registro MTC")).toBeNull();
   });
 
-  it("los documentos que sustentan el traslado se ofrecen según la guía: lo «solo transportista» no está en la remitente, y al revés", () => {
+  it("los documentos que sustentan el traslado se ofrecen según la guía: lo «solo transportista» no está en la remitente, y al revés", async () => {
     responder(() => exito(null));
     montar();
     const agregarDocumento = () => within(screen.getByText("Documentos que sustentan el traslado").closest("section")!).getByRole("button", { name: "Agregar" });
 
     fireEvent.click(agregarDocumento());
-    const tipos = () => Array.from(screen.getByLabelText("Tipo", { selector: "#guia-documento-0-tipo" }).querySelectorAll("option")).map((o) => o.value);
-    expect(tipos()).toEqual(["01", "49"]);
+    const tipos = async () => (await opcionesDe(combo("#guia-documento-0-tipo"))).map(codigoDeOpcion);
+    expect(await tipos()).toEqual(["01", "49"]);
 
     cleanup();
     montar();
-    fireEvent.change(screen.getByLabelText("Serie"), { target: { value: "V001" } });
+    await elegirOpcion(screen.getByLabelText("Serie"), /^V001 · /);
     fireEvent.click(agregarDocumento());
-    expect(tipos()).toEqual(["01", "69"]);
+    expect(await tipos()).toEqual(["01", "69"]);
   });
 
-  it("pasar a transporte público cambia vehículos y conductores por la empresa de transporte", () => {
+  it("pasar a transporte público cambia vehículos y conductores por la empresa de transporte", async () => {
     responder(() => exito(null));
     montar();
 
@@ -129,11 +136,11 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     expect(screen.getByLabelText("RUC del transportista")).toBeInTheDocument();
   });
 
-  it("elegir una serie V pide al remitente y el registro MTC, y quita el motivo y los establecimientos", () => {
+  it("elegir una serie V pide al remitente y el registro MTC, y quita el motivo y los establecimientos", async () => {
     responder(() => exito(null));
     montar();
 
-    fireEvent.change(screen.getByLabelText("Serie"), { target: { value: "V001" } });
+    await elegirOpcion(screen.getByLabelText("Serie"), /^V001 · /);
 
     expect(screen.queryByLabelText("Motivo del traslado")).toBeNull();
     expect(screen.getByLabelText("Registro MTC")).toBeInTheDocument();
@@ -141,7 +148,7 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     expect(screen.getAllByLabelText("Número de documento")).toHaveLength(3);
   });
 
-  it("los indicadores ofrecidos dependen de la modalidad y del tipo de guía", () => {
+  it("los indicadores ofrecidos dependen de la modalidad y del tipo de guía", async () => {
     responder(() => exito(null));
     montar();
 
@@ -152,7 +159,7 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     expect(screen.queryByRole("checkbox", { name: "Vehículo M1 o L (autos o motos)" })).toBeNull();
     expect(screen.getByRole("checkbox", { name: "Vehículos y conductores del transportista" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Serie"), { target: { value: "V001" } });
+    await elegirOpcion(screen.getByLabelText("Serie"), /^V001 · /);
     expect(screen.queryByRole("checkbox", { name: "Vehículo M1 o L (autos o motos)" })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "Vehículos y conductores del transportista" })).toBeNull();
     expect(screen.getByRole("checkbox", { name: "Transbordo programado" })).toBeInTheDocument();
@@ -160,7 +167,7 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
 });
 
 describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
-  it("una empresa sin domicilio fiscal empieza con la partida como dirección y no ofrece el 0000, que la API rechazaría (3366)", () => {
+  it("una empresa sin domicilio fiscal empieza con la partida como dirección y no ofrece el 0000, que la API rechazaría (3366)", async () => {
     responder(() => exito(null));
     montar();
 
@@ -169,8 +176,7 @@ describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
     expect(form.querySelector("#partida-establecimiento")).toBeNull();
     // Con un anexo sí puede elegir un establecimiento, y la lista no trae el 0000.
     fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByRole("radio", { name: "Un establecimiento de mi empresa" }));
-    const opciones = Array.from(form.querySelectorAll<HTMLOptionElement>("#partida-establecimiento option")).map((o) => o.value);
-    expect(opciones).toEqual(["0002"]);
+    expect((await opcionesDe(combo("#partida-establecimiento"))).map(codigoDeOpcion)).toEqual(["0002"]);
   });
 
   it("al elegir «un establecimiento» el estado toma el primero que existe, no un 0000 que la empresa no tiene", async () => {
@@ -190,10 +196,8 @@ describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
   it("una empresa con domicilio fiscal empieza con la partida en él y manda el código 0000", async () => {
     responder((ruta) => (ruta.endsWith("/guias-remision") ? exito({ id: "g-2" }) : exito(null)));
     render(<NuevaGuiaForm series={SERIES} establecimientos={CON_DOMICILIO_FISCAL} catalogos={CATALOGOS} hoy="2026-10-20" />);
-    const form = screen.getByTestId("nueva-guia-form");
 
-    expect((form.querySelector("#partida-establecimiento") as HTMLSelectElement).value).toBe("0000");
-    expect(within(form.querySelector("#partida-establecimiento") as HTMLElement).getByText("0000 · Domicilio fiscal")).toBeInTheDocument();
+    expect(combo("#partida-establecimiento")).toHaveTextContent("0000 · Domicilio fiscal");
   });
 });
 
@@ -311,7 +315,7 @@ describe("NuevaGuiaForm: validar y emitir", () => {
     await waitFor(() => expect(push).toHaveBeenCalled());
   });
 
-  it("con el rol de solo lectura no se puede validar ni emitir, y el motivo está en el botón", () => {
+  it("con el rol de solo lectura no se puede validar ni emitir, y el motivo está en el botón", async () => {
     responder(() => exito(null));
     render(
       <SoloLectura activa={false} rol="LECTURA">
@@ -325,7 +329,7 @@ describe("NuevaGuiaForm: validar y emitir", () => {
     expect(screen.getByRole("button", { name: "Validar sin emitir" })).toBeDisabled();
   });
 
-  it("sin los catálogos el motivo y los tipos de documento se escriben a mano en vez de impedir emitir", () => {
+  it("sin los catálogos el motivo y los tipos de documento se escriben a mano en vez de impedir emitir", async () => {
     responder(() => exito(null));
     render(<NuevaGuiaForm series={SERIES} establecimientos={[]} catalogos={{ motivos: [], tiposDocumento: [], documentos: [] }} hoy="2026-10-20" />);
 

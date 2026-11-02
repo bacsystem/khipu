@@ -3,9 +3,10 @@
 import { useLocale, useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { AFECTACIONES_ANTICIPO, anticipoInicial, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
-import { AYUDA_CAMPO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import type { AnticiposDisponibles } from "./use-anticipos-disponibles";
@@ -71,16 +72,12 @@ export function AnticiposEditor({
                       <input id={`nc-ant-monto-${c.etiqueta}`} value={elegido.monto} onChange={(e) => cambiar(i, { monto: e.target.value })} inputMode="decimal" className={cn(CAMPO, "font-mono tabular-nums")} />
                     </Campo>
                     <Campo id={`nc-ant-afect-${c.etiqueta}`} etiqueta={t.afectacion}>
-                      <select
+                      <SelectCampo
                         id={`nc-ant-afect-${c.etiqueta}`}
-                        value={elegido.afectacion}
-                        onChange={(e) => cambiar(i, { afectacion: e.target.value as AnticipoForm["afectacion"], monto: c.disponible[e.target.value as AnticipoForm["afectacion"]].toFixed(2) })}
-                        className={cn(SELECT_NATIVO, "w-full")}
-                      >
-                        {AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0).map((a) => (
-                          <option key={a} value={a}>{afectacion[a]}</option>
-                        ))}
-                      </select>
+                        valor={elegido.afectacion}
+                        onCambio={(v) => cambiar(i, { afectacion: v as AnticipoForm["afectacion"], monto: c.disponible[v as AnticipoForm["afectacion"]].toFixed(2) })}
+                        opciones={AFECTACIONES_ANTICIPO.filter((a) => c.disponible[a] > 0).map((a) => ({ value: a, label: afectacion[a] }))}
+                      />
                     </Campo>
                   </div>
                 ) : null}

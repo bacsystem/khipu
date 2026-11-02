@@ -5,6 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -93,13 +94,13 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           <label htmlFor="consumo-orden" className="text-etiqueta font-medium text-muted-foreground">
             {t.orden}
           </label>
-          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO, "w-auto")}>
-            {ORDENES_DE_CONSUMO.map((o) => (
-              <option key={o} value={o}>
-                {t.ordenes[o]}
-              </option>
-            ))}
-          </select>
+          <SelectCampo
+            id="consumo-orden"
+            opciones={ORDENES_DE_CONSUMO.map((o) => ({ value: o, label: t.ordenes[o] }))}
+            valor={params.orden}
+            onCambio={(v) => cambiar({ orden: v as OrdenDeConsumo })}
+            className="w-auto"
+          />
         </div>
       </div>
 

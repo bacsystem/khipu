@@ -8,7 +8,8 @@ import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
 import { etiquetaDelPrecio, gruposAfectacion } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
@@ -80,28 +81,28 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
       </Campo>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo id="prod-unidad" etiqueta={t.unidad} ayuda={t.unidadAyuda}>
-          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-            {(unidades ?? []).some((u) => u.codigo === unidad) ? null : <option value={unidad}>{unidad}</option>}
-            {(unidades ?? []).map((u) => (
-              <option key={u.codigo} value={u.codigo}>
-                {u.codigo} · {u.descripcion}
-              </option>
-            ))}
-          </select>
+          {/* Las unidades más usadas del catálogo 03 son pocas: un combo basta. Si la actual no está entre ellas (o el catálogo no llegó), se ofrece igual. */}
+          <SelectCampo
+            id="prod-unidad"
+            mono
+            valor={unidad}
+            onCambio={setUnidad}
+            opciones={[
+              ...((unidades ?? []).some((u) => u.codigo === unidad) ? [] : [{ value: unidad, label: unidad }]),
+              ...(unidades ?? []).map((u) => ({ value: u.codigo, label: `${u.codigo} · ${u.descripcion}` })),
+            ]}
+          />
         </Campo>
         <Campo id="prod-afectacion" etiqueta={t.afectacion} ayuda={t.afectacionAyuda}>
-          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-            {gruposAfectacion(messages).map((g) => (
-              <optgroup key={g.grupo} label={g.grupo}>
-                {g.opciones.map((a) => (
-                  <option key={a.codigo} value={a.codigo}>
-                    {a.codigo} · {a.etiqueta}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value="40">{t.exportacion}</option>
-          </select>
+          <SelectCampo
+            id="prod-afectacion"
+            valor={afectacion}
+            onCambio={setAfectacion}
+            opciones={[
+              ...gruposAfectacion(messages).flatMap((g) => g.opciones.map((a) => ({ value: a.codigo, label: `${a.codigo} · ${a.etiqueta}`, grupo: g.grupo }))),
+              { value: "40", label: t.exportacion },
+            ]}
+          />
         </Campo>
         <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion, messages)} error={intento ? errorPrecio : null} ayuda={t.precioAyuda}>
           <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO, "text-right font-mono tabular-nums")} />

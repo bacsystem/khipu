@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { AltaAsistidaForm } from "./alta-asistida-form";
 
 afterEach(() => {
@@ -78,8 +79,8 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
 
     expect(pasoActual()).toBe("1");
-    expect((screen.getByLabelText("Entorno") as HTMLSelectElement).value).toBe("BETA");
-    expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("01");
+    expect(screen.getByLabelText("Entorno")).toHaveTextContent("Beta (pruebas)");
+    expect(screen.getByLabelText("Tipo de comprobante")).toHaveTextContent("Factura");
     expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("F001");
   });
 
@@ -203,8 +204,8 @@ describe("AltaAsistidaForm", () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: { ...CREADA, serie: { tipo: "03", serie: "B002" } } }));
     render(<AltaAsistidaForm />);
     llenarValido({ telefono: "987-654-321" });
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
     llenar("Serie", "b002");
 
     await enviar();
@@ -297,10 +298,10 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     const serie = () => (screen.getByLabelText("Serie") as HTMLInputElement).value;
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
     await waitFor(() => expect(serie()).toBe("B001"));
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "01" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Factura");
     await waitFor(() => expect(serie()).toBe("F001"));
   });
 
@@ -308,9 +309,9 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenar("Serie", "B002");
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
 
-    await waitFor(() => expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("03"));
+    await waitFor(() => expect(screen.getByLabelText("Tipo de comprobante")).toHaveTextContent("Boleta"));
     expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("B002");
   });
 

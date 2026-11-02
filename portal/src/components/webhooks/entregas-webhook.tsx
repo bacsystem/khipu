@@ -4,6 +4,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
@@ -17,7 +18,10 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
 
-const ESTILO_ESTADO: Record<EstadoEntrega, string> = {
+/** «Todas» en el combo del filtro: el `Select` del design system no lleva un valor vacío, y sin estado elegido se listan todas. */
+const TODAS = "todas";
+
+const ESTILO_ESTADO:Record<EstadoEntrega, string> = {
   EXITOSA: "border-success-border bg-success text-success-foreground",
   PENDIENTE: "border-warning-border bg-warning text-warning-foreground",
   FALLIDA: "border-destructive/30 bg-destructive-suave text-destructive-texto",
@@ -82,6 +86,13 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
     setLectura((n) => n + 1);
   }
 
+  // Una lista y no un objeto: el orden de las opciones es el de la lista.
+  const itemsEstado = [
+    { value: TODAS, label: t.filtro.todas },
+    { value: "PENDIENTE", label: t.filtro.pendientes },
+    { value: "EXITOSA", label: t.filtro.entregadas },
+    { value: "FALLIDA", label: t.filtro.fallidas },
+  ];
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
   const paginaActual = Math.min(pagina, ultimaPagina);
   const desde = entregas && entregas.length > 0 ? (paginaActual - 1) * porPagina + 1 : 0;
@@ -92,20 +103,25 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-control font-semibold text-foreground">{t.titulo}</h3>
         <div className="flex items-center gap-2">
-          <select
-            aria-label={t.filtrar}
-            value={estado}
-            onChange={(e) => {
-              setEstado(e.target.value as EstadoEntrega | "");
+          <Select
+            items={itemsEstado}
+            value={estado || TODAS}
+            onValueChange={(v) => {
+              setEstado(v === TODAS || !v ? "" : (v as EstadoEntrega));
               setPagina(1);
             }}
-            className={cn(CONTROL_FILTRO, "px-2.5")}
           >
-            <option value="">{t.filtro.todas}</option>
-            <option value="PENDIENTE">{t.filtro.pendientes}</option>
-            <option value="EXITOSA">{t.filtro.entregadas}</option>
-            <option value="FALLIDA">{t.filtro.fallidas}</option>
-          </select>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")} aria-label={t.filtrar}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {itemsEstado.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground hover:text-foreground")}>
             <ArrowClockwiseIcon weight="bold" className={cn("size-4", leyendo && "animate-spin")} />
           </button>

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConsumoDeCuentas, CuentaConsumo, ParamsConsumo } from "@/lib/api/admin-consumo";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { ConsumoTabla } from "./consumo-tabla";
 
 const push = vi.fn();
@@ -185,10 +186,10 @@ describe("ConsumoTabla (#193)", () => {
     expect(push).toHaveBeenCalledWith("/admin/consumo");
   });
 
-  it("cambiar el orden navega a la primera página y conserva el mes y el filtro", () => {
+  it("cambiar el orden navega a la primera página y conserva el mes y el filtro", async () => {
     render(<ConsumoTabla datos={datos([ANA])} total={90} params={{ mes: "2026-08", filtro: "CERCA_DEL_LIMITE", orden: "PORCENTAJE", pagina: 4, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Ordenar por"), { target: { value: "DOCUMENTOS" } });
+    await elegirOpcion(screen.getByLabelText("Ordenar por"), "Documentos consumidos");
 
     expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-08&filtro=CERCA_DEL_LIMITE&orden=DOCUMENTOS");
   });

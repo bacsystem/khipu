@@ -23,11 +23,16 @@ export function usePanelDesplegable(id: string) {
 
   useEffect(() => {
     if (!abierto) return;
+    // La lista de un combo del panel (`SelectCampo`, #555) se dibuja en un portal, fuera de `ref`: un clic en ella o el Esc que la cierra no cierran el panel.
+    // Cerrada, base-ui deja la lista en el DOM dentro de un contenedor `hidden`: solo cuenta una visible.
+    const hayListaAbierta = () => [...document.querySelectorAll('[role="listbox"]')].some((l) => l.closest("[hidden]") === null);
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAbierto(false);
+      if (e.key === "Escape" && !hayListaAbierta()) setAbierto(false);
     };
     const clic = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+      const destino = e.target as Element;
+      if (destino instanceof Element && destino.closest('[role="listbox"]')) return;
+      if (ref.current && !ref.current.contains(destino)) setAbierto(false);
     };
     document.addEventListener("keydown", tecla);
     document.addEventListener("mousedown", clic);

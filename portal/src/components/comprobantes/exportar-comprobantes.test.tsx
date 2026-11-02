@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { DescargaMasiva } from "./descarga-masiva";
 import { EXPORTACION_MAXIMA, ExportarComprobantes, hrefDeExportacion, nombreDelArchivo } from "./exportar-comprobantes";
 
@@ -92,11 +93,28 @@ describe("ExportarComprobantes (#321)", () => {
     render(<ExportarComprobantes filtros={{}} total={1} />);
     abrir();
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
-    fireEvent.change(screen.getByLabelText("Separador"), { target: { value: "punto_y_coma" } });
+    // La lista del combo va en un portal, fuera del panel: el mousedown de un clic en ella no cierra el panel.
+    fireEvent.click(screen.getByLabelText("Separador"));
+    fireEvent.mouseDown(within(await screen.findByRole("listbox")).getByRole("option", { name: "Punto y coma" }));
+    expect(screen.getByTestId("exportar-comprobantes")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await elegirOpcion(screen.getByLabelText("Separador"), "Punto y coma");
+    expect(screen.getByLabelText("Separador")).toHaveTextContent("Punto y coma");
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 
     await waitFor(() => expect(creadas).toEqual(["comprobantes.csv"]));
     expect(fetch.mock.calls[0][0]).toBe("/api/proxy/facturas/exportacion?formato=csv&separador=punto_y_coma");
+  });
+
+  it("después de usar el combo, Escape vuelve a cerrar el panel (la lista cerrada queda oculta en el DOM)", async () => {
+    stub(() => Promise.resolve(new Response("", { status: 200 })));
+    render(<ExportarComprobantes filtros={{}} total={1} />);
+    abrir();
+    fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
+    await elegirOpcion(screen.getByLabelText("Separador"), "Punto y coma");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("exportar-comprobantes")).not.toBeInTheDocument();
   });
 
   it("un error de la API se muestra y no baja nada", async () => {

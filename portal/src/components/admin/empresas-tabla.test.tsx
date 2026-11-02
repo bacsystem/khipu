@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmpresaAdmin } from "@/lib/api/admin-empresas";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { EmpresasTabla } from "./empresas-tabla";
 
 const push = vi.fn();
@@ -51,26 +52,26 @@ describe("EmpresasTabla (#185)", () => {
    * redirigiendo a la última, pero eso solo tapa el error cuando el resultado cabe en una sola página; con un conjunto que sigue teniendo
    * varias, el administrador se quedaría en una página que no pidió. Por eso el selector manda siempre a la 1.
    */
-  it("elegir un entorno desde la página 3 navega a la primera, con el tamaño de página que tenía", () => {
+  it("elegir un entorno desde la página 3 navega a la primera, con el tamaño de página que tenía", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&por_pagina=20");
   });
 
-  it("elegir un estado de certificado desde la página 3 navega a la primera y conserva el entorno elegido", () => {
+  it("elegir un estado de certificado desde la página 3 navega a la primera y conserva el entorno elegido", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", pagina: 3, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Certificado"), { target: { value: "VENCIDO" } });
+    await elegirOpcion(screen.getByLabelText("Certificado"), "Vencido");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&certificado=VENCIDO");
   });
 
-  it("volver a «Todos» quita ese filtro de la URL y deja el otro", () => {
+  it("volver a «Todos» quita ese filtro de la URL y deja el otro", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={5} params={{ entorno: "BETA", certificado: "VENCIDO", pagina: 1, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Todos los entornos");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?certificado=VENCIDO");
   });
@@ -100,8 +101,8 @@ describe("EmpresasTabla (#185)", () => {
   it("los selectores muestran los filtros de la URL", () => {
     render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ entorno: "PRODUCCION", certificado: "POR_VENCER", pagina: 1, porPagina: 10 }} />);
 
-    expect((screen.getByLabelText("Entorno") as HTMLSelectElement).value).toBe("PRODUCCION");
-    expect((screen.getByLabelText("Certificado") as HTMLSelectElement).value).toBe("POR_VENCER");
+    expect(screen.getByLabelText("Entorno")).toHaveTextContent("Producción");
+    expect(screen.getByLabelText("Certificado")).toHaveTextContent("Por vencer");
   });
 
   it("la fila trae el estado del certificado y los días que le quedan", () => {
@@ -116,25 +117,25 @@ describe("EmpresasTabla (#185)", () => {
 
   it("el selector de bajas muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
     const { unmount } = render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ pagina: 1, porPagina: 10 }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Ocultar");
     unmount();
 
     render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Solo las dadas de baja");
   });
 
-  it("elegir un valor desde la página 3 navega a la primera y conserva los otros filtros", () => {
+  it("elegir un valor desde la página 3 navega a la primera y conserva los otros filtros", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", certificado: "VENCIDO", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Incluir");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&certificado=VENCIDO&bajas=INCLUIDAS&por_pagina=20");
   });
 
-  it("cambiar el entorno conserva el filtro de bajas", () => {
+  it("cambiar el entorno conserva el filtro de bajas", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ bajas: "SOLO", pagina: 3, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&bajas=SOLO");
   });

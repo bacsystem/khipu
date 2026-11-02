@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 // Los tests corren en paralelo contra el mismo mock en memoria: cada uno crea sus propias URL y las aserciones van por tarjeta, no por conteos globales.
 function tarjeta(page: Page, url: string) {
@@ -98,7 +99,7 @@ test("#19 el log filtra por estado y reenvía una entrega fallida", async ({ pag
   await w.getByRole("button", { name: "Entregas" }).click();
   await expect(w.getByTestId("entrega").first()).toBeVisible();
 
-  await w.getByLabel("Filtrar entregas por estado").selectOption("FALLIDA");
+  await elegirOpcion(w.getByLabel("Filtrar entregas por estado"), "Fallidas");
   const fallida = w.getByTestId("entrega");
   await expect(fallida).toHaveCount(1);
   await expect(fallida.getByText("Fallida", { exact: true })).toBeVisible();
@@ -106,11 +107,11 @@ test("#19 el log filtra por estado y reenvía una entrega fallida", async ({ pag
 
   await fallida.getByRole("button", { name: "Reenviar" }).click();
   await expect(w.getByText("No hay entregas con ese estado.")).toBeVisible();
-  await w.getByLabel("Filtrar entregas por estado").selectOption("PENDIENTE");
+  await elegirOpcion(w.getByLabel("Filtrar entregas por estado"), "Pendientes");
   await expect(w.getByTestId("entrega").getByText(/reintenta/)).toBeVisible();
   await expect(w.getByTestId("entrega").getByRole("button", { name: "Reenviar" })).toHaveCount(0);
   // Lo reenviado vuelve a la cola, sale, y se ve entre las entregadas.
-  await w.getByLabel("Filtrar entregas por estado").selectOption("EXITOSA");
+  await elegirOpcion(w.getByLabel("Filtrar entregas por estado"), "Entregadas");
   await expect(w.getByTestId("entrega").filter({ hasText: "HTTP 200" }).first()).toBeVisible();
 });
 

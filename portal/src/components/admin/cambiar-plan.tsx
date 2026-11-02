@@ -5,14 +5,14 @@ import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -132,21 +132,16 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
             <label htmlFor="cambiar-plan-plan" className={ETIQUETA_CAMPO}>
               {t.plan}
             </label>
-            <select
+            <SelectCampo
               id="cambiar-plan-plan"
-              value={planId}
-              onChange={(e) => void elegir(e.target.value)}
-              aria-invalid={errores.planId ? true : undefined}
-              className={cn(SELECT_NATIVO, "w-full")}
-            >
-              <option value="">{t.elegir}</option>
-              {planes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} — {precioEnSoles(p.precio_mensual, messages, locale)}
-                  {p.id === planActualId ? t.planActual : ""}
-                </option>
-              ))}
-            </select>
+              opciones={[
+                { value: "", label: t.elegir },
+                ...planes.map((p) => ({ value: p.id, label: `${p.nombre} — ${precioEnSoles(p.precio_mensual, messages, locale)}${p.id === planActualId ? t.planActual : ""}` })),
+              ]}
+              valor={planId}
+              onCambio={(v) => void elegir(v)}
+              invalido={Boolean(errores.planId)}
+            />
             {errores.planId ? <span className="text-control text-destructive">{errores.planId}</span> : null}
           </div>
 

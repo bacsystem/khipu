@@ -6,7 +6,8 @@ import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
@@ -69,10 +70,15 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
           <label htmlFor="nuevo-entorno" className={ETIQUETA_CAMPO}>
             {tc.entornoSunat}
           </label>
-          <select id="nuevo-entorno" value={entorno} onChange={(e) => setEntorno(e.target.value as Entorno)} className={cn(SELECT_NATIVO, "w-full")}>
-            <option value="BETA">{t.beta}</option>
-            <option value="PRODUCCION">{t.produccion}</option>
-          </select>
+          <SelectCampo
+            id="nuevo-entorno"
+            valor={entorno}
+            onCambio={(v) => setEntorno(v as Entorno)}
+            opciones={[
+              { value: "BETA", label: t.beta },
+              { value: "PRODUCCION", label: t.produccion },
+            ]}
+          />
           <span className={AYUDA_CAMPO}>{t.entornoAyuda}</span>
         </div>
       </div>

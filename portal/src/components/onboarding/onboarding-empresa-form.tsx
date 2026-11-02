@@ -4,14 +4,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMessages, useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
-import { BOTON_PRIMARIO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BOTON_PRIMARIO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
@@ -133,14 +134,23 @@ export function OnboardingEmpresaForm() {
         />
         <div className="grid gap-1.5">
           <label htmlFor="entorno" className={ETIQUETA_CAMPO}>{t.entorno}</label>
-          <select
-            id="entorno"
-            {...empresaForm.register("entorno")}
-            className={cn(SELECT_NATIVO, "w-full")}
-          >
-            <option value="BETA">{t.entornoBeta}</option>
-            <option value="PRODUCCION">{t.entornoProduccion}</option>
-          </select>
+          {/* El combo del design system es controlado: va por un `Controller`, no por `register`. */}
+          <Controller
+            control={empresaForm.control}
+            name="entorno"
+            render={({ field, fieldState }) => (
+              <SelectCampo
+                id="entorno"
+                valor={field.value}
+                onCambio={field.onChange}
+                invalido={fieldState.invalid}
+                opciones={[
+                  { value: "BETA", label: t.entornoBeta },
+                  { value: "PRODUCCION", label: t.entornoProduccion },
+                ]}
+              />
+            )}
+          />
           {/* El entorno no se puede cambiar después (no hay endpoint que lo edite): quien onboardea en Beta por descuido
               necesita intervención manual para emitir de verdad. */}
           <p className="text-control text-muted-foreground">

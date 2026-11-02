@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion, esperarOpcion } from "./combo";
 
 /**
  * #21: un administrador invita a alguien con un rol, el invitado acepta desde el enlace del correo (el mock lo arma con `inv-<correo>`), entra y ve su rol real; lo
@@ -28,7 +29,7 @@ async function invitar(page: Page, email: string, rol: string) {
   await page.getByRole("button", { name: "Invitar usuario" }).click();
   const dialogo = page.getByRole("dialog");
   await dialogo.getByLabel("Correo").fill(email);
-  await dialogo.getByLabel("Rol").selectOption({ label: rol });
+  await elegirOpcion(dialogo.getByLabel("Rol"), rol);
   await dialogo.getByRole("button", { name: "Enviar invitación" }).click();
   await expect(dialogo).toHaveCount(0);
   await expect(page.getByTestId(`invitacion-${email}`)).toBeVisible();
@@ -78,7 +79,7 @@ test("invitar con solo lectura → aceptar → entra con su rol y no puede escri
   // Para el administrador ya no está pendiente: es un usuario más, con su rol.
   await page.reload();
   await expect(page.getByTestId(`invitacion-${email}`)).toHaveCount(0);
-  await expect(page.getByLabel(`Rol de ${email}`)).toHaveValue("LECTURA");
+  await esperarOpcion(page.getByLabel(`Rol de ${email}`), "Solo lectura");
 });
 
 test("el enlace sirve una sola vez", async ({ page, browser }) => {
@@ -109,8 +110,8 @@ test("el emisor emite pero no configura, y el administrador le cambia el rol", a
 
   // El administrador lo pasa a solo lectura: vale en su siguiente página, con la misma sesión.
   await page.goto("/cuenta/equipo");
-  await page.getByLabel(`Rol de ${email}`).selectOption("LECTURA");
-  await expect(page.getByLabel(`Rol de ${email}`)).toHaveValue("LECTURA");
+  await elegirOpcion(page.getByLabel(`Rol de ${email}`), "Solo lectura");
+  await esperarOpcion(page.getByLabel(`Rol de ${email}`), "Solo lectura");
   await invitado.goto("/comprobantes");
   await expect(invitado.getByRole("button", { name: /Nuevo comprobante/ })).toBeDisabled();
   await contexto.close();
@@ -142,14 +143,14 @@ test("el único administrador no puede quitarse el rol", async ({ page }) => {
   await page.goto("/cuenta/equipo");
   const yo = page.getByTestId("miembro-demo@example.com");
   await expect(yo.getByText("Tú")).toBeVisible();
-  await page.getByLabel("Rol de demo@example.com").selectOption("EMISOR");
+  await elegirOpcion(page.getByLabel("Rol de demo@example.com"), "Emisor");
   // H9: bajarse a uno mismo pide confirmación antes de llamar a la API.
   const dialogo = page.getByRole("dialog");
   await expect(dialogo).toContainText("perderás el acceso de administrador");
   await dialogo.getByRole("button", { name: "Sí, dejar de ser administrador" }).click();
   await expect(yo.getByRole("alert")).toHaveText(/al menos un administrador/);
   await page.reload();
-  await expect(page.getByLabel("Rol de demo@example.com")).toHaveValue("ADMIN");
+  await esperarOpcion(page.getByLabel("Rol de demo@example.com"), "Administrador");
 });
 
 test("si quien invitó deja de ser administrador, su invitación ya no sirve", async ({ page, browser }) => {
@@ -165,8 +166,8 @@ test("si quien invitó deja de ser administrador, su invitación ya no sirve", a
 
   // El primero lo degrada: la invitación que creó el segundo se revoca y su enlace deja de servir.
   await page.goto("/cuenta/equipo");
-  await page.getByLabel(`Rol de ${segundoAdmin}`).selectOption("EMISOR");
-  await expect(page.getByLabel(`Rol de ${segundoAdmin}`)).toHaveValue("EMISOR");
+  await elegirOpcion(page.getByLabel(`Rol de ${segundoAdmin}`), "Emisor");
+  await esperarOpcion(page.getByLabel(`Rol de ${segundoAdmin}`), "Emisor");
   await expect(page.getByTestId(`invitacion-${email}`)).toHaveCount(0);
   await otro.goto(`/invitacion/inv-${email}`);
   await expect(otro.getByRole("alert").filter({ hasText: "inválido, venció o ya se usó" })).toBeVisible();

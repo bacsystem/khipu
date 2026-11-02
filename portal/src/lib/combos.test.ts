@@ -22,6 +22,8 @@ describe("los combos son los del design system", () => {
       const rel = ruta.slice(RAIZ.length + 1).replaceAll("\\", "/");
       return readFileSync(ruta, "utf8")
         .split("\n")
+        // Los comentarios pueden nombrar el `<select>` (por qué ya no se usa): solo cuenta el código.
+        .map((linea) => (/^\s*(\/\/|\/?\*)/.test(linea) ? "" : linea.replace(/\/\/.*$/, "").replace(/`[^`]*`/g, "")))
         .flatMap((linea, i) => (/<select\b|\bSELECT_NATIVO\b/.test(linea) ? [`${rel}:${i + 1}`] : []));
     });
     expect(hallazgos).toEqual([]);

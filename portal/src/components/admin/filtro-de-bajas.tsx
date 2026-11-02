@@ -2,8 +2,7 @@
 
 import { useMessages } from "next-intl";
 import { bajasDesdeUrl, VISIBILIDADES_DE_BAJAS, type VisibilidadDeBajasAdmin } from "@/lib/api/admin-baja";
-import { CAMPO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 
 /**
  * Qué hacer con las cuentas dadas de baja (#201) en un listado: ocultarlas (lo que pasa sin pedir nada), mezclarlas o verlas solas. Es el mismo
@@ -17,14 +16,13 @@ export function FiltroDeBajas({ valor, onCambio }: { valor?: VisibilidadDeBajasA
       <label htmlFor="filtro-bajas" className="text-etiqueta font-medium text-muted-foreground">
         {t.etiqueta}
       </label>
-      <select id="filtro-bajas" value={valor ?? ""} onChange={(e) => onCambio(bajasDesdeUrl(e.target.value))} className={cn(CAMPO, "w-auto")}>
-        <option value="">{t.ocultas}</option>
-        {VISIBILIDADES_DE_BAJAS.map((v) => (
-          <option key={v} value={v}>
-            {TEXTO[v]}
-          </option>
-        ))}
-      </select>
+      <SelectCampo
+        id="filtro-bajas"
+        opciones={[{ value: "", label: t.ocultas }, ...VISIBILIDADES_DE_BAJAS.map((v) => ({ value: v, label: TEXTO[v] }))]}
+        valor={valor ?? ""}
+        onCambio={(v) => onCambio(bajasDesdeUrl(v))}
+        className="w-auto"
+      />
     </div>
   );
 }

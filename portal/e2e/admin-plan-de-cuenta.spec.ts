@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
 import { elegirFecha, fechaEsElegible } from "./fecha";
+import { elegirOpcion } from "./combo";
 
 // El mock (src/mocks/handlers.ts) guarda el plan de cada cuenta en memoria y las specs de la corrida lo comparten en paralelo: los tests que solo miran usan las
 // cuentas sembradas con un plan propio (1 a 4) y los que cambian un plan usan **cada uno su propia cuenta** (5 a 11), que ninguna otra spec mira por su plan.
@@ -19,7 +20,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 const seccion = (page: Page) => page.getByTestId("plan-de-cuenta");
-const elegir = (page: Page, id: string) => page.getByLabel("Plan nuevo").selectOption(id);
+/** El nombre de cada plan del mock: el combo se maneja por el texto visible («Negocio — S/ 69.00»), no por el id. */
+const NOMBRE_DEL_PLAN: Record<string, string> = { [GRATIS]: "Gratis", [EMPRENDE]: "Emprende", [NEGOCIO]: "Negocio" };
+const elegir = (page: Page, id: string) => elegirOpcion(page.getByLabel("Plan nuevo"), id === "" ? "Elige un plan" : new RegExp(`^${NOMBRE_DEL_PLAN[id]} — `));
 
 async function abrirCambio(page: Page, n: number) {
   await page.goto(`/admin/cuentas/${cuenta(n)}`);

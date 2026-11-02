@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { elegirCodigo } from "@/test/combos-del-comprobante";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
@@ -133,21 +134,21 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     it("un producto gravado entra como línea 40 y avisa que su precio trae el IGV adentro", async () => {
       stubBackend([CONSULTORIA]);
       render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+      await elegirCodigo("Tipo de operación", "0200");
 
       await elegir("consult", "Consultoría");
 
       expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("Consultoría tributaria");
       expect(screen.getByTestId("aviso-producto-guardado")).toHaveTextContent(/IGV dentro de su precio/);
       fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-      expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("40");
+      expect(screen.getByLabelText("Afectación del IGV")).toHaveTextContent(/^40 · /);
     });
 
     it("un producto gratuito no se agrega: la exportación cobra todas sus líneas", async () => {
       const GRATIS: ProductoGuardado = { id: "p-4", descripcion: "Muestra sin costo", unidad: "NIU", tipo_afectacion_igv: "21", precio_unitario: 5, creado_en: "2026-09-08T15:00:00Z", actualizado_en: "2026-09-08T15:00:00Z" };
       stubBackend([GRATIS]);
       render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+      await elegirCodigo("Tipo de operación", "0200");
 
       await elegir("muestra", "Muestra");
 
@@ -161,7 +162,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
       await elegir("licencia", "Licencia");
       expect(screen.getByTestId("aviso-producto-guardado")).toBeInTheDocument();
 
-      fireEvent.change(screen.getByLabelText("Tipo de operación"), { target: { value: "0200" } });
+      await elegirCodigo("Tipo de operación", "0200");
 
       expect(screen.queryByTestId("aviso-producto-guardado")).not.toBeInTheDocument();
     });
@@ -175,7 +176,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
 
     expect(screen.queryByTestId("aviso-producto-guardado")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    expect(screen.getByLabelText("Afectación del IGV")).toHaveValue("10");
+    expect(screen.getByLabelText("Afectación del IGV")).toHaveTextContent(/^10 · /);
   });
 
   it("al llegar al tope de ítems no agrega otra línea y lo dice", async () => {

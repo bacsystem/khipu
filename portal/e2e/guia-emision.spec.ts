@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { registrarYVerificar } from "./registro-sesion";
+import { elegirOpcion } from "./combo";
 
 /** Un RUC válido (módulo 11) y distinto en cada corrida: el mock no deja repetir RUC en toda la plataforma. */
 function rucUnico(): string {
@@ -68,9 +69,9 @@ test("la guía acompaña a la empresa nueva hasta que puede emitir y entonces de
 
   const form = page.getByTestId("datos-fiscales");
   await expect(form.getByLabel("Departamento")).toBeEnabled();
-  await form.getByLabel("Departamento").selectOption("LIMA");
-  await form.getByLabel("Provincia").selectOption("LIMA");
-  await form.getByLabel("Distrito").selectOption({ label: "MIRAFLORES" });
+  await elegirOpcion(form.getByLabel("Departamento"), "LIMA");
+  await elegirOpcion(form.getByLabel("Provincia"), "LIMA");
+  await elegirOpcion(form.getByLabel("Distrito"), "MIRAFLORES");
   await form.getByLabel("Dirección").fill("Av. Larco 345 Of. 12");
   await form.getByRole("button", { name: "Guardar datos fiscales" }).click();
   await expect(form.getByText("Datos fiscales actualizados", { exact: false })).toBeVisible();

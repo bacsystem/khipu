@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
+import { opcionesDe } from "@/test/select-de-prueba";
 import { CREDITO_VACIO } from "@/lib/comprobantes/credito";
 import { PERCEPCION_VACIA } from "@/lib/comprobantes/percepcion";
 import { CreditoEditor } from "./credito-editor";
@@ -19,7 +20,7 @@ describe("editores del comprobante según el idioma", () => {
     expect(screen.getByRole("button", { name: "Agregar cuota" })).toBeInTheDocument();
   });
 
-  it("en inglés, el crédito, la percepción y la consulta de RUC se leen en inglés", () => {
+  it("en inglés, el crédito, la percepción y la consulta de RUC se leen en inglés", async () => {
     fijarLocaleDePrueba("en");
     render(
       <>
@@ -31,7 +32,8 @@ describe("editores del comprobante según el idioma", () => {
     expect(screen.getByRole("button", { name: "Add installment" })).toBeInTheDocument();
     expect(screen.getByTestId("credito-resumen")).toHaveTextContent(/^The 2 installments add up to/);
     expect(screen.getByLabelText("Perception regime")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /^51 · Perception on domestic sale/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Perception regime")).toHaveTextContent(/^51 · Perception on domestic sale/);
+    expect((await opcionesDe(screen.getByLabelText("Perception regime")))[0]).toMatch(/^51 · Perception on domestic sale/);
     expect(screen.getByTestId("percepcion-resumen")).toHaveTextContent("Perception is only reported on documents in soles (2788).");
     expect(screen.getByTestId("consulta-ruc")).toHaveTextContent("RUC lookup is not available right now: type the details in manually.");
   });

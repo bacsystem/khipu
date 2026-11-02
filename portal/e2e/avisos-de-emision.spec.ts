@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 /**
  * #382: `POST /v1/facturas` y `POST /v1/notas` devuelven `avisos` (4013 RUC no activo, 4014 RUC no habido) cuando SUNAT va a observar el comprobante por el comprador, y el portal los
@@ -60,7 +61,7 @@ test("la nota de crédito sobre esa factura también muestra los avisos en su fi
   await page.goto(`${page.url()}/nota`);
 
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Anulación de la operación");
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
 

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CuentaAdmin } from "@/lib/api/admin-cuentas";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { CuentasTabla } from "./cuentas-tabla";
 
 const push = vi.fn();
@@ -158,29 +159,29 @@ describe("CuentasTabla bajas (#201)", () => {
 
   it("el selector muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
     const { unmount } = render(<CuentasTabla datos={[ANA]} total={1} params={SIN_FILTROS} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Ocultar");
     unmount();
 
     render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", ...SIN_FILTROS }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Solo las dadas de baja");
   });
 
   /**
    * Cambiar el filtro cambia el conjunto: seguir en la página 3 de otro conjunto es una página que ya no existe. La página lo corrige
    * redirigiendo a la última, pero eso solo tapa el error cuando el resultado cabe en una sola página; por eso el selector manda siempre a la 1.
    */
-  it("elegir un valor desde la página 3 navega a la primera y conserva la búsqueda y el tamaño de página", () => {
+  it("elegir un valor desde la página 3 navega a la primera y conserva la búsqueda y el tamaño de página", async () => {
     render(<CuentasTabla datos={[ANA]} total={120} params={{ q: "sol", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Incluir");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol&bajas=INCLUIDAS&por_pagina=20");
   });
 
-  it("volver a «Ocultar» quita el filtro de la URL y deja la búsqueda", () => {
+  it("volver a «Ocultar» quita el filtro de la URL y deja la búsqueda", async () => {
     render(<CuentasTabla datos={[DE_BAJA]} total={5} params={{ q: "sol", bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Ocultar");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol");
   });

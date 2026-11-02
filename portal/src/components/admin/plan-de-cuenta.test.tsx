@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
+import { opcionesDe } from "@/test/select-de-prueba";
 import { PlanDeCuenta } from "./plan-de-cuenta";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
@@ -99,11 +100,11 @@ describe("PlanDeCuenta", () => {
   });
 
   /** Los planes fuera de la oferta no se pueden asignar: el modal solo ofrece los activos (la cuenta que ya tiene uno inactivo lo conserva, pero no se le puede dar a otra). */
-  it("el modal solo ofrece los planes de la oferta", () => {
+  it("el modal solo ofrece los planes de la oferta", async () => {
     montar();
     fireEvent.click(screen.getByTestId("cambiar-plan"));
 
-    const opciones = Array.from(screen.getByLabelText("Plan nuevo").querySelectorAll("option")).map((o) => o.textContent);
+    const opciones = await opcionesDe(screen.getByLabelText("Plan nuevo"));
     expect(opciones).toEqual(["Elige un plan", "Gratis — Gratis", "Emprende — S/ 29.00 (plan actual)"]);
   });
 });

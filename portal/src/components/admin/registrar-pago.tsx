@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -193,23 +193,17 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               />
             </Campo>
             <Campo id="registrar-pago-medio" etiqueta={t.medio} error={errores.medio}>
-              <select
+              <SelectCampo
                 id="registrar-pago-medio"
-                value={medio}
-                onChange={(e) => {
-                  setMedio(e.target.value);
+                opciones={[{ value: "", label: t.elegirMedio }, ...MEDIOS_DE_PAGO.map((m) => ({ value: m, label: medios[m] }))]}
+                valor={medio}
+                onCambio={(v) => {
+                  setMedio(v);
                   limpiar("medio");
                 }}
-                aria-invalid={errores.medio ? true : undefined}
-                className={cn(SELECT_NATIVO, "w-full")}
-              >
-                <option value="">{t.elegirMedio}</option>
-                {MEDIOS_DE_PAGO.map((m) => (
-                  <option key={m} value={m}>
-                    {medios[m]}
-                  </option>
-                ))}
-              </select>
+                invalido={Boolean(errores.medio)}
+                describidoPor={errores.medio ? "registrar-pago-medio-error" : undefined}
+              />
             </Campo>
           </div>
 

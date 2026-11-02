@@ -8,6 +8,7 @@ import { type FormEvent, type ReactNode, useRef, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { UbigeoSelector } from "@/components/empresa/ubigeo-selector";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -16,7 +17,7 @@ import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Guia } from "@/lib/api/guias";
 import type { Serie } from "@/lib/api/series";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import {
   conductorVacio,
   conTiposAplicables,
@@ -82,14 +83,13 @@ function Seccion({ titulo, ayuda, children }: { titulo: string; ayuda?: string; 
 
 function Seleccion({ id, valor, alCambiar, opciones, vacio, deshabilitado }: { id: string; valor: string; alCambiar: (v: string) => void; opciones: Array<{ valor: string; texto: string }>; vacio?: string; deshabilitado?: boolean }) {
   return (
-    <select id={id} value={valor} disabled={deshabilitado} onChange={(e) => alCambiar(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-      {vacio !== undefined ? <option value="">{vacio}</option> : null}
-      {opciones.map((o) => (
-        <option key={o.valor} value={o.valor}>
-          {o.texto}
-        </option>
-      ))}
-    </select>
+    <SelectCampo
+      id={id}
+      valor={valor}
+      disabled={deshabilitado}
+      onCambio={alCambiar}
+      opciones={[...(vacio !== undefined ? [{ value: "", label: vacio }] : []), ...opciones.map((o) => ({ value: o.valor, label: o.texto }))]}
+    />
   );
 }
 

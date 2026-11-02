@@ -6,7 +6,8 @@ import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
@@ -95,13 +96,7 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
           {t.tipoComprobante}
         </label>
-        <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-          {TIPOS.map((codigo) => (
-            <option key={codigo} value={codigo}>
-              {t.tipos[codigo]}
-            </option>
-          ))}
-        </select>
+        <SelectCampo id="tipo-serie" valor={tipo} onCambio={setTipo} opciones={TIPOS.map((codigo) => ({ value: codigo, label: t.tipos[codigo] }))} />
         <span className={AYUDA_CAMPO}>{t.catalogo}</span>
       </div>
 
@@ -145,22 +140,15 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <label htmlFor="serie-establecimiento" className={ETIQUETA_CAMPO}>
           {t.establecimiento}
         </label>
-        <select
+        <SelectCampo
           id="serie-establecimiento"
-          value={establecimiento}
-          onChange={(e) => setEstablecimiento(e.target.value)}
-          className={cn(SELECT_NATIVO, "w-full")}
-          data-testid="serie-establecimiento"
-        >
-          <option value="0000">{t.domicilioFiscal}</option>
-          {(establecimientos ?? [])
-            .filter((e) => !e.principal)
-            .map((e) => (
-              <option key={e.codigo} value={e.codigo}>
-                {e.codigo} · {e.nombre}
-              </option>
-            ))}
-        </select>
+          valor={establecimiento}
+          onCambio={setEstablecimiento}
+          opciones={[
+            { value: "0000", label: t.domicilioFiscal },
+            ...(establecimientos ?? []).filter((e) => !e.principal).map((e) => ({ value: e.codigo, label: `${e.codigo} · ${e.nombre}` })),
+          ]}
+        />
         <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
       </div>
 
