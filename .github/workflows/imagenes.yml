@@ -104,7 +104,7 @@ jobs:
             org.opencontainers.image.vendor=Bacsystem Solutions EIRL
 
       - name: Construir y publicar
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.contexto }}
           file: ${{ matrix.dockerfile }}
