@@ -339,6 +339,8 @@ export const db = {
   /** #325: las empresas con el envío automático al cliente activado, y el envío de cada comprobante (por id) que salió al aceptarse. */
   envioAutomaticoPorEmpresa: new Set<string>(),
   enviosAlCliente: new Map<string, EnvioAlCliente>(),
+  /** Las empresas con «Mostrar opciones avanzadas al emitir» encendida (apagada por defecto, como la columna `tenant.opciones_avanzadas_emision`). */
+  opcionesAvanzadasPorEmpresa: new Set<string>(),
   sesionesPorToken: new Map<string, Sesion>(),
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
@@ -406,6 +408,7 @@ export function resetDb() {
   db.correos.length = 0;
   db.envioAutomaticoPorEmpresa.clear();
   db.enviosAlCliente.clear();
+  db.opcionesAvanzadasPorEmpresa.clear();
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();

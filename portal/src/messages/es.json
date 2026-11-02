@@ -3353,6 +3353,13 @@
         "desactivado": "Desactivado",
         "errorTitulo": "No se pudo cargar la preferencia",
         "errorTexto": "Vuelve a intentarlo en unos minutos."
+      },
+      "emision": {
+        "titulo": "Opciones al emitir",
+        "activadas": "Avanzadas",
+        "desactivadas": "Simples",
+        "errorTitulo": "No se pudo cargar la preferencia",
+        "errorTexto": "Vuelve a intentarlo en unos minutos."
       }
     },
     "secciones": {
@@ -3362,6 +3369,7 @@
         "sol": "Credenciales SOL",
         "pdf": "PDF",
         "correo": "Envío al cliente",
+        "emision": "Emisión",
         "empresas": "Empresas"
       },
       "pendiente": ", pendiente"
@@ -3432,6 +3440,14 @@
       "casillaAyuda": "Le llegan el PDF, el XML firmado y la constancia de SUNAT (CDR) al correo que indiques al emitir. Una nota de crédito o débito va al correo del comprobante que modifica, y una boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora; al desactivarlo, lo que esperaba salir ya no sale.",
       "activado": "Envío automático activado.",
       "desactivado": "Envío automático desactivado.",
+      "guardar": "Guardar preferencia"
+    },
+    "preferenciasEmision": {
+      "interruptor": "Mostrar opciones avanzadas al emitir",
+      "interruptorAyuda": "Agrega al formulario de emisión el tipo de operación y la exportación, los anticipos, la percepción, la retención, «Más opciones» y las referencias. Apagado, el formulario queda más simple. El crédito, la detracción y el correo del cliente están siempre.",
+      "soloAdmin": "Solo un administrador puede cambiarlo.",
+      "activadas": "Opciones avanzadas activadas.",
+      "desactivadas": "Opciones avanzadas desactivadas.",
       "guardar": "Guardar preferencia"
     },
     "nueva": {
