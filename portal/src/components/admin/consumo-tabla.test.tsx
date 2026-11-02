@@ -98,10 +98,10 @@ describe("ConsumoTabla (#193)", () => {
 
     const luis = within(fila("Luis Rojas")).getByRole("progressbar");
     expect(luis.getAttribute("aria-valuenow")).toBe("10");
-    expect((luis.firstElementChild as HTMLElement).style.width).toBe("10%");
+    expect((luis.querySelector(".bg-secondary")?.firstElementChild as HTMLElement).style.width).toBe("10%");
     const tope = within(fila("Sobrepasada")).getByRole("progressbar");
     expect(tope.getAttribute("aria-valuenow")).toBe("100");
-    expect((tope.firstElementChild as HTMLElement).style.width).toBe("100%");
+    expect((tope.querySelector(".bg-secondary")?.firstElementChild as HTMLElement).style.width).toBe("100%");
   });
 
   /** Lo omitido nunca se lee como cero: un plan sin tope no tiene porcentaje ni barra. */
@@ -109,9 +109,10 @@ describe("ConsumoTabla (#193)", () => {
   it("la barra y las etiquetas tienen el tono del estado: tranquila, cerca del límite y en el límite", () => {
     render(<ConsumoTabla datos={datos([LUIS, ANA, TOPE])} total={3} params={PARAMS} />);
 
-    const relleno = (nombre: string) => (within(fila(nombre)).getByRole("progressbar").firstElementChild as HTMLElement).className;
+    // El relleno es el hijo de la pista (`bg-secondary`) de la ProgresoLineal del DS.
+    const relleno = (nombre: string) => (within(fila(nombre)).getByRole("progressbar").querySelector(".bg-secondary")?.firstElementChild as HTMLElement).className;
     expect(relleno("Luis Rojas")).toContain("bg-primary");
-    expect(relleno("Ana Quispe")).toContain("bg-warning-foreground");
+    expect(relleno("Ana Quispe")).toContain("bg-warning-solid");
     expect(relleno("Sobrepasada")).toContain("bg-destructive");
     expect(within(fila("Ana Quispe")).getByText("Cerca del límite").className).toContain("bg-warning");
     expect(within(fila("Sobrepasada")).getByText("En el límite").className).toContain("text-destructive");

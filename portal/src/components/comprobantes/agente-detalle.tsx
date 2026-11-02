@@ -1,10 +1,13 @@
 import { useLocale, useMessages } from "next-intl";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearMonto, formatearNumero } from "@/lib/formato";
-import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { CABECERA_TABLA, ETIQUETA_DATO } from "@/lib/estilos";
 import type { ComprobanteDeAgente } from "@/lib/api/facturas";
 import { RowsIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
+import { Chip } from "khipu-design-system/patrones/pill-estado";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { cn } from "@/lib/utils";
 
 /** Los documentos que paga una retención o cobra una percepción: factura, boleta, nota de débito o ticket; otro código se muestra tal cual. */
@@ -23,50 +26,45 @@ export function DocumentosDeAgente({ agente, retencion }: { agente: ComprobanteD
   const t = messages.comprobantes.agente;
   const c = t.columnas;
   return (
-    <section className={cn(TARJETA, "overflow-hidden")} data-testid="documentos-de-agente">
-      <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
-        <div className={TITULO_SECCION}>
-          <RowsIcon weight={PESO_ICONO} className="size-4" />
-          {retencion ? t.documentosPagados : t.documentosCobrados}
-        </div>
-        <span className="font-mono text-etiqueta text-muted-foreground">
-          {interpolar(t.regimen, { regimen: agente.regimen, descripcion: agente.descripcion_regimen, tasa: formatearNumero(agente.tasa, locale) })}
-        </span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-etiqueta">
-          <thead>
-            <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta font-medium text-muted-foreground">
-              <th className="px-4 py-2.5 font-medium">{c.documento}</th>
-              <th className="px-3 py-2.5 font-medium">{c.emision}</th>
-              <th className="px-3 py-2.5 text-right font-medium">{c.importeTotal}</th>
-              <th className="px-3 py-2.5 font-medium">{retencion ? c.pago : c.cobro}</th>
-              <th className="px-3 py-2.5 text-right font-medium">{retencion ? c.pagado : c.cobrado}</th>
-              <th className="px-3 py-2.5 text-right font-medium">{c.tipoCambio}</th>
-              <th className="px-3 py-2.5 text-right font-medium">{retencion ? c.retenido : c.percibido}</th>
-              <th className="px-4 py-2.5 text-right font-medium">{c.neto}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {agente.documentos.map((d) => (
-              <tr key={`${d.numero}#${d.pago.numero}`}>
-                <td className="px-4 py-3 font-medium text-foreground">
-                  {tipoDeDocumento(d.tipo, messages)} <span className="font-mono">{d.numero}</span>
-                </td>
-                <td className="px-3 py-3 text-muted-foreground">{formatearFecha(d.fecha_emision, locale)}</td>
-                <td className="px-3 py-3 text-right font-mono tabular-nums">{formatearMonto(d.moneda, d.importe_total, locale)}</td>
-                <td className="px-3 py-3 text-muted-foreground">
-                  {interpolar(t.pago, { numero: d.pago.numero, fecha: formatearFecha(d.pago.fecha, locale) })}
-                </td>
-                <td className="px-3 py-3 text-right font-mono tabular-nums">{formatearMonto(d.moneda, d.pago.importe, locale)}</td>
-                <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground">{d.tipo_cambio ? formatearNumero(d.tipo_cambio.factor, locale) : "—"}</td>
-                <td className="px-3 py-3 text-right font-mono tabular-nums">{formatearMonto("PEN", d.importe_agente, locale)}</td>
-                <td className="px-4 py-3 text-right font-mono font-medium tabular-nums text-foreground">{formatearMonto("PEN", d.neto, locale)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <section className={CONTENEDOR_TABLA} data-testid="documentos-de-agente">
+      <CabeceraSeccion
+        icon={RowsIcon}
+        titulo={retencion ? t.documentosPagados : t.documentosCobrados}
+        className="px-2"
+        derecha={<Chip className="font-mono">{interpolar(t.regimen, { regimen: agente.regimen, descripcion: agente.descripcion_regimen, tasa: formatearNumero(agente.tasa, locale) })}</Chip>}
+      />
+      <Table className="text-control">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className={CABECERA_TABLA}>{c.documento}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{c.emision}</TableHead>
+            <TableHead className={cn(CABECERA_TABLA, "text-right")}>{c.importeTotal}</TableHead>
+            <TableHead className={CABECERA_TABLA}>{retencion ? c.pago : c.cobro}</TableHead>
+            <TableHead className={cn(CABECERA_TABLA, "text-right")}>{retencion ? c.pagado : c.cobrado}</TableHead>
+            <TableHead className={cn(CABECERA_TABLA, "text-right")}>{c.tipoCambio}</TableHead>
+            <TableHead className={cn(CABECERA_TABLA, "text-right")}>{retencion ? c.retenido : c.percibido}</TableHead>
+            <TableHead className={cn(CABECERA_TABLA, "text-right")}>{c.neto}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {agente.documentos.map((d) => (
+            <TableRow key={`${d.numero}#${d.pago.numero}`}>
+              <TableCell className="px-3 py-2 font-medium text-foreground">
+                {tipoDeDocumento(d.tipo, messages)} <span className="font-mono">{d.numero}</span>
+              </TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground">{formatearFecha(d.fecha_emision, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto(d.moneda, d.importe_total, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground">
+                {interpolar(t.pago, { numero: d.pago.numero, fecha: formatearFecha(d.pago.fecha, locale) })}
+              </TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto(d.moneda, d.pago.importe, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{d.tipo_cambio ? formatearNumero(d.tipo_cambio.factor, locale) : "—"}</TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearMonto("PEN", d.importe_agente, locale)}</TableCell>
+              <TableCell className="px-3 py-2 text-right font-mono font-medium tabular-nums text-foreground">{formatearMonto("PEN", d.neto, locale)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   );
 }

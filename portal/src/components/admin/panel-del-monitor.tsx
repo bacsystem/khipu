@@ -1,7 +1,11 @@
 "use client";
 
 import { Alerta } from "khipu-design-system/feedback/alerta";
-import { CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
+import { CalendarCheckIcon, ChartBarIcon, CheckCircleIcon, PulseIcon, TrayArrowUpIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
+import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
+import { Acordeon } from "khipu-design-system/navegacion/acordeon";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Metrica } from "khipu-design-system/patrones/metricas";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -74,7 +78,7 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
   }, [inicial, intervaloMs, leer]);
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <div className="grid min-w-0 gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-control text-muted-foreground" role="status" aria-live="polite">
         {monitor ? (
           <span data-testid="monitor-ultima-lectura">{t.ultimaLectura.replace("{hora}", formatearHoraConSegundos(monitor.generado_en))}</span>
@@ -112,7 +116,7 @@ function Lectura({ monitor }: { monitor: MonitorDeEmision }) {
       {monitor.boletas_sin_informar.alerta ? <AlertaDeBoletas boletas={monitor.boletas_sin_informar} /> : null}
       <Hoy franja={monitor.hoy} />
       <Horas horas={monitor.horas} />
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         <Cola outbox={monitor.outbox} />
         <Sunat servicios={monitor.sunat} />
       </div>
@@ -186,39 +190,46 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
 function Hoy({ franja }: { franja: Franja }) {
   const t = useMessages().admin.monitor;
   return (
-    <section aria-labelledby="monitor-hoy" className={cn(TARJETA, "grid gap-3 p-4")}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-        <div className="grid gap-0.5">
-          <h2 id="monitor-hoy" className="font-heading text-titulo">
-            {t.hoy.titulo}
-          </h2>
-          <p className="text-control text-muted-foreground">{t.hoy.ayuda}</p>
-        </div>
-        <p className="text-control" title={t.hoy.tasaAyuda}>
-          <span className="text-muted-foreground">{t.hoy.tasa}: </span>
-          <span data-testid="monitor-tasa" className="font-medium tabular-nums">
-            {formatearTasa(franja.tasa_de_rechazo)}
-          </span>
-        </p>
-      </div>
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <section aria-labelledby="monitor-hoy" className={TARJETA}>
+      <CabeceraSeccion
+        icon={CalendarCheckIcon}
+        titulo={<span id="monitor-hoy">{t.hoy.titulo}</span>}
+        subtitulo={t.hoy.ayuda}
+        derecha={
+          <p className="text-control" title={t.hoy.tasaAyuda}>
+            <span className="text-muted-foreground">{t.hoy.tasa}: </span>
+            <span data-testid="monitor-tasa" className="font-medium tabular-nums">
+              {formatearTasa(franja.tasa_de_rechazo)}
+            </span>
+          </p>
+        }
+      />
+      {/* Seis cifras: FilaMetricas llega a cinco columnas, así que la rejilla es propia, con su misma separación. */}
+      <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 lg:grid-cols-6">
         <Cifra testid="monitor-hoy-total" etiqueta={t.categorias.total} valor={franja.total} />
         {CATEGORIAS.map((c) => (
           <Cifra key={c.clave} testid={`monitor-hoy-${c.clave}`} etiqueta={t.categorias[c.mensaje]} ayuda={t.categoriasAyuda[c.mensaje]} valor={franja[c.clave]} />
         ))}
-      </dl>
+      </div>
     </section>
   );
 }
 
+/** Una cifra del monitor: la `Metrica` del design system; la ayuda, si no cabe, se lee entera al pasar el mouse. */
 function Cifra({ testid, etiqueta, ayuda, valor }: { testid: string; etiqueta: string; ayuda?: string; valor: number }) {
   return (
-    <div className="grid gap-0.5 rounded-lg border border-border/70 px-3 py-2" title={ayuda}>
-      <dt className="text-etiqueta text-muted-foreground">{etiqueta}</dt>
-      <dd data-testid={testid} className="font-heading text-titulo-pagina tabular-nums">
-        {valor}
-      </dd>
-    </div>
+    <Metrica
+      etiqueta={etiqueta}
+      ayuda={
+        ayuda ? (
+          <span title={ayuda} className="truncate">
+            {ayuda}
+          </span>
+        ) : null
+      }
+    >
+      <span data-testid={testid}>{valor}</span>
+    </Metrica>
   );
 }
 
@@ -226,66 +237,69 @@ function Horas({ horas }: { horas: Franja[] }) {
   const t = useMessages().admin.monitor;
   const maximo = Math.max(0, ...horas.map((h) => h.total));
   return (
-    <section aria-labelledby="monitor-horas" className={cn(TARJETA, "grid gap-3 p-4")}>
-      <div className="grid gap-0.5">
-        <h2 id="monitor-horas" className="font-heading text-titulo">
-          {t.horas.titulo}
-        </h2>
-        <p className="text-control text-muted-foreground">{t.horas.ayuda}</p>
-      </div>
+    <section aria-labelledby="monitor-horas" className={TARJETA}>
+      <CabeceraSeccion icon={ChartBarIcon} titulo={<span id="monitor-horas">{t.horas.titulo}</span>} subtitulo={t.horas.ayuda} />
+      <div className="grid gap-3 px-4 pb-4">
+        {maximo === 0 ? (
+          <div data-testid="monitor-horas-vacio">
+            <EstadoVacio icon={ChartBarIcon} titulo={t.horas.sinDatos} className="py-8" />
+          </div>
+        ) : (
+          <div data-testid="monitor-horas" role="img" aria-label={t.horas.grafico} className="flex h-36 items-end gap-1">
+            {horas.map((h, i) => (
+              <Barra key={h.desde} franja={h} alto={proporcionDeBarra(h.total, maximo)} conEtiqueta={i % 3 === 0} />
+            ))}
+          </div>
+        )}
 
-      {maximo === 0 ? (
-        <p data-testid="monitor-horas-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-          {t.horas.sinDatos}
-        </p>
-      ) : (
-        <div data-testid="monitor-horas" role="img" aria-label={t.horas.grafico} className="flex h-36 items-end gap-1">
-          {horas.map((h, i) => (
-            <Barra key={h.desde} franja={h} alto={proporcionDeBarra(h.total, maximo)} conEtiqueta={i % 3 === 0} />
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-etiqueta text-muted-foreground">
+          {[...CATEGORIAS].reverse().map((c) => (
+            <span key={c.clave} className="flex items-center gap-1.5">
+              <span className={cn("size-2.5 rounded-sm", c.color)} />
+              {t.categorias[c.mensaje]}
+            </span>
           ))}
         </div>
-      )}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-etiqueta text-muted-foreground">
-        {[...CATEGORIAS].reverse().map((c) => (
-          <span key={c.clave} className="flex items-center gap-1.5">
-            <span className={cn("size-2.5 rounded-sm", c.color)} />
-            {t.categorias[c.mensaje]}
-          </span>
-        ))}
+        <Acordeon
+          items={[
+            {
+              id: "por-hora",
+              titulo: t.horas.tabla,
+              contenido: (
+                <div data-testid="monitor-tabla-horas" className="min-w-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.horas.hora}</TableHead>
+                        <TableHead className={`${CABECERA_TABLA} text-right`}>{t.categorias.total}</TableHead>
+                        {CATEGORIAS.map((c) => (
+                          <TableHead key={c.clave} className={`${CABECERA_TABLA} text-right`}>
+                            {t.categorias[c.mensaje]}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="text-control tabular-nums">
+                      {horas.map((h) => (
+                        <TableRow key={h.desde}>
+                          <TableCell className="py-1.5 pl-3">{formatearHoraDeLima(h.desde)}</TableCell>
+                          <TableCell className="py-1.5 text-right">{h.total}</TableCell>
+                          {CATEGORIAS.map((c) => (
+                            <TableCell key={c.clave} className="py-1.5 text-right">
+                              {h[c.clave]}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ),
+            },
+          ]}
+        />
       </div>
-
-      <details className="text-control">
-        <summary className="cursor-pointer text-primary">{t.horas.tabla}</summary>
-        <div className="mt-2 min-w-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.horas.hora}</TableHead>
-                <TableHead className={`${CABECERA_TABLA} text-right`}>{t.categorias.total}</TableHead>
-                {CATEGORIAS.map((c) => (
-                  <TableHead key={c.clave} className={`${CABECERA_TABLA} text-right`}>
-                    {t.categorias[c.mensaje]}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody className="text-control tabular-nums">
-              {horas.map((h) => (
-                <TableRow key={h.desde}>
-                  <TableCell className="py-1.5 pl-3">{formatearHoraDeLima(h.desde)}</TableCell>
-                  <TableCell className="py-1.5 text-right">{h.total}</TableCell>
-                  {CATEGORIAS.map((c) => (
-                    <TableCell key={c.clave} className="py-1.5 text-right">
-                      {h[c.clave]}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </details>
     </section>
   );
 }
@@ -315,29 +329,26 @@ function Cola({ outbox }: { outbox: ColaDeEnvios }) {
   const t = useMessages().admin.monitor;
   const locale = useLocale();
   return (
-    <section aria-labelledby="monitor-outbox" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
-      <div className="grid gap-0.5">
-        <h2 id="monitor-outbox" className="font-heading text-titulo">
-          {t.outbox.titulo}
-        </h2>
-        <p className="text-control text-muted-foreground">{t.outbox.ayuda}</p>
+    <section aria-labelledby="monitor-outbox" className={TARJETA}>
+      <CabeceraSeccion icon={TrayArrowUpIcon} titulo={<span id="monitor-outbox">{t.outbox.titulo}</span>} subtitulo={t.outbox.ayuda} />
+      <div className="grid content-start gap-3 px-4 pb-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Cifra testid="monitor-outbox-pendientes" etiqueta={t.outbox.pendientes} valor={outbox.pendientes} />
+          <Cifra testid="monitor-outbox-vencidos" etiqueta={t.outbox.vencidos} valor={outbox.vencidos} />
+        </div>
+        {outbox.pendientes === 0 ? (
+          <p data-testid="monitor-outbox-vacia" className="text-control text-muted-foreground">
+            {t.outbox.vacia}
+          </p>
+        ) : (
+          <p className="text-control text-muted-foreground">
+            {outbox.mas_viejo_desde ? <span data-testid="monitor-outbox-antiguo">{t.outbox.masAntiguo} {formatearFechaHora(outbox.mas_viejo_desde, locale)}. </span> : null}
+            {outbox.vencido_hace_segundos !== undefined ? (
+              <span data-testid="monitor-outbox-vencido-hace">{t.outbox.vencidoHace.replace("{tiempo}", duracionEnPalabras(outbox.vencido_hace_segundos))}</span>
+            ) : null}
+          </p>
+        )}
       </div>
-      <dl className="grid grid-cols-2 gap-3">
-        <Cifra testid="monitor-outbox-pendientes" etiqueta={t.outbox.pendientes} valor={outbox.pendientes} />
-        <Cifra testid="monitor-outbox-vencidos" etiqueta={t.outbox.vencidos} valor={outbox.vencidos} />
-      </dl>
-      {outbox.pendientes === 0 ? (
-        <p data-testid="monitor-outbox-vacia" className="text-control text-muted-foreground">
-          {t.outbox.vacia}
-        </p>
-      ) : (
-        <p className="text-control text-muted-foreground">
-          {outbox.mas_viejo_desde ? <span data-testid="monitor-outbox-antiguo">{t.outbox.masAntiguo} {formatearFechaHora(outbox.mas_viejo_desde, locale)}. </span> : null}
-          {outbox.vencido_hace_segundos !== undefined ? (
-            <span data-testid="monitor-outbox-vencido-hace">{t.outbox.vencidoHace.replace("{tiempo}", duracionEnPalabras(outbox.vencido_hace_segundos))}</span>
-          ) : null}
-        </p>
-      )}
     </section>
   );
 }
@@ -345,37 +356,34 @@ function Cola({ outbox }: { outbox: ColaDeEnvios }) {
 function Sunat({ servicios }: { servicios: EstadoDeServicio[] }) {
   const t = useMessages().admin.monitor;
   return (
-    <section aria-labelledby="monitor-sunat" className={cn(TARJETA, "grid content-start gap-3 p-4")}>
-      <div className="grid gap-0.5">
-        <h2 id="monitor-sunat" className="font-heading text-titulo">
-          {t.sunat.titulo}
-        </h2>
-        <p className="text-control text-muted-foreground">{t.sunat.ayuda}</p>
+    <section aria-labelledby="monitor-sunat" className={TARJETA}>
+      <CabeceraSeccion icon={PulseIcon} titulo={<span id="monitor-sunat">{t.sunat.titulo}</span>} subtitulo={t.sunat.ayuda} />
+      <div className="grid content-start gap-3 px-4 pb-4">
+        {servicios.length === 0 ? (
+          <p data-testid="monitor-sunat-vacio" className="text-control text-muted-foreground">
+            {t.sunat.sinServicios}
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {servicios.map((s) => (
+              <li
+                key={s.servicio}
+                data-testid="monitor-servicio"
+                data-servicio={s.servicio}
+                data-disponible={s.disponible}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-secondary px-3 py-2 text-control"
+              >
+                {s.disponible ? <CheckCircleIcon className="size-4 shrink-0 text-success-foreground" /> : <XCircleIcon className="size-4 shrink-0 text-destructive" />}
+                <span className="font-medium">{t.sunat.servicios[s.servicio]}</span>
+                <Etiqueta tono={s.disponible ? "ok" : "error"}>{s.disponible ? t.sunat.disponible : t.sunat.noDisponible}</Etiqueta>
+                <span className="ml-auto text-control text-muted-foreground tabular-nums">
+                  {s.disponible && s.milisegundos !== undefined ? t.sunat.milisegundos.replace("{ms}", String(s.milisegundos)) : (s.detalle ?? "")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {servicios.length === 0 ? (
-        <p data-testid="monitor-sunat-vacio" className="text-control text-muted-foreground">
-          {t.sunat.sinServicios}
-        </p>
-      ) : (
-        <ul className="grid gap-2">
-          {servicios.map((s) => (
-            <li
-              key={s.servicio}
-              data-testid="monitor-servicio"
-              data-servicio={s.servicio}
-              data-disponible={s.disponible}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 px-3 py-2 text-control"
-            >
-              {s.disponible ? <CheckCircleIcon className="size-4 shrink-0 text-success-foreground" /> : <XCircleIcon className="size-4 shrink-0 text-destructive" />}
-              <span className="font-medium">{t.sunat.servicios[s.servicio]}</span>
-              <Etiqueta tono={s.disponible ? "ok" : "error"}>{s.disponible ? t.sunat.disponible : t.sunat.noDisponible}</Etiqueta>
-              <span className="ml-auto text-control text-muted-foreground tabular-nums">
-                {s.disponible && s.milisegundos !== undefined ? t.sunat.milisegundos.replace("{ms}", String(s.milisegundos)) : (s.detalle ?? "")}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   );
 }

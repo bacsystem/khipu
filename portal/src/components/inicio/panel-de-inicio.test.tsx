@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ResumenDeFacturas } from "@/lib/api/facturas";
 import { alertasDelPanel, serieDiaria } from "@/lib/inicio/panel";
@@ -116,6 +116,7 @@ describe("GraficoDeEmision (#24)", () => {
 
   it("trae la misma información como tabla, con una columna por moneda", () => {
     render(<GraficoDeEmision serie={serie} titulo="Emisión por día" />);
+    fireEvent.click(screen.getByRole("button", { name: "Ver como tabla" }));
 
     const tabla = screen.getByTestId("grafico-emision-tabla");
     expect(within(tabla).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Día", "Emitidos", "Facturado PEN", "Facturado USD"]);

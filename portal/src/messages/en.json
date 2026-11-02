@@ -3788,6 +3788,7 @@
       "nueva": "New guide",
       "experimentalTitulo": "Experimental feature",
       "experimentalTexto": "Sending guides to SUNAT is switched off until the operator turns it on after a controlled run, and SUNAT offers no test environment for the dispatch guide. Until then you can issue without sending to review the XML and the PDF; the guide stays signed and is sent later from its page.",
+      "sinSerieTitulo": "You don't have a guide series yet",
       "sinSerie": "To issue a guide you need a dispatch guide series (T### for the sender, V### for the carrier).",
       "crearSerie": "Create a series"
     },

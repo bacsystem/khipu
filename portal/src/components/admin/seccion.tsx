@@ -1,5 +1,6 @@
 import { TrayIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { PESO_ICONO, type IconoComponente } from "khipu-design-system/lib/iconos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import type { ReactNode } from "react";
 import { TARJETA } from "@/lib/estilos";
@@ -9,16 +10,29 @@ import { cn } from "@/lib/utils";
 export const CABECERA_FILA = "hover:bg-transparent";
 
 /**
- * Una sección de una página de detalle del backoffice: un título y su contenido en una tarjeta que desplaza si no cabe.
- * Con `tabla`, la tarjeta es el contenedor de tabla del design system (`CONTENEDOR_TABLA`).
+ * Una sección de una página de detalle del backoffice: una tarjeta con su cabecera (`CabeceraSeccion`, el título dentro de la tarjeta, como en el panel del
+ * cliente) y su contenido, que desplaza si no cabe. Con `tabla`, la tarjeta es el contenedor de tabla del design system (`CONTENEDOR_TABLA`). `derecha` va en
+ * la cabecera (una acción, un chip). El título lleva el `id` que nombra la sección.
  */
-export function Seccion({ titulo, id, tabla = false, children }: { titulo: string; id: string; tabla?: boolean; children: ReactNode }) {
+export function Seccion({
+  titulo,
+  id,
+  icon,
+  tabla = false,
+  derecha,
+  children,
+}: {
+  titulo: string;
+  id: string;
+  icon: IconoComponente;
+  tabla?: boolean;
+  derecha?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <section aria-labelledby={id} className="grid min-w-0 gap-2">
-      <h2 id={id} className="font-heading text-titulo">
-        {titulo}
-      </h2>
-      <div className={tabla ? CONTENEDOR_TABLA : cn(TARJETA, "overflow-x-auto")}>{children}</div>
+    <section aria-labelledby={id} className={cn(tabla ? CONTENEDOR_TABLA : TARJETA, "min-w-0")}>
+      <CabeceraSeccion icon={icon} titulo={<span id={id}>{titulo}</span>} derecha={derecha} />
+      {tabla ? children : <div className="overflow-x-auto">{children}</div>}
     </section>
   );
 }

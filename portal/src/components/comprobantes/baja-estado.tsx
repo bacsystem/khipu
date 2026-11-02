@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
 import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
-import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -64,45 +66,43 @@ export function BajaEstado({ baja }: { baja: Baja }) {
   );
 
   return (
-    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="baja">
-      <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
-        <span className="flex items-center gap-1.5">
-          <ProhibitIcon className="size-4" />
-          {resumenDiario ? t.resumenDiario : t.comunicacion} {baja.identificador}
-          {alta ? t.alta : null}
-        </span>
-        {pendiente ? (
-          <button type="button" onClick={actualizar} disabled={consultando} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "normal-case tracking-normal")}>
-            <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", consultando ? "animate-spin" : "")} />
-            {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
-          </button>
-        ) : null}
-      </div>
+    <section className={TARJETA} data-testid="baja">
+      <CabeceraSeccion
+        icon={ProhibitIcon}
+        titulo={
+          <>
+            {resumenDiario ? t.resumenDiario : t.comunicacion} {baja.identificador}
+            {alta ? t.alta : null}
+          </>
+        }
+        derecha={
+          pendiente ? (
+            <button type="button" onClick={actualizar} disabled={consultando} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", consultando ? "animate-spin" : "")} />
+              {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
+            </button>
+          ) : null
+        }
+      />
+      <div className="px-4 pb-4">
       {tono ? (
         <Alerta tono={tono} className="mb-4">
           {estado}
         </Alerta>
       ) : null}
-      <div className={cn("grid grid-cols-1 gap-4 text-etiqueta", tono ? "md:grid-cols-3" : "md:grid-cols-4")}>
-        {tono ? null : (
-          <div className="flex flex-col gap-1">
-            <span className="text-etiqueta text-muted-foreground">{t.estado}</span>
-            <span className="text-foreground">{estado}</span>
-          </div>
-        )}
-        <div className="flex flex-col gap-1">
-          <span className="text-etiqueta text-muted-foreground">{t.motivo}</span>
-          <p className="leading-snug text-foreground/80">{baja.motivo}</p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-etiqueta text-muted-foreground">{t.ticket}</span>
-          <span className="font-mono text-foreground/80">{baja.ticket ?? "—"}</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-etiqueta text-muted-foreground">{vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento}</span>
-          <span className="font-mono text-foreground/80">{baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}{!baja.cdr && baja.intentos > 1 ? interpolar(t.intentos, { n: baja.intentos }) : ""}</span>
-        </div>
-      </div>
+      <ListaDatos
+        columnas={2}
+        datos={[
+          ...(tono ? [] : [{ etiqueta: t.estado, valor: estado }]),
+          { etiqueta: t.motivo, valor: baja.motivo },
+          { etiqueta: t.ticket, valor: baja.ticket ?? "—", mono: true },
+          {
+            etiqueta: vencida ? t.detalle : baja.cdr ? t.cdr : t.ultimoIntento,
+            valor: `${baja.cdr ? `${baja.cdr.codigo} · ${baja.cdr.descripcion}` : (baja.ultimo_error ?? "—")}${!baja.cdr && baja.intentos > 1 ? interpolar(t.intentos, { n: baja.intentos }) : ""}`,
+            mono: true,
+          },
+        ]}
+      />
       {alta && baja.fuera_de_plazo ? (
         <p className="mt-3 text-control text-warning-foreground" data-testid="aviso-fuera-de-plazo">
           {avisoAltaFueraDePlazo(messages)}
@@ -114,6 +114,7 @@ export function BajaEstado({ baja }: { baja: Baja }) {
         </p>
       ) : null}
       {error ? <p className="mt-2 text-cuerpo text-destructive" role="alert">{error}</p> : null}
+      </div>
     </section>
   );
 }

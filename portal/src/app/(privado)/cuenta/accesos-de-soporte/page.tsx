@@ -4,6 +4,7 @@ import { getMessages } from "next-intl/server";
 import { AccesosDeSoporte } from "@/components/soporte/accesos-de-soporte";
 import { listarAccesosDeSoporte } from "@/lib/api/accesos-de-soporte";
 import { getServerSession } from "@/lib/session-server";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -20,7 +21,7 @@ export default async function AccesosDeSoportePage() {
 
   return (
     // Como las demás páginas del panel (C9): el título va en la miga de la barra superior, que es el único h1, y el ancho es el mismo.
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
       <AccesosDeSoporte accesos={accesos} />
     </div>

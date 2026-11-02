@@ -18,6 +18,7 @@ import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { cn } from "@/lib/utils";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 
 const TODAS = "todas";
 
@@ -117,48 +118,48 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <KeyIcon className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
-          </div>
-        </div>
+      <CabeceraSeccion
+        icon={KeyIcon}
+        titulo={t.titulo}
+        subtitulo={t.subtitulo}
+        conBorde={false}
+        className="p-0"
+        derecha={
+          <>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Select
-            items={itemsEstado}
-            value={estado}
-            onValueChange={(v) => {
-              setEstado(v ?? TODAS);
-              setPagina(1);
-            }}
-          >
-            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Select
+                items={itemsEstado}
+                value={estado}
+                onValueChange={(v) => {
+                  setEstado(v ?? TODAS);
+                  setPagina(1);
+                }}
+              >
+                <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
+                    <SelectItem key={valor} value={valor}>
+                      {etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <button
-            type="button"
-            onClick={() => startTransition(() => router.refresh())}
-            title={t.refrescar}
-            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
-          >
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
-          </button>
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => startTransition(() => router.refresh())}
+                title={t.refrescar}
+                className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+              >
+                <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
+              </button>
+            </div>
+          </>
+        }
+      />
 
       <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>

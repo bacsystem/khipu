@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmpresasTabla } from "@/components/admin/empresas-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefEmpresas, hrefEmpresasSiFueraDeRango, listarEmpresasAdmin, paramsEmpresasDesdeUrl } from "@/lib/api/admin-empresas";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -36,11 +38,8 @@ export default async function AdminEmpresasPage({
 
   const t = messages.admin.empresas;
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
-        <p className="text-cuerpo text-muted-foreground">{t.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={t.titulo} descripcion={t.descripcion} />
 
       {resultado.pagina ? (
         <EmpresasTabla datos={resultado.pagina.datos} total={resultado.pagina.total} params={params} />

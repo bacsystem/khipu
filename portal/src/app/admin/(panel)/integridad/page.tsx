@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import { redirect } from "next/navigation";
 import { VerificarIntegridad } from "@/components/admin/verificar-integridad";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hoyLima } from "@/lib/formato";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -20,11 +22,8 @@ export default async function AdminIntegridadPage() {
   if (!access) redirect("/admin/login");
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{messages.admin.integridad.titulo}</h1>
-        <p className="max-w-3xl text-cuerpo text-muted-foreground">{messages.admin.integridad.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={messages.admin.integridad.titulo} descripcion={messages.admin.integridad.descripcion} />
       <VerificarIntegridad hoy={hoyLima()} />
     </div>
   );

@@ -1,3 +1,4 @@
+import { CurrencyCircleDollarIcon } from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
 import { RegistrarPago } from "@/components/admin/registrar-pago";
 import { Seccion, CABECERA_FILA, Vacio } from "@/components/admin/seccion";
@@ -18,13 +19,16 @@ export function PagosDeCuenta({ cuentaId, cuentaNombre, pagos, plan, hoy }: { cu
   const locale = useLocale();
   const fecha = (iso: string) => formatearFecha(iso, locale);
   return (
-    <Seccion titulo={t.titulo} id="detalle-pagos" tabla>
-      <div data-testid="pagos-de-cuenta" className="grid gap-3 px-2 pt-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <p className="max-w-2xl text-control text-muted-foreground">{t.descripcion}</p>
-          <RegistrarPago cuentaId={cuentaId} cuentaNombre={cuentaNombre} plan={plan} hoy={hoy} />
-        </div>
-      </div>
+    <Seccion
+      titulo={t.titulo}
+      id="detalle-pagos"
+      icon={CurrencyCircleDollarIcon}
+      tabla
+      derecha={<RegistrarPago cuentaId={cuentaId} cuentaNombre={cuentaNombre} plan={plan} hoy={hoy} />}
+    >
+      <p data-testid="pagos-de-cuenta" className="max-w-2xl px-4 pb-2 text-control text-muted-foreground">
+        {t.descripcion}
+      </p>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
