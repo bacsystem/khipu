@@ -51,9 +51,17 @@ export function SeriesTable({ series }: { series: Serie[] }) {
     [series, estado, tipo],
   );
 
-  const itemsEstado = useMemo<Record<string, string>>(() => ({ [TODOS]: t.estadoTodas, activa: t.activas, inactiva: t.inactivas }), [t]);
-  const itemsTipo = useMemo<Record<string, string>>(
-    () => ({ [TODOS]: t.tipoTodos, ...Object.fromEntries(TIPOS_FILTRO.map((tipo) => [tipo, `${tipo} · ${ETIQUETAS_TIPO[tipo] ?? tipo}`])) }),
+  // Listas y no objetos: en un objeto, JavaScript ordena primero las claves que parecen enteros («20», «31», «40») y el menú salía con ellas antes de «Todos».
+  const itemsEstado = useMemo(
+    () => [
+      { value: TODOS, label: t.estadoTodas },
+      { value: "activa", label: t.activas },
+      { value: "inactiva", label: t.inactivas },
+    ],
+    [t],
+  );
+  const itemsTipo = useMemo(
+    () => [{ value: TODOS, label: t.tipoTodos }, ...TIPOS_FILTRO.map((tipo) => ({ value: tipo, label: `${tipo} · ${ETIQUETAS_TIPO[tipo] ?? tipo}` }))],
     [t, ETIQUETAS_TIPO],
   );
   const subtitulos: Record<string, string> = t.subtitulos;
@@ -86,9 +94,9 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
+              {itemsEstado.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -99,9 +107,9 @@ export function SeriesTable({ series }: { series: Serie[] }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(itemsTipo).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
+              {itemsTipo.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>
