@@ -11,6 +11,7 @@ import { EJEMPLO_ENTREGA, RESPUESTA_CREAR_WEBHOOK, VERIFICAR_NODE, VERIFICAR_PHP
 import { interpolar } from "@/i18n/mensajes";
 import { apiPublicUrl } from "@/lib/api/client";
 import { tecnico } from "@/lib/developers/tecnico";
+import { TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /** El sobre de toda respuesta de la API: técnico, igual en cualquier idioma. */
@@ -157,7 +158,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         </P>
         <div className="space-y-8">
           {casosDeEmision.map((c) => (
-            <article key={c.id} id={c.id} className={cn("scroll-mt-16 space-y-3 rounded-xl border border-border bg-card p-5 shadow-xs", !c.disponible && "opacity-90")}>
+            <article key={c.id} id={c.id} className={cn(TARJETA, "scroll-mt-16 space-y-3 p-5", !c.disponible && "opacity-90")}>
               <header className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-semibold text-foreground">{c.titulo}</h3>
                 {c.disponible ? null : (
