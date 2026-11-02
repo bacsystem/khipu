@@ -1,4 +1,7 @@
-import { ChartBarIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
+"use client";
+
+// Componente de cliente: le pasa funciones al gráfico del design system (rótulos, texto de cada día, formato del eje), y eso no cruza la frontera desde un Server Component.
+import { ChartBarIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
 import { GraficoBarras } from "khipu-design-system/datos/grafico";
