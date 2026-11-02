@@ -145,7 +145,7 @@ export function BuscadorConLista<T extends { id: string }>({
         onFocus={() => hayTexto && resultados && setAbierto(true)}
         onKeyDown={teclas}
         placeholder={placeholder}
-        className={cn(CAMPO, "pl-9 text-control")}
+        className={cn(CAMPO, "pl-9")}
       />
       <p role="status" className="sr-only">
         {listaVisible ? (resultados.length === 0 ? sinResultados : `${resultados.length} ${resultados.length === 1 ? encontrados[0] : encontrados[1]}`) : ""}

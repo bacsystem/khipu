@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fechaElegida } from "./fecha";
+import { elegirFecha, fechaElegida } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 test.beforeEach(async ({ page }) => {
@@ -58,14 +58,18 @@ test("filtra por serie y fechas desde la URL y desde los controles (#6)", async 
   await expect(tabla.getByText("F001-00000004")).toBeVisible();
   await expect(tabla.getByText("F001-00000001")).toHaveCount(0);
   await expect(page.getByLabel("Serie")).toContainText("Serie: F001");
-  await expect(page.getByLabel("Desde")).toHaveValue("2026-09-02");
+  // Las fechas son las del design system (#531): un botón que abre el calendario, con su ✕ para quitarla.
+  const desde = page.locator("#filtro-desde");
+  const hasta = page.locator("#filtro-hasta");
+  expect(await fechaElegida(desde)).toBe("2026-09-02");
 
-  // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista. Antes de hidratar el `fill` se pierde.
+  // Cambiar el filtro por los controles actualiza la URL (compartible) y la lista.
   await esperarHidratacion(page, "#filtro-hasta");
-  await page.getByLabel("Hasta").fill("2026-09-01");
-  await expect(page).toHaveURL(/hasta=2026-09-01/);
-  await page.getByLabel("Desde").fill("2026-09-01");
+  // Primero «desde»: el calendario de «hasta» no ofrece días anteriores a «desde» (y al revés).
+  await elegirFecha(desde, "2026-09-01");
   await expect(page).toHaveURL(/desde=2026-09-01/);
+  await elegirFecha(hasta, "2026-09-01");
+  await expect(page).toHaveURL(/hasta=2026-09-01/);
   await expect(tabla.getByText("F001-00000001")).toBeVisible();
   await expect(tabla.getByText("F001-00000004")).toHaveCount(0);
 

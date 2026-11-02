@@ -57,24 +57,34 @@ describe("GuiasTable", () => {
     expect(screen.getByRole("link", { name: "Limpiar" })).toHaveAttribute("href", "/guias");
   });
 
-  it("filtrar lleva a la URL con los filtros escritos y vuelve a la primera página", () => {
-    render(<GuiasTable datos={[]} total={0} pagina={3} porPagina={10} filtros={{}} />);
-
-    fireEvent.change(screen.getByLabelText("Estado"), { target: { value: "ERROR_ENVIO" } });
-    fireEvent.change(screen.getByLabelText("Serie"), { target: { value: " t001 " } });
-    fireEvent.submit(screen.getByRole("search"));
-
-    expect(push).toHaveBeenCalledWith("/guias?estado=ERROR_ENVIO&serie=t001");
+  /** #531: la barra de filtros del design system aplica cada filtro al cambiarlo (sin botón «Filtrar»), en mayúsculas la serie, y vuelve a la primera página. */
+  it("buscar una serie lleva a la URL con el filtro y vuelve a la primera página", async () => {
+    vi.useFakeTimers();
+    try {
+      render(<GuiasTable datos={[]} total={0} pagina={3} porPagina={10} filtros={{ estado: "ERROR_ENVIO" }} />);
+      fireEvent.change(screen.getByLabelText("Serie"), { target: { value: " t001 " } });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(push).toHaveBeenCalledWith("/guias?estado=ERROR_ENVIO&serie=T001");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("los filtros de la URL llegan escritos en el formulario", () => {
+  it("una fecha se quita con su ✕ y el filtro sale de la URL", () => {
+    render(<GuiasTable datos={[]} total={0} pagina={2} porPagina={10} filtros={{ desde: "2026-10-01", hasta: "2026-10-31" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Quitar la fecha desde" }));
+    expect(push).toHaveBeenCalledWith("/guias?hasta=2026-10-31");
+  });
+
+  it("los filtros de la URL se ven en la barra", () => {
     render(<GuiasTable datos={[]} total={0} pagina={1} porPagina={10} filtros={{ estado: "ACEPTADO", tipo: "31", serie: "V001", desde: "2026-10-01", hasta: "2026-10-31" }} />);
 
-    expect(screen.getByLabelText("Estado")).toHaveValue("ACEPTADO");
-    expect(screen.getByLabelText("Tipo")).toHaveValue("31");
+    expect(screen.getByRole("combobox", { name: "Estado" })).toHaveTextContent("Aceptada");
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveTextContent("Transportista");
     expect(screen.getByLabelText("Serie")).toHaveValue("V001");
-    expect(screen.getByLabelText("Desde")).toHaveValue("2026-10-01");
-    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-10-31");
+    expect(screen.getByRole("button", { name: "Quitar la fecha desde" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quitar la fecha hasta" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Filtrar" })).toBeNull();
   });
 
   it("el pie pagina con enlaces que conservan los filtros", () => {

@@ -7,7 +7,6 @@ import { errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Descuento o cargo (#310): modo (% o monto), valor y si afecta la base del IGV. Sirve de línea o global: en un cargo global ofrece además el recargo al consumo
@@ -42,7 +41,7 @@ export function AjusteEditor({
       <legend className="mb-1 text-control font-medium text-foreground">{etiqueta}</legend>
       <div className="grid grid-cols-[110px_1fr] gap-2">
         <Campo id={`${id}-modo`} etiqueta={interpolar(t.tipo, { etiqueta })} className="[&>label]:sr-only">
-          <select id={`${id}-modo`} value={valor.modo} onChange={(e) => set({ modo: e.target.value as AjusteForm["modo"] })} className={CAMPO_DENSO}>
+          <select id={`${id}-modo`} value={valor.modo} onChange={(e) => set({ modo: e.target.value as AjusteForm["modo"] })} className={CAMPO}>
             <option value="porcentaje">{t.porcentaje}</option>
             <option value="monto">{t.monto}</option>
           </select>
@@ -55,7 +54,7 @@ export function AjusteEditor({
             inputMode="decimal"
             placeholder={valor.modo === "porcentaje" ? "10" : "0.00"}
             aria-invalid={error !== null}
-            className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+            className={cn(CAMPO, "font-mono tabular-nums")}
           />
         </Campo>
       </div>

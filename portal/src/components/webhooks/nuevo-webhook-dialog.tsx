@@ -96,7 +96,7 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
           ) : (
             <>
               <Campo id="webhook-url" etiqueta={t.url} ayuda={t.urlAyuda} error={intento ? errorUrl : null}>
-                <input id="webhook-url" type="url" inputMode="url" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mi-sistema.pe/khipu/webhook" className={cn(CAMPO, "font-mono text-control")} />
+                <input id="webhook-url" type="url" inputMode="url" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mi-sistema.pe/khipu/webhook" className={cn(CAMPO, "font-mono")} />
               </Campo>
               <Campo id="webhook-descripcion" etiqueta={t.descripcionCampo} opcional>
                 <input id="webhook-descripcion" maxLength={100} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={t.descripcionEjemplo} className={CAMPO} />

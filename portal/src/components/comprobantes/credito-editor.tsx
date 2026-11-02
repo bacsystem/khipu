@@ -11,7 +11,6 @@ import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { formatearMonto, sumarDias } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /**
  * Factura al crédito (#309): el neto pendiente y el calendario de cuotas. «Repartir» arma N cuotas iguales cada 30 días desde la emisión; se pueden editar o agregar a
@@ -49,12 +48,12 @@ export function CreditoEditor({
             onChange={(e) => onCambio({ ...credito, montoPendiente: e.target.value })}
             inputMode="decimal"
             placeholder={neto.toFixed(2)}
-            className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+            className={cn(CAMPO, "font-mono tabular-nums")}
           />
         </Campo>
         <div className="flex flex-wrap items-end gap-2">
           <Campo id="nc-cuotas-n" etiqueta={t.repartirEn}>
-            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={CAMPO_DENSO}>
+            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={CAMPO}>
               {Array.from({ length: 11 }, (_, i) => i + 2).map((v) => (
                 <option key={v} value={v}>{interpolar(t.cuotasIguales, { n: v })}</option>
               ))}
@@ -70,7 +69,7 @@ export function CreditoEditor({
         {credito.cuotas.map((q, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
             <Campo id={`nc-cuota-monto-${i}`} etiqueta={interpolar(t.cuotaMonto, { n: i + 1 })} className="[&>label]:sr-only">
-              <input id={`nc-cuota-monto-${i}`} value={q.monto} onChange={(e) => poner(i, { monto: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+              <input id={`nc-cuota-monto-${i}`} value={q.monto} onChange={(e) => poner(i, { monto: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO, "font-mono tabular-nums")} />
             </Campo>
             <Campo id={`nc-cuota-fecha-${i}`} etiqueta={interpolar(t.cuotaVencimiento, { n: i + 1 })} className="[&>label]:sr-only">
               <EntradaFecha id={`nc-cuota-fecha-${i}`} valor={q.vencimiento} onCambio={(v) => poner(i, { vencimiento: v })} min={sumarDias(emision, 1)} variante="filtro" />

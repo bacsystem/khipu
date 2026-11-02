@@ -169,7 +169,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                 setCuerpo(e.target.value);
                 editado();
               }}
-              className={cn(CAMPO, "h-auto min-h-48 py-2 font-mono text-control leading-relaxed")}
+              className={cn(CAMPO, "h-auto min-h-48 py-2 font-mono leading-relaxed")}
             />
           </div>
         </div>

@@ -13,7 +13,6 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /** Alta (`POST`) o edición (`PUT`) de un cliente guardado. El documento se valida con las mismas reglas que el comprador de una boleta, así que lo guardado siempre se puede usar al emitir. */
 export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?: ClienteGuardado | null; onGuardado?: (c: ClienteGuardado) => void; onCancelar?: () => void }) {
@@ -73,7 +72,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
               setTipoDoc(e.target.value);
               setNumDoc("");
             }}
-            className={CAMPO_DENSO}
+            className={CAMPO}
           >
             {DOCUMENTOS_DE_CLIENTE.map((d) => (
               <option key={d.codigo} value={d.codigo}>
@@ -91,18 +90,18 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             inputMode={documento.codigo === "1" || documento.codigo === "6" ? "numeric" : "text"}
             placeholder={documento.ejemplo}
             autoFocus={!existente}
-            className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+            className={cn(CAMPO, "font-mono tabular-nums")}
           />
         </Campo>
       </div>
       <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? t.razonSocial : t.nombre} error={intento ? errorNombre : null}>
-        <input id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} className={CAMPO_DENSO} />
+        <input id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} className={CAMPO} />
       </Campo>
       <Campo id="cli-direccion" etiqueta={t.direccion} opcional>
-        <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO_DENSO} />
+        <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO} />
       </Campo>
       <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
-        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
+        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO}>
           <option value="">{t.sinPais}</option>
           {paises.map((p) => (
             <option key={p.codigo} value={p.codigo}>
@@ -112,7 +111,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
         </select>
       </Campo>
       <Campo id="cli-email" etiqueta={t.correo} opcional error={intento ? errorCorreo : null} ayuda={t.correoAyuda}>
-        <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO_DENSO} />
+        <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO} />
       </Campo>
 
       {error ? (

@@ -13,7 +13,6 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
 
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 /** Alta (`POST`) o edición (`PUT`) de un producto guardado. Las reglas son las de una línea de comprobante: el backend las valida igual y lo guardado siempre se puede emitir. */
 export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?: ProductoGuardado | null; onGuardado?: (p: ProductoGuardado) => void; onCancelar?: () => void }) {
@@ -77,11 +76,11 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="producto-form">
       <Campo id="prod-descripcion" etiqueta={t.descripcion} error={intento ? errorDescripcion : null}>
-        <input id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder={t.descripcionPlaceholder} className={CAMPO_DENSO} />
+        <input id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder={t.descripcionPlaceholder} className={CAMPO} />
       </Campo>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo id="prod-unidad" etiqueta={t.unidad} ayuda={t.unidadAyuda}>
-          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
+          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(CAMPO, "font-mono")}>
             {(unidades ?? []).some((u) => u.codigo === unidad) ? null : <option value={unidad}>{unidad}</option>}
             {(unidades ?? []).map((u) => (
               <option key={u.codigo} value={u.codigo}>
@@ -91,7 +90,7 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
           </select>
         </Campo>
         <Campo id="prod-afectacion" etiqueta={t.afectacion} ayuda={t.afectacionAyuda}>
-          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={CAMPO_DENSO}>
+          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={CAMPO}>
             {gruposAfectacion(messages).map((g) => (
               <optgroup key={g.grupo} label={g.grupo}>
                 {g.opciones.map((a) => (
@@ -105,10 +104,10 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
           </select>
         </Campo>
         <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion, messages)} error={intento ? errorPrecio : null} ayuda={t.precioAyuda}>
-          <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO_DENSO, "text-right font-mono tabular-nums")} />
+          <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO, "text-right font-mono tabular-nums")} />
         </Campo>
         <Campo id="prod-codigo" etiqueta={t.codigo} opcional error={intento ? errorCodigo : null} ayuda={t.codigoAyuda}>
-          <input id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" className={cn(CAMPO_DENSO, "font-mono")} />
+          <input id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" className={cn(CAMPO, "font-mono")} />
         </Campo>
       </div>
       <Campo id="prod-codigo-sunat" etiqueta={t.codigoSunat} opcional error={intento ? errorCodigoSunat : null} ayuda={t.codigoSunatAyuda}>
@@ -118,7 +117,7 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
           onChange={(e) => setCodigoSunat(e.target.value.replace(/\D/g, "").slice(0, 8))}
           inputMode="numeric"
           placeholder="80101500"
-          className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+          className={cn(CAMPO, "font-mono tabular-nums")}
         />
       </Campo>
 

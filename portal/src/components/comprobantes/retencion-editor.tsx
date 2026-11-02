@@ -22,7 +22,7 @@ export function RetencionEditor({ valor, onCambio, moneda, montoCalculado }: { v
           value={valor.porcentaje}
           onChange={(e) => onCambio({ ...valor, porcentaje: e.target.value })}
           inputMode="decimal"
-          className={cn(CAMPO, "font-mono text-control tabular-nums sm:max-w-[160px]")}
+          className={cn(CAMPO, "font-mono tabular-nums sm:max-w-[160px]")}
         />
       </Campo>
       <p className={cn(AYUDA_CAMPO, error ? "text-destructive" : undefined)} role={error ? "alert" : "status"} data-testid="retencion-resumen">

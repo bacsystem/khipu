@@ -57,6 +57,8 @@ export async function elegirFecha(fecha: Locator, iso: string): Promise<void> {
   // Un día de otro mes que asoma en la grilla (el 31 de octubre en la vista de noviembre) no se elige con el primer clic: el foco lleva el calendario a su mes y la
   // grilla se rehace antes de que llegue el clic (v0.5.0). Como el usuario, se vuelve a pulsar cuando el día ya está en su mes.
   const grilla = fecha.page().getByRole("grid");
+  // El popover tarda su animación en irse: se le da ese tiempo antes de decidir que el clic no eligió (y no pulsar un día que se está cerrando, #531).
+  await grilla.waitFor({ state: "detached", timeout: 1_000 }).catch(() => undefined);
   if ((await grilla.count()) > 0) {
     await expect(dia).toHaveCount(1);
     await dia.click();

@@ -63,7 +63,6 @@ type Linea = { codigo?: string; codigoSunat?: string; descripcion: string; canti
 
 /** El diálogo usa la escala compacta del design system (h-8, la de la barra de filtros) en vez de la de formulario
  *  (h-10): con cliente, ítems y totales en una sola vista, 8px por control cambian cuántas líneas entran. */
-const CAMPO_DENSO = cn(CAMPO, "text-control");
 
 const LINEA_VACIA: Linea = { descripcion: "", cantidad: 1, precioUnitario: null, unidad: "NIU", tipoAfectacionIgv: "10", descuento: AJUSTE_VACIO, cargo: AJUSTE_VACIO, isc: ISC_VACIO, icbper: false };
 
@@ -594,7 +593,7 @@ export function NuevoComprobanteForm({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
         <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
-          <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO_DENSO, "font-mono")}>
+          <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO, "font-mono")}>
             {seriesDelTipo.map((s) => (
               <option key={s.serie} value={s.serie}>
                 {s.serie} · {s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}
@@ -617,7 +616,7 @@ export function NuevoComprobanteForm({
         </Campo>
 
         <Campo id="nc-moneda" etiqueta={t.moneda}>
-          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={CAMPO_DENSO}>
+          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={CAMPO}>
             {monedas(messages).map((m) => (
               <option key={m.codigo} value={m.codigo}>
                 {m.etiqueta}
@@ -627,7 +626,7 @@ export function NuevoComprobanteForm({
         </Campo>
         {moneda === "PEN" ? null : (
           <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional ayuda={interpolar(t.ayudaTipoCambio, { moneda })} error={errorTipoCambio ?? undefined}>
-            <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+            <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
           </Campo>
         )}
       </div>
@@ -651,7 +650,7 @@ export function NuevoComprobanteForm({
         {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta={t.documentoComprador}>
-              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO_DENSO}>
+              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO}>
                 {documentosOfrecidos.map((d) => (
                   <option key={d.codigo} value={d.codigo}>
                     {d.etiqueta}
@@ -674,7 +673,7 @@ export function NuevoComprobanteForm({
                   required
                   pattern={documento.patron}
                   title={documento.titulo}
-                  className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+                  className={cn(CAMPO, "font-mono tabular-nums")}
                 />
               </Campo>
             )}
@@ -690,13 +689,13 @@ export function NuevoComprobanteForm({
                 maxLength={1500}
                 pattern={PATRON_NOMBRE}
                 title={t.tituloNombre}
-                className={CAMPO_DENSO}
+                className={CAMPO}
               />
             </Campo>
             {exportacion ? (
               <>
                 <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
-                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO_DENSO}>
+                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO}>
                     <option value="">{t.seleccione}</option>
                     {paises.map((p) => (
                       <option key={p.codigo} value={p.codigo}>
@@ -708,7 +707,7 @@ export function NuevoComprobanteForm({
                 {boleta ? null : (
                   <div className="sm:col-span-2">
                     <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
-                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccionExterior} className={CAMPO_DENSO} />
+                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccionExterior} className={CAMPO} />
                     </Campo>
                   </div>
                 )}
@@ -745,7 +744,7 @@ export function NuevoComprobanteForm({
               minLength={11}
               pattern="[0-9]{11}"
               title={messages.documentos.formato.ruc}
-              className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+              className={cn(CAMPO, "font-mono tabular-nums")}
             />
           </Campo>
           <Campo id="nc-razon" etiqueta={t.razonSocial}>
@@ -760,7 +759,7 @@ export function NuevoComprobanteForm({
               maxLength={1500}
               pattern={PATRON_NOMBRE}
               title={t.tituloNombre}
-              className={CAMPO_DENSO}
+              className={CAMPO}
             />
           </Campo>
           <EstadoConsultaRuc
@@ -773,7 +772,7 @@ export function NuevoComprobanteForm({
           />
           <div className="sm:col-span-2">
             <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
-              <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccion} className={CAMPO_DENSO} />
+              <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccion} className={CAMPO} />
             </Campo>
           </div>
         </div>
@@ -788,7 +787,7 @@ export function NuevoComprobanteForm({
             // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
             maxLength={150}
             autoComplete="off"
-            className={CAMPO_DENSO}
+            className={CAMPO}
           />
         </Campo>
       </section>
@@ -798,7 +797,7 @@ export function NuevoComprobanteForm({
         <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
           <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
-            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO_DENSO}>
+            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO}>
               {GRUPOS_OPERACION.map((g) => (
                 <optgroup key={g} label={messages.documentos.grupoOperacion[g]}>
                   {operaciones(messages).filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
@@ -812,7 +811,7 @@ export function NuevoComprobanteForm({
           </Campo>
           {boleta ? null : (
             <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
-              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={CAMPO_DENSO}>
+              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={CAMPO}>
                 <option value="contado">{t.alContado}</option>
                 <option value="credito">{t.alCredito}</option>
               </select>
@@ -822,7 +821,7 @@ export function NuevoComprobanteForm({
         {exportacion ? (
           <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
             <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
-              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={CAMPO_DENSO}>
+              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={CAMPO}>
                 <option value="">{t.sinIncoterm}</option>
                 {INCOTERMS.map((i) => (
                   <option key={i} value={i}>
@@ -833,7 +832,7 @@ export function NuevoComprobanteForm({
             </Campo>
             {EXIGE_PAIS_DE_USO.has(operacion) ? (
               <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
-                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={CAMPO_DENSO}>
+                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={CAMPO}>
                   <option value="">{t.seleccione}</option>
                   {paises.filter((p) => p.codigo !== "PE").map((p) => (
                     <option key={p.codigo} value={p.codigo}>
@@ -954,7 +953,7 @@ export function NuevoComprobanteForm({
                     onChange={(e) => actualizar(i, { descripcion: e.target.value })}
                     placeholder={t.placeholderDescripcion}
                     maxLength={500}
-                    className={CAMPO_DENSO}
+                    className={CAMPO}
                   />
                 </Campo>
                 <Campo id={`nc-cant-${i}`} etiqueta={t.cantidad} className="[&>label]:sr-only">
@@ -995,7 +994,7 @@ export function NuevoComprobanteForm({
               {detalle === i ? (
                 <div className="mt-3 grid gap-3 rounded-lg bg-muted/40 px-3 py-3 sm:grid-cols-2">
                   <Campo id={`nc-unidad-${i}`} etiqueta={t.unidadMedida} ayuda={t.catalogo03}>
-                    <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(CAMPO_DENSO, "font-mono")}>
+                    <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(CAMPO, "font-mono")}>
                       {(unidades ?? []).length === 0 ? <option value={linea.unidad}>{linea.unidad}</option> : null}
                       {(unidades ?? []).map((u) => (
                         <option key={u.codigo} value={u.codigo}>
@@ -1009,7 +1008,7 @@ export function NuevoComprobanteForm({
                       id={`nc-afect-${i}`}
                       value={linea.tipoAfectacionIgv}
                       onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
-                      className={CAMPO_DENSO}
+                      className={CAMPO}
                     >
                       {exportacion ? <option value="40">{t.exportacion40}</option> : null}
                       {(exportacion ? [] : gruposAfectacion(messages)).map((g) => (
@@ -1031,7 +1030,7 @@ export function NuevoComprobanteForm({
                         id={`nc-isc-sistema-${i}`}
                         value={linea.isc.sistema}
                         onChange={(e) => actualizar(i, { isc: { ...ISC_VACIO, sistema: e.target.value as IscForm["sistema"] } })}
-                        className={CAMPO_DENSO}
+                        className={CAMPO}
                       >
                         <option value="">{t.sinIsc}</option>
                         <option value="01">{t.isc01}</option>
@@ -1041,16 +1040,16 @@ export function NuevoComprobanteForm({
                     </Campo>
                     {linea.isc.sistema === "02" ? (
                       <Campo id={`nc-isc-monto-${i}`} etiqueta={t.montoIsc} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
-                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder={t.placeholderMontoIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                        <input id={`nc-isc-monto-${i}`} value={linea.isc.montoUnitario} onChange={(e) => actualizar(i, { isc: { ...linea.isc, montoUnitario: e.target.value } })} inputMode="decimal" placeholder={t.placeholderMontoIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
                       </Campo>
                     ) : linea.isc.sistema !== "" ? (
                       <>
                         <Campo id={`nc-isc-tasa-${i}`} etiqueta={t.tasaIsc} className="[&>label]:sr-only" error={linea.isc.sistema === "01" ? (errorDeIsc(linea.isc, messages) ?? undefined) : undefined}>
-                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder={t.placeholderTasaIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                          <input id={`nc-isc-tasa-${i}`} value={linea.isc.tasa} onChange={(e) => actualizar(i, { isc: { ...linea.isc, tasa: e.target.value } })} inputMode="decimal" placeholder={t.placeholderTasaIsc} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
                         </Campo>
                         {linea.isc.sistema === "03" ? (
                           <Campo id={`nc-isc-pvp-${i}`} etiqueta={t.pvp} className="[&>label]:sr-only" error={errorDeIsc(linea.isc, messages) ?? undefined}>
-                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder={t.placeholderPvp} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO_DENSO, "font-mono tabular-nums")} />
+                            <input id={`nc-isc-pvp-${i}`} value={linea.isc.basePvp} onChange={(e) => actualizar(i, { isc: { ...linea.isc, basePvp: e.target.value } })} inputMode="decimal" placeholder={t.placeholderPvp} aria-invalid={errorDeIsc(linea.isc, messages) !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
                           </Campo>
                         ) : null}
                       </>
@@ -1092,7 +1091,7 @@ export function NuevoComprobanteForm({
                 inputMode="decimal"
                 placeholder="0.00"
                 aria-invalid={redondeo.error !== null}
-                className={cn(CAMPO_DENSO, "font-mono tabular-nums")}
+                className={cn(CAMPO, "font-mono tabular-nums")}
               />
             </Campo>
             {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}

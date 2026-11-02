@@ -367,7 +367,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones} <span className="font-normal normal-case text-muted-foreground">{t.opcional}</span></label>
-          <textarea id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} className={CAMPO} />
+          <textarea id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} className={cn(CAMPO, "h-auto py-2")} />
           <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
       </div>
