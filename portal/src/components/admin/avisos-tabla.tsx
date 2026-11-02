@@ -1,5 +1,6 @@
 "use client";
 
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
@@ -125,9 +126,9 @@ export function AvisosTabla({ params, certificados, sol }: { params: ParamsAviso
       <p className="text-control text-muted-foreground">{t.ayuda[params.vista]}</p>
 
       {resultado ? (
-        <p data-testid="avisos-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control">
-          {resultado}
-        </p>
+        <div data-testid="avisos-resultado">
+          <Alerta tono="info">{resultado}</Alerta>
+        </div>
       ) : null}
 
       <div className={CONTENEDOR_TABLA}>

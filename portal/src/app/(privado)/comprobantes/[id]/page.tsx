@@ -3,6 +3,8 @@ import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { EstadoBadge, etiquetasEstado, PUNTOS } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";
@@ -47,8 +49,9 @@ const INCOTERMS: Record<string, string> = {
   /* eslint-enable khipu/no-literal-de-ui */
 };
 
-const ESTADOS_CON_RESPUESTA: Record<string, "exito" | "error" | "aviso"> = {
-  ACEPTADO: "exito",
+/** El tono de la `Alerta` con la respuesta de SUNAT; un estado sin respuesta propia va en `info`. */
+const ESTADOS_CON_RESPUESTA: Record<string, "ok" | "error" | "aviso"> = {
+  ACEPTADO: "ok",
   ACEPTADO_CON_OBS: "aviso",
   RECHAZADO: "error",
   INVALIDO: "error",
@@ -63,9 +66,7 @@ function FormaPagoDetalle({ formaPago, moneda, t, locale }: { formaPago: FormaPa
     <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="forma-pago">
       <div className="flex items-center justify-between">
         <span className={ETIQUETA_DATO}>{t.formaPago.titulo}</span>
-        <span className={cn("rounded border px-2 py-0.5 text-etiqueta font-medium", credito ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-secondary-foreground")}>
-          {credito ? t.formaPago.credito : t.formaPago.contado}
-        </span>
+        <PillEstado tono={credito ? "aviso" : "neutro"}>{credito ? t.formaPago.credito : t.formaPago.contado}</PillEstado>
       </div>
       {credito ? (
         <div className="mt-2 space-y-1.5">
@@ -116,7 +117,7 @@ function DetraccionDetalle({ detraccion, t, locale }: { detraccion: Detraccion; 
     <div className="mt-4 border-t border-border/60 pt-3 text-etiqueta" data-testid="detraccion">
       <div className="flex items-center justify-between">
         <span className={ETIQUETA_DATO}>{t.detraccion.titulo}</span>
-        <span className="rounded border border-warning-border bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground">{detraccion.porcentaje}%</span>
+        <PillEstado tono="aviso">{detraccion.porcentaje}%</PillEstado>
       </div>
       <div className="mt-2 space-y-1.5 text-muted-foreground">
         <div className="flex items-baseline justify-between gap-3">
@@ -169,39 +170,24 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
   const texto = comprobante.cdr?.descripcion ?? comprobante.ultimo_error;
   if (!texto) {
     return (
-      <div className="rounded-lg border border-border bg-muted p-3">
-        <span className={cn(ETIQUETA_DATO, "mb-1")}>{t.respuesta.titulo}</span>
-        <p className="font-mono text-etiqueta text-muted-foreground">{t.respuesta.sinRespuesta}</p>
-      </div>
+      <Alerta tono="info" titulo={t.respuesta.titulo}>
+        <span className="font-mono text-etiqueta">{t.respuesta.sinRespuesta}</span>
+      </Alerta>
     );
   }
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-3",
-        tono === "exito" && "border-success-border bg-success",
-        tono === "aviso" && "border-warning-border bg-warning",
-        tono === "error" && "border-destructive-border bg-destructive-suave",
-        !tono && "border-border bg-muted",
-      )}
-    >
-      <span
-        className={cn(
-          ETIQUETA_DATO,
-          "mb-1 font-semibold",
-          tono === "exito" && "text-success-foreground",
-          tono === "aviso" && "text-warning-foreground",
-          tono === "error" && "text-destructive",
-        )}
-      >
-        {comprobante.cdr
+    <Alerta
+      tono={tono ?? "info"}
+      titulo={
+        comprobante.cdr
           ? t.respuesta.cdr
           : comprobante.intentos > 0
             ? interpolar(comprobante.intentos === 1 ? t.respuesta.ultimoErrorUno : t.respuesta.ultimoErrorVarios, { n: comprobante.intentos })
-            : t.respuesta.ultimoEstado}
-      </span>
-      <p className={cn("font-mono text-etiqueta font-medium", tono === "error" ? "text-destructive" : "text-foreground/90")}>&ldquo;{texto}&rdquo;</p>
-    </div>
+            : t.respuesta.ultimoEstado
+      }
+    >
+      <span className="font-mono text-etiqueta font-medium">&ldquo;{texto}&rdquo;</span>
+    </Alerta>
   );
 }
 
@@ -624,13 +610,13 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                       {item.tipo_afectacion_igv} · {etiquetasAfectacion(messages)[item.tipo_afectacion_igv] ?? t.items.otraAfectacion}
                     </span>
                     {item.isc ? (
-                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground" title={interpolar(t.items.iscTitulo, { sistema: item.isc.sistema, monto: formatearNumero(item.isc.monto, locale) })}>
-                        {interpolar(t.items.iscTasa, { tasa: item.isc.tasa })}
+                      <span className="ml-1" title={interpolar(t.items.iscTitulo, { sistema: item.isc.sistema, monto: formatearNumero(item.isc.monto, locale) })}>
+                        <PillEstado tono="aviso">{interpolar(t.items.iscTasa, { tasa: item.isc.tasa })}</PillEstado>
                       </span>
                     ) : null}
                     {item.icbper ? (
-                      <span className="ml-1 inline-flex rounded-full bg-warning px-2 py-0.5 text-etiqueta font-medium text-warning-foreground" title={t.items.icbperTitulo}>
-                        {interpolar(t.items.icbperMonto, { monto: formatearNumero(item.icbper, locale) })}
+                      <span className="ml-1" title={t.items.icbperTitulo}>
+                        <PillEstado tono="aviso">{interpolar(t.items.icbperMonto, { monto: formatearNumero(item.icbper, locale) })}</PillEstado>
                       </span>
                     ) : null}
                   </td>

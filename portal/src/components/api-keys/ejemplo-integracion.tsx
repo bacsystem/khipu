@@ -10,6 +10,7 @@ import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos"
 import { cn } from "@/lib/utils";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 
 type Lenguaje = "curl" | "node" | "python";
 
@@ -147,9 +148,9 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
             <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-5")}>
               <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
                 <h4 className="text-cuerpo font-semibold text-foreground">{t.respuesta}</h4>
-                <span className="rounded border border-success-border bg-success px-2 py-0.5 font-mono text-etiqueta font-semibold text-success-foreground">
+                <PillEstado tono="ok" className="font-mono">
                   {"201 Created"}
-                </span>
+                </PillEstado>
               </div>
               <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-etiqueta leading-relaxed text-foreground">
                 <code>{RESPUESTA}</code>

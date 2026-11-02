@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { interpolar } from "@/i18n/mensajes";
 import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
@@ -19,11 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${messages.nav.items.plan} · ${messages.app.nombre}` };
 }
 
-/** El color de cada estado de pago; su texto está en `messages.cuenta.plan.estados`. */
+/** El tono de la pill de cada estado de pago; su texto está en `messages.cuenta.plan.estados`. */
 const ESTADO = {
-  VIGENTE: "border-success-border bg-success text-success-foreground",
-  EN_GRACIA: "border-warning-border bg-warning text-warning-foreground",
-  VENCIDA: "border-destructive/40 bg-destructive-suave text-destructive-texto",
+  VIGENTE: "ok",
+  EN_GRACIA: "aviso",
+  VENCIDA: "error",
 } as const;
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
@@ -72,8 +73,8 @@ export default async function PlanPage() {
   // Un estado que el portal no conoce se muestra tal cual, en neutro: caer en «Al día» afirmaría lo que no se sabe (265-H4).
   const estado =
     plan.estado in ESTADO
-      ? { texto: t.estados[plan.estado as keyof typeof ESTADO], clase: ESTADO[plan.estado as keyof typeof ESTADO] }
-      : { texto: plan.estado, clase: "border-border bg-muted text-muted-foreground" };
+      ? { texto: t.estados[plan.estado as keyof typeof ESTADO], tono: ESTADO[plan.estado as keyof typeof ESTADO] }
+      : { texto: plan.estado, tono: "neutro" as const };
   const pagadoHasta = plan.vence_en ? formatearFecha(ultimoDiaCubierto(plan.vence_en), locale) : null;
   const cubreHasta = plan.hasta_cuando_cubre ? formatearFecha(ultimoDiaCubierto(plan.hasta_cuando_cubre), locale) : null;
 
@@ -105,7 +106,7 @@ export default async function PlanPage() {
             <h2 id="titulo-plan" className={TITULO_SECCION}>
               {interpolar(messages.nav.plan.etiqueta, { plan: plan.plan.nombre })}
             </h2>
-            <span className={cn("rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium", estado.clase)}>{estado.texto}</span>
+            <PillEstado tono={estado.tono}>{estado.texto}</PillEstado>
           </div>
           <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
             <Dato etiqueta={t.precio}>{plan.plan.precio_mensual === 0 ? t.gratis : interpolar(t.alMes, { precio: precioEnSoles(plan.plan.precio_mensual, messages, locale) })}</Dato>

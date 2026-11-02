@@ -82,7 +82,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
           </TableHeader>
           <TableBody className="text-control">
             {datos.map((c) => (
-              <TableRow key={c.id} data-estado-cuenta={c.estado} className={cn(c.estado === "SUSPENDIDA" && "*:bg-destructive/5")}>
+              <TableRow key={c.id} data-estado-cuenta={c.estado}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.id)} className="font-medium text-foreground hover:text-primary hover:underline">

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useState, useTransition } from "react";
 import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
+import { ChipCodigo, PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
@@ -23,24 +24,9 @@ const ACCION =
 
 function Estado({ activo, principal }: { activo: boolean; principal: boolean }) {
   const t = useMessages().establecimientos.tabla.estado;
-  if (principal)
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-primary">
-        <span className="size-1.5 rounded-full bg-primary" />
-        {t.domicilioFiscal}
-      </span>
-    );
-  return activo ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
-      <span className="size-1.5 rounded-full bg-success-solid" />
-      {t.activo}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
-      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-      {t.dadoDeBaja}
-    </span>
-  );
+  // El domicilio fiscal no es un estado sino la identidad del 0000: va como el chip de identificador del DS.
+  if (principal) return <ChipCodigo>{t.domicilioFiscal}</ChipCodigo>;
+  return activo ? <PillEstado tono="ok">{t.activo}</PillEstado> : <PillEstado tono="neutro">{t.dadoDeBaja}</PillEstado>;
 }
 
 /** Editar (diálogo) y dar de baja (confirmación en línea). El 0000 se edita en Empresa y no se da de baja. */

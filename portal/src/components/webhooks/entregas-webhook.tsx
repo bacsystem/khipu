@@ -4,6 +4,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
@@ -21,15 +22,15 @@ import { etiquetaDeEvento, resultadoDelIntento } from "@/lib/webhooks/eventos";
 /** «Todas» en el combo del filtro: el `Select` del design system no lleva un valor vacío, y sin estado elegido se listan todas. */
 const TODAS = "todas";
 
-const ESTILO_ESTADO:Record<EstadoEntrega, string> = {
-  EXITOSA: "border-success-border bg-success text-success-foreground",
-  PENDIENTE: "border-warning-border bg-warning text-warning-foreground",
-  FALLIDA: "border-destructive/30 bg-destructive-suave text-destructive-texto",
+const TONO_ESTADO: Record<EstadoEntrega, "ok" | "aviso" | "error"> = {
+  EXITOSA: "ok",
+  PENDIENTE: "aviso",
+  FALLIDA: "error",
 };
 
 function EstadoEntregaBadge({ estado }: { estado: EstadoEntrega }) {
   const etiquetas = useMessages().webhooks.estadoEntrega;
-  return <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium", ESTILO_ESTADO[estado])}>{etiquetas[estado]}</span>;
+  return <PillEstado tono={TONO_ESTADO[estado]}>{etiquetas[estado]}</PillEstado>;
 }
 
 /**

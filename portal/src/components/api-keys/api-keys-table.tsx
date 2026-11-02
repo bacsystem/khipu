@@ -7,6 +7,7 @@ import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { ApiKeyResumen } from "@/lib/api/api-keys";
 import { apiRequest } from "@/lib/api/browser";
@@ -25,17 +26,7 @@ const ACCION =
 
 function Estado({ activa }: { activa: boolean }) {
   const t = useMessages().apiKeys.tabla;
-  return activa ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
-      <span className="size-1.5 rounded-full bg-success-solid" />
-      {t.activa}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
-      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-      {t.revocada}
-    </span>
-  );
+  return activa ? <PillEstado tono="ok">{t.activa}</PillEstado> : <PillEstado tono="neutro">{t.revocada}</PillEstado>;
 }
 
 /** Acciones de una fila: "Revocar" pide confirmación en línea antes de llamar a la API (es irreversible). */

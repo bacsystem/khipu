@@ -123,7 +123,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           </TableHeader>
           <TableBody className="text-control">
             {datos.cuentas.map((c) => (
-              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta} className={cn(c.en_alerta && "*:bg-warning/40")}>
+              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.cuenta_id)} className="font-medium text-foreground hover:text-primary hover:underline">

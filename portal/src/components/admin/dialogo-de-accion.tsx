@@ -1,6 +1,6 @@
 "use client";
 
-import { WarningIcon } from "@phosphor-icons/react";
+import { InfoIcon, WarningIcon } from "@phosphor-icons/react";
 import type { IconoComponente } from "khipu-design-system/lib/iconos";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 export type DialogoDeAccionProps = {
   /** Base de los `data-testid`: el botón es `{testId}`, el diálogo `{testId}-dialogo` y el de confirmar `{testId}-confirmar`. */
@@ -112,6 +112,13 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
 
   const Icono = p.icono;
   const tono = p.tono ?? "secundario";
+  const efectos = (
+    <ul className="grid list-disc gap-1 pl-4">
+      {p.efectos.map((efecto) => (
+        <li key={efecto}>{efecto}</li>
+      ))}
+    </ul>
+  );
   // Chico vive en una fila de tabla (h-7, como el resto de las acciones de fila); si no, en la ficha, junto a las demás acciones (h-8).
   const claseDelBoton = p.chico
     ? buttonVariants({ variant: tono === "primario" ? "default" : "outline", size: "sm" })
@@ -132,14 +139,10 @@ export function DialogoDeAccion(p: DialogoDeAccionProps) {
         <CabeceraDialogo icon={Icono} tono={tono === "peligro" ? "peligro" : "neutro"} titulo={p.titulo} descripcion={p.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", tono === "peligro" ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/50")}>
-            {p.advertencia ? <WarningIcon className={cn("mt-0.5 size-4 shrink-0", tono === "peligro" ? "text-destructive" : "text-warning-foreground")} /> : null}
-            <ul className="grid list-disc gap-1 pl-4">
-              {p.efectos.map((efecto) => (
-                <li key={efecto}>{efecto}</li>
-              ))}
-            </ul>
-          </div>
+          {/* Los efectos van en el `Aviso` del DS: de peligro si la acción es destructiva, neutro si no (con el triángulo si pide advertencia). */}
+          <Aviso tono={tono === "peligro" ? "peligro" : "neutro"} icon={tono === "peligro" || p.advertencia ? WarningIcon : InfoIcon}>
+            {efectos}
+          </Aviso>
           {p.children}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">

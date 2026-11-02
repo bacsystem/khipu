@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -33,12 +34,16 @@ export default async function AdminPlanesPage() {
       {planes ? (
         <PlanesTabla planes={planes} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{t.error}</span>
-          <Link href="/admin/planes" className="font-medium underline">
-            {t.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href="/admin/planes" className="font-medium underline">
+              {t.reintentar}
+            </Link>
+          }
+        >
+          {t.error}
+        </Alerta>
       )}
     </div>
   );

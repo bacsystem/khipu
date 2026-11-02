@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -119,12 +120,13 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
           <Dato etiqueta={t.consultasTicket}>{g.consultas_ticket}</Dato>
         </div>
         {g.ultimo_error ? (
-          <div className="rounded-lg border border-destructive-border bg-destructive-suave p-3 text-control text-destructive-texto" data-testid="guia-ultimo-error">
-            <strong className="block text-etiqueta">{t.ultimoError}</strong>
-            <span className="break-words">{g.ultimo_error}</span>
-            {g.reintento_automatico !== undefined ? (
-              <span className="mt-1 block text-control opacity-80">{g.reintento_automatico ? t.reintentoAutomatico : t.sinReintentoAutomatico}</span>
-            ) : null}
+          <div data-testid="guia-ultimo-error">
+            <Alerta tono="error" titulo={t.ultimoError}>
+              <span className="break-words">{g.ultimo_error}</span>
+              {g.reintento_automatico !== undefined ? (
+                <span className="mt-1 block opacity-80">{g.reintento_automatico ? t.reintentoAutomatico : t.sinReintentoAutomatico}</span>
+              ) : null}
+            </Alerta>
           </div>
         ) : null}
         {g.cdr ? (

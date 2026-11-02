@@ -12,7 +12,7 @@ import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BO
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 function empresasAfectadas(n: number, t: Mensajes["admin"]["suspension"]): string {
   if (n === 0) return t.sinEmpresasAfectadas;
@@ -79,6 +79,18 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
   }
 
   const Icono = suspendida ? PlayCircleIcon : PauseCircleIcon;
+  const alcance = (
+    <div className="grid gap-1.5">
+      <p className="font-medium" data-testid="suspension-alcance">
+        {empresasAfectadas(empresas, t)}
+      </p>
+      <ul className="grid list-disc gap-1 pl-4">
+        {textos.efectos.map((efecto) => (
+          <li key={efecto}>{efecto}</li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
@@ -93,19 +105,10 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
         <CabeceraDialogo icon={Icono} tono={suspendida ? "ok" : "peligro"} titulo={textos.titulo} descripcion={textos.descripcion.replace("{nombre}", nombre)} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", suspendida ? "border-border bg-muted/50" : "border-destructive/40 bg-destructive/5")}>
-            {suspendida ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
-            <div className="grid gap-1.5">
-              <p className="font-medium" data-testid="suspension-alcance">
-                {empresasAfectadas(empresas, t)}
-              </p>
-              <ul className="grid list-disc gap-1 pl-4">
-                {textos.efectos.map((efecto) => (
-                  <li key={efecto}>{efecto}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {/* Suspender corta el servicio: sus efectos van en el `Aviso` de peligro del DS. Reactivar no pesa: `Aviso` neutro. */}
+          <Aviso tono={suspendida ? "neutro" : "peligro"} icon={suspendida ? PlayCircleIcon : WarningIcon}>
+            {alcance}
+          </Aviso>
 
           {suspendida ? null : (
             <div className="flex flex-col gap-1.5">

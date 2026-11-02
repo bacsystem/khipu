@@ -17,6 +17,8 @@ import { PAUSA_TRAS_FALLOS, resumenDeEventos } from "@/lib/webhooks/eventos";
 import { EntregasWebhook } from "./entregas-webhook";
 import { SecretoWebhookRevelado } from "./secreto-webhook-revelado";
 import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -24,25 +26,8 @@ const ACCION_NEUTRA = cn(ACCION, "border border-border bg-card text-foreground/8
 
 function EstadoBadge({ webhook }: { webhook: Webhook }) {
   const t = useMessages().webhooks.tarjeta;
-  if (webhook.activo)
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
-        <span className="size-1.5 rounded-full bg-success-solid" />
-        {t.activo}
-      </span>
-    );
-  const pausadoPorKhipu = Boolean(webhook.pausado_motivo);
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium",
-        pausadoPorKhipu ? "border-warning-border bg-warning text-warning-foreground" : "border-border bg-secondary text-muted-foreground",
-      )}
-    >
-      <span className={cn("size-1.5 rounded-full", pausadoPorKhipu ? "bg-warning-solid" : "bg-muted-foreground/60")} />
-      {pausadoPorKhipu ? t.pausado : t.apagado}
-    </span>
-  );
+  if (webhook.activo) return <PillEstado tono="ok">{t.activo}</PillEstado>;
+  return Boolean(webhook.pausado_motivo) ? <PillEstado tono="aviso">{t.pausado}</PillEstado> : <PillEstado tono="neutro">{t.apagado}</PillEstado>;
 }
 
 /** Un endpoint de webhooks (#19): su estado, sus eventos y las acciones (probar, apagar o activar, rotar el secreto, eliminar) más el log de entregas. */
@@ -120,12 +105,9 @@ export function WebhookCard({ webhook }: { webhook: Webhook }) {
         </div>
 
         {webhook.pausado_motivo ? (
-          <div role="status" className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning px-3 py-2 text-control leading-relaxed text-warning-foreground">
-            <ProhibitIcon className="mt-0.5 size-4 shrink-0" />
-            <p>
-              {interpolar(t.pausa, { motivo: webhook.pausado_motivo, n: PAUSA_TRAS_FALLOS })}
-            </p>
-          </div>
+          <Alerta tono="aviso" icon={ProhibitIcon}>
+            {interpolar(t.pausa, { motivo: webhook.pausado_motivo, n: PAUSA_TRAS_FALLOS })}
+          </Alerta>
         ) : webhook.activo && webhook.fallos_consecutivos > 0 ? (
           <p className="text-control text-warning-foreground">
             {interpolar(webhook.fallos_consecutivos === 1 ? t.falloUno : t.fallosVarios, { n: webhook.fallos_consecutivos, max: PAUSA_TRAS_FALLOS })}

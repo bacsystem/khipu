@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -44,12 +45,16 @@ export default async function AdminCuentasPage({
       {resultado.pagina ? (
         <CuentasTabla datos={resultado.pagina.datos} total={resultado.pagina.total} params={params} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{messages.admin.cuentas.error}</span>
-          <Link href={hrefCuentas(params)} className="font-medium underline">
-            {messages.admin.cuentas.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefCuentas(params)} className="font-medium underline">
+              {messages.admin.cuentas.reintentar}
+            </Link>
+          }
+        >
+          {messages.admin.cuentas.error}
+        </Alerta>
       )}
     </div>
   );

@@ -1,25 +1,17 @@
 import { useLocale, useMessages } from "next-intl";
 import type { ReactNode } from "react";
-import { Badge } from "khipu-design-system/ui/badge";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import type { EstadoCertificado } from "@/lib/api/admin-cuenta-detalle";
 import type { EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import type { Locale } from "@/i18n/config";
 import type { Mensajes } from "@/i18n/mensajes";
 import { formatearFecha } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 export type Tono = "ok" | "aviso" | "error" | "neutro";
 
-const TONOS: Record<Tono, string> = {
-  ok: "bg-success text-success-foreground border-success-border",
-  aviso: "bg-warning text-warning-foreground border-warning-border",
-  error: "bg-destructive-suave text-destructive-texto border-destructive-border",
-  neutro: "bg-secondary text-muted-foreground border-border",
-};
-
-/** Una etiqueta de estado del backoffice: el tono dice de un vistazo si la cosa está bien, pide atención o está mal. */
+/** Una etiqueta de estado del backoffice: el tono dice de un vistazo si la cosa está bien, pide atención o está mal. Es la `PillEstado` del DS. */
 export function Etiqueta({ tono, children }: { tono: Tono; children: ReactNode }) {
-  return <Badge className={cn("border px-2.5 py-1 text-etiqueta font-medium whitespace-nowrap", TONOS[tono])}>{children}</Badge>;
+  return <PillEstado tono={tono}>{children}</PillEstado>;
 }
 
 /** El texto y el tono del certificado de una empresa: el administrador ve de un vistazo cuáles piden atención. */

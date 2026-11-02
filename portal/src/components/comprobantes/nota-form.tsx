@@ -12,6 +12,7 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
@@ -392,7 +393,9 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       ) : null}
 
       {esTotal ? (
-        <div className={cn("rounded-lg border px-3 py-2 text-control leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
+        // La `Alerta` del DS pone el rol (`alert` si supera el tope); el `data-testid` va en el envoltorio.
+        <div data-testid="nota-total">
+          <Alerta tono={superaTope ? "error" : "info"}>
           <p>
             {tr.rich("totalCopia", {
               b: (c) => <strong className="text-foreground">{c}</strong>,
@@ -407,9 +410,10 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <p className="mt-1" data-testid="nota-importe">
               {t.importe}: <span className="font-mono tabular-nums">{monto(importeNota)}</span>. {t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>
               {acreditado > 0 ? interpolar(t.yaAcreditadoOtras, { monto: monto(acreditado) }) : ""}.
-              {superaTope ? <span role="alert" className="block">{interpolar(t.superaTopeTotal, { tope: monto(tope) })}</span> : null}
+              {superaTope ? <span className="block">{interpolar(t.superaTopeTotal, { tope: monto(tope) })}</span> : null}
             </p>
           ) : null}
+          </Alerta>
         </div>
       ) : null}
 
@@ -505,14 +509,19 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             </div>
           </div>
           {esImporte ? (
-            <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-control", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+            // Como en la nota total: el rol lo pone la `Alerta` (`alert` si supera el tope) y el `data-testid` va en el envoltorio.
+            <div data-testid="nota-importe">
+              <Alerta tono={superaTope ? "error" : "info"}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span>
                 {t.importe}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
               </span>
               <span>
                 {exentoDeTope ? t.sinTope : <>{t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>{limitaTributo ? interpolar(t.topePorTributo, { concepto: conceptoTributo, documento, monto: monto(topeTributo) }) : ""}{acreditado > 0 ? interpolar(t.topeMenosAcreditado, { monto: monto(acreditado) }) : ""}</>}
               </span>
-              {superaTope ? <span role="alert" className="basis-full">{interpolar(t.superaTopeImporte, { regla: limitaTributo ? t.reglaTributo : "3286" })}</span> : null}
+              {superaTope ? <span className="basis-full">{interpolar(t.superaTopeImporte, { regla: limitaTributo ? t.reglaTributo : "3286" })}</span> : null}
+              </div>
+              </Alerta>
             </div>
           ) : null}
         </div>

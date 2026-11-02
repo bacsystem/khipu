@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
+import { ArrowsLeftRightIcon, HourglassIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO,
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Previa = { estado: "ninguna" } | { estado: "calculando" } | { estado: "lista"; datos: PrevisualizacionDePlanAdmin } | { estado: "error"; mensaje: string };
 
@@ -223,15 +223,20 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
   const t = messages.admin.planDeCuenta.dialogo;
   if (previa.estado === "calculando")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-        {t.calculando}
-      </p>
+      <div data-testid="cambiar-plan-previa" role="status">
+        <Aviso tono="neutro" icon={HourglassIcon}>
+          {t.calculando}
+        </Aviso>
+      </div>
     );
   if (previa.estado === "error")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-control text-destructive">
-        {previa.mensaje || t.errorPrevia}
-      </p>
+      // El `Aviso` del DS no lleva rol ni `data-testid`: los conserva el envoltorio.
+      <div data-testid="cambiar-plan-previa" role="status">
+        <Aviso tono="peligro" icon={WarningIcon}>
+          {previa.mensaje || t.errorPrevia}
+        </Aviso>
+      </div>
     );
 
   const d = previa.datos;
@@ -243,7 +248,10 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
     .replace("{plan}", d.plan_nuevo.nombre)
     .replace("{limite}", limiteEnPalabras(limite, messages));
   return (
-    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status" className="grid gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
+    // El `Aviso` neutro del DS; el rol, el `data-testid` y los `data-*` quedan en el envoltorio.
+    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status">
+      <Aviso tono="neutro" icon={ArrowsLeftRightIcon}>
+      <div className="grid gap-1.5">
       <p className="font-medium">{t.direcciones[d.direccion]}</p>
       <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde, locale)).replace("{actual}", d.plan_actual.nombre)}</p>
       <p>{consumo}</p>
@@ -261,6 +269,8 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
           {inmediato ? t.superaInmediato : t.superaBajada}
         </p>
       ) : null}
+      </div>
+      </Aviso>
     </div>
   );
 }

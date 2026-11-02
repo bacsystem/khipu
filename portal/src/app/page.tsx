@@ -6,7 +6,7 @@ import { Faq } from "@/components/landing/faq";
 import { Planes } from "@/components/landing/planes";
 import { tarjetasDePlanes } from "@/components/landing/planes-datos";
 import { SiteHeader } from "@/components/landing/site-header";
-import { Badge } from "khipu-design-system/ui/badge";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Button } from "khipu-design-system/ui/button";
 import { contactoUrl, registroAbierto } from "@/lib/acceso";
 import { obtenerPlanesPublicados } from "@/lib/api/planes-publicados";
@@ -170,9 +170,9 @@ export default async function Home() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{t.comprobantes.tipos[c.clave]}</p>
                     {c.disponible ? (
-                      <Badge className="mt-1 border-transparent bg-success text-success-foreground">{t.comprobantes.disponible}</Badge>
+                      <PillEstado tono="ok" className="mt-1">{t.comprobantes.disponible}</PillEstado>
                     ) : (
-                      <Badge className="mt-1 border-transparent bg-warning text-warning-foreground">{t.comprobantes.piloto}</Badge>
+                      <PillEstado tono="aviso" className="mt-1">{t.comprobantes.piloto}</PillEstado>
                     )}
                     {"nota" in c ? <p className="mt-1 text-xs text-muted-foreground">{t.comprobantes.notas[c.nota]}</p> : null}
                   </div>

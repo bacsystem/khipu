@@ -26,12 +26,6 @@ import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
-/** Una fila con el certificado vencido o por vencer se tiñe (en sus celdas, que son las que pintan la fila en la tabla del design system): el administrador las ve sin leer la columna (#185). */
-const TINTE: Partial<Record<EstadoCertificadoAdmin, string>> = {
-  VENCIDO: "*:bg-destructive/5",
-  POR_VENCER: "*:bg-warning/40",
-};
-
 /**
  * Listado de empresas del backoffice (#185), paginado y filtrado en el servidor: cambiar un filtro o la página solo cambia la URL, y
  * el Server Component de la página vuelve a renderizar. No hay refetch desde el navegador: el proxy genérico usa las cookies del
@@ -128,7 +122,8 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
           </TableHeader>
           <TableBody className="text-control">
             {datos.map((e) => (
-              <TableRow key={e.id} data-certificado={e.certificado} className={cn(TINTE[e.certificado])}>
+              // La fila no se tiñe (#185): la pill del certificado (`CertificadoEtiqueta`, roja o ámbar) dice el estado.
+              <TableRow key={e.id} data-certificado={e.certificado}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleEmpresa(e.id)} className="font-medium text-foreground hover:text-primary hover:underline">

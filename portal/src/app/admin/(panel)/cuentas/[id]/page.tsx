@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
 import { ArrowLeftIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
@@ -87,33 +88,45 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
               {plan ? (
                 <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-                  <span>{messages.admin.planDeCuenta.error}</span>
-                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                    {messages.admin.planDeCuenta.reintentar}
-                  </Link>
-                </div>
+                <Alerta
+                  tono="error"
+                  accion={
+                    <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                      {messages.admin.planDeCuenta.reintentar}
+                    </Link>
+                  }
+                >
+                  {messages.admin.planDeCuenta.error}
+                </Alerta>
               )}
               {pagos ? (
                 <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-                  <span>{messages.admin.pagos.error}</span>
-                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                    {messages.admin.pagos.reintentar}
-                  </Link>
-                </div>
+                <Alerta
+                  tono="error"
+                  accion={
+                    <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                      {messages.admin.pagos.reintentar}
+                    </Link>
+                  }
+                >
+                  {messages.admin.pagos.error}
+                </Alerta>
               )}
             </>
           }
         />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{t.error}</span>
-          <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-            {messages.admin.cuentas.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+              {messages.admin.cuentas.reintentar}
+            </Link>
+          }
+        >
+          {t.error}
+        </Alerta>
       )}
     </div>
   );
