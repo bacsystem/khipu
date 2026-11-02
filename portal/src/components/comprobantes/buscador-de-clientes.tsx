@@ -6,8 +6,34 @@ import { BuscadorConLista, type ResultadoDeLaBusqueda } from "@/components/formu
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { buscarClientes } from "@/lib/api/clientes-browser";
 
-/** Autocompletado de los clientes guardados (#319): se teclea parte del documento o del nombre y se elige de la lista. */
-export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: ClienteGuardado) => void; deshabilitado?: boolean }) {
+/**
+ * Autocompletado de los clientes guardados (#319): se teclea parte del documento o del nombre y se elige de la lista. En el comprobante es además el campo «Cliente»
+ * (#557): quien lo usa controla el texto para tomar un RUC o un DNI completo como documento.
+ */
+export function BuscadorDeClientes({
+  onElegir,
+  deshabilitado,
+  etiqueta,
+  placeholder,
+  texto,
+  onTexto,
+  onEnter,
+  onBlur,
+  autoFocus,
+  describidoPor,
+}: {
+  onElegir: (c: ClienteGuardado) => void;
+  deshabilitado?: boolean;
+  /** El nombre accesible; por defecto, «Buscar un cliente guardado». */
+  etiqueta?: string;
+  placeholder?: string;
+  texto?: string;
+  onTexto?: (texto: string) => void;
+  onEnter?: (texto: string) => void;
+  onBlur?: (texto: string) => void;
+  autoFocus?: boolean;
+  describidoPor?: string;
+}) {
   const messages = useMessages();
   const t = messages.comprobantes.buscador.clientes;
   const buscar = useCallback(
@@ -19,8 +45,8 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
   );
   return (
     <BuscadorConLista
-      etiqueta={t.etiqueta}
-      placeholder={t.placeholder}
+      etiqueta={etiqueta ?? t.etiqueta}
+      placeholder={placeholder ?? t.placeholder}
       testId="buscador-de-clientes"
       buscar={buscar}
       fila={(c) => (
@@ -34,6 +60,12 @@ export function BuscadorDeClientes({ onElegir, deshabilitado }: { onElegir: (c: 
       encontrados={[t.encontradoUno, t.encontradoVarios]}
       onElegir={onElegir}
       deshabilitado={deshabilitado}
+      texto={texto}
+      onTexto={onTexto}
+      onEnter={onEnter}
+      onBlur={onBlur}
+      autoFocus={autoFocus}
+      describidoPor={describidoPor}
     />
   );
 }

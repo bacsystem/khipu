@@ -19,9 +19,11 @@ test.beforeEach(async ({ page }) => {
 async function emitirFactura(page: Page, ruc: string) {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("RUC").fill(ruc);
+  // #557: el RUC se escribe en el campo «Cliente»; completo, se toma como documento y la tarjeta muestra al cliente.
+  await dialogo.getByLabel("Cliente").fill(ruc);
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText(`RUC ${ruc}`);
   // La consulta del padrón (#379) rellena el nombre; se espera a que lo haga para no competir con el autorrelleno.
-  await expect(dialogo.getByLabel("Razón social")).not.toHaveValue("");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).not.toContainText("Sin nombre");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
   await dialogo.getByLabel(/Precio unit\./).fill("1000");

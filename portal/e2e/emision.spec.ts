@@ -1,6 +1,7 @@
 import { cerrarCalendario, elegirFecha, fechaElegida, fechaEsElegible, sumarDias } from "./fecha";
 import { expect, test } from "@playwright/test";
 import { elegirOpcion, esperarOpcion } from "./combo";
+import { abrirDatosDelCliente, conOpcionesAvanzadas } from "./cliente";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login?next=/comprobantes");
@@ -10,6 +11,8 @@ test.beforeEach(async ({ page }) => {
   // Directo al listado, como antes del panel de inicio (#24): `next` lo pide y el login navega del lado del cliente. La URL se ancla sin la consulta: si no,
   // la del propio login (`/login?next=/comprobantes`) ya calzaría antes de entrar.
   await expect(page).toHaveURL(/^[^?]*\/comprobantes$/);
+  // #560: varios casos usan los «+» avanzados (tipo de operación, más opciones, percepción, retención, anticipos, referencias).
+  await conOpcionesAvanzadas(page);
 });
 
 test("emite una factura desde el portal y el total previsualizado es el del comprobante (#17)", async ({ page }) => {
@@ -32,6 +35,7 @@ test("emite una factura desde el portal y el total previsualizado es el del comp
   expect(await fechaEsElegible(fecha, sumarDias(hoy, -3))).toBe(true);
   expect(await fechaEsElegible(fecha, sumarDias(hoy, -4))).toBe(false);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
 
@@ -63,15 +67,18 @@ test("emite una boleta a un comprador sin documento y no deja pasar una de más 
 
   await expect(dialogo.getByLabel("Serie")).toContainText(/B001 · (último emitido N\.º \d+|aún sin emitir)/);
   // #286: la ayuda de la fecha dice el plazo de la boleta (7 días, el del resumen diario: `PlazoEnvio`), no el de la factura, y el calendario llega hasta ahí.
-  await expect(dialogo.getByText("Máx. 7 días")).toBeVisible();
+  // #557: la ayuda va en el `title` de la fecha y, para un lector de pantalla, en su descripción (texto `sr-only`).
+  await expect(dialogo.getByText("Máx. 7 días")).toBeAttached();
   await expect(dialogo.getByText("Máx. 3 días")).toHaveCount(0);
   const fecha = dialogo.getByLabel("Fecha de emisión");
   const hoy = await fechaElegida(fecha);
   expect(await fechaEsElegible(fecha, hoy)).toBe(true);
   expect(await fechaEsElegible(fecha, sumarDias(hoy, -7))).toBe(true);
   expect(await fechaEsElegible(fecha, sumarDias(hoy, -8))).toBe(false);
-  await elegirOpcion(dialogo.getByLabel("Documento del comprador"), "Sin documento (hasta S/ 700)");
-  await expect(dialogo.getByLabel("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
+  // #557: la boleta empieza como «Clientes varios»: el campo del comprador vacío, sin tarjeta.
+  await expect(dialogo.getByLabel("Comprador")).toHaveValue("");
+  await expect(dialogo.getByText(/Vacío, la boleta va a «Clientes varios»/)).toBeVisible();
+  await expect(dialogo.getByTestId("tarjeta-cliente")).toHaveCount(0);
 
   await dialogo.getByLabel("Descripción").fill("Televisor");
   await dialogo.getByLabel(/Precio unit\./).fill("899");
@@ -130,6 +137,7 @@ test("tras emitir, el diálogo anuncia como último emitido el que acaba de usar
   // este test y se puede afirmar el valor exacto.
   await elegirOpcion(dialogo.getByLabel("Serie"), /^F002 · /);
   const antes = await numeroAnunciado();
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
@@ -154,6 +162,7 @@ test("una línea sin precio no se emite como S/ 0.00, y el comprobante siempre s
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
 
@@ -181,6 +190,7 @@ test("emite con cantidad fraccionaria: el submit no queda bloqueado por la valid
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Harina de pescado");
@@ -205,6 +215,7 @@ test("si la red se corta durante la emisión, avisa y no deja el botón en «Emi
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
@@ -300,6 +311,7 @@ test("si la respuesta de la emisión no es JSON, avisa que se puede reintentar s
 
 /** Formulario mínimamente válido: lo que hace falta para que un submit implícito realmente emita. */
 async function completarMinimo(dialogo: ReturnType<import("@playwright/test").Page["getByRole"]>) {
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
@@ -351,6 +363,7 @@ test("RUC corto y razón social corta se frenan en el cliente, sin viaje al back
   const posts = contarEmisiones(page);
 
   // 10 dígitos: `Receptor.esRuc` exige 11. Antes viajaba y volvía como 422 «2017».
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("2055419821");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(dialogo.getByLabel("RUC")).toHaveJSProperty("validity.valid", false);
@@ -383,6 +396,7 @@ test("el nombre corto del comprador de una boleta se frena en el cliente y, si l
   const dialogo = page.getByRole("dialog");
   await dialogo.getByRole("button", { name: "Boleta" }).click();
   await expect(dialogo.getByLabel("Serie")).toContainText(/B001/);
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await dialogo.getByLabel("Descripción").fill("Pan");
   await dialogo.getByLabel(/Precio unit\./).fill("5");
@@ -509,6 +523,7 @@ test("sin el freno del navegador, la razón social en blanco vuelve como VALIDAC
   await completarMinimo(dialogo);
   const posts = contarEmisiones(page);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("2055419821");
   await dialogo.getByLabel("Razón social").fill("   ");
   await dialogo.getByLabel("RUC").evaluate((el) => (el as HTMLInputElement).closest("form")?.setAttribute("novalidate", ""));
@@ -575,6 +590,7 @@ test("sin ningún ítem completo no se emite: avisa en vez de mandar un comproba
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   // Cliente completo, ítem con cantidad pero sin descripción ni precio: los `required` no lo frenan, la guarda sí.
@@ -610,6 +626,7 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
   const dialogo = page.getByRole("dialog");
   await expect(dialogo.getByLabel("Serie")).toBeVisible();
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
@@ -639,14 +656,15 @@ test("una línea sin descripción no entra en el total ni se emite en silencio (
 test("el redondeo se calcula en el backend, se ve en el pie y queda en el comprobante (#358)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel(/Precio unit\./).fill("100.07");
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.07");
 
-  // Los ajustes poco frecuentes viven en «Más opciones del comprobante», cerrado por defecto.
-  await dialogo.getByText("Más opciones del comprobante").click();
+  // Los ajustes poco frecuentes viven en el panel «Más opciones», que se abre con su «+» (#557).
+  await dialogo.getByRole("button", { name: "Más opciones", exact: true }).click();
   await dialogo.getByLabel("Redondeo").fill("-0.07");
   await expect(dialogo.getByTestId("total-a-pagar")).toHaveText("S/ 100.00");
   await expect(dialogo.getByTestId("totales-previsualizados")).toContainText("Redondeo");
@@ -662,12 +680,13 @@ test("el redondeo se calcula en el backend, se ve en el pie y queda en el compro
 test("emite una factura al crédito con sus cuotas y la ficha las muestra (#309)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Proyecto");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await elegirOpcion(dialogo.getByLabel("Forma de pago"), "Al crédito (cuotas)");
+  await dialogo.getByRole("button", { name: "Crédito", exact: true }).click();
   await dialogo.getByRole("button", { name: "Repartir" }).click();
   await expect(dialogo.getByLabel("Cuota 1: monto")).toHaveValue("590.00");
   await expect(dialogo.getByTestId("credito-resumen")).toContainText("suman S/ 1,180.00 de S/ 1,180.00");
@@ -686,9 +705,11 @@ test("emite una factura al crédito con sus cuotas y la ficha las muestra (#309)
 test("emite una factura de exportación: afectación 40, cliente del exterior con país e incoterm (#311)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await dialogo.getByRole("button", { name: "Tipo de operación", exact: true }).click();
   await elegirOpcion(dialogo.getByLabel("Tipo de operación"), /^0200 · /);
   await esperarOpcion(dialogo.getByLabel("Moneda"), /\(USD\)$/);
 
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("Número de documento").fill("US123456789");
   await dialogo.getByLabel("Razón social").fill("ACME IMPORTS LLC");
   await dialogo.getByLabel("Descripción").fill("Café verde en grano");
@@ -709,12 +730,13 @@ test("emite una factura de exportación: afectación 40, cliente del exterior co
 test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la ficha muestran el depósito (#288)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }).check();
+  await dialogo.getByRole("button", { name: "Detracción", exact: true }).click();
   await elegirOpcion(dialogo.getByLabel("Bien o servicio sujeto"), /^022 · /);
   await expect(dialogo.getByLabel("Porcentaje")).toHaveValue("12");
   // Sin la cuenta del Banco de la Nación no se emite, y lo dice en el momento.
@@ -734,12 +756,13 @@ test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la 
 test("emite una factura con percepción: régimen 51, el pie suma el monto y la ficha lo muestra (#297)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Mercadería");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByRole("checkbox", { name: "Operación con percepción del IGV" }).check();
+  await dialogo.getByRole("button", { name: "Percepción", exact: true }).click();
   await elegirOpcion(dialogo.getByLabel("Régimen de percepción"), /^51 · /);
   // El monto lo calcula el backend: 2 % de 1,180.00.
   await expect(dialogo.getByTestId("percepcion-pie")).toContainText("Percepción S/ 23.60");
@@ -759,10 +782,12 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await dialogo.getByRole("button", { name: "Boleta" }).click();
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("Número de documento").fill("12345678");
   await dialogo.getByLabel("Nombre del comprador").fill("Juan Pérez");
   await dialogo.getByLabel("Descripción").fill("Pan");
   await dialogo.getByLabel(/Precio unit\./).fill("5");
+  await dialogo.getByRole("button", { name: "Tipo de operación", exact: true }).click();
   await elegirOpcion(dialogo.getByLabel("Tipo de operación"), /^0113 · /);
 
   await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
@@ -778,12 +803,13 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
 test("emite con orden de compra, guía, documento relacionado y observaciones, y la ficha los muestra (#300)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Mercadería");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByText(/Datos adicionales: guías/).click();
+  await dialogo.getByRole("button", { name: "Referencias", exact: true }).click();
   await dialogo.getByLabel(/Orden de compra/).fill("OC-2026-0457");
   await dialogo.getByRole("button", { name: "Agregar guía" }).click();
   // Una guía mal escrita se dice en el momento (4006) y la emisión no sale.
@@ -810,10 +836,11 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   // 1) La factura de anticipo es una factura común; el formulario ayuda a describirla.
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   let dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill(ruc);
   await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
   await dialogo.getByLabel("Descripción").fill("");
-  await dialogo.getByText("Anticipos", { exact: true }).click();
+  await dialogo.getByRole("button", { name: "Anticipos", exact: true }).click();
   await dialogo.getByRole("checkbox", { name: "Esta factura es un anticipo" }).check();
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Anticipo por ");
   await dialogo.getByLabel("Descripción").fill("Anticipo por obra");
@@ -825,11 +852,12 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   await page.goto("/comprobantes");
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill(ruc);
   await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
   await dialogo.getByLabel("Descripción").fill("Obra completa");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
-  await dialogo.getByText("Anticipos", { exact: true }).click();
+  await dialogo.getByRole("button", { name: "Anticipos", exact: true }).click();
   await dialogo.getByRole("checkbox", { name: /F001-\d+ .*por descontar/ }).first().check();
   await expect(dialogo.getByLabel(/Valor a descontar de F001-/)).toHaveValue("500.00");
   // Los 590.00 del anticipo (500 + IGV) salen del total: 1,180.00 − 590.00.
@@ -843,19 +871,20 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
 test("emite una factura al crédito con retención del IGV: el pie la resta y la ficha la muestra (#313)", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Proyecto");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" }).check();
+  await dialogo.getByRole("button", { name: "Retención", exact: true }).click();
   await expect(dialogo.getByLabel("Porcentaje de retención")).toHaveValue("3");
   // El monto lo calcula el backend: 3 % de 1,180.00.
   await expect(dialogo.getByTestId("retencion-pie")).toContainText("Retención S/ 35.40");
   await expect(dialogo.getByTestId("retencion-pie")).toContainText("Neto a cobrar S/ 1,144.60");
 
   // Al crédito el neto pendiente ya descuenta la retención.
-  await elegirOpcion(dialogo.getByLabel("Forma de pago"), "Al crédito (cuotas)");
+  await dialogo.getByRole("button", { name: "Crédito", exact: true }).click();
   await dialogo.getByRole("button", { name: "Repartir" }).click();
   await expect(dialogo.getByTestId("credito-resumen")).toContainText("de S/ 1,144.60");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
@@ -867,7 +896,8 @@ test("emite una boleta en dólares sin documento con tipo de cambio, y una factu
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   let dialogo = page.getByRole("dialog");
   await dialogo.getByRole("button", { name: "Boleta" }).click();
-  await elegirOpcion(dialogo.getByLabel("Documento del comprador"), "Sin documento (hasta S/ 700)");
+  // #557: sin documento es como empieza la boleta (el campo «Comprador» vacío).
+  await expect(dialogo.getByLabel("Comprador")).toHaveValue("");
   await dialogo.getByLabel("Descripción").fill("Servicio");
   await dialogo.getByLabel(/Precio unit\./).fill("118");
   await elegirOpcion(dialogo.getByLabel("Moneda"), /\(USD\)$/);
@@ -881,6 +911,7 @@ test("emite una boleta en dólares sin documento con tipo de cambio, y una factu
   await page.goto("/comprobantes");
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");

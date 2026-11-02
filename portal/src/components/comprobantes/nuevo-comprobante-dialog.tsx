@@ -140,6 +140,15 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
 
   const series = useRecursoDelDialogo<Serie[]>(abierto, "/api/proxy/series");
   const tipo = tipoElegido ?? tipoInicial(series.dato ?? []);
+  // #557: el selector de tipo vive en el formulario, que se vuelve a montar al cambiar de tipo (`key`): el botón que tenía el foco desaparece. Se le devuelve al
+  // tipo elegido, ya montado el formulario nuevo, para que un usuario de teclado no quede en el cuerpo de la página.
+  const selectorDeTipo = useRef<HTMLDivElement>(null);
+  const enfocarTipo = useRef(false);
+  useEffect(() => {
+    if (!enfocarTipo.current) return;
+    enfocarTipo.current = false;
+    selectorDeTipo.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
+  }, [tipo]);
   const empresa = useRecursoDelDialogo<EmpresaDetalle>(abierto, "/api/proxy/empresa");
   // #18: en el tope del plan el backend rechaza la emisión; se dice antes. Si la cuenta no se puede leer no se bloquea: el backend tiene la última palabra.
   const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
@@ -318,20 +327,36 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
                 </Alerta>
               </div>
             ) : null}
-            {/* #20: factura o boleta. Las dos se emiten igual; cambian las series que se ofrecen y lo que se pide del comprador. */}
-            <div className="shrink-0 px-5 pt-4">
-              <GrupoBotones
-                etiqueta={t.tipo}
-                valor={tipo}
-                onCambio={setTipo}
-                opciones={[
-                  { valor: "factura", etiqueta: messages.documentos.tipos["01"] },
-                  { valor: "boleta", etiqueta: messages.documentos.tipos["03"] },
-                ]}
-              />
-            </div>
-            {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica. */}
-            <NuevoComprobanteForm key={`${tipo}-${copias}`} tipo={tipo} plantilla={plantilla?.tipo === tipo ? plantilla : null} series={series.dato} tasaIgv={tasaIgv} cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null} onEmitido={() => setAbierto(false)} onCancelar={() => setAbierto(false)} onCambioDatos={setHayDatos} />
+            {/* `key`: cambiar de tipo es empezar otro comprobante, con su serie y su comprador; lo cargado del otro no aplica.
+                #20: factura o boleta. Las dos se emiten igual; cambian las series que se ofrecen y lo que se pide del comprador. #557: el selector va en la
+                misma línea que la serie, la fecha y la moneda, así que lo pinta el formulario. */}
+            <NuevoComprobanteForm
+              key={`${tipo}-${copias}`}
+              tipo={tipo}
+              plantilla={plantilla?.tipo === tipo ? plantilla : null}
+              series={series.dato}
+              tasaIgv={tasaIgv}
+              cuentaDetracciones={empresa.dato?.cuenta_detracciones ?? null}
+              selectorDeTipo={
+                <div ref={selectorDeTipo}>
+                  <GrupoBotones
+                    etiqueta={t.tipo}
+                    valor={tipo}
+                    onCambio={(nuevo) => {
+                      enfocarTipo.current = true;
+                      setTipo(nuevo);
+                    }}
+                    opciones={[
+                      { valor: "factura", etiqueta: messages.documentos.tipos["01"] },
+                      { valor: "boleta", etiqueta: messages.documentos.tipos["03"] },
+                    ]}
+                  />
+                </div>
+              }
+              onEmitido={() => setAbierto(false)}
+              onCancelar={() => setAbierto(false)}
+              onCambioDatos={setHayDatos}
+            />
           </>
         ) : series.error ? (
           <div className="flex flex-col gap-3 px-5 py-4">

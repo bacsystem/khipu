@@ -57,7 +57,7 @@ export function DetraccionEditor({
   const ofrecidos = (bienes ?? []).filter((b) => !CODIGOS_SIN_FORMULARIO.has(b.codigo) && (b.codigo === valor.codigo || `${b.codigo} ${b.descripcion}`.toLowerCase().includes(texto)));
   const set = (cambio: Partial<DetraccionForm>) => onCambio({ ...valor, ...cambio });
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="detraccion-form">
+    <div className="grid gap-3" data-testid="detraccion-form">
       <div className="grid items-start gap-4 sm:grid-cols-[1fr_140px]">
         <Campo id="nc-det-codigo" etiqueta={t.detraccion.bien} ayuda={t.detraccion.catalogo54}>
           <input

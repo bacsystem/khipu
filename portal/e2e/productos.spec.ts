@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { abrirDatosDelCliente } from "./cliente";
 import { elegirOpcion } from "./combo";
 
 // Los tests corren en paralelo contra el mismo mock en memoria: los que crean un producto usan un código propio y las aserciones van por fila, no por conteos globales.
@@ -92,6 +93,7 @@ test("#320 «Nuevo comprobante» busca entre los productos guardados y llena la 
 test("#320 emitir con un producto guardado lleva su código y sale", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CLIENTE DE PRODUCTOS S.A.C.");
   await dialogo.getByLabel("Buscar un producto guardado").fill("consultoria");
