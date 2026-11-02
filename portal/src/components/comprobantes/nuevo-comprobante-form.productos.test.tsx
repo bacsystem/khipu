@@ -59,7 +59,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     expect((screen.getByLabelText("Descripción") as HTMLInputElement).value).toBe("Consultoría tributaria");
     expect((screen.getByLabelText(/Precio unit\./) as HTMLInputElement).value).toBe("118.00");
     expect(screen.getAllByLabelText("Descripción")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items).toEqual([expect.objectContaining({ codigo: "SRV-001", codigo_sunat: "80101500", descripcion: "Consultoría tributaria", unidad: "ZZ", tipo_afectacion_igv: "10", precio_unitario: 118 })]);
@@ -78,7 +78,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     expect((screen.getAllByLabelText("Descripción")[1] as HTMLInputElement).value).toBe("Libro técnico");
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items).toHaveLength(2);
     expect(emisiones(fetch)[0].items[1]).toMatchObject({ descripcion: "Libro técnico", tipo_afectacion_igv: "20", precio_unitario: 50 });
@@ -106,7 +106,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "99" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Otra cosa distinta" } });
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     const item = emisiones(fetch)[0].items[0];
@@ -124,7 +124,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
 
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "99" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1), { timeout: 5000 });
     expect(emisiones(fetch)[0].items[0]).toMatchObject({ codigo: "SRV-001", codigo_sunat: "80101500", precio_unitario: 99 });
@@ -134,6 +134,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
     it("un producto gravado entra como línea 40 y avisa que su precio trae el IGV adentro", async () => {
       stubBackend([CONSULTORIA]);
       render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+      fireEvent.click(screen.getByRole("button", { name: "Tipo de operación" }));
       await elegirCodigo("Tipo de operación", "0200");
 
       await elegir("consult", "Consultoría");
@@ -148,6 +149,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
       const GRATIS: ProductoGuardado = { id: "p-4", descripcion: "Muestra sin costo", unidad: "NIU", tipo_afectacion_igv: "21", precio_unitario: 5, creado_en: "2026-09-08T15:00:00Z", actualizado_en: "2026-09-08T15:00:00Z" };
       stubBackend([GRATIS]);
       render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+      fireEvent.click(screen.getByRole("button", { name: "Tipo de operación" }));
       await elegirCodigo("Tipo de operación", "0200");
 
       await elegir("muestra", "Muestra");
@@ -162,6 +164,7 @@ describe("NuevoComprobanteForm — productos guardados (#320)", () => {
       await elegir("licencia", "Licencia");
       expect(screen.getByTestId("aviso-producto-guardado")).toBeInTheDocument();
 
+      fireEvent.click(screen.getByRole("button", { name: "Tipo de operación" }));
       await elegirCodigo("Tipo de operación", "0200");
 
       expect(screen.queryByTestId("aviso-producto-guardado")).not.toBeInTheDocument();

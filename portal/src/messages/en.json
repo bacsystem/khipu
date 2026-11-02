@@ -2779,7 +2779,6 @@
       "ayudaTipoCambio": "Soles per 1 {moneda}; goes on the PDF and the sales ledger, not to SUNAT",
       "comprador": "Buyer",
       "cliente": "Customer",
-      "guardarCliente": "Save to my customers when issuing",
       "documentoComprador": "Buyer’s document",
       "sinDocumentoAyuda": "SUNAT allows it up to a total of S/ {tope}.00; in another currency, using the exchange rate.",
       "numeroDocumento": "Document number",
@@ -2801,8 +2800,6 @@
       "ayudaCorreo": "If you turned on automatic sending, they get the PDF and the XML once SUNAT accepts it",
       "placeholderCorreo": "purchasing@customer.com",
       "tipoOperacion": "Operation type",
-      "formaPago": "Payment terms",
-      "alContado": "Cash",
       "alCredito": "Credit (installments)",
       "incoterm": "Incoterm",
       "ayudaIncoterm": "Incoterms 2020; required by Customs, not validated by SUNAT",
@@ -2810,7 +2807,8 @@
       "paisUso": "Country where the service is used",
       "ayudaPaisUso": "Where the service is used or enjoyed (3098); other than Peru",
       "detraccionCheck": "Operation subject to detraction (SPOT)",
-      "avisoDetraccion": "This invoice exceeds S/ 700.00. If it is a service subject to SPOT, check detraction.",
+      "avisoDetraccion": "This invoice exceeds S/ 700.00. If it is a service subject to SPOT, add detraction.",
+      "activarDetraccion": "Add detraction",
       "percepcionCheck": "Operation with IGV perception",
       "retencionCheck": "The customer withholds IGV (withholding agent)",
       "items": "Items",
@@ -2858,6 +2856,19 @@
       "anticipoAyuda": "It is issued like any {nombre}. When you deliver the good or service, choose this advance payment under “Deduct advance payments” on the final {nombre} to settle it.",
       "descontarAnticipos": "Deduct advance payments",
       "datosAdicionales": "Additional data: dispatch guides, related documents and notes",
+      "agregar": "Add:",
+      "extras": {
+        "credito": "Credit",
+        "detraccion": "Detraction",
+        "percepcion": "Perception",
+        "retencion": "Withholding",
+        "operacion": "Operation type",
+        "masOpciones": "More options",
+        "anticipos": "Advance payments",
+        "referencias": "References",
+        "correo": "Email"
+      },
+      "quitarExtra": "Remove “{extra}”",
       "verPlan": "View plan and usage",
       "totales": {
         "gravado": "Taxable",
@@ -2876,7 +2887,8 @@
       "totalAPagar": "Total to pay",
       "loCalculaKhipu": "khipu calculates it",
       "emitiendo": "Issuing…",
-      "emitir": "Issue {nombre}"
+      "emitir": "Issue {nombre}",
+      "emitirConTotal": "Issue {nombre} · {total}"
     },
     "editores": {
       "ajuste": {

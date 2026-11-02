@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { opcionesDe } from "@/test/select-de-prueba";
@@ -17,7 +17,11 @@ describe("NuevoComprobanteForm en inglés (#25)", () => {
     expect(screen.getByRole("button", { name: "Add item" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Issue invoice" })).toBeInTheDocument();
     expect(screen.getByText("Total to pay")).toBeInTheDocument();
+    // #557: lo poco frecuente va a pedido, con sus «+» también traducidos.
+    expect(screen.getByText("Add:")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Operation type" }));
     expect(screen.getByLabelText("Operation type")).toHaveTextContent("0101 · Domestic sale");
+    expect(screen.getByRole("button", { name: "Remove “Operation type”" })).toBeInTheDocument();
     expect(await opcionesDe(screen.getByLabelText("Currency"))).toContain("$ US dollars (USD)");
   });
 });

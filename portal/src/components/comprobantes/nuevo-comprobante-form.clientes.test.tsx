@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClienteGuardado } from "@/lib/api/clientes";
+import { elegirDocumento } from "@/test/combos-del-comprobante";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -71,15 +72,15 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     expect(screen.getByTestId("aviso-cliente-guardado")).toHaveTextContent(/necesita un cliente con RUC/);
   });
 
-  it("al emitir con la casilla marcada guarda al cliente por su documento, sin los datos que no se informaron", async () => {
+  it("al emitir guarda siempre al cliente por su documento, sin casilla y sin los datos que no se informaron (#557)", async () => {
     const fetch = stubBackend([]);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     conUnaLinea();
 
-    expect(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    expect(screen.queryByRole("checkbox", { name: /Guardar en mis clientes/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(guardados(fetch)).toHaveLength(1));
     const [guardado] = guardados(fetch);
@@ -88,18 +89,29 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     expect(guardado.cuerpo).toEqual({ razon_social: "Cliente SAC" });
   });
 
-  it("con la casilla desmarcada a mano no guarda", async () => {
+  it("una boleta sin documento no guarda al comprador: no hay documento por el que guardarlo", async () => {
     const fetch = stubBackend([]);
-    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
-    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
-    fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} tipo="boleta" />);
+    await elegirDocumento("-");
     conUnaLinea();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" }));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
 
     await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
     expect(guardados(fetch)).toHaveLength(0);
+  });
+
+  it("si al cliente elegido de los guardados se le cambia el documento, el nuevo sí se guarda", async () => {
+    const fetch = stubBackend([PACIFICO]);
+    render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    await elegir("pacif", "PESQUERA");
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    conUnaLinea();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
+
+    await waitFor(() => expect(guardados(fetch)).toHaveLength(1));
+    expect(guardados(fetch)[0].url).toBe("/api/proxy/clientes/documento/6/20554198211");
   });
 
   it("en una boleta no arrastra la dirección del cliente elegido, que ese formulario no muestra ni deja borrar", async () => {
@@ -108,21 +120,20 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     await elegir("juan", "JUAN");
     conUnaLinea();
 
-    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
 
     await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
     const emision = fetch.mock.calls.filter(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST").map(([, init]) => JSON.parse(String(init?.body)))[0];
     expect(emision.cliente.direccion).toBeUndefined();
   });
 
-  it("con la casilla desmarcada, o con un cliente que ya estaba guardado, no vuelve a guardar", async () => {
+  it("con un cliente que ya estaba guardado no vuelve a guardar", async () => {
     const fetch = stubBackend([PACIFICO]);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     await elegir("pacif", "PESQUERA");
     conUnaLinea();
 
-    expect(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
     expect(guardados(fetch)).toHaveLength(0);
@@ -138,10 +149,12 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
     fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
+    // #557: el correo va a pedido, detrás de su «+».
+    fireEvent.click(screen.getByRole("button", { name: "Correo" }));
     fireEvent.change(screen.getByLabelText(/Correo del cliente/), { target: { value: "  compras@cliente.pe " } });
     conUnaLinea();
 
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0].cliente.email).toBe("compras@cliente.pe");
@@ -159,16 +172,17 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     conUnaLinea();
 
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
 
     await waitFor(() => expect(emisiones(fetch)).toHaveLength(1));
     expect(emisiones(fetch)[0].cliente).not.toHaveProperty("email");
   });
 
-  it("elegir un cliente guardado con correo lo propone, y uno sin correo lo deja vacío", async () => {
+  it("elegir un cliente guardado con correo lo propone (abre su panel), y uno sin correo lo deja vacío", async () => {
     stubBackend([{ ...PACIFICO, email: "pagos@pacifico.pe" }, JUAN]);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} tipo="boleta" />);
 
+    expect(screen.queryByLabelText(/Correo del cliente/)).not.toBeInTheDocument();
     await elegir("pacif", "PESQUERA");
     expect((screen.getByLabelText(/Correo del cliente/) as HTMLInputElement).value).toBe("pagos@pacifico.pe");
 

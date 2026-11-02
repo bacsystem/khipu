@@ -158,7 +158,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     digitar("RUC", "20602160280");
     expect(await screen.findByTestId("aviso-ruc-4014")).toBeInTheDocument();
     expect(screen.queryByTestId("aviso-ruc-4013")).toBeNull();
-    expect(screen.getByRole("button", { name: "Emitir factura" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Emitir factura/ })).not.toBeDisabled();
   });
 
   it("un RUC que el padrón no tiene avisa y deja digitar los datos a mano", async () => {
@@ -171,7 +171,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     expect(aviso).toHaveTextContent("Puedes digitar los datos a mano");
     fireEvent.change(razon(), { target: { value: "EMPRESA RECIEN INSCRITA SAC" } });
     expect(razon().value).toBe("EMPRESA RECIEN INSCRITA SAC");
-    expect(screen.getByRole("button", { name: "Emitir factura" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Emitir factura/ })).not.toBeDisabled();
   });
 
   it("con el padrón sin cargar dice que la consulta no está disponible", async () => {
@@ -260,7 +260,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Televisor" } });
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "100" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
     await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/facturas"))).toBe(true));
     const envio = fetch.mock.calls.find(([url]) => String(url).endsWith("/facturas"));
     expect(JSON.parse(String(envio?.[1]?.body)).cliente).toEqual({ tipo_doc: "6", num_doc: "20100066603", razon_social: "TIENDAS DEL SUR S.A.C." });

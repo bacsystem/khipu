@@ -139,7 +139,7 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir factura/ }));
     await waitFor(() => expect(push).toHaveBeenCalled());
   }
 
@@ -170,7 +170,7 @@ describe("los formularios de emisión dejan los avisos para la ficha (#382)", ()
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Pan" } });
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "5" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
-    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
     await waitFor(() => expect(push).toHaveBeenCalled());
 
     expect(push).toHaveBeenCalledWith("/comprobantes/b-9");

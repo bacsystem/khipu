@@ -34,6 +34,8 @@ test("con el envío automático activado, la factura emitida con correo llega al
     const dialogo = page.getByRole("dialog");
     await dialogo.getByLabel("RUC").fill("20554198211");
     await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
+    // #557: el correo va a pedido, detrás de su «+».
+    await dialogo.getByRole("button", { name: "Correo", exact: true }).click();
     await dialogo.getByLabel(/Correo del cliente/).fill("Compras@Andina.pe");
     await dialogo.getByLabel("Descripción").fill("Consultoría");
     await dialogo.getByLabel(/Precio unit\./).fill("1180");
@@ -67,6 +69,7 @@ test("sin el envío automático, la factura con correo no muestra un envío y el
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
   // El navegador frena un correo sin forma de correo antes de mandar nada.
+  await dialogo.getByRole("button", { name: "Correo", exact: true }).click();
   await dialogo.getByLabel(/Correo del cliente/).fill("compras-sin-arroba");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();
   await expect(dialogo.getByLabel(/Correo del cliente/)).toHaveJSProperty("validity.valid", false);

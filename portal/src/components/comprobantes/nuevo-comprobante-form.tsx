@@ -1,10 +1,11 @@
 "use client";
 
-import { PlusIcon, SlidersHorizontalIcon, TrashIcon } from "@phosphor-icons/react";
+import { PanelQuitable } from "khipu-design-system/patrones/panel-quitable";
+import { CheckIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
@@ -15,6 +16,7 @@ import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Button } from "khipu-design-system/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
@@ -43,7 +45,7 @@ import { errorDeIsc, gruposAfectacion, incompatibilidadDeTributos, ISC_VACIO, is
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, CONTROL_FILTRO, ERROR_CAMPO, ETIQUETA_CAMPO, FOCO_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -97,18 +99,37 @@ const PATRON_NOMBRE = "\\s*\\S.+\\S\\s*";
 /** Espeja `Comprobante.TOPE_BOLETA_SIN_DOCUMENTO`: hasta este total (en soles) la boleta puede no identificar al comprador. */
 const TOPE_SIN_DOCUMENTO = 700;
 
+/**
+ * #557: lo poco frecuente del comprobante, a pedido. Cada uno es un botón «+» en la fila «Agregar:» que abre su panel; quitarlo lo apaga y limpia lo que tenía.
+ * El orden es el de la fila y el de los paneles.
+ */
+const EXTRAS = ["credito", "detraccion", "percepcion", "retencion", "operacion", "masOpciones", "anticipos", "referencias", "correo"] as const;
+type Extra = (typeof EXTRAS)[number];
+
+/** Un panel de la fila «Agregar:»: su título y el botón que lo quita (con su contenido). */
+function PanelExtra({ id, titulo, etiquetaQuitar, onQuitar, children }: { id: Extra; titulo: string; etiquetaQuitar: string; onQuitar: () => void; children: ReactNode }) {
+  return (
+    <PanelQuitable titulo={titulo} etiquetaQuitar={etiquetaQuitar} onQuitar={onQuitar} data-testid={`extra-${id}`}>
+      {children}
+    </PanelQuitable>
+  );
+}
+
 export function NuevoComprobanteForm({
   tipo = "factura",
   series,
   tasaIgv,
   cuentaDetracciones = null,
   plantilla = null,
+  selectorDeTipo = null,
   onEmitido,
   onCancelar,
   onCambioDatos,
 }: {
   /** Factura (series F###, comprador con RUC) o boleta (series B###, comprador con cualquier documento o, hasta S/ 700, sin documento). */
   tipo?: TipoEmitible;
+  /** #557: el selector Factura/Boleta del diálogo, que va en la misma línea que la serie, la fecha y la moneda (y sobre el aviso de que faltan series). */
+  selectorDeTipo?: ReactNode;
   series: Serie[];
   /**
    * Tasa vigente de la empresa: 10.5 % si está en el padrón de tasa especial, 18 % si no, y `null` mientras no se
@@ -149,8 +170,9 @@ export function NuevoComprobanteForm({
   const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
   // #325: el correo del cliente viaja con el comprobante; si la empresa activó el envío automático, le llega el PDF y el XML cuando SUNAT lo acepta.
   const [email, setEmail] = useState(plantilla?.cliente.email ?? "");
-  // #319: guardar al comprador en «Clientes» al emitir (el guardado es idempotente y conserva lo que ya estaba guardado), y el aviso de un cliente guardado que no sirve para este comprobante.
-  const [guardarCliente, setGuardarCliente] = useState(true);
+  // #319: al emitir, el comprador con documento se guarda en «Clientes» (el guardado es idempotente y conserva lo que ya estaba guardado). #557: sin casilla; solo no se
+  // vuelve a guardar el cliente que se eligió de los guardados (su «tipo/número»), mientras siga siendo ese. También el aviso de un cliente guardado que no sirve para este comprobante.
+  const [clienteElegido, setClienteElegido] = useState<string | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
   const [avisoProducto, setAvisoProducto] = useState<string | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
@@ -173,8 +195,13 @@ export function NuevoComprobanteForm({
   const [retencion, setRetencion] = useState<RetencionForm>(RETENCION_VACIA);
   // #300: orden de compra, guías, otros documentos relacionados y observaciones; no cambian importes, así que no entran en el cálculo.
   const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
-  // Abierta por quien la abre (no por si hay algo escrito: al borrar lo escrito se cerraba sola mientras se usaba).
+  // #557: los paneles «+» que el usuario abrió. Un panel también se ve si ya trae datos (una copia, un cliente guardado con correo), y no se cierra solo al borrar lo
+  // escrito mientras se usa: solo con su botón de quitar, que además lo limpia. Crédito, detracción, percepción y retención llevan su propia bandera (`alCredito`, `activa`).
   const [datosAbiertos, setDatosAbiertos] = useState(false);
+  const [operacionAbierta, setOperacionAbierta] = useState(false);
+  const [masAbierto, setMasAbierto] = useState(false);
+  const [correoAbierto, setCorreoAbierto] = useState(false);
+  const botonesExtra = useRef<Partial<Record<Extra, HTMLButtonElement | null>>>({});
   // #312: anticipos. `esAnticipo` solo ayuda a describir la línea (SUNAT no marca la factura de anticipo); `anticiposAbierto` activa la búsqueda de los del cliente.
   const [esAnticipo, setEsAnticipo] = useState(false);
   const [anticiposAbierto, setAnticiposAbierto] = useState(false);
@@ -248,7 +275,9 @@ export function NuevoComprobanteForm({
     setDireccion(boleta ? "" : (c.direccion ?? ""));
     setPais(c.pais ?? "");
     setEmail(c.email ?? "");
-    setGuardarCliente(false);
+    // Con correo, su panel se abre para que se vea a quién se le enviará; queda abierto aunque el siguiente cliente elegido no tenga.
+    if (c.email) setCorreoAbierto(true);
+    setClienteElegido(`${c.tipo_doc}/${c.num_doc}`);
   }
 
   // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
@@ -435,6 +464,118 @@ export function NuevoComprobanteForm({
   // Con tipo de cambio el tope de S/ 700 se mide en soles; sin él no hay cómo comparar otra moneda y el backend exige el documento: aquí se avisa antes.
   const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda, messages));
 
+  // #557: qué «+» se ofrecen y cuáles están activos. Detracción, percepción y retención son de la venta interna (0101) y se excluyen entre sí como antes: activar la
+  // detracción apaga las otras dos, y la percepción a la retención; mientras una más fuerte está activa, la otra no se ofrece. La retención y el crédito, solo en factura.
+  const ventaInterna = operacion === "0101";
+  const hayMasOpciones = redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== "";
+  const hayReferencias = referencias.ordenCompra !== "" || referencias.guias.length > 0 || referencias.documentos.length > 0 || referencias.observaciones !== "";
+  const ofrecido: Record<Extra, boolean> = {
+    credito: !boleta,
+    detraccion: ventaInterna,
+    percepcion: ventaInterna && !detraccion.activa,
+    retencion: !boleta && ventaInterna && !detraccion.activa && !percepcion.activa,
+    operacion: true,
+    masOpciones: true,
+    anticipos: true,
+    referencias: true,
+    correo: true,
+  };
+  const activo: Record<Extra, boolean> = {
+    credito: alCredito,
+    detraccion: detraccion.activa,
+    percepcion: percepcion.activa,
+    retencion: retencion.activa,
+    operacion: operacionAbierta || !ventaInterna,
+    masOpciones: masAbierto || hayMasOpciones,
+    anticipos: anticiposAbierto || anticiposElegidos.length > 0 || esAnticipo,
+    referencias: datosAbiertos || hayReferencias,
+    correo: correoAbierto || email !== "",
+  };
+  const visible = (e: Extra) => ofrecido[e] && activo[e];
+  // Lo que dice cada «+» al pasar el puntero, y el título de su panel.
+  const tituloExtra: Record<Extra, string> = {
+    credito: t.alCredito,
+    detraccion: t.detraccionCheck,
+    percepcion: t.percepcionCheck,
+    retencion: t.retencionCheck,
+    operacion: t.tipoOperacion,
+    masOpciones: t.masOpciones,
+    anticipos: t.anticipos,
+    referencias: t.datosAdicionales,
+    correo: t.correo,
+  };
+
+  function activar(e: Extra) {
+    switch (e) {
+      case "credito":
+        return setAlCredito(true);
+      case "detraccion":
+        setDetraccion((d) => ({ ...d, activa: true, cuenta: d.cuenta || cuentaDetracciones || "" }));
+        setPercepcion(PERCEPCION_VACIA);
+        return setRetencion(RETENCION_VACIA);
+      case "percepcion":
+        setPercepcion((p) => ({ ...p, activa: true }));
+        return setRetencion(RETENCION_VACIA);
+      case "retencion":
+        return setRetencion((r) => ({ ...r, activa: true }));
+      case "operacion":
+        return setOperacionAbierta(true);
+      case "masOpciones":
+        return setMasAbierto(true);
+      case "anticipos":
+        return setAnticiposAbierto(true);
+      case "referencias":
+        return setDatosAbiertos(true);
+      case "correo":
+        return setCorreoAbierto(true);
+    }
+  }
+
+  /** Apaga el panel y limpia lo suyo: lo quitado no se calcula ni se envía. */
+  function quitar(e: Extra) {
+    switch (e) {
+      case "credito":
+        setAlCredito(false);
+        return setCredito(CREDITO_VACIO);
+      case "detraccion":
+        return setDetraccion(DETRACCION_VACIA);
+      case "percepcion":
+        return setPercepcion(PERCEPCION_VACIA);
+      case "retencion":
+        return setRetencion(RETENCION_VACIA);
+      case "operacion":
+        if (!ventaInterna) cambiarOperacion("0101");
+        return setOperacionAbierta(false);
+      case "masOpciones":
+        setRedondeoTexto("");
+        setDescuentoGlobal(AJUSTE_VACIO);
+        setCargoGlobal(AJUSTE_VACIO);
+        setFechaVencimiento("");
+        return setMasAbierto(false);
+      case "anticipos":
+        setEsAnticipo(false);
+        setAnticiposElegidos([]);
+        return setAnticiposAbierto(false);
+      case "referencias":
+        setReferencias(REFERENCIAS_VACIAS);
+        return setDatosAbiertos(false);
+      case "correo":
+        setEmail("");
+        return setCorreoAbierto(false);
+    }
+  }
+
+  /** Quitar desde el panel: el botón desaparece con él, así que el foco vuelve a su «+» (que sigue en la fila) en vez de caer al cuerpo de la página. */
+  function quitarDesdeElPanel(e: Extra) {
+    quitar(e);
+    botonesExtra.current[e]?.focus();
+  }
+
+  // El total que dice el botón de emitir: el del pie, salvo que no haya líneas completas o que el importe todavía no se conozca (IVAP o exportación sin respuesta del backend).
+  const totalConocido = lineasCompletas.length > 0 && !sinImporteLocal;
+  const opcionesSerie = seriesDelTipo.map((s) => ({ value: s.serie, label: `${s.serie} · ${s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}` }));
+  const opcionesMoneda = monedas(messages).map((m) => ({ value: m.codigo, label: m.etiqueta }));
+
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
     // El nombre que rellenó el padrón ya no es de este comprador: se cuenta como vacío para lo de abajo (el estado todavía no se actualizó).
@@ -566,7 +707,7 @@ export function NuevoComprobanteForm({
     // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha del comprobante los muestra desde aquí.
     guardarAvisosDeEmision(res.datos.id, res.avisos);
     // #319: el guardado del cliente no puede estorbar la emisión ya hecha; si falla, la factura sigue emitida y el cliente se guarda a mano desde «Clientes».
-    if (guardarCliente && !sinDocumento && numDoc.trim() !== "") {
+    if (!sinDocumento && numDoc.trim() !== "" && clienteElegido !== `${tipoDoc}/${numDoc.trim()}`) {
       void apiRequest(`/api/proxy/clientes/documento/${encodeURIComponent(tipoDoc)}/${encodeURIComponent(numDoc.trim())}`, {
         method: "PUT",
         body: { razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined, email: email.trim() || undefined },
@@ -580,6 +721,7 @@ export function NuevoComprobanteForm({
   if (seriesDelTipo.length === 0) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
+        {selectorDeTipo ? <div>{selectorDeTipo}</div> : null}
         <Alerta tono="aviso" titulo={interpolar(t.sinSeries.titulo, { nombre })}>
           {interpolar(t.sinSeries.texto, { tipo: TIPO_DE_SERIE[tipo], patron: boleta ? "B###" : "F###" })}
         </Alerta>
@@ -595,52 +737,79 @@ export function NuevoComprobanteForm({
       {/* El scroll vive solo en la lista de ítems: así la serie, la fecha y el cliente quedan siempre a la vista
           por largo que sea el comprobante. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-      <div className="grid items-start gap-4 sm:grid-cols-3">
-        <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
-          <SelectCampo
-            id="nc-serie"
-            valor={serie}
-            onCambio={setSerie}
-            opciones={seriesDelTipo.map((s) => ({ value: s.serie, label: `${s.serie} · ${s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}` }))}
-            mono
-          />
-        </Campo>
+      {/* #557: una sola línea con el tipo, la serie, la fecha y la moneda, como las píldoras de la barra de filtros del design system. Las ayudas largas van en el
+          `title` y, para un lector de pantalla, en la descripción del control. */}
+      <div className="flex flex-wrap items-start gap-2">
+        {selectorDeTipo}
+        <Select items={opcionesSerie} value={serie} onValueChange={(v) => setSerie((v as string | null) ?? "")}>
+          <SelectTrigger id="nc-serie" className={cn(CONTROL_FILTRO, "w-auto pl-3 tabular-nums")} aria-label={t.serie} aria-describedby="nc-serie-ayuda" title={t.ayudaSerie}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {opcionesSerie.map(({ value, label }) => (
+              <SelectItem key={value} value={value} className="tabular-nums">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span id="nc-serie-ayuda" className="sr-only">
+          {t.ayudaSerie}
+        </span>
 
-        <Campo id="nc-fecha" etiqueta={t.fechaEmision} ayuda={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
+        <span className="inline-flex" title={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
+          <label htmlFor="nc-fecha" className="sr-only">
+            {t.fechaEmision}
+          </label>
           {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío: 3 días la factura, 2108; 7 la boleta, 1079), así que
               el calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT (#292). */}
           {/* `||` y no `??`: un input de fecha vaciado emite `""`, no `null`, así que `??` dejaba pasar el vacío
               hasta el `@NotNull LocalDate` del backend y la emisión moría con un error de deserialización. */}
-          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} variante="filtro" />
-          {soloPorResumen(tipo, fecha, hoy) ? (
-            <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario" role="status">
-              {t.avisoResumen}
-            </p>
-          ) : null}
-        </Campo>
+          <EntradaFecha id="nc-fecha" enBarra valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} describidoPor="nc-fecha-ayuda" className="w-40" />
+          <span id="nc-fecha-ayuda" className="sr-only">
+            {interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}
+          </span>
+        </span>
 
-        <Campo id="nc-moneda" etiqueta={t.moneda}>
-          <SelectCampo
-            id="nc-moneda"
-            valor={moneda}
-            onCambio={(v) => { setMoneda(v); setTipoCambio(""); }}
-            opciones={monedas(messages).map((m) => ({ value: m.codigo, label: m.etiqueta }))}
-          />
-        </Campo>
+        <Select items={opcionesMoneda} value={moneda} onValueChange={(v) => { setMoneda((v as string | null) ?? ""); setTipoCambio(""); }}>
+          <SelectTrigger id="nc-moneda" className={cn(CONTROL_FILTRO, "w-auto pl-3")} aria-label={t.moneda}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {opcionesMoneda.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {moneda === "PEN" ? null : (
-          <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional ayuda={interpolar(t.ayudaTipoCambio, { moneda })} error={errorTipoCambio ?? undefined}>
-            <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
+          <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional error={errorTipoCambio ?? undefined} className="gap-1 [&>label]:sr-only">
+            <input
+              id="nc-tipo-cambio"
+              value={tipoCambio}
+              onChange={(e) => setTipoCambio(e.target.value)}
+              inputMode="decimal"
+              placeholder={t.tipoCambio}
+              title={interpolar(t.ayudaTipoCambio, { moneda })}
+              aria-describedby={errorTipoCambio ? "nc-tipo-cambio-error" : "nc-tipo-cambio-ayuda"}
+              aria-invalid={errorTipoCambio !== null}
+              className={cn(CONTROL_FILTRO, FOCO_CAMPO, ERROR_CAMPO, "w-32 px-3 font-mono tabular-nums outline-none placeholder:font-sans placeholder:font-normal placeholder:text-texto-terciario")}
+            />
+            <span id="nc-tipo-cambio-ayuda" className="sr-only">
+              {interpolar(t.ayudaTipoCambio, { moneda })}
+            </span>
           </Campo>
         )}
+        {soloPorResumen(tipo, fecha, hoy) ? (
+          <p className={cn(AYUDA_CAMPO, "basis-full")} data-testid="aviso-resumen-diario" role="status">
+            {t.avisoResumen}
+          </p>
+        ) : null}
       </div>
 
       <section className="grid gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
-          {sinDocumento ? null : (
-            <Casilla id="nc-guardar-cliente" etiqueta={t.guardarCliente} checked={guardarCliente} onCheckedChange={setGuardarCliente} />
-          )}
-        </div>
+        <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
         <BuscadorDeClientes onElegir={elegirClienteGuardado} />
         {avisoCliente ? (
           <p role="status" className="text-control text-warning-foreground" data-testid="aviso-cliente-guardado">
@@ -772,124 +941,6 @@ export function NuevoComprobanteForm({
           </div>
         </div>
         )}
-        <Campo id="nc-email" etiqueta={t.correo} opcional ayuda={t.ayudaCorreo}>
-          <input
-            id="nc-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t.placeholderCorreo}
-            // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
-            maxLength={150}
-            autoComplete="off"
-            className={CAMPO}
-          />
-        </Campo>
-      </section>
-
-      {/* #309: forma de pago, solo en factura. Al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
-      <section className="grid gap-3">
-        <div className="grid items-start gap-4 sm:grid-cols-2">
-          {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
-          <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
-            <SelectCampo
-              id="nc-operacion"
-              valor={operacion}
-              onCambio={cambiarOperacion}
-              opciones={GRUPOS_OPERACION.flatMap((g) =>
-                operaciones(messages)
-                  .filter((o) => o.grupo === g && (boleta || !o.soloBoleta))
-                  .map((o) => ({ value: o.codigo, label: `${o.codigo} · ${o.etiqueta}`, grupo: messages.documentos.grupoOperacion[g] })),
-              )}
-            />
-          </Campo>
-          {boleta ? null : (
-            <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
-              <SelectCampo
-                id="nc-forma-pago"
-                valor={alCredito ? "credito" : "contado"}
-                onCambio={(v) => setAlCredito(v === "credito")}
-                opciones={[
-                  { value: "contado", label: t.alContado },
-                  { value: "credito", label: t.alCredito },
-                ]}
-              />
-            </Campo>
-          )}
-        </div>
-        {exportacion ? (
-          <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
-            <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
-              <SelectCampo id="nc-incoterm" valor={incoterm} onCambio={setIncoterm} opciones={[{ value: "", label: t.sinIncoterm }, ...INCOTERMS.map((i) => ({ value: i, label: i }))]} />
-            </Campo>
-            {EXIGE_PAIS_DE_USO.has(operacion) ? (
-              <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
-                <Combobox
-                  id="nc-pais-uso"
-                  items={paises.filter((p) => p.codigo !== "PE").map((p) => ({ value: p.codigo, label: p.nombre }))}
-                  valor={paisDeUso}
-                  onCambio={(v) => setPaisDeUso(v ?? "")}
-                  placeholder={t.seleccione}
-                  vacio={messages.comun.sinResultados}
-                  etiquetaAbrir={messages.comun.abrirOpciones}
-                />
-              </Campo>
-            ) : null}
-          </div>
-        ) : null}
-        {/* #288: detracción, #297: percepción. Solo en una venta interna (factura o boleta); se excluyen entre sí porque cada una fija su tipo de operación. */}
-        {operacion !== "0101" ? null : (
-          <div className="grid gap-3">
-            <Casilla
-              id="nc-detraccion"
-              etiqueta={t.detraccionCheck}
-              checked={detraccion.activa}
-              onCheckedChange={(activa) => {
-                setDetraccion((d) => ({ ...d, activa, cuenta: d.cuenta || cuentaDetracciones || "" }));
-                if (activa) {
-                  setPercepcion((p) => ({ ...p, activa: false }));
-                  setRetencion((r) => ({ ...r, activa: false }));
-                }
-              }}
-            />
-            {detraccion.activa ? (
-              <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
-            ) : avisoDeDetraccion({ activa: false, moneda, total: mostrados.total, boleta }) ? (
-              <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
-                {t.avisoDetraccion}
-              </p>
-            ) : null}
-            {detraccion.activa ? null : (
-              <>
-                <Casilla
-                  id="nc-percepcion"
-                  etiqueta={t.percepcionCheck}
-                  checked={percepcion.activa}
-                  onCheckedChange={(activa) => {
-                    setPercepcion((p) => ({ ...p, activa }));
-                    if (activa) setRetencion((r) => ({ ...r, activa: false }));
-                  }}
-                />
-                {percepcion.activa ? (
-                  <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
-                ) : null}
-                {boleta || percepcion.activa ? null : (
-                  <>
-                    <Casilla id="nc-retencion" etiqueta={t.retencionCheck} checked={retencion.activa} onCheckedChange={(activa) => setRetencion((r) => ({ ...r, activa }))} />
-                    {retencion.activa ? <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} /> : null}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {errorExportacion ? (
-          <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
-            {errorExportacion}
-          </p>
-        ) : null}
-        {boleta || !alCredito ? null : <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} />}
       </section>
 
       <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
@@ -1061,34 +1112,139 @@ export function NuevoComprobanteForm({
         </div>
       </section>
 
-        {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== ""}>
-          <summary className="cursor-pointer text-control font-medium">{t.masOpciones}</summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
-              <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
-            </Campo>
-            <Campo id="nc-redondeo" etiqueta={t.redondeo} ayuda={redondeo.error ?? t.ayudaRedondeo}>
-              <input
-                id="nc-redondeo"
-                value={redondeoTexto}
-                onChange={(e) => setRedondeoTexto(e.target.value)}
-                inputMode="decimal"
-                placeholder="0.00"
-                aria-invalid={redondeo.error !== null}
-                className={cn(CAMPO, "font-mono tabular-nums")}
-              />
-            </Campo>
-            {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
-            <AjusteEditor id="nc-desc-global" etiqueta={t.descuentoGlobal} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
-            <AjusteEditor id="nc-cargo-global" etiqueta={t.cargoGlobal} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
-          </div>
-        </details>
+      {/* #557: lo poco frecuente, a pedido. Reemplaza a la forma de pago y al tipo de operación siempre visibles, a las casillas de detracción, percepción y
+          retención, al correo del cliente y a las tres secciones plegables. */}
+      <section className="grid gap-3 border-t border-border/60 pt-3">
+        <div className="flex flex-wrap items-center gap-2" data-testid="extras">
+          <span className={AYUDA_CAMPO}>{t.agregar}</span>
+          {EXTRAS.filter((e) => ofrecido[e]).map((e) => (
+            <Button
+              key={e}
+              ref={(b: HTMLButtonElement | null) => {
+                botonesExtra.current[e] = b;
+              }}
+              type="button"
+              variant={activo[e] ? "suave" : "outline"}
+              size="sm"
+              aria-pressed={activo[e]}
+              title={tituloExtra[e]}
+              onClick={() => (activo[e] ? quitar(e) : activar(e))}
+            >
+              {activo[e] ? <CheckIcon weight="bold" /> : <PlusIcon weight="bold" />}
+              {t.extras[e]}
+            </Button>
+          ))}
+        </div>
 
+        {/* El aviso de detracción ya no pide marcar una casilla: ofrece abrir su panel. */}
+        {ventaInterna && avisoDeDetraccion({ activa: detraccion.activa, moneda, total: mostrados.total, boleta }) ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
+              {t.avisoDetraccion}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => activar("detraccion")}>
+              <PlusIcon weight="bold" />
+              {t.activarDetraccion}
+            </Button>
+          </div>
+        ) : null}
+
+        {/* #309: al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
+        {visible("credito") ? (
+          <PanelExtra id="credito" titulo={tituloExtra.credito} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.credito })} onQuitar={() => quitarDesdeElPanel("credito")}>
+            <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} />
+          </PanelExtra>
+        ) : null}
+        {/* #288: detracción, #297: percepción, #313: retención. Solo en una venta interna; se excluyen entre sí porque cada una fija su tipo de operación. */}
+        {visible("detraccion") ? (
+          <PanelExtra id="detraccion" titulo={tituloExtra.detraccion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.detraccion })} onQuitar={() => quitarDesdeElPanel("detraccion")}>
+            <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
+          </PanelExtra>
+        ) : null}
+        {visible("percepcion") ? (
+          <PanelExtra id="percepcion" titulo={tituloExtra.percepcion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.percepcion })} onQuitar={() => quitarDesdeElPanel("percepcion")}>
+            <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
+          </PanelExtra>
+        ) : null}
+        {visible("retencion") ? (
+          <PanelExtra id="retencion" titulo={tituloExtra.retencion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.retencion })} onQuitar={() => quitarDesdeElPanel("retencion")}>
+            <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} />
+          </PanelExtra>
+        ) : null}
+        {/* #311: tipo de operación (catálogo 51): venta interna, exportación y las demás. Quitarlo vuelve a la venta interna (0101). */}
+        {visible("operacion") ? (
+          <PanelExtra id="operacion" titulo={tituloExtra.operacion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.operacion })} onQuitar={() => quitarDesdeElPanel("operacion")}>
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              <Campo id="nc-operacion" etiqueta={t.tipoOperacion} className="[&>label]:sr-only">
+                <SelectCampo
+                  id="nc-operacion"
+                  valor={operacion}
+                  // Volver a 0101 desde el panel no lo cierra bajo el puntero (abierto por una copia de exportación, su bandera seguía apagada).
+                  onCambio={(v) => {
+                    setOperacionAbierta(true);
+                    cambiarOperacion(v);
+                  }}
+                  opciones={GRUPOS_OPERACION.flatMap((g) =>
+                    operaciones(messages)
+                      .filter((o) => o.grupo === g && (boleta || !o.soloBoleta))
+                      .map((o) => ({ value: o.codigo, label: `${o.codigo} · ${o.etiqueta}`, grupo: messages.documentos.grupoOperacion[g] })),
+                  )}
+                />
+              </Campo>
+            </div>
+            {exportacion ? (
+              <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
+                <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
+                  <SelectCampo id="nc-incoterm" valor={incoterm} onCambio={setIncoterm} opciones={[{ value: "", label: t.sinIncoterm }, ...INCOTERMS.map((i) => ({ value: i, label: i }))]} />
+                </Campo>
+                {EXIGE_PAIS_DE_USO.has(operacion) ? (
+                  <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
+                    <Combobox
+                      id="nc-pais-uso"
+                      items={paises.filter((p) => p.codigo !== "PE").map((p) => ({ value: p.codigo, label: p.nombre }))}
+                      valor={paisDeUso}
+                      onCambio={(v) => setPaisDeUso(v ?? "")}
+                      placeholder={t.seleccione}
+                      vacio={messages.comun.sinResultados}
+                      etiquetaAbrir={messages.comun.abrirOpciones}
+                    />
+                  </Campo>
+                ) : null}
+              </div>
+            ) : null}
+            {errorExportacion ? (
+              <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
+                {errorExportacion}
+              </p>
+            ) : null}
+          </PanelExtra>
+        ) : null}
+        {/* #358, #310: vencimiento, redondeo, descuento y cargo globales (02/03 y 46 recargo al consumo, 49, 50). */}
+        {visible("masOpciones") ? (
+          <PanelExtra id="masOpciones" titulo={tituloExtra.masOpciones} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.masOpciones })} onQuitar={() => quitarDesdeElPanel("masOpciones")}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
+                <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
+              </Campo>
+              <Campo id="nc-redondeo" etiqueta={t.redondeo} ayuda={redondeo.error ?? t.ayudaRedondeo}>
+                <input
+                  id="nc-redondeo"
+                  value={redondeoTexto}
+                  onChange={(e) => setRedondeoTexto(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  aria-invalid={redondeo.error !== null}
+                  className={cn(CAMPO, "font-mono tabular-nums")}
+                />
+              </Campo>
+              <AjusteEditor id="nc-desc-global" etiqueta={t.descuentoGlobal} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
+              <AjusteEditor id="nc-cargo-global" etiqueta={t.cargoGlobal} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
+            </div>
+          </PanelExtra>
+        ) : null}
         {/* #312: anticipos. Una factura de anticipo es común; la final descuenta los del mismo cliente. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-control font-medium">{t.anticipos}</summary>
-          <div className="mt-3 grid gap-3">
+        {visible("anticipos") ? (
+          <PanelExtra id="anticipos" titulo={tituloExtra.anticipos} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.anticipos })} onQuitar={() => quitarDesdeElPanel("anticipos")}>
             <Casilla
               id="nc-es-anticipo"
               etiqueta={interpolar(t.esAnticipo, { nombre })}
@@ -1111,16 +1267,33 @@ export function NuevoComprobanteForm({
                 <AnticiposEditor disponibles={disponibles} elegidos={anticiposVigentes} onCambio={setAnticiposElegidos} moneda={moneda} hayCliente={documentoDelCliente !== ""} />
               </div>
             )}
-          </div>
-        </details>
-
-        {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={datosAbiertos} onToggle={(e) => setDatosAbiertos((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-control font-medium">{t.datosAdicionales}</summary>
-          <div className="mt-3">
+          </PanelExtra>
+        ) : null}
+        {/* #300: orden de compra, guías, documentos relacionados y observaciones. */}
+        {visible("referencias") ? (
+          <PanelExtra id="referencias" titulo={tituloExtra.referencias} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.referencias })} onQuitar={() => quitarDesdeElPanel("referencias")}>
             <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
-          </div>
-        </details>
+          </PanelExtra>
+        ) : null}
+        {/* #325: el correo del cliente viaja con el comprobante; con el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepta. */}
+        {visible("correo") ? (
+          <PanelExtra id="correo" titulo={tituloExtra.correo} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.correo })} onQuitar={() => quitarDesdeElPanel("correo")}>
+            <Campo id="nc-email" etiqueta={t.correo} opcional ayuda={t.ayudaCorreo} className="[&>label]:sr-only">
+              <input
+                id="nc-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t.placeholderCorreo}
+                // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
+                maxLength={150}
+                autoComplete="off"
+                className={CAMPO}
+              />
+            </Campo>
+          </PanelExtra>
+        ) : null}
+      </section>
 
         {incompatibilidad ? (
           <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="tributos-incompatibles">
@@ -1230,7 +1403,8 @@ export function NuevoComprobanteForm({
             textoPendiente={t.emitiendo}
             aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
           >
-            {interpolar(t.emitir, { nombre })}
+            {/* #557: dice qué emite y cuánto, con el total del pie. */}
+            {totalConocido ? interpolar(t.emitirConTotal, { nombre, total: formatearMonto(moneda, mostrados.total, locale) }) : interpolar(t.emitir, { nombre })}
           </BotonAsync>
         </div>
       </div>
