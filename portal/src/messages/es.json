@@ -4151,9 +4151,13 @@
     },
     "comprobantes": {
       "titulo": "Comprobantes electrónicos",
-      "descripcion": "Factura, notas de crédito y de débito, y comunicación de baja, todas emitiendo hoy. El resto del catálogo de SUNAT está en camino, y lo marcamos tal cual para que sepas con qué contar.",
+      "descripcion": "Factura, boleta, notas de crédito y de débito, resumen diario y comunicación de baja se emiten y se envían a SUNAT hoy. Lo que todavía tiene un límite lo decimos tal cual, para que sepas con qué contar.",
       "disponible": "Disponible",
-      "enConstruccion": "En construcción",
+      "piloto": "En piloto",
+      "notas": {
+        "guiaRemision": "Se emite y se firma; el envío a SUNAT está en piloto",
+        "retencionPercepcion": "Por la API, para agentes designados por SUNAT"
+      },
       "tipos": {
         "factura": "Factura electrónica",
         "boleta": "Boleta de venta",
