@@ -2844,6 +2844,22 @@ export const handlers = [
     return ok({ enviar_automaticamente: body.enviar_automaticamente, correo_disponible: true });
   }),
 
+  // Las preferencias de emisión, como `PreferenciasDeEmisionController`: apagadas por defecto; sin `opciones_avanzadas` booleano, 422 VALIDACION.
+  http.get(`${BASE}/v1/empresa/preferencias-emision`, ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    return ok({ opciones_avanzadas: db.opcionesAvanzadasPorEmpresa.has(empresa.id) });
+  }),
+  http.put(`${BASE}/v1/empresa/preferencias-emision`, async ({ request }) => {
+    const empresa = empresaDe(request);
+    if (!empresa) return fail(404, "NO_ENCONTRADO", "Empresa no encontrada");
+    const body = (await request.json().catch(() => ({}))) as { opciones_avanzadas?: unknown };
+    if (typeof body.opciones_avanzadas !== "boolean") return validacionFallida({ opcionesAvanzadas: ["no debe ser nulo"] });
+    if (body.opciones_avanzadas) db.opcionesAvanzadasPorEmpresa.add(empresa.id);
+    else db.opcionesAvanzadasPorEmpresa.delete(empresa.id);
+    return ok({ opciones_avanzadas: body.opciones_avanzadas });
+  }),
+
   // Personalización del PDF: se guarda en la empresa; la vista previa devuelve un PDF mínimo con los parámetros en un comentario.
   http.get(`${BASE}/v1/empresa/personalizacion-pdf`, ({ request }) => {
     const empresa = empresaDe(request);

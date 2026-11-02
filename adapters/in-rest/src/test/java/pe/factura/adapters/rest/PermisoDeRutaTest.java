@@ -67,6 +67,8 @@ class PermisoDeRutaTest {
             // #318: las credenciales API SUNAT son como las SOL; #325: el envío automático al cliente es una preferencia de la empresa (se mira, la cambia el administrador).
             entry("PUT /v1/empresa/credenciales-api-sunat", CONFIGURAR), entry("DELETE /v1/empresa/credenciales-api-sunat", CONFIGURAR),
             entry("GET /v1/empresa/envio-al-cliente", LEER), entry("PUT /v1/empresa/envio-al-cliente", CONFIGURAR),
+            // Las preferencias de emisión del portal (las opciones avanzadas del modal): se miran (el modal las lee para todos), las cambia el administrador.
+            entry("GET /v1/empresa/preferencias-emision", LEER), entry("PUT /v1/empresa/preferencias-emision", CONFIGURAR),
             // Webhooks: mirarlos es de todos; cambiarlos, configuración.
             entry("GET /v1/webhooks", LEER), entry("GET /v1/webhooks/eventos", LEER), entry("GET /v1/webhooks/x/entregas", LEER),
             entry("POST /v1/webhooks", CONFIGURAR), entry("PATCH /v1/webhooks/x", CONFIGURAR), entry("DELETE /v1/webhooks/x", CONFIGURAR),

@@ -3365,6 +3365,13 @@
         "desactivado": "Off",
         "errorTitulo": "The preference could not be loaded",
         "errorTexto": "Try again in a few minutes."
+      },
+      "emision": {
+        "titulo": "Issuing options",
+        "activadas": "Advanced",
+        "desactivadas": "Simple",
+        "errorTitulo": "The preference could not be loaded",
+        "errorTexto": "Try again in a few minutes."
       }
     },
     "secciones": {
@@ -3374,6 +3381,7 @@
         "sol": "SOL credentials",
         "pdf": "PDF",
         "correo": "Customer delivery",
+        "emision": "Issuing",
         "empresas": "Companies"
       },
       "pendiente": ", pending"
@@ -3444,6 +3452,14 @@
       "casillaAyuda": "They receive the PDF, the signed XML and the SUNAT receipt (CDR) at the email you enter when issuing. A credit or debit note goes to the email of the document it modifies, and a receipt reported in the daily summary goes out when SUNAT accepts the summary. It applies to what is accepted from now on; when you turn it off, anything waiting to go out is no longer sent.",
       "activado": "Automatic delivery turned on.",
       "desactivado": "Automatic delivery turned off.",
+      "guardar": "Save preference"
+    },
+    "preferenciasEmision": {
+      "interruptor": "Show advanced options when issuing",
+      "interruptorAyuda": "Adds the operation type and export, advance payments, perception, withholding, «More options» and references to the issuing form. Off, the form stays simpler. Credit, detraction and the customer's email are always there.",
+      "soloAdmin": "Only an administrator can change it.",
+      "activadas": "Advanced options turned on.",
+      "desactivadas": "Advanced options turned off.",
       "guardar": "Save preference"
     },
     "nueva": {
