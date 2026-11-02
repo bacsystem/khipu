@@ -34,7 +34,7 @@ export function PercepcionEditor({
   const error = errorDePercepcion(valor, { moneda, alCredito }, messages);
   const set = (cambio: Partial<PercepcionForm>) => onCambio({ ...valor, ...cambio });
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="percepcion-form">
+    <div className="grid gap-3" data-testid="percepcion-form">
       <div className="grid items-start gap-4 sm:grid-cols-[1fr_180px]">
         <Campo id="nc-per-regimen" etiqueta={t.percepcion.regimen} ayuda={t.percepcion.regimenAyuda}>
           <SelectCampo

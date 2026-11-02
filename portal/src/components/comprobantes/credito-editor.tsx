@@ -41,7 +41,7 @@ export function CreditoEditor({
   const suma = sumaDeCuotas(credito.cuotas);
   const poner = (i: number, cambio: Partial<CreditoForm["cuotas"][number]>) => onCambio({ ...credito, cuotas: credito.cuotas.map((q, j) => (j === i ? { ...q, ...cambio } : q)) });
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="credito">
+    <div className="grid gap-3" data-testid="credito">
       <div className="grid items-start gap-3 sm:grid-cols-[200px_1fr]">
         <Campo id="nc-neto-pendiente" etiqueta={t.netoPendiente} ayuda={interpolar(t.netoPendienteAyuda, { total: formatearMonto(moneda, neto, locale) })}>
           <input
