@@ -1,17 +1,17 @@
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # khipu-design-system es una dependencia de GitHub por tag: npm baja su tarball por HTTPS (sin `git`, que esta imagen no
 # trae), instala sus devDependencies y corre su `prepare`, que compila `dist/`. Probado con `docker build` (#16).
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN mkdir -p public && npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 # Railway (y cualquier PaaS) inyecta PORT; el server de Next standalone lo respeta. HOSTNAME explícito para escuchar en todas
