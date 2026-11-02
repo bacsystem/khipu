@@ -4,6 +4,7 @@ import { ArrowUUpLeftIcon, EyeIcon, FloppyDiskIcon } from "@phosphor-icons/react
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AreaTexto } from "khipu-design-system/formularios/campo";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { PlantillaDeCorreo, TextoDeCorreo } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
@@ -157,7 +158,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
             <label htmlFor="plantilla-cuerpo" className={ETIQUETA_CAMPO}>
               {t.cuerpo}
             </label>
-            <textarea
+            <AreaTexto
               ref={cuerpoRef}
               id="plantilla-cuerpo"
               data-testid="plantilla-cuerpo"
@@ -169,7 +170,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                 setCuerpo(e.target.value);
                 editado();
               }}
-              className={cn(CAMPO, "h-auto min-h-48 py-2 font-mono leading-relaxed")}
+              className="min-h-48 font-mono"
             />
           </div>
         </div>

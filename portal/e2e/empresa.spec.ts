@@ -51,10 +51,11 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
 test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla y guarda", async ({ page }) => {
   await page.goto("/empresa?seccion=pdf");
   const panel = page.getByTestId("personalizacion-pdf");
-  await expect(panel.getByTestId("plantilla-clasico")).toHaveAttribute("aria-checked", "true");
+  // Las plantillas son el `GrupoOpciones` del design system en tarjetas: un `role="radio"` por plantilla, con su nombre y su descripción.
+  await expect(panel.getByRole("radio", { name: /^Clásico/ })).toBeChecked();
 
-  await panel.getByTestId("plantilla-corporativo").click();
-  await expect(panel.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await panel.getByRole("radio", { name: /^Corporativo/ }).check();
+  await expect(panel.getByRole("radio", { name: /^Corporativo/ })).toBeChecked();
   await panel.getByLabel("Color primario en hexadecimal").fill("#C8552B");
   await panel.getByLabel("Pie de página").fill("Gracias por su preferencia");
   // Los textos llegan a la vista previa con retardo (un PDF por cambio, no por tecla).
@@ -67,7 +68,7 @@ test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla 
   await panel.getByRole("button", { name: "Guardar diseño" }).click();
   await expect(panel.getByTestId("diseno-guardado")).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("personalizacion-pdf").getByRole("radio", { name: /^Corporativo/ })).toBeChecked();
   await expect(page.getByLabel("Pie de página")).toHaveValue("Gracias por su preferencia");
 });
 

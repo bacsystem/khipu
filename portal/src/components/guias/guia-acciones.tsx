@@ -4,6 +4,7 @@ import { ArrowClockwiseIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
@@ -90,10 +91,7 @@ export function GuiaAcciones({ guia }: { guia: Guia }) {
       {retomable ? (
         <div className="flex max-w-md flex-col items-end gap-2 text-right">
           <p className={AYUDA_CAMPO}>{t.retomarAyuda}</p>
-          <label className="flex items-center gap-2 text-control text-foreground">
-            <input type="checkbox" checked={reviseEnSol} onChange={(e) => setReviseEnSol(e.target.checked)} className="size-3.5 accent-primary" />
-            {t.retomarConfirmacion}
-          </label>
+          <Casilla id={`guia-revise-en-sol-${guia.id}`} etiqueta={t.retomarConfirmacion} checked={reviseEnSol} onCheckedChange={setReviseEnSol} />
           <button
             type="button"
             onClick={() => ejecutar("retomar")}

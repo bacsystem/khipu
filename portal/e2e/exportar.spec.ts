@@ -15,7 +15,7 @@ test("exporta a CSV los comprobantes de la lista con sus filtros", async ({ page
   await page.goto("/comprobantes?tipo=01");
   await page.getByRole("button", { name: "Exportar" }).click();
   const panel = page.getByTestId("exportar-comprobantes");
-  await panel.getByLabel(/CSV/).check();
+  await panel.getByRole("radio", { name: /CSV/ }).check();
 
   const peticion = page.waitForRequest((r) => r.url().includes("/api/proxy/facturas/exportacion"));
   const descarga = page.waitForEvent("download");

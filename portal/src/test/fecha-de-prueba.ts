@@ -19,7 +19,10 @@ export async function abrirCalendario(etiqueta: string | RegExp): Promise<void> 
 
 /** Cierra el calendario abierto (Escape), para no dejar un popover colgado entre dos comprobaciones. */
 export async function cerrarCalendario(): Promise<void> {
-  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  // El Escape sale del calendario mismo: si el foco todavía no entró al popover (pasa en una corrida cargada), el Escape desde afuera cerraba el diálogo que contiene la fecha.
+  const calendario = screen.queryByRole("grid");
+  const dentro = calendario && document.activeElement && calendario.contains(document.activeElement) ? document.activeElement : calendario;
+  fireEvent.keyDown(dentro ?? document.activeElement ?? document.body, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("grid")).toBeNull());
 }
 

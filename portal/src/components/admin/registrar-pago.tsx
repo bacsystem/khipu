@@ -4,13 +4,16 @@ import { MoneyIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -145,30 +148,30 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
         <div className="grid gap-4 px-5 py-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo id="registrar-pago-desde" etiqueta={t.desde} error={errores.desde}>
-              <input
+              <EntradaFecha
                 id="registrar-pago-desde"
-                type="date"
-                value={desde}
-                onChange={(e) => {
-                  setDesde(e.target.value);
+                valor={desde}
+                onCambio={(v) => {
+                  setDesde(v);
                   limpiar("desde");
                   limpiar("hasta");
                 }}
-                aria-invalid={errores.desde ? true : undefined}
-                className={CAMPO}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.desde)}
+                describidoPor={errores.desde ? "registrar-pago-desde-error" : undefined}
               />
             </Campo>
             <Campo id="registrar-pago-hasta" etiqueta={t.hasta} error={errores.hasta}>
-              <input
+              <EntradaFecha
                 id="registrar-pago-hasta"
-                type="date"
-                value={hasta}
-                onChange={(e) => {
-                  setHasta(e.target.value);
+                valor={hasta}
+                onCambio={(v) => {
+                  setHasta(v);
                   limpiar("hasta");
                 }}
-                aria-invalid={errores.hasta ? true : undefined}
-                className={CAMPO}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.hasta)}
+                describidoPor={errores.hasta ? "registrar-pago-hasta-error" : undefined}
               />
             </Campo>
           </div>
@@ -198,7 +201,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("medio");
                 }}
                 aria-invalid={errores.medio ? true : undefined}
-                className={CAMPO}
+                className={cn(SELECT_NATIVO, "w-full")}
               >
                 <option value="">{t.elegirMedio}</option>
                 {MEDIOS_DE_PAGO.map((m) => (
@@ -212,17 +215,17 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo id="registrar-pago-fecha" etiqueta={t.fecha} error={errores.fecha}>
-              <input
+              <EntradaFecha
                 id="registrar-pago-fecha"
-                type="date"
-                value={fecha}
+                valor={fecha}
                 max={hoy}
-                onChange={(e) => {
-                  setFecha(e.target.value);
+                onCambio={(v) => {
+                  setFecha(v);
                   limpiar("fecha");
                 }}
-                aria-invalid={errores.fecha ? true : undefined}
-                className={CAMPO}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.fecha)}
+                describidoPor={errores.fecha ? "registrar-pago-fecha-error" : undefined}
               />
             </Campo>
             <Campo id="registrar-pago-referencia" etiqueta={t.referencia} error={errores.referencia} ayuda={t.referenciaAyuda}>
@@ -255,18 +258,8 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
           </Campo>
 
           <div className="grid gap-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
-            <label className="flex items-start gap-2 text-control font-medium text-foreground">
-              <input
-                type="checkbox"
-                data-testid="registrar-pago-extender"
-                checked={marcada}
-                disabled={!puedeExtender}
-                onChange={(e) => setExtenderElegido(e.target.checked)}
-                className="mt-0.5 size-4"
-              />
-              <span>{t.extender}</span>
-            </label>
-            <p data-testid="registrar-pago-extender-nota" className="pl-6 text-control text-muted-foreground">
+            <Casilla id="registrar-pago-extender" etiqueta={t.extender} checked={marcada} disabled={!puedeExtender} onCheckedChange={setExtenderElegido} />
+            <p data-testid="registrar-pago-extender-nota" className="pl-7 text-control text-muted-foreground">
               {notaDeExtension}
             </p>
           </div>
@@ -300,7 +293,7 @@ function Campo({ id, etiqueta, error, ayuda, children }: { id: string; etiqueta:
         {etiqueta}
       </label>
       {children}
-      {error ? <span className="text-control text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
+      {error ? <span id={`${id}-error`} className="text-control text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { listarPaises } from "@/lib/comprobantes/paises";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
@@ -72,7 +72,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
               setTipoDoc(e.target.value);
               setNumDoc("");
             }}
-            className={CAMPO}
+            className={cn(SELECT_NATIVO, "w-full")}
           >
             {DOCUMENTOS_DE_CLIENTE.map((d) => (
               <option key={d.codigo} value={d.codigo}>
@@ -101,7 +101,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
         <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO} />
       </Campo>
       <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
-        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO}>
+        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
           <option value="">{t.sinPais}</option>
           {paises.map((p) => (
             <option key={p.codigo} value={p.codigo}>

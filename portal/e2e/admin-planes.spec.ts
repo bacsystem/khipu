@@ -136,7 +136,7 @@ test("un límite marcado como ilimitado se guarda sin tope y se lee «Ilimitados
   try {
     await page.getByTestId("plan-nuevo").click();
     await llenarFormulario(page, { nombre, precio: "0", documentos: "", rucs: "1", usuarios: "1", keys: "1", retencion: "1" });
-    await page.getByLabel("Ilimitado").first().check();
+    await page.getByRole("checkbox", { name: "Ilimitado" }).first().check();
 
     await page.getByTestId("plan-guardar").click();
 

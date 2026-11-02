@@ -12,7 +12,9 @@
     "cargando": "Loading…",
     "guardar": "Save",
     "cancelar": "Cancel",
-    "cerrarSesion": "Sign out"
+    "cerrarSesion": "Sign out",
+    "elegirFecha": "Pick a date",
+    "quitarFecha": "Clear the date"
   },
   "referenciaTecnica": {
     "abrir": "Technical reference",
@@ -3367,7 +3369,6 @@
       "seleccionaArchivo": "Select your certificate’s .p12 file",
       "reemplazar": "Replace or renew certificate",
       "cargar": "Upload certificate",
-      "listoParaSubir": "{tamano} · ready to upload",
       "quitarArchivo": "Remove file",
       "arrastra": "Drag your .p12 or .pfx file here",
       "examinar": "or click to browse your computer",

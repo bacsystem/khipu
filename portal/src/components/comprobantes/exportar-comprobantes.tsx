@@ -3,10 +3,11 @@
 import { FileXlsIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
+import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
-import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
+import { CONTROL_FILTRO, SELECT_NATIVO, TARJETA } from "@/lib/estilos";
 import { usePanelDesplegable } from "@/lib/panel-desplegable";
 import { cn } from "@/lib/utils";
 
@@ -95,20 +96,17 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
           <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
           <fieldset className="grid gap-1.5">
             <legend className="mb-1 text-control font-medium">{t.formato}</legend>
-            {FORMATOS.map((f) => (
-              <label key={f} className="flex items-start gap-2 text-control">
-                <input type="radio" name="formato-exportacion" checked={formato === f} onChange={() => setFormato(f)} className="mt-0.5 size-3.5 accent-primary" />
-                <span>
-                  {t.formatos[f].etiqueta}
-                  <span className="block text-etiqueta text-muted-foreground">{t.formatos[f].ayuda}</span>
-                </span>
-              </label>
-            ))}
+            <GrupoOpciones<FormatoDeExportacion>
+              nombre="formato-exportacion"
+              opciones={FORMATOS.map((f) => ({ valor: f, etiqueta: t.formatos[f].etiqueta, descripcion: t.formatos[f].ayuda }))}
+              valor={formato}
+              onCambio={setFormato}
+            />
           </fieldset>
           {formato === "csv" ? (
             <label className="grid gap-1 text-control font-medium">
               {t.separador}
-              <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(CONTROL_FILTRO, "px-2 font-normal")}>
+              <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(SELECT_NATIVO, "w-full font-normal")}>
                 <option value="coma">{t.coma}</option>
                 <option value="punto_y_coma">{t.puntoYComa}</option>
               </select>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, ProhibitIcon, UsersIcon, WarningIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, ProhibitIcon, UsersIcon, WarningIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
@@ -10,7 +10,7 @@ import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionAlEquipo, type InvitacionEnviada, type MiembroDelEquipo, type Rol } from "@/lib/api/equipo";
-import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CABECERA_TABLA, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -106,14 +106,14 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
         </div>
       </TableCell>
       <TableCell className="px-3 py-2">
-        <div className="relative w-40">
+        <div className="w-40">
           <select
             aria-label={t.cambiarRol.replace("{email}", m.email)}
             value={m.rol}
             disabled={bloqueado}
             title={sinPermiso ?? undefined}
             onChange={(e) => cambiarRol(e.target.value as Rol)}
-            className={cn(CONTROL_FILTRO, "w-full appearance-none pr-8 pl-3 disabled:cursor-not-allowed disabled:opacity-60")}
+            className={cn(SELECT_NATIVO, "w-full")}
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -121,7 +121,6 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
               </option>
             ))}
           </select>
-          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
         </div>
       </TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">

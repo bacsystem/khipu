@@ -17,7 +17,8 @@ import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dia
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, SELECT_NATIVO } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import type { Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -245,7 +246,7 @@ export function AltaAsistidaForm({
           <CampoDeTexto id="alta-ruc" etiqueta={t.ruc} inputMode="numeric" maxLength={11} filtrar={soloDigitos} mono registro={register("ruc")} error={errors.ruc?.message} />
           <CampoDeTexto id="alta-razon-social" etiqueta={t.razonSocial} registro={register("razon_social")} error={errors.razon_social?.message} />
           <Campo id="alta-entorno" etiqueta={t.entorno}>
-            <select id="alta-entorno" {...register("entorno")} className={CAMPO}>
+            <select id="alta-entorno" {...register("entorno")} className={cn(SELECT_NATIVO, "w-full")}>
               <option value="BETA">{t.entornoBeta}</option>
               <option value="PRODUCCION">{t.entornoProduccion}</option>
             </select>
@@ -255,7 +256,7 @@ export function AltaAsistidaForm({
         <fieldset hidden={paso !== 2} className="grid gap-4">
           <legend className="sr-only">{t.seccionSerie}</legend>
           <Campo id="alta-tipo" etiqueta={t.tipo}>
-            <select id="alta-tipo" {...register("tipo", { onChange: cambiarTipo })} className={CAMPO}>
+            <select id="alta-tipo" {...register("tipo", { onChange: cambiarTipo })} className={cn(SELECT_NATIVO, "w-full")}>
               <option value="01">{t.tipoFactura}</option>
               <option value="03">{t.tipoBoleta}</option>
             </select>

@@ -4,13 +4,15 @@ import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -135,7 +137,7 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
               value={planId}
               onChange={(e) => void elegir(e.target.value)}
               aria-invalid={errores.planId ? true : undefined}
-              className={CAMPO}
+              className={cn(SELECT_NATIVO, "w-full")}
             >
               <option value="">{t.elegir}</option>
               {planes.map((p) => (
@@ -155,19 +157,21 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
               <label htmlFor="cambiar-plan-hasta" className={ETIQUETA_CAMPO}>
                 {t.pagadoHasta}
               </label>
-              <input
+              <EntradaFecha
                 id="cambiar-plan-hasta"
-                type="date"
-                value={pagadoHasta}
+                valor={pagadoHasta}
                 min={hoy}
-                onChange={(e) => {
-                  setPagadoHasta(e.target.value);
+                onCambio={(v) => {
+                  setPagadoHasta(v);
                   setErrores((x) => ({ ...x, pagadoHasta: undefined }));
                 }}
-                aria-invalid={errores.pagadoHasta ? true : undefined}
-                className={CAMPO}
+                limpiable
+                etiquetaLimpiar={messages.comun.quitarFecha}
+                placeholder={messages.comun.elegirFecha}
+                invalido={Boolean(errores.pagadoHasta)}
+                describidoPor={errores.pagadoHasta ? "cambiar-plan-hasta-error" : undefined}
               />
-              {errores.pagadoHasta ? <span className="text-control text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
+              {errores.pagadoHasta ? <span id="cambiar-plan-hasta-error" className="text-control text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="cambiar-plan-gracia" className={ETIQUETA_CAMPO}>

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
 import { RegistrarPago } from "./registrar-pago";
 
 const refresh = vi.fn();
@@ -40,41 +41,46 @@ function abrir(plan: PlanDeCuentaAdmin | null = EMPRENDE) {
 
 const campo = (etiqueta: string | RegExp) => screen.getByLabelText(etiqueta) as HTMLInputElement | HTMLSelectElement;
 const escribir = (etiqueta: string | RegExp, valor: string) => fireEvent.change(campo(etiqueta), { target: { value: valor } });
-const extender = () => screen.getByTestId("registrar-pago-extender") as HTMLInputElement;
+/** La casilla del design system (base-ui): un `role="checkbox"` con `aria-checked` y `aria-disabled`, no un `<input>`. */
+const casillaExtender = () => screen.getByRole("checkbox", { name: "Extender el vencimiento del plan hasta el final del periodo" });
+const extender = () => {
+  const c = casillaExtender();
+  return { checked: c.getAttribute("aria-checked") === "true", disabled: c.getAttribute("aria-disabled") === "true" };
+};
 const nota = () => screen.getByTestId("registrar-pago-extender-nota").textContent;
 
 /** Lo mínimo para un pago válido de octubre; `hasta` es el último día que cubre. */
-function llenar(hasta = "2026-11-20") {
-  escribir("Periodo hasta (inclusive)", hasta);
+async function llenar(hasta = "2026-11-20") {
+  await elegirFecha("Periodo hasta (inclusive)", hasta);
   escribir("Monto (S/)", "29.00");
   escribir("Medio de pago", "YAPE");
 }
 
 describe("RegistrarPago", () => {
-  it("el botón abre el modal con el nombre de la cuenta y la fecha de pago de hoy", () => {
+  it("el botón abre el modal con el nombre de la cuenta y la fecha de pago de hoy", async () => {
     abrir();
 
     expect(screen.getByTestId("registrar-pago-dialogo")).toBeTruthy();
     expect(screen.getByText("Registrar un pago de Mi negocio")).toBeTruthy();
-    expect(campo("Fecha de pago").value).toBe(HOY);
+    expect(await fechaElegida("Fecha de pago")).toBe(HOY);
   });
 
-  it("el periodo sugerido empieza el día siguiente a donde está pagada la cuenta", () => {
+  it("el periodo sugerido empieza el día siguiente a donde está pagada la cuenta", async () => {
     abrir(EMPRENDE);
 
-    expect(campo("Periodo desde").value).toBe("2026-10-21");
+    expect(await fechaElegida("Periodo desde")).toBe("2026-10-21");
   });
 
-  it("si la cuenta ya está vencida o no vence, el periodo sugerido empieza hoy", () => {
+  it("si la cuenta ya está vencida o no vence, el periodo sugerido empieza hoy", async () => {
     abrir({ ...EMPRENDE, vence_en: "2026-10-01T05:00:00Z" });
-    expect(campo("Periodo desde").value).toBe(HOY);
+    expect(await fechaElegida("Periodo desde")).toBe(HOY);
     cleanup();
 
     abrir(GRATIS);
-    expect(campo("Periodo desde").value).toBe(HOY);
+    expect(await fechaElegida("Periodo desde")).toBe(HOY);
   });
 
-  it("ofrece los siete medios de pago", () => {
+  it("ofrece los siete medios de pago", async () => {
     abrir();
 
     const opciones = [...(campo("Medio de pago") as HTMLSelectElement).options].map((o) => o.textContent);
@@ -83,10 +89,10 @@ describe("RegistrarPago", () => {
 
   // --- extender el vencimiento ------------------------------------------------------------------------------------------------------------
 
-  it("si el periodo adelanta el vencimiento, la casilla viene marcada y dice de qué día a qué día se mueve", () => {
+  it("si el periodo adelanta el vencimiento, la casilla viene marcada y dice de qué día a qué día se mueve", async () => {
     abrir();
 
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
 
     expect(extender().checked).toBe(true);
     expect(extender().disabled).toBe(false);
@@ -97,63 +103,63 @@ describe("RegistrarPago", () => {
    * H6: antes aparecía vacía y se marcaba sola al elegir el fin del periodo; quien la veía vacía y hacía clic para marcarla la apagaba, y el pago quedaba sin
    * extender. Ahora se ve marcada desde el principio, deshabilitada mientras no haya periodo, y elegirlo no la cambia.
    */
-  it("sin el fin del periodo la casilla ya se ve marcada, esperando, y elegirlo no la cambia (H6)", () => {
+  it("sin el fin del periodo la casilla ya se ve marcada, esperando, y elegirlo no la cambia (H6)", async () => {
     abrir();
 
     expect(extender().checked).toBe(true);
     expect(extender().disabled).toBe(true);
     expect(nota()).toBe("Elige el fin del periodo para ver el nuevo vencimiento.");
 
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
     expect(extender().checked).toBe(true);
     expect(extender().disabled).toBe(false);
   });
 
-  it("un periodo que no adelanta el vencimiento deshabilita la casilla y lo explica, el mismo día incluido", () => {
+  it("un periodo que no adelanta el vencimiento deshabilita la casilla y lo explica, el mismo día incluido", async () => {
     abrir();
 
-    escribir("Periodo hasta (inclusive)", "2026-10-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-10-20");
 
     expect(extender().checked).toBe(false);
     expect(extender().disabled).toBe(true);
     expect(nota()).toBe("La cuenta ya está pagada hasta el 20 Oct 2026: este periodo no adelanta el vencimiento.");
   });
 
-  it("un día más que el actual ya adelanta el vencimiento", () => {
+  it("un día más que el actual ya adelanta el vencimiento", async () => {
     abrir();
 
-    escribir("Periodo hasta (inclusive)", "2026-10-21");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-10-21");
 
     expect(extender().disabled).toBe(false);
     expect(extender().checked).toBe(true);
   });
 
-  it("un plan que no vence no se puede extender", () => {
+  it("un plan que no vence no se puede extender", async () => {
     abrir(GRATIS);
 
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
 
     expect(extender().checked).toBe(false);
     expect(extender().disabled).toBe(true);
     expect(nota()).toBe("El plan de esta cuenta no vence: no hay vencimiento que extender.");
   });
 
-  it("si no se pudo cargar el plan, no se ofrece extender y se dice por qué", () => {
+  it("si no se pudo cargar el plan, no se ofrece extender y se dice por qué", async () => {
     abrir(null);
 
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
 
     expect(extender().disabled).toBe(true);
     expect(nota()).toBe("No se pudo cargar el plan de la cuenta, así que desde acá no se puede extender el vencimiento.");
   });
 
-  it("el administrador puede desmarcar la extensión y la elección se respeta al cambiar el periodo", () => {
+  it("el administrador puede desmarcar la extensión y la elección se respeta al cambiar el periodo", async () => {
     abrir();
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
 
-    fireEvent.click(extender());
+    fireEvent.click(casillaExtender());
     expect(extender().checked).toBe(false);
-    escribir("Periodo hasta (inclusive)", "2026-12-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-12-20");
 
     expect(extender().checked).toBe(false);
     expect(extender().disabled).toBe(false);
@@ -164,8 +170,8 @@ describe("RegistrarPago", () => {
   it("confirmar manda el pago completo, con la extensión marcada, y luego cierra y recarga la página", async () => {
     apiRequest.mockResolvedValue(exito());
     abrir();
-    llenar("2026-11-20");
-    escribir("Fecha de pago", "2026-10-14");
+    await llenar("2026-11-20");
+    await elegirFecha("Fecha de pago", "2026-10-14");
     escribir("Referencia", "  OP-123  ");
     escribir("Nota", "Pagó por Yape");
 
@@ -182,8 +188,8 @@ describe("RegistrarPago", () => {
   it("sin referencia ni nota no las manda, y con la extensión desmarcada manda false", async () => {
     apiRequest.mockResolvedValue(exito());
     abrir();
-    llenar("2026-11-20");
-    fireEvent.click(extender());
+    await llenar("2026-11-20");
+    fireEvent.click(casillaExtender());
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -197,7 +203,7 @@ describe("RegistrarPago", () => {
   it("un pago de una cuenta sin vencimiento se manda sin extender", async () => {
     apiRequest.mockResolvedValue(exito());
     abrir(GRATIS);
-    llenar("2026-11-20");
+    await llenar("2026-11-20");
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -205,20 +211,21 @@ describe("RegistrarPago", () => {
     expect(apiRequest.mock.calls[0][1].body.extender_vencimiento).toBe(false);
   });
 
-  it("confirmar con el formulario vacío muestra los errores, no llama al backend y los quita al corregir cada campo", () => {
+  // El inicio del periodo viene sugerido y el calendario no lo deja en blanco: «Indica desde cuándo» lo prueba `pago-formulario.test.ts`.
+  it("confirmar con el formulario vacío muestra los errores, no llama al backend y los quita al corregir cada campo", async () => {
     abrir();
-    escribir("Periodo desde", "");
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
     expect(apiRequest).not.toHaveBeenCalled();
-    expect(screen.getByText("Indica desde cuándo cubre el pago.")).toBeTruthy();
     expect(screen.getByText("Indica hasta cuándo cubre el pago.")).toBeTruthy();
+    // La fecha del design system se marca como el input nativo: inválida y descrita por su error.
+    expect(campo("Periodo hasta (inclusive)").getAttribute("aria-invalid")).toBe("true");
+    expect(campo("Periodo hasta (inclusive)").getAttribute("aria-describedby")).toBe("registrar-pago-hasta-error");
     expect(screen.getByText("Escribe el monto.")).toBeTruthy();
     expect(screen.getByText("Elige el medio de pago.")).toBeTruthy();
 
-    escribir("Periodo desde", "2026-10-21");
-    escribir("Periodo hasta (inclusive)", "2026-11-20");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
     escribir("Monto (S/)", "29");
     escribir("Medio de pago", "YAPE");
     expect(screen.queryByText("Indica desde cuándo cubre el pago.")).toBeNull();
@@ -227,27 +234,24 @@ describe("RegistrarPago", () => {
     expect(screen.queryByText("Elige el medio de pago.")).toBeNull();
   });
 
-  it("una fecha de pago futura se rechaza antes de enviar", () => {
+  // El calendario no ofrece un día futuro; la regla («no puede ser futura») la prueba `pago-formulario.test.ts`.
+  it("una fecha de pago futura no se puede elegir: hoy sí", async () => {
     abrir();
-    llenar();
-    escribir("Fecha de pago", "2026-10-16");
 
-    fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
-
-    expect(apiRequest).not.toHaveBeenCalled();
-    expect(screen.getByText("La fecha de pago no puede ser futura.")).toBeTruthy();
+    expect(await fechaEsElegible("Fecha de pago", "2026-10-16")).toBe(false);
+    expect(await fechaEsElegible("Fecha de pago", HOY)).toBe(true);
   });
 
-  it("corregir el fin del periodo quita el error del periodo y el de la extensión", () => {
+  it("corregir el fin del periodo quita el error del periodo y el de la extensión", async () => {
     abrir();
-    escribir("Periodo desde", "2026-11-01");
-    escribir("Periodo hasta (inclusive)", "2026-10-01");
+    await elegirFecha("Periodo desde", "2026-11-01");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-10-01");
     escribir("Monto (S/)", "29");
     escribir("Medio de pago", "YAPE");
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
     expect(screen.getByText("El periodo no puede terminar antes de empezar.")).toBeTruthy();
 
-    escribir("Periodo hasta (inclusive)", "2026-11-30");
+    await elegirFecha("Periodo hasta (inclusive)", "2026-11-30");
 
     expect(screen.queryByText("El periodo no puede terminar antes de empezar.")).toBeNull();
   });
@@ -257,7 +261,7 @@ describe("RegistrarPago", () => {
     let terminar!: (r: ApiEnvelope<unknown>) => void;
     apiRequest.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
     abrir();
-    llenar();
+    await llenar();
     const boton = screen.getByTestId("registrar-pago-confirmar");
 
     await act(async () => {
@@ -274,7 +278,7 @@ describe("RegistrarPago", () => {
     let terminar!: (r: ApiEnvelope<unknown>) => void;
     apiRequest.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
     abrir();
-    llenar();
+    await llenar();
 
     await act(async () => fireEvent.click(screen.getByTestId("registrar-pago-confirmar")));
 
@@ -288,7 +292,7 @@ describe("RegistrarPago", () => {
     let terminar!: (r: ApiEnvelope<unknown>) => void;
     apiRequest.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
     abrir();
-    llenar();
+    await llenar();
 
     await act(async () => fireEvent.click(screen.getByTestId("registrar-pago-confirmar")));
     await act(async () => {
@@ -314,7 +318,7 @@ describe("RegistrarPago", () => {
   it("un pago repetido muestra el motivo, no cierra y no recarga", async () => {
     apiRequest.mockResolvedValue(error("PAGO_DUPLICADO", "Esa cuenta ya tiene un pago por Yape con la referencia «OP-1»"));
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -326,7 +330,7 @@ describe("RegistrarPago", () => {
   it("si otro administrador movió el vencimiento, lo dice y recarga la página para ver lo real", async () => {
     apiRequest.mockResolvedValue(error("CAMBIO_CONCURRENTE", "Otro administrador movió el vencimiento de la cuenta mientras tanto: vuelve a mirarla"));
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -338,7 +342,7 @@ describe("RegistrarPago", () => {
   it("si la cuenta ya no existe, recarga la página", async () => {
     apiRequest.mockResolvedValue(error("NO_ENCONTRADO", "La cuenta no existe"));
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -349,7 +353,7 @@ describe("RegistrarPago", () => {
   it("un rechazo de validación del backend no recarga la página", async () => {
     apiRequest.mockResolvedValue(error("MONTO_INVALIDO", "El monto debe ser mayor que cero"));
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -361,7 +365,7 @@ describe("RegistrarPago", () => {
   it("un corte de red no reintenta y manda a recargar para ver si quedó registrado", async () => {
     apiRequest.mockResolvedValue({ estado: "error", datos: null, mensaje: "Se cortó la conexión.", codigo: "RED", errores: null });
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -373,7 +377,7 @@ describe("RegistrarPago", () => {
   it("una respuesta que no es JSON se trata igual que un corte", async () => {
     apiRequest.mockResolvedValue({ estado: "error", datos: null, mensaje: "Respuesta inválida.", codigo: "RESPUESTA_INVALIDA", errores: null });
     abrir();
-    llenar();
+    await llenar();
 
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
 
@@ -382,28 +386,28 @@ describe("RegistrarPago", () => {
 
   // --- cerrar -----------------------------------------------------------------------------------------------------------------------------
 
-  it("cancelar cierra el modal y lo escrito no sobrevive a abrirlo otra vez", () => {
+  it("cancelar cierra el modal y lo escrito no sobrevive a abrirlo otra vez", async () => {
     abrir();
-    llenar();
+    await llenar();
     escribir("Referencia", "OP-9");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByTestId("registrar-pago-dialogo")).toBeNull();
     fireEvent.click(screen.getByTestId("registrar-pago"));
 
-    expect(campo("Periodo hasta (inclusive)").value).toBe("");
+    expect(await fechaElegida("Periodo hasta (inclusive)")).toBeNull();
     expect(campo("Monto (S/)").value).toBe("");
     expect(campo("Medio de pago").value).toBe("");
     expect(campo("Referencia").value).toBe("");
-    expect(campo("Periodo desde").value).toBe("2026-10-21");
-    expect(campo("Fecha de pago").value).toBe(HOY);
+    expect(await fechaElegida("Periodo desde")).toBe("2026-10-21");
+    expect(await fechaElegida("Fecha de pago")).toBe(HOY);
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
   it("tras registrar un pago el modal se abre limpio para el siguiente", async () => {
     apiRequest.mockResolvedValue(exito());
     abrir();
-    llenar();
+    await llenar();
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
 

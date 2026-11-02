@@ -131,7 +131,7 @@ describe("GuiaAcciones", () => {
     const retomar = screen.getByRole("button", { name: "Retomar el envío" });
     expect(retomar).toBeDisabled();
 
-    fireEvent.click(screen.getByLabelText("Revisé en SOL que la guía no llegó"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Revisé en SOL que la guía no llegó" }));
     expect(retomar).toBeEnabled();
     fireEvent.click(retomar);
 

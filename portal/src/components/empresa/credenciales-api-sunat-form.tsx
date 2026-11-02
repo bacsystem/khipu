@@ -1,9 +1,10 @@
 "use client";
 
-import { EyeIcon, EyeSlashIcon, FloppyDiskIcon, KeyIcon, LockIcon, TrashIcon } from "@phosphor-icons/react";
+import { FloppyDiskIcon, KeyIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { Contrasena } from "khipu-design-system/formularios/contrasena";
 import { apiRequest } from "@/lib/api/browser";
 import { type CredencialesApiSunat, RUTA_CREDENCIALES_API_SUNAT } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -22,7 +23,6 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
   const mensajeError = useMensajeError();
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
-  const [verSecreto, setVerSecreto] = useState(false);
   const [enviando, setEnviando] = useState<"guardar" | "quitar" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<"actualizadas" | "quitadas" | null>(null);
@@ -86,27 +86,7 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
           <label htmlFor="api-sunat-client-secret" className={ETIQUETA_CAMPO}>
             {t.clientSecret}
           </label>
-          <div className="relative">
-            <LockIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
-              id="api-sunat-client-secret"
-              type={verSecreto ? "text" : "password"}
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"}
-              autoComplete="new-password"
-              required
-              className={cn(CAMPO, "pr-10 pl-9 font-mono")}
-            />
-            <button
-              type="button"
-              onClick={() => setVerSecreto((v) => !v)}
-              title={verSecreto ? tc.ocultarClave : tc.mostrarClave}
-              className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {verSecreto ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
-            </button>
-          </div>
+          <Contrasena id="api-sunat-client-secret" valor={clientSecret} onCambio={setClientSecret} placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"} autoComplete="new-password" etiquetaMostrar={tc.mostrarClave} etiquetaOcultar={tc.ocultarClave} className="font-mono" />
           <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
         </div>
       </div>
@@ -121,7 +101,8 @@ export function CredencialesApiSunatForm({ configuradas }: { configuradas: boole
             {enviando === "quitar" ? t.quitando : t.quitar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando !== null} className={BOTON_PRIMARIO}>
+        {/* La clave es la `Contrasena` del design system, que no lleva `required`: sin clave no se ofrece guardar, como antes no dejaba el navegador. */}
+        <button type="submit" disabled={enviando !== null || clientSecret === ""} className={BOTON_PRIMARIO}>
           <FloppyDiskIcon className="size-4" />
           {enviando === "guardar" ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>

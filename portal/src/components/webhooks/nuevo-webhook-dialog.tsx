@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import type { WebhookCreado } from "@/lib/api/webhooks";
@@ -104,13 +105,15 @@ export function NuevoWebhookDialog({ className }: { className?: string }) {
               <fieldset className="grid gap-1.5">
                 <legend className="mb-1 text-control font-medium text-foreground">{t.eventos}</legend>
                 {EVENTOS_WEBHOOK.map((e) => (
-                  <label key={e.evento} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-control hover:bg-muted/60">
-                    <input type="checkbox" checked={eventos.includes(e.evento)} onChange={() => alternar(e.evento)} className="mt-0.5 size-3.5 accent-primary" />
-                    <span>
-                      <span className="font-medium text-foreground">{messages.webhooks.eventos[e.clave].etiqueta}</span>
-                      <span className="text-muted-foreground"> · {messages.webhooks.eventos[e.clave].detalle}</span>
-                    </span>
-                  </label>
+                  <Casilla
+                    key={e.evento}
+                    id={`webhook-evento-${e.evento}`}
+                    etiqueta={messages.webhooks.eventos[e.clave].etiqueta}
+                    descripcion={messages.webhooks.eventos[e.clave].detalle}
+                    checked={eventos.includes(e.evento)}
+                    onCheckedChange={() => alternar(e.evento)}
+                    className="rounded-md px-1 py-1 hover:bg-muted/60"
+                  />
                 ))}
                 {intento && sinEventos ? (
                   <p role="alert" className="text-control text-destructive">

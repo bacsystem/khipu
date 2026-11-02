@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirFecha, fechaElegida, fechaEsElegible, sumarDias } from "./fecha";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
@@ -43,7 +44,7 @@ test("el listado lleva a «Nueva guía» y el formulario avisa que es experiment
   await expect(page).toHaveURL(/\/guias\/nueva$/);
   await expect(page.getByRole("note")).toContainText("Función experimental");
   // El envío viene apagado en el servidor: la casilla de enviar al emitir nace sin marcar.
-  await expect(page.getByLabel("Enviar a SUNAT al emitir")).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /Enviar a SUNAT al emitir/ })).not.toBeChecked();
 });
 
 test("una empresa sin domicilio fiscal parte de una dirección: no se le ofrece el 0000, que la API rechazaría", async ({ page }) => {
@@ -51,7 +52,7 @@ test("una empresa sin domicilio fiscal parte de una dirección: no se le ofrece 
   const form = page.getByTestId("nueva-guia-form");
   await expect(form.locator("#partida-departamento")).toBeVisible();
   // El anexo 0002 sí existe: se puede elegir, y la lista no trae el 0000.
-  await form.locator("fieldset", { has: page.locator("#partida-departamento") }).getByLabel("Un establecimiento de mi empresa").check();
+  await form.locator("fieldset", { has: page.locator("#partida-departamento") }).getByRole("radio", { name: "Un establecimiento de mi empresa" }).check();
   await expect(form.locator("#partida-establecimiento option")).toHaveText(["0002 · Tienda Miraflores"]);
 });
 
@@ -95,7 +96,7 @@ test("en transporte público pide la empresa de transporte y no los vehículos n
   const form = page.getByTestId("nueva-guia-form");
   await form.locator("#guia-motivo").selectOption("01");
   await llenarLoComun(page);
-  await form.getByLabel("Transporte público", { exact: false }).check();
+  await form.getByRole("radio", { name: /Transporte público/ }).check();
   await expect(form.locator("#guia-placa-0")).toHaveCount(0);
   await expect(form.locator("#guia-conductor-0-num")).toHaveCount(0);
 
@@ -116,7 +117,7 @@ test("una guía transportista (serie V) pide al remitente y su registro MTC, y s
   // La transportista no tiene motivo ni modalidad; sí remitente y registro MTC.
   await expect(form.locator("#guia-motivo")).toHaveCount(0);
   await expect(form.locator("#remitente-num")).toBeVisible();
-  await expect(form.getByLabel("Un establecimiento de mi empresa")).toHaveCount(0);
+  await expect(form.getByRole("radio", { name: "Un establecimiento de mi empresa" })).toHaveCount(0);
 
   await llenarLoComun(page);
   await form.locator("#partida-departamento").selectOption("CALLAO");
@@ -154,7 +155,7 @@ test("con «Enviar a SUNAT al emitir» y el envío apagado en el servidor, la em
   await form.locator("#guia-motivo").selectOption("01");
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
-  await form.getByLabel("Enviar a SUNAT al emitir").check();
+  await form.getByRole("checkbox", { name: /Enviar a SUNAT al emitir/ }).check();
 
   await form.getByRole("button", { name: "Emitir la guía" }).click();
   await expect(page.getByTestId("guia-error")).toContainText("no está habilitado en este servidor");
@@ -167,11 +168,16 @@ test("una regla de SUNAT que el formulario no conoce vuelve del backend con su c
   await form.locator("#guia-motivo").selectOption("01");
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
-  // Un traslado que empieza antes de la emisión: el formulario lo limita con `min`, pero el backend es quien manda (3343).
-  await form.locator("#guia-inicio").evaluate((el: HTMLInputElement) => {
-    el.removeAttribute("min");
-  });
-  await form.locator("#guia-inicio").fill("2020-01-01");
+  // Un traslado que empieza antes de la emisión: el calendario no ofrece un inicio anterior a la emisión, pero la emisión se puede mover después de elegir el
+  // inicio, y el backend es quien manda (3343).
+  const emision = form.getByLabel("Fecha de emisión");
+  const inicio = form.getByLabel("Inicio del traslado");
+  const hoy = await fechaElegida(emision);
+  const ayer = sumarDias(hoy, -1);
+  expect(await fechaEsElegible(inicio, ayer)).toBe(false);
+  await elegirFecha(emision, ayer);
+  await elegirFecha(inicio, ayer);
+  await elegirFecha(emision, hoy);
 
   await form.getByRole("button", { name: "Emitir la guía" }).click();
   await expect(page.getByTestId("guia-error")).toContainText("3343");

@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { apiRequest } from "@/lib/api/browser";
 import type { CuerpoDeEnvioAlCliente, PreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
-import { AYUDA_CAMPO, BOTON_PRIMARIO } from "@/lib/estilos";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /**
@@ -53,24 +54,17 @@ export function EnvioAlClienteForm({ inicial }: { inicial: PreferenciaDeEnvioAlC
           {t.sinCorreoTexto}
         </Alerta>
       ) : null}
-      <label className="flex cursor-pointer items-start gap-2.5 text-control text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
-        <input
-          type="checkbox"
-          checked={activado}
-          disabled={bloqueado || enviando}
-          onChange={(e) => {
-            setActivado(e.target.checked);
-            setOk(false);
-          }}
-          className="mt-0.5 size-4 accent-primary"
-        />
-        <span className="grid gap-0.5">
-          <span className="font-medium">{t.casilla}</span>
-          <span className={AYUDA_CAMPO}>
-            {t.casillaAyuda}
-          </span>
-        </span>
-      </label>
+      <Casilla
+        id="envio-al-cliente"
+        etiqueta={t.casilla}
+        descripcion={t.casillaAyuda}
+        checked={activado}
+        disabled={bloqueado || enviando}
+        onCheckedChange={(v) => {
+          setActivado(v);
+          setOk(false);
+        }}
+      />
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
       {ok ? (
