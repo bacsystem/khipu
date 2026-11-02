@@ -2758,6 +2758,9 @@
         "topeSinDocumento": "A receipt over S/ {tope}.00 (or in another currency) identifies the buyer with their document.",
         "corrijaAjustes": "Fix the highlighted discounts, charges or taxes before issuing.",
         "vencimientoAnterior": "The due date cannot be earlier than the issue date.",
+        "sinCliente": "The customer is missing: type their RUC or pick them from your saved customers.",
+        "clienteSinResolver": "Pick a customer from the list or type their full RUC (11 digits) or, on a receipt, their DNI (8). If they are not there, use “Enter manually”.",
+        "nombreDelCliente": "The customer's name must have at least 3 characters: fix it in their details.",
         "esperaVencida": "The server took too long to respond while issuing",
         "conexionCortada": "The connection dropped while issuing",
         "reintentar": "{causa}. Issue again without changing anything: if the {nombre} had already been issued, you will see the same one, not a duplicate."
@@ -2869,6 +2872,19 @@
         "correo": "Email"
       },
       "quitarExtra": "Remove “{extra}”",
+      "masOpcionesEnEmpresa": "More options in Company → Issuing",
+      "clienteSinNombre": "No name yet: type it in “Edit details”",
+      "editarDatosCliente": "Edit details",
+      "cambiarCliente": "Change",
+      "sinDocumentoCorto": "No document",
+      "placeholderClienteFactura": "RUC or business name",
+      "placeholderClienteBoleta": "DNI, RUC or name",
+      "placeholderClienteExportacion": "Name of a saved customer",
+      "ayudaClienteFactura": "With the full RUC, the business name and address come from the SUNAT registry.",
+      "ayudaClienteBoleta": "Left empty, the receipt goes to “Clientes varios” (up to S/ {tope}.00). After a DNI, press Enter.",
+      "ayudaClienteExportacion": "Pick a saved customer or enter their foreign document manually.",
+      "ingresarAMano": "Enter manually",
+      "descartarDatosCliente": "Discard details",
       "verPlan": "View plan and usage",
       "totales": {
         "gravado": "Taxable",
@@ -2976,7 +2992,7 @@
       "clientes": {
         "etiqueta": "Search a saved customer",
         "placeholder": "Search a saved customer by document or name",
-        "sinResultados": "No saved customer matches. Type it below and check the box to save it.",
+        "sinResultados": "No saved customer matches. Type their full RUC or DNI, or use “Enter manually”.",
         "fallo": "Your customers could not be searched; type it in manually.",
         "encontradoUno": "customer found",
         "encontradoVarios": "customers found"

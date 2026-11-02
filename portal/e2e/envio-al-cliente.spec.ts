@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { abrirDatosDelCliente } from "./cliente";
 
 // La preferencia es de la empresa del mock, compartida: la segunda prueba no puede correr mientras la primera la tiene activada.
 test.describe.configure({ mode: "serial" });
@@ -32,6 +33,7 @@ test("con el envío automático activado, la factura emitida con correo llega al
     await page.goto("/comprobantes");
     await page.getByRole("button", { name: "Nuevo comprobante" }).click();
     const dialogo = page.getByRole("dialog");
+    await abrirDatosDelCliente(dialogo);
     await dialogo.getByLabel("RUC").fill("20554198211");
     await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
     // #557: el correo va a pedido, detrás de su «+».
@@ -63,6 +65,7 @@ test("sin el envío automático, la factura con correo no muestra un envío y el
   test.slow();
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill("CORPORACION GRAFICA ANDINA S.A.C.");
   await dialogo.getByLabel("Descripción").fill("Consultoría");

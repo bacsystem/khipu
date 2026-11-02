@@ -2,8 +2,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { elegirDocumento } from "@/test/combos-del-comprobante";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NuevoComprobanteForm } from "./nuevo-comprobante-form";
+import { abrirDatosDelCliente } from "@/test/cliente-del-comprobante";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/lib/use-preferencias-de-emision", () => ({ usePreferenciasDeEmision: () => ({ opcionesAvanzadas: true, cargando: false }) }));
 
 const SERIES = [
   { tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
@@ -56,6 +58,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("al completar un RUC válido rellena la razón social y la dirección, con un solo pedido aunque se digite dígito a dígito", async () => {
     const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20100066603");
 
@@ -71,6 +74,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     const fetch = vi.fn<(url: string) => Promise<Response>>(() => new Promise((resolver) => { responder = resolver; }));
     vi.stubGlobal("fetch", fetch);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "2010006660");
     expect(screen.queryByText("Consultando SUNAT…")).toBeNull();
@@ -88,6 +92,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     const fetch = vi.fn<(url: string) => Promise<Response>>((url) => new Promise((resolver) => { pendientes[String(url).split("/").pop() ?? ""] = resolver; }));
     vi.stubGlobal("fetch", fetch);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20100066603");
     fireEvent.change(ruc(), { target: { value: "" } });
@@ -102,6 +107,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("lo rellenado se puede corregir a mano", async () => {
     stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     digitar("RUC", "20100066603");
     await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
 
@@ -115,6 +121,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("no pisa lo que el usuario ya escribió, y ofrece el nombre de SUNAT aparte", async () => {
     stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     fireEvent.change(razon(), { target: { value: "Mi cliente de siempre" } });
     fireEvent.change(direccion(), { target: { value: "Av. Mía 1" } });
 
@@ -133,6 +140,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("al cambiar el RUC quita lo rellenado (no puede quedar el nombre de un cliente bajo el RUC de otro) pero no lo escrito", async () => {
     stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     digitar("RUC", "20100066603");
     await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
     fireEvent.change(direccion(), { target: { value: "Jr. Mía 9" } });
@@ -146,6 +154,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("un RUC de baja avisa 4013 y uno no habido avisa 4014, antes de emitir y sin bloquear", async () => {
     stubPadron({ "20160109441": exito(DE_BAJA), "20602160280": exito(NO_HABIDO) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20160109441");
     expect(await screen.findByTestId("aviso-ruc-4013")).toHaveTextContent("BAJA DE OFICIO");
@@ -164,6 +173,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("un RUC que el padrón no tiene avisa y deja digitar los datos a mano", async () => {
     stubPadron({});
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20601234565");
 
@@ -177,6 +187,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("con el padrón sin cargar dice que la consulta no está disponible", async () => {
     stubPadron({ "20601234565": falla(503, "PADRON_NO_CARGADO") });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20601234565");
 
@@ -187,6 +198,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     let intento = 0;
     const fetch = stubPadron({ "20100066603": () => (++intento === 1 ? falla(429, "DEMASIADAS_CONSULTAS") : exito(TIENDAS)) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     digitar("RUC", "20100066603");
     expect(await screen.findByText(/muchas consultas seguidas/)).toBeInTheDocument();
     expect(razon().value).toBe("");
@@ -204,6 +216,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
     );
     vi.stubGlobal("fetch", fetch);
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20100066603");
     expect(await screen.findByText(/No se pudo consultar SUNAT/)).toBeInTheDocument();
@@ -219,6 +232,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("un RUC con el dígito verificador mal no se consulta: no gasta el cupo", () => {
     const fetch = stubPadron({});
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     digitar("RUC", "20601234567");
 
@@ -229,6 +243,7 @@ describe("NuevoComprobanteForm — consulta del RUC en el padrón de SUNAT (#379
   it("volver a un RUC ya consultado no lo pide otra vez", async () => {
     const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     digitar("RUC", "20100066603");
     await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
 
@@ -245,6 +260,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
   it("con DNI no consulta; al elegir RUC sí, y rellena el nombre pero no una dirección que la boleta no muestra", async () => {
     const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     fireEvent.change(screen.getByLabelText("Número de documento"), { target: { value: "12345678" } });
     expect(consultas(fetch)).toEqual([]);
@@ -270,6 +286,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
   it("con carné de extranjería o pasaporte no consulta, aunque el número tenga forma de RUC", async () => {
     const fetch = stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
 
     for (const documento of ["4", "7"]) {
       await elegirDocumento(documento);
@@ -284,6 +301,7 @@ describe("NuevoComprobanteForm — boleta con RUC (#379)", () => {
   it("al volver a «sin documento» el nombre rellenado se cambia por el habitual", async () => {
     stubPadron({ "20100066603": exito(TIENDAS) });
     render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} />);
+    abrirDatosDelCliente();
     await elegirDocumento("6");
     digitar("Número de documento", "20100066603");
     await waitFor(() => expect((screen.getByLabelText("Nombre del comprador") as HTMLInputElement).value).toBe("TIENDAS DEL SUR S.A.C."));

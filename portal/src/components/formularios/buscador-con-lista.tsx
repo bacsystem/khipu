@@ -25,6 +25,12 @@ export function BuscadorConLista<T extends { id: string }>({
   encontrados,
   onElegir,
   deshabilitado,
+  texto: textoControlado,
+  onTexto,
+  onEnter,
+  onBlur,
+  autoFocus,
+  describidoPor,
 }: {
   /** El nombre accesible del campo (no se ve: el `placeholder` ya dice qué se busca). */
   etiqueta: string;
@@ -39,9 +45,23 @@ export function BuscadorConLista<T extends { id: string }>({
   encontrados: readonly [singular: string, plural: string];
   onElegir: (item: T) => void;
   deshabilitado?: boolean;
+  /** Lo escrito, si quien lo usa lo controla (el campo «Cliente» del comprobante lo interpreta también como documento). Sin él, el buscador guarda su propio texto. */
+  texto?: string;
+  onTexto?: (texto: string) => void;
+  /** Enter sin una opción que elegir (la lista cerrada o vacía): quien lo usa decide qué hacer con lo escrito. */
+  onEnter?: (texto: string) => void;
+  onBlur?: (texto: string) => void;
+  autoFocus?: boolean;
+  /** El `id` de una ayuda visible que describe el campo. */
+  describidoPor?: string;
 }) {
   const idLista = useId();
-  const [texto, setTexto] = useState("");
+  const [textoPropio, setTextoPropio] = useState("");
+  const texto = textoControlado ?? textoPropio;
+  const setTexto = (valor: string) => {
+    setTextoPropio(valor);
+    onTexto?.(valor);
+  };
   const [resultados, setResultados] = useState<T[] | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);
@@ -89,6 +109,12 @@ export function BuscadorConLista<T extends { id: string }>({
 
   function teclas(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!abierto || !resultados || resultados.length === 0) {
+      if (e.key === "Enter" && onEnter) {
+        e.preventDefault();
+        setAbierto(false);
+        onEnter(texto);
+        return;
+      }
       // Con la lista cerrada Escape sigue su camino (cierra el diálogo que contiene al buscador).
       if (e.key === "Escape" && abierto) {
         e.preventDefault();
@@ -143,7 +169,10 @@ export function BuscadorConLista<T extends { id: string }>({
           }
         }}
         onFocus={() => hayTexto && resultados && setAbierto(true)}
+        onBlur={onBlur ? () => onBlur(texto) : undefined}
         onKeyDown={teclas}
+        autoFocus={autoFocus}
+        aria-describedby={describidoPor}
         placeholder={placeholder}
         className={cn(CAMPO, "pl-9")}
       />
