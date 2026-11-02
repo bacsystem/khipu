@@ -7,7 +7,9 @@ import {
   insertarEnPosicion,
   instanteALima,
   limaAInstante,
+  partirFechaHora,
   TEXTO_DE_AVISO_MAX,
+  unirFechaHora,
   valoresDeAviso,
   valoresNuevoAviso,
 } from "./configuracion-formulario";
@@ -32,6 +34,28 @@ describe("limaAInstante", () => {
 
   it("lo que no es una fecha y hora es null", () => {
     for (const mal of ["", "mañana", "2026-10-15", "2026-10-15T22", "2026-10-15 22:00", "2026-13-45T25:61", "2026-10-15T22:00:00", "2026-10-15T22:00Z", "x2026-10-15T22:00", "2026-10-15T22:00x", "99999-10-15T22:00"]) expect(limaAInstante(mal), mal).toBeNull();
+  });
+});
+
+describe("partirFechaHora y unirFechaHora", () => {
+  it("parten y vuelven a unir el mismo texto, así lo que se envía no cambia", () => {
+    expect(partirFechaHora("2026-10-15T22:00")).toEqual({ fecha: "2026-10-15", hora: "22:00" });
+    expect(unirFechaHora("2026-10-15", "22:00")).toBe("2026-10-15T22:00");
+    expect(limaAInstante(unirFechaHora("2026-10-15", "22:00"))).toBe("2026-10-16T03:00:00.000Z");
+  });
+
+  it("lo a medio llenar se conserva de los dos lados, y no es una fecha y hora válida", () => {
+    expect(partirFechaHora("T22:00")).toEqual({ fecha: "", hora: "22:00" });
+    expect(partirFechaHora("2026-10-15T")).toEqual({ fecha: "2026-10-15", hora: "" });
+    expect(unirFechaHora("", "22:00")).toBe("T22:00");
+    expect(unirFechaHora("2026-10-15", "")).toBe("2026-10-15T");
+    expect(limaAInstante(unirFechaHora("", "22:00"))).toBeNull();
+    expect(limaAInstante(unirFechaHora("2026-10-15", ""))).toBeNull();
+  });
+
+  it("sin fecha ni hora es vacío", () => {
+    expect(unirFechaHora("", "")).toBe("");
+    expect(partirFechaHora("")).toEqual({ fecha: "", hora: "" });
   });
 });
 

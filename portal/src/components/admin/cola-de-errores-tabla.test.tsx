@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ErrorDeEmision, ParamsErrores } from "@/lib/api/admin-errores";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { buscarEnListado } from "@/test/busqueda-de-prueba";
 import { ColaDeErroresTabla } from "./cola-de-errores-tabla";
 
 const push = vi.fn();
@@ -229,11 +230,10 @@ describe("ColaDeErroresTabla (#196)", () => {
     expect(screen.getByText("SUNAT lo rechazó con un fault 1000–1999: no cambia por reintentar.")).toBeTruthy();
   });
 
-  it("buscar manda el texto recortado a la URL, vuelve a la primera página y conserva la clase", () => {
+  it("buscar, tras la pausa y sin botón, manda el texto recortado a la URL, vuelve a la primera página y conserva la clase", () => {
     render(<ColaDeErroresTabla errores={[]} total={0} params={{ clase: "ERROR_DE_ENVIO", pagina: 4, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Buscar cliente"), { target: { value: "  andina  " } });
-    fireEvent.submit(screen.getByRole("search"));
+    buscarEnListado(screen.getByLabelText("Buscar cliente"), "  andina  ");
 
     expect(push).toHaveBeenCalledWith("/admin/errores?clase=ERROR_DE_ENVIO&q=andina&por_pagina=20");
   });
@@ -241,8 +241,7 @@ describe("ColaDeErroresTabla (#196)", () => {
   it("buscar con el campo vacío quita la búsqueda", () => {
     render(<ColaDeErroresTabla errores={[]} total={0} params={{ ...PARAMS, q: "andina" }} />);
 
-    fireEvent.change(screen.getByLabelText("Buscar cliente"), { target: { value: "   " } });
-    fireEvent.submit(screen.getByRole("search"));
+    buscarEnListado(screen.getByLabelText("Buscar cliente"), "   ");
 
     expect(push).toHaveBeenCalledWith("/admin/errores");
   });
@@ -253,6 +252,13 @@ describe("ColaDeErroresTabla (#196)", () => {
     const campo = screen.getByLabelText("Buscar cliente") as HTMLInputElement;
     expect(campo.value).toBe("andina");
     expect(campo.maxLength).toBe(100);
+  });
+
+  it("la búsqueda va en la barra de filtros del design system, sin botón «Buscar»", () => {
+    render(<ColaDeErroresTabla errores={[]} total={0} params={PARAMS} />);
+
+    expect(screen.getByRole("search", { name: "Filtrar la cola de errores" }).contains(screen.getByLabelText("Buscar cliente"))).toBe(true);
+    expect(screen.queryByRole("button", { name: "Buscar" })).toBeNull();
   });
 
   it("cada fila ofrece ver solo su empresa, conservando lo demás; si ya se filtra por ella, no", () => {
@@ -272,19 +278,21 @@ describe("ColaDeErroresTabla (#196)", () => {
     unmount();
 
     render(<ColaDeErroresTabla errores={[]} total={0} params={{ clase: "ERROR_DE_ENVIO", empresa: EMPRESA_A, q: "sol", pagina: 3, porPagina: 20 }} />);
+    // Una píldora más de la barra de filtros, no una tarjeta con borde.
+    expect(screen.getByTestId("errores-empresa-filtrada").className).toContain("rounded-full");
     const chip = within(screen.getByTestId("errores-empresa-filtrada"));
     expect(chip.getByText("Solo una empresa")).toBeTruthy();
     expect(chip.getByRole("link", { name: "Ver todas" }).getAttribute("href")).toBe("/admin/errores?clase=ERROR_DE_ENVIO&q=sol&por_pagina=20");
   });
 
-  it("«Quitar filtros» solo aparece con algún filtro y deja el tamaño de página", () => {
+  it("«Limpiar» solo aparece con algún filtro y deja el tamaño de página", () => {
     const { unmount } = render(<ColaDeErroresTabla errores={[]} total={0} params={PARAMS} />);
-    expect(screen.queryByRole("link", { name: "Quitar filtros" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Limpiar" })).toBeNull();
     unmount();
 
     for (const params of [{ clase: "ERROR_DE_ENVIO" as const }, { empresa: EMPRESA_A }, { q: "sol" }]) {
       const r = render(<ColaDeErroresTabla errores={[]} total={0} params={{ pagina: 2, porPagina: 50, ...params }} />);
-      expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/errores?por_pagina=50");
+      expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/errores?por_pagina=50");
       r.unmount();
     }
   });

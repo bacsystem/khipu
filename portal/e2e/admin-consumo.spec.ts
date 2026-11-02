@@ -28,6 +28,14 @@ async function abrirHidratada(page: Page, ruta: string) {
   await esperarHidratacion(page, "#consumo-mes");
 }
 
+/** El mes en curso en hora de Lima, `AAAA-MM`: el que mide la pantalla cuando no se pide mes. */
+const mesEnCursoDeLima = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
+/** «2026-11» como lo muestra la píldora del mes: «Nov 2026». */
+const textoDelMes = (mes: string) => {
+  const [anio, m] = mes.split("-").map(Number);
+  return `${["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"][m - 1]} ${anio}`;
+};
+
 const fila = (page: Page, nombre: string) => page.locator("tbody tr", { hasText: nombre });
 const nombresEnOrden = (page: Page) => page.locator("tbody tr td:first-child a").allTextContents();
 
@@ -106,7 +114,7 @@ test("con una vista y un orden en la URL, ese estado se ve al abrirla (el enlace
   await page.goto("/admin/consumo?filtro=PLAN_VENCIDO&orden=DOCUMENTOS");
 
   await expect(page.getByRole("link", { name: "Plan vencido" })).toHaveAttribute("aria-current", "page");
-  await esperarOpcion(page.getByLabel("Ordenar por"), "Documentos consumidos");
+  await esperarOpcion(page.getByLabel("Ordenar por"), "Por documentos consumidos");
   await expect(page.locator("tbody tr")).toHaveCount(2);
 });
 
@@ -114,7 +122,7 @@ test("un filtro o un orden raros en la URL no rompen la página: valen los de po
   await page.goto("/admin/consumo?filtro=cualquiera&orden=nada&mes=octubre");
 
   await expect(page.getByRole("link", { name: "Todas" })).toHaveAttribute("aria-current", "page");
-  await esperarOpcion(page.getByLabel("Ordenar por"), "Porcentaje usado");
+  await esperarOpcion(page.getByLabel("Ordenar por"), "Por porcentaje usado");
   await expect(fila(page, "Panadería Sol")).toBeVisible();
 });
 
@@ -123,7 +131,7 @@ test("un filtro o un orden raros en la URL no rompen la página: valen los de po
 test("ordenar por documentos pone arriba a quien más consumió", async ({ page }) => {
   await abrirHidratada(page, "/admin/consumo");
 
-  await elegirOpcion(page.getByLabel("Ordenar por"), "Documentos consumidos");
+  await elegirOpcion(page.getByLabel("Ordenar por"), "Por documentos consumidos");
 
   await expect(page).toHaveURL(/orden=DOCUMENTOS/);
   await expect(page.locator("tbody tr").first()).toContainText("Cliente 07");
@@ -134,18 +142,26 @@ test("ordenar por documentos pone arriba a quien más consumió", async ({ page 
 
 test("el selector de mes arranca en el mes en curso y otro mes cambia el consumo, no el plan con el que se compara", async ({ page }) => {
   await abrirHidratada(page, "/admin/consumo?por_pagina=50");
-  const mesEnCurso = await page.getByLabel("Mes").inputValue();
-  expect(mesEnCurso).toMatch(/^\d{4}-\d{2}$/);
+  // Una píldora con los meses en texto («Nov 2026»), no un <input type="month">: arranca en el mes en curso de Lima.
+  await esperarOpcion(page.getByLabel("Mes"), textoDelMes(mesEnCursoDeLima()));
 
-  await page.getByLabel("Mes").fill("2026-08");
+  await elegirOpcion(page.getByLabel("Mes"), "Ago 2026");
 
   await expect(page).toHaveURL(/mes=2026-08/);
-  await expect(page.getByLabel("Mes")).toHaveValue("2026-08");
+  await esperarOpcion(page.getByLabel("Mes"), "Ago 2026");
   const panaderia = fila(page, "Panadería Sol");
   await expect(panaderia).toContainText("Emprende");
   await expect(panaderia).toContainText("300");
   await expect(panaderia).toContainText("1 %");
   await expect(panaderia).toHaveAttribute("data-alerta", "false");
+});
+
+test("volver al mes en curso lo quita de la URL, como al entrar", async ({ page }) => {
+  await abrirHidratada(page, "/admin/consumo?mes=2026-08");
+
+  await elegirOpcion(page.getByLabel("Mes"), textoDelMes(mesEnCursoDeLima()));
+
+  await expect(page).toHaveURL(/\/admin\/consumo$/);
 });
 
 test("en un mes sin cuentas cerca del límite, esa vista lo dice", async ({ page }) => {
@@ -200,7 +216,9 @@ async function descargar(page: Page): Promise<{ nombre: string; bytes: Buffer }>
 
 test("«Exportar CSV» baja lo que se ve: el mes y la vista, con la marca UTF-8 y una fila por cuenta", async ({ page }) => {
   await page.goto("/admin/consumo?filtro=CERCA_DEL_LIMITE");
-  const mes = await page.getByLabel("Mes").inputValue();
+  // Sin mes en la URL se mide el mes en curso de Lima.
+  const mes = mesEnCursoDeLima();
+  await esperarOpcion(page.getByLabel("Mes"), textoDelMes(mes));
 
   const { nombre, bytes } = await descargar(page);
 

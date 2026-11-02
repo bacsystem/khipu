@@ -1,25 +1,38 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
+import { useEffect, useState, type ReactNode } from "react";
+import { Tabs } from "khipu-design-system/navegacion/tabs";
+import { Chip } from "khipu-design-system/patrones/pill-estado";
 import { hrefConfiguracion, SECCIONES_DE_CONFIGURACION, type PlantillaDeCorreo, type SeccionDeConfiguracion } from "@/lib/api/admin-configuracion";
 import { cn } from "@/lib/utils";
-import { SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
+import { TARJETA } from "@/lib/estilos";
 
-/** Las tres cosas que se configuran: enlaces (la sección vive en la URL, así que se puede compartir y el servidor solo pide lo que se ve). */
-export function SeccionesDeConfiguracion({ actual }: { actual: SeccionDeConfiguracion }) {
+/**
+ * Las tres cosas que se configuran, en las pestañas del design system (como el detalle de una cuenta o la Empresa del cliente). La sección vive en la URL: se puede compartir
+ * y el servidor solo pide lo que se ve. Por eso el panel llega armado (`children`, el de la sección actual) y cambiar de pestaña navega; la pestaña se marca al instante y su
+ * panel aparece cuando responde el servidor.
+ */
+export function SeccionesDeConfiguracion({ actual, children }: { actual: SeccionDeConfiguracion; children: ReactNode }) {
   const t = useMessages().admin.configuracion;
+  const router = useRouter();
+  const [valor, setValor] = useState(actual);
+
+  // La sección cambió por otro camino (atrás, un enlace): la pestaña la sigue.
+  useEffect(() => setValor(actual), [actual]);
+
   return (
-    <nav aria-label={t.secciones} className={SEGMENTADO}>
-      {SECCIONES_DE_CONFIGURACION.map((s) => (
-        <Link
-          key={s}
-          href={hrefConfiguracion({ seccion: s })}
-          aria-current={actual === s ? "page" : undefined}
-          className={SEGMENTO}
-        >
-          {t.filtros[s]}
-        </Link>
-      ))}
-    </nav>
+    <Tabs<SeccionDeConfiguracion>
+      items={SECCIONES_DE_CONFIGURACION.map((s) => ({ id: s, etiqueta: t.filtros[s] }))}
+      valor={valor}
+      onCambio={(s) => {
+        setValor(s);
+        router.push(hrefConfiguracion({ seccion: s }));
+      }}
+      paneles={{ [actual]: children }}
+    />
   );
 }
 
@@ -41,7 +54,7 @@ export function ListaDePlantillas({ plantillas, actual }: { plantillas: Plantill
           )}
         >
           <span className="min-w-0">{p.etiqueta}</span>
-          {p.personalizada ? <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-foreground/80">{t.plantillas.personalizada}</span> : null}
+          {p.personalizada ? <Chip className="shrink-0">{t.plantillas.personalizada}</Chip> : null}
         </Link>
       ))}
     </nav>
