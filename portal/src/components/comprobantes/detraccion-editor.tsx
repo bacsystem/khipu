@@ -7,7 +7,7 @@ import { Campo } from "khipu-design-system/formularios/campo";
 import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import { CODIGOS_SIN_FORMULARIO, errorDeDetraccion, PORCENTAJE_SUGERIDO, type DetraccionForm } from "@/lib/comprobantes/detraccion";
-import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +70,7 @@ export function DetraccionEditor({
             id="nc-det-codigo"
             value={valor.codigo}
             onChange={(e) => set({ codigo: e.target.value, porcentaje: PORCENTAJE_SUGERIDO[e.target.value] !== undefined ? String(PORCENTAJE_SUGERIDO[e.target.value]) : valor.porcentaje })}
-            className={CAMPO}
+            className={cn(SELECT_NATIVO, "w-full")}
           >
             <option value="">{t.detraccion.seleccione}</option>
             {ofrecidos.map((b) => (
@@ -93,7 +93,7 @@ export function DetraccionEditor({
       </div>
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Campo id="nc-det-medio" etiqueta={t.detraccion.medioPago} ayuda={t.detraccion.catalogo59}>
-          <select id="nc-det-medio" value={valor.medioPago} onChange={(e) => set({ medioPago: e.target.value })} className={CAMPO}>
+          <select id="nc-det-medio" value={valor.medioPago} onChange={(e) => set({ medioPago: e.target.value })} className={cn(SELECT_NATIVO, "w-full")}>
             {(medios ?? []).length === 0 ? <option value={valor.medioPago}>{interpolar(t.detraccion.depositoEnCuenta, { codigo: valor.medioPago })}</option> : null}
             {(medios ?? []).map((m) => (
               <option key={m.codigo} value={m.codigo}>

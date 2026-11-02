@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { EntradaMonto } from "khipu-design-system/formularios/entrada-monto";
 import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
@@ -39,7 +41,7 @@ import { errorDeIsc, gruposAfectacion, incompatibilidadDeTributos, ISC_VACIO, is
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -593,7 +595,7 @@ export function NuevoComprobanteForm({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
       <div className="grid items-start gap-4 sm:grid-cols-3">
         <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
-          <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO, "font-mono")}>
+          <select id="nc-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
             {seriesDelTipo.map((s) => (
               <option key={s.serie} value={s.serie}>
                 {s.serie} · {s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}
@@ -616,7 +618,7 @@ export function NuevoComprobanteForm({
         </Campo>
 
         <Campo id="nc-moneda" etiqueta={t.moneda}>
-          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={CAMPO}>
+          <select id="nc-moneda" value={moneda} onChange={(e) => { setMoneda(e.target.value); setTipoCambio(""); }} className={cn(SELECT_NATIVO, "w-full")}>
             {monedas(messages).map((m) => (
               <option key={m.codigo} value={m.codigo}>
                 {m.etiqueta}
@@ -635,10 +637,7 @@ export function NuevoComprobanteForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
           {sinDocumento ? null : (
-            <label className="flex cursor-pointer items-center gap-1.5 text-control text-muted-foreground">
-              <input type="checkbox" checked={guardarCliente} onChange={(e) => setGuardarCliente(e.target.checked)} className="size-3.5 accent-primary" />
-              {t.guardarCliente}
-            </label>
+            <Casilla id="nc-guardar-cliente" etiqueta={t.guardarCliente} checked={guardarCliente} onCheckedChange={setGuardarCliente} />
           )}
         </div>
         <BuscadorDeClientes onElegir={elegirClienteGuardado} />
@@ -650,7 +649,7 @@ export function NuevoComprobanteForm({
         {usaSelectorDeDocumento ? (
           <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta={t.documentoComprador}>
-              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={CAMPO}>
+              <select id="nc-tipo-doc" value={tipoDoc} onChange={(e) => cambiarTipoDoc(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
                 {documentosOfrecidos.map((d) => (
                   <option key={d.codigo} value={d.codigo}>
                     {d.etiqueta}
@@ -695,7 +694,7 @@ export function NuevoComprobanteForm({
             {exportacion ? (
               <>
                 <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
-                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={CAMPO}>
+                  <select id="nc-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
                     <option value="">{t.seleccione}</option>
                     {paises.map((p) => (
                       <option key={p.codigo} value={p.codigo}>
@@ -797,7 +796,7 @@ export function NuevoComprobanteForm({
         <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
           <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
-            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={CAMPO}>
+            <select id="nc-operacion" value={operacion} onChange={(e) => cambiarOperacion(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
               {GRUPOS_OPERACION.map((g) => (
                 <optgroup key={g} label={messages.documentos.grupoOperacion[g]}>
                   {operaciones(messages).filter((o) => o.grupo === g && (boleta || !o.soloBoleta)).map((o) => (
@@ -811,7 +810,7 @@ export function NuevoComprobanteForm({
           </Campo>
           {boleta ? null : (
             <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
-              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={CAMPO}>
+              <select id="nc-forma-pago" value={alCredito ? "credito" : "contado"} onChange={(e) => setAlCredito(e.target.value === "credito")} className={cn(SELECT_NATIVO, "w-full")}>
                 <option value="contado">{t.alContado}</option>
                 <option value="credito">{t.alCredito}</option>
               </select>
@@ -821,7 +820,7 @@ export function NuevoComprobanteForm({
         {exportacion ? (
           <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
             <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
-              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={CAMPO}>
+              <select id="nc-incoterm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
                 <option value="">{t.sinIncoterm}</option>
                 {INCOTERMS.map((i) => (
                   <option key={i} value={i}>
@@ -832,7 +831,7 @@ export function NuevoComprobanteForm({
             </Campo>
             {EXIGE_PAIS_DE_USO.has(operacion) ? (
               <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
-                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={CAMPO}>
+                <select id="nc-pais-uso" value={paisDeUso} onChange={(e) => setPaisDeUso(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
                   <option value="">{t.seleccione}</option>
                   {paises.filter((p) => p.codigo !== "PE").map((p) => (
                     <option key={p.codigo} value={p.codigo}>
@@ -847,21 +846,18 @@ export function NuevoComprobanteForm({
         {/* #288: detracción, #297: percepción. Solo en una venta interna (factura o boleta); se excluyen entre sí porque cada una fija su tipo de operación. */}
         {operacion !== "0101" ? null : (
           <div className="grid gap-3">
-            <label className="flex items-center gap-2 text-control font-medium">
-              <input
-                type="checkbox"
-                checked={detraccion.activa}
-                onChange={(e) => {
-                  setDetraccion((d) => ({ ...d, activa: e.target.checked, cuenta: d.cuenta || cuentaDetracciones || "" }));
-                  if (e.target.checked) {
-                    setPercepcion((p) => ({ ...p, activa: false }));
-                    setRetencion((r) => ({ ...r, activa: false }));
-                  }
-                }}
-                className="size-3.5 accent-primary"
-              />
-              {t.detraccionCheck}
-            </label>
+            <Casilla
+              id="nc-detraccion"
+              etiqueta={t.detraccionCheck}
+              checked={detraccion.activa}
+              onCheckedChange={(activa) => {
+                setDetraccion((d) => ({ ...d, activa, cuenta: d.cuenta || cuentaDetracciones || "" }));
+                if (activa) {
+                  setPercepcion((p) => ({ ...p, activa: false }));
+                  setRetencion((r) => ({ ...r, activa: false }));
+                }
+              }}
+            />
             {detraccion.activa ? (
               <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
             ) : avisoDeDetraccion({ activa: false, moneda, total: mostrados.total, boleta }) ? (
@@ -871,27 +867,21 @@ export function NuevoComprobanteForm({
             ) : null}
             {detraccion.activa ? null : (
               <>
-                <label className="flex items-center gap-2 text-control font-medium">
-                  <input
-                    type="checkbox"
-                    checked={percepcion.activa}
-                    onChange={(e) => {
-                      setPercepcion((p) => ({ ...p, activa: e.target.checked }));
-                      if (e.target.checked) setRetencion((r) => ({ ...r, activa: false }));
-                    }}
-                    className="size-3.5 accent-primary"
-                  />
-                  {t.percepcionCheck}
-                </label>
+                <Casilla
+                  id="nc-percepcion"
+                  etiqueta={t.percepcionCheck}
+                  checked={percepcion.activa}
+                  onCheckedChange={(activa) => {
+                    setPercepcion((p) => ({ ...p, activa }));
+                    if (activa) setRetencion((r) => ({ ...r, activa: false }));
+                  }}
+                />
                 {percepcion.activa ? (
                   <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
                 ) : null}
                 {boleta || percepcion.activa ? null : (
                   <>
-                    <label className="flex items-center gap-2 text-control font-medium">
-                      <input type="checkbox" checked={retencion.activa} onChange={(e) => setRetencion((r) => ({ ...r, activa: e.target.checked }))} className="size-3.5 accent-primary" />
-                      {t.retencionCheck}
-                    </label>
+                    <Casilla id="nc-retencion" etiqueta={t.retencionCheck} checked={retencion.activa} onCheckedChange={(activa) => setRetencion((r) => ({ ...r, activa }))} />
                     {retencion.activa ? <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} /> : null}
                   </>
                 )}
@@ -965,36 +955,38 @@ export function NuevoComprobanteForm({
                   <EntradaMonto id={`nc-precio-${i}`} valor={linea.precioUnitario} onCambio={(v) => actualizar(i, { precioUnitario: v })} moneda={moneda} variante="filtro" />
                 </Campo>
                 <div className="flex items-center justify-end gap-0.5">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setDetalle(detalle === i ? null : i)}
                     title={t.unidadYAfectacion}
                     aria-label={interpolar(t.masOpcionesItem, { n: i + 1 })}
                     aria-expanded={detalle === i}
-                    className={cn(
-                      "rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground",
-                      detalle === i && "bg-muted text-foreground",
-                    )}
+                    className="text-muted-foreground"
                   >
                     <SlidersHorizontalIcon className="size-4" />
-                  </button>
-                  <button
+                  </Button>
+                  {/* `pointer-events-auto` al deshabilitarse: el `title` («mínimo un ítem») tiene que seguir apareciendo al pasar por encima. */}
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => quitarLinea(i)}
                     disabled={lineas.length === 1}
                     title={lineas.length === 1 ? t.minimoUnItem : t.quitarItem}
                     aria-label={interpolar(t.quitarItemN, { n: i + 1 })}
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                    className="text-muted-foreground hover:text-destructive disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                   >
                     <TrashIcon className="size-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               {detalle === i ? (
                 <div className="mt-3 grid gap-3 rounded-lg bg-muted/40 px-3 py-3 sm:grid-cols-2">
                   <Campo id={`nc-unidad-${i}`} etiqueta={t.unidadMedida} ayuda={t.catalogo03}>
-                    <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(CAMPO, "font-mono")}>
+                    <select id={`nc-unidad-${i}`} value={linea.unidad} onChange={(e) => actualizar(i, { unidad: e.target.value })} className={cn(SELECT_NATIVO, "w-full font-mono")}>
                       {(unidades ?? []).length === 0 ? <option value={linea.unidad}>{linea.unidad}</option> : null}
                       {(unidades ?? []).map((u) => (
                         <option key={u.codigo} value={u.codigo}>
@@ -1008,7 +1000,7 @@ export function NuevoComprobanteForm({
                       id={`nc-afect-${i}`}
                       value={linea.tipoAfectacionIgv}
                       onChange={(e) => actualizar(i, { tipoAfectacionIgv: e.target.value })}
-                      className={CAMPO}
+                      className={cn(SELECT_NATIVO, "w-full")}
                     >
                       {exportacion ? <option value="40">{t.exportacion40}</option> : null}
                       {(exportacion ? [] : gruposAfectacion(messages)).map((g) => (
@@ -1030,7 +1022,7 @@ export function NuevoComprobanteForm({
                         id={`nc-isc-sistema-${i}`}
                         value={linea.isc.sistema}
                         onChange={(e) => actualizar(i, { isc: { ...ISC_VACIO, sistema: e.target.value as IscForm["sistema"] } })}
-                        className={CAMPO}
+                        className={cn(SELECT_NATIVO, "w-full")}
                       >
                         <option value="">{t.sinIsc}</option>
                         <option value="01">{t.isc01}</option>
@@ -1054,15 +1046,13 @@ export function NuevoComprobanteForm({
                         ) : null}
                       </>
                     ) : null}
-                    <label className="mt-1 flex items-center gap-2 text-control text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={linea.icbper}
-                        onChange={(e) => actualizar(i, e.target.checked ? { icbper: true, unidad: "NIU" } : { icbper: false })}
-                        className="size-3.5 accent-primary"
-                      />
-                      {t.bolsas}
-                    </label>
+                    <Casilla
+                      id={`nc-icbper-${i}`}
+                      etiqueta={t.bolsas}
+                      checked={linea.icbper}
+                      onCheckedChange={(v) => actualizar(i, v ? { icbper: true, unidad: "NIU" } : { icbper: false })}
+                      className="mt-1"
+                    />
                     <p className={AYUDA_CAMPO}>{t.bolsasAyuda}</p>
                   </fieldset>
                   {/* #310: descuento y cargo de la línea (catálogo 53: 00/01 y 47/48). */}
@@ -1104,21 +1094,18 @@ export function NuevoComprobanteForm({
         <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer text-control font-medium">{t.anticipos}</summary>
           <div className="mt-3 grid gap-3">
-            <label className="flex items-center gap-2 text-control font-medium">
-              <input
-                type="checkbox"
-                checked={esAnticipo}
-                onChange={(e) => {
-                  setEsAnticipo(e.target.checked);
-                  if (e.target.checked) {
-                    setAnticiposElegidos([]);
-                    setLineas((prev) => prev.map((l, n) => (n === 0 && l.descripcion.trim() === "" ? { ...l, descripcion: t.anticipoPrefijo } : l)));
-                  }
-                }}
-                className="size-3.5 accent-primary"
-              />
-              {interpolar(t.esAnticipo, { nombre })}
-            </label>
+            <Casilla
+              id="nc-es-anticipo"
+              etiqueta={interpolar(t.esAnticipo, { nombre })}
+              checked={esAnticipo}
+              onCheckedChange={(v) => {
+                setEsAnticipo(v);
+                if (v) {
+                  setAnticiposElegidos([]);
+                  setLineas((prev) => prev.map((l, n) => (n === 0 && l.descripcion.trim() === "" ? { ...l, descripcion: t.anticipoPrefijo } : l)));
+                }
+              }}
+            />
             {esAnticipo ? (
               <p className={AYUDA_CAMPO} data-testid="anticipo-ayuda">
                 {interpolar(t.anticipoAyuda, { nombre })}

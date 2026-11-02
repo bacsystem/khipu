@@ -4,7 +4,7 @@ import { useLocale, useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { interpolar } from "@/i18n/mensajes";
 import { errorDePercepcion, regimenes, type PercepcionForm } from "@/lib/comprobantes/percepcion";
-import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,7 @@ export function PercepcionEditor({
     <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="percepcion-form">
       <div className="grid items-start gap-4 sm:grid-cols-[1fr_180px]">
         <Campo id="nc-per-regimen" etiqueta={t.percepcion.regimen} ayuda={t.percepcion.regimenAyuda}>
-          <select id="nc-per-regimen" value={valor.regimen} onChange={(e) => set({ regimen: e.target.value })} className={CAMPO}>
+          <select id="nc-per-regimen" value={valor.regimen} onChange={(e) => set({ regimen: e.target.value })} className={cn(SELECT_NATIVO, "w-full")}>
             {regimenes(messages).map((r) => (
               <option key={r.codigo} value={r.codigo}>
                 {r.codigo} · {r.etiqueta} ({r.tasa} %)

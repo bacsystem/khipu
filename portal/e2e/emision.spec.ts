@@ -708,7 +708,7 @@ test("emite una factura con detracción: bien, porcentaje y cuenta; el pie y la 
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByLabel("Operación sujeta a detracción (SPOT)").check();
+  await dialogo.getByRole("checkbox", { name: "Operación sujeta a detracción (SPOT)" }).check();
   await dialogo.getByLabel("Bien o servicio sujeto").selectOption("022");
   await expect(dialogo.getByLabel("Porcentaje")).toHaveValue("12");
   // Sin la cuenta del Banco de la Nación no se emite, y lo dice en el momento.
@@ -733,7 +733,7 @@ test("emite una factura con percepción: régimen 51, el pie suma el monto y la 
   await dialogo.getByLabel("Descripción").fill("Mercadería");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByLabel("Operación con percepción del IGV").check();
+  await dialogo.getByRole("checkbox", { name: "Operación con percepción del IGV" }).check();
   await dialogo.getByLabel("Régimen de percepción").selectOption("51");
   // El monto lo calcula el backend: 2 % de 1,180.00.
   await expect(dialogo.getByTestId("percepcion-pie")).toContainText("Percepción S/ 23.60");
@@ -760,9 +760,9 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
   await dialogo.getByLabel("Tipo de operación").selectOption("0113");
 
   await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
-  await dialogo.getByLabel("Bolsas de plástico (ICBPER)").check();
+  await dialogo.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }).check();
   await expect(dialogo.getByTestId("tributos-incompatibles")).toContainText("3240");
-  await dialogo.getByLabel("Bolsas de plástico (ICBPER)").uncheck();
+  await dialogo.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }).uncheck();
 
   await dialogo.getByRole("button", { name: "Emitir boleta" }).click();
   await expect(page).toHaveURL(/\/comprobantes\/f-/);
@@ -808,7 +808,7 @@ test("emite un anticipo y luego la factura final que lo descuenta: el pie y la f
   await dialogo.getByLabel("Razón social").fill("SUPERINTENDENCIA NACIONAL DE ADUANAS");
   await dialogo.getByLabel("Descripción").fill("");
   await dialogo.getByText("Anticipos", { exact: true }).click();
-  await dialogo.getByLabel("Esta factura es un anticipo").check();
+  await dialogo.getByRole("checkbox", { name: "Esta factura es un anticipo" }).check();
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Anticipo por ");
   await dialogo.getByLabel("Descripción").fill("Anticipo por obra");
   await dialogo.getByLabel(/Precio unit\./).fill("590");
@@ -842,7 +842,7 @@ test("emite una factura al crédito con retención del IGV: el pie la resta y la
   await dialogo.getByLabel("Descripción").fill("Proyecto");
   await dialogo.getByLabel(/Precio unit\./).fill("1180");
 
-  await dialogo.getByLabel("El cliente retiene el IGV (agente de retención)").check();
+  await dialogo.getByRole("checkbox", { name: "El cliente retiene el IGV (agente de retención)" }).check();
   await expect(dialogo.getByLabel("Porcentaje de retención")).toHaveValue("3");
   // El monto lo calcula el backend: 3 % de 1,180.00.
   await expect(dialogo.getByTestId("retencion-pie")).toContainText("Retención S/ 35.40");

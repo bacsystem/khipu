@@ -78,7 +78,7 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     conUnaLinea();
 
-    expect(screen.getByLabelText("Guardar en mis clientes al emitir")).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
     await waitFor(() => expect(guardados(fetch)).toHaveLength(1));
@@ -95,7 +95,7 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     fireEvent.change(screen.getByLabelText("Razón social"), { target: { value: "Cliente SAC" } });
     conUnaLinea();
 
-    fireEvent.click(screen.getByLabelText("Guardar en mis clientes al emitir"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" }));
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
     await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));
@@ -121,7 +121,7 @@ describe("NuevoComprobanteForm — clientes guardados (#319)", () => {
     await elegir("pacif", "PESQUERA");
     conUnaLinea();
 
-    expect(screen.getByLabelText("Guardar en mis clientes al emitir")).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).not.toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Emitir factura" }));
 
     await waitFor(() => expect(fetch.mock.calls.some(([url, init]) => String(url).includes("/facturas") && !String(url).includes("/calcular") && init?.method === "POST")).toBe(true));

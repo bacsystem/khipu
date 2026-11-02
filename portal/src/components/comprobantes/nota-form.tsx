@@ -11,18 +11,20 @@ import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
+import { AreaTexto } from "khipu-design-system/formularios/campo";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import { cn } from "@/lib/utils";
 import { AjusteEditor } from "./ajuste-editor";
+import { cuotaDeNotaValida } from "@/lib/comprobantes/credito";
 
 type Tipo = "07" | "08";
 /** Motivos de NC en los que la nota es total y se copian los ítems de la factura; el 13 no mueve importes. */
@@ -209,7 +211,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
     cuotas.length > 0 &&
     // Hasta 2 decimales por cuota (3253: «12 enteros y hasta 2 decimales»): `10.123` pasaba el formulario y el
     // backend lo rechazaba después. `step=0.01` no frena lo tipeado, solo las flechas.
-    cuotas.every((q) => Number(q.monto) > 0 && DOS_DECIMALES.test(q.monto.trim()) && q.vencimiento !== "" && q.vencimiento > factura.fecha_emision) &&
+    cuotas.every((q) => cuotaDeNotaValida(q, factura.fecha_emision)) &&
     redondear(cuotas.reduce((acc, q) => acc + Number(q.monto), 0), 2) <= factura.totales.total;
   const motivos = (catalogos[tipo]?.entradas ?? []).filter((m) => {
     // Sobre una boleta: la NC 13 corrige cuotas de una factura al crédito (3259) y la NC por descuento o bonificación (04, 05,
@@ -321,7 +323,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>{t.tipoNota}</label>
-          <select id="nota-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={CAMPO}>
+          <select id="nota-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={cn(SELECT_NATIVO, "w-full")}>
             <option value="07">{t.tipoNC}</option>
             <option value="08">{t.tipoND}</option>
           </select>
@@ -329,7 +331,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-serie" className={ETIQUETA_CAMPO}>{t.serie}</label>
           {seriesDelTipo.length ? (
-            <select id="nota-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(CAMPO, "font-mono")}>
+            <select id="nota-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
               {seriesDelTipo.map((s) => (
                 <option key={s.serie} value={s.serie}>{s.serie}</option>
               ))}
@@ -344,7 +346,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="nota-motivo" className={ETIQUETA_CAMPO}>{interpolar(t.motivo, { catalogo: esNc ? "09" : "10" })}</label>
-          <select id="nota-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={CAMPO} disabled={!catalogos[tipo]}>
+          <select id="nota-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")} disabled={!catalogos[tipo]}>
             <option value="">{catalogos[tipo] ? t.seleccione : messages.comun.cargando}</option>
             {motivos.map((m) => (
               <option key={m.codigo} value={m.codigo}>{m.codigo} · {m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}</option>
@@ -367,7 +369,7 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones} <span className="font-normal normal-case text-muted-foreground">{t.opcional}</span></label>
-          <textarea id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} className={cn(CAMPO, "h-auto py-2")} />
+          <AreaTexto id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} />
           <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
       </div>
@@ -474,7 +476,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <div key={i} className="flex flex-wrap items-center gap-2">
               <span className="w-20 font-mono text-etiqueta text-muted-foreground">{interpolar(t.cuotaId, { n: String(i + 1).padStart(3, "0") })}</span>
               <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={interpolar(t.montoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
-              <input type="date" value={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} aria-label={interpolar(t.vencimientoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: e.target.value } : c)))} className={cn(CAMPO, "w-40 font-mono")} />
+              <label htmlFor={`nota-cuota-vencimiento-${i}`} className="sr-only">{interpolar(t.vencimientoCuota, { n: i + 1 })}</label>
+              <EntradaFecha id={`nota-cuota-vencimiento-${i}`} valor={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} onCambio={(v) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: v } : c)))} className="w-40" />
               <button type="button" aria-label={interpolar(t.quitarCuota, { n: i + 1 })} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-control text-muted-foreground hover:text-destructive">{t.quitar}</button>
             </div>
           ))}
