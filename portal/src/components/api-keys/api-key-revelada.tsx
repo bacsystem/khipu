@@ -3,6 +3,7 @@
 import { CheckIcon, CopyIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
+import { Aviso } from "khipu-design-system/patrones/cabecera-dialogo";
 import { BOTON_SECUNDARIO, ETIQUETA_DATO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
@@ -47,10 +48,9 @@ export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; et
           </button>
         </div>
       </div>
-      <div className="flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning px-3 py-2.5 text-control leading-relaxed text-warning-foreground">
-        <WarningIcon className="mt-0.5 size-4 shrink-0" />
+      <Aviso tono="aviso" icon={WarningIcon}>
         {aviso ?? <p>{tr.rich("aviso", { b: (texto) => <strong className="font-semibold">{texto}</strong> })}</p>}
-      </div>
+      </Aviso>
     </>
   );
 }

@@ -46,14 +46,15 @@ describe("CuentasTabla estado (#182)", () => {
     expect(screen.getByText("Activa").className).not.toContain("text-destructive");
   });
 
-  it("la fila de una cuenta suspendida se distingue, y la de una activa no", () => {
+  it("la fila de una cuenta suspendida se distingue por su pill, sin teñir la fila", () => {
     render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
 
     const filas = screen.getAllByRole("row").slice(1);
     expect(filas[0].getAttribute("data-estado-cuenta")).toBe("ACTIVA");
-    expect(filas[0].className).not.toContain("bg-destructive");
     expect(filas[1].getAttribute("data-estado-cuenta")).toBe("SUSPENDIDA");
-    expect(filas[1].className).toContain("bg-destructive");
+    // La fila no se tiñe (un tinte fuera de los tokens del DS): la `PillEstado` roja de la fila dice el estado.
+    expect(filas[1].className).not.toContain("bg-destructive");
+    expect(within(filas[1]).getByText("Suspendida").className).toContain("bg-destructive-suave");
   });
 
   it("una cuenta suspendida sigue en el listado y enlazada a su detalle, para poder reactivarla", () => {

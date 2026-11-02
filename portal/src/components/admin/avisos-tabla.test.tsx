@@ -82,7 +82,7 @@ describe("AvisosTabla (#197)", () => {
     render(<AvisosTabla params={CERTIFICADOS} certificados={pagina([certificado(), certificado({ empresa_id: "b", motivo: "CERTIFICADO_VENCIDO", vigente_hasta: "2026-09-29", dias_restantes: -5 })])} sol={null} />);
     // «Set», no «Sep»: así abrevia el mes el formato del portal.
 
-    const etiqueta = (i: number) => filas()[i].querySelector('[data-slot="badge"]')?.className ?? "";
+    const etiqueta = (i: number) => filas()[i].querySelector("span.rounded-full")?.className ?? "";
     expect(etiqueta(0)).toContain("bg-warning");
     expect(etiqueta(1)).toContain("bg-destructive-suave");
     expect(etiqueta(0)).not.toContain("bg-destructive-suave");
@@ -169,7 +169,8 @@ describe("AvisosTabla (#197)", () => {
     fireEvent.click(screen.getByTestId("avisos-avisar-confirmar"));
 
     await waitFor(() => expect(screen.getByTestId("avisos-resultado").textContent).toBe("Se le avisó a panaderia@sol.pe (PANADERIA SOL SAC)."));
-    expect(screen.getByTestId("avisos-resultado").getAttribute("role")).toBe("status");
+    // La `Alerta` del DS pone el rol; el `data-testid` va en su envoltorio.
+    expect(within(screen.getByTestId("avisos-resultado")).getByRole("status")).toBeTruthy();
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(apiRequest).toHaveBeenCalledWith(`/api/admin/empresas/${EMPRESA}/avisos`, { method: "POST", body: { tipo: "CERTIFICADO" } });
   });

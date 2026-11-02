@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
 import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
@@ -47,12 +48,16 @@ export default async function AdminEmpresaPage({ params }: { params: Promise<{ i
       {resultado.empresa ? (
         <EmpresaDetalle empresa={resultado.empresa} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{t.error}</span>
-          <Link href={hrefDetalleEmpresa(id)} className="font-medium underline">
-            {messages.admin.empresas.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefDetalleEmpresa(id)} className="font-medium underline">
+              {messages.admin.empresas.reintentar}
+            </Link>
+          }
+        >
+          {t.error}
+        </Alerta>
       )}
     </div>
   );

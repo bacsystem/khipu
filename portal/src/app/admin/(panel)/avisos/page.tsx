@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -52,12 +53,16 @@ export default async function AdminAvisosPage({ searchParams }: { searchParams: 
       {resultado.r ? (
         <AvisosTabla params={params} certificados={resultado.r.certificados} sol={resultado.r.sol} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{messages.admin.avisos.error}</span>
-          <Link href={hrefAvisos(params)} className="font-medium underline">
-            {messages.admin.avisos.volverACargar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefAvisos(params)} className="font-medium underline">
+              {messages.admin.avisos.volverACargar}
+            </Link>
+          }
+        >
+          {messages.admin.avisos.error}
+        </Alerta>
       )}
     </div>
   );

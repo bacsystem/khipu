@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { IndiceActivo } from "@/components/developers/guia/indice-activo";
 import { cn } from "@/lib/utils";
 
@@ -27,16 +28,8 @@ export function Codigo({ children }: { children: ReactNode }) {
  * es propio del portal— en vez de aquel evita bifurcar un archivo vendorizado que hoy es idéntico al de upstream.
  */
 export function NotaProsa({ tono = "info", children }: { tono?: "info" | "aviso"; children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border px-3 py-2.5 text-control leading-relaxed",
-        tono === "aviso" ? "border-warning-border bg-warning text-warning-foreground" : "border-accent-border bg-accent/60 text-accent-foreground",
-      )}
-    >
-      {children}
-    </div>
-  );
+  // La `Alerta` del DS con su tinte; solo se elige el tono.
+  return <Alerta tono={tono}>{children}</Alerta>;
 }
 
 export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactNode[][] }) {

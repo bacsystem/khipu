@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import { CalendarIcon, InfoIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
@@ -142,17 +142,19 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
         <CabeceraDialogo icon={Icono} titulo={<>{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</>} descripcion={edicion ? f.descripcionEditar : f.descripcionNuevo} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
+          <Aviso tono="neutro" icon={InfoIcon}>
             <ul className="grid list-disc gap-1 pl-4">
               {efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>
               ))}
             </ul>
-          </div>
+          </Aviso>
           {programado ? (
-            <p data-testid="plan-hay-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-control text-warning-foreground">
-              {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
-            </p>
+            <div data-testid="plan-hay-programado">
+              <Aviso tono="aviso" icon={CalendarIcon}>
+                {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
+              </Aviso>
+            </div>
           ) : null}
 
           <div className="flex flex-col gap-1.5">

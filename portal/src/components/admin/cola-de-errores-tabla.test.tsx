@@ -93,7 +93,7 @@ describe("ColaDeErroresTabla (#196)", () => {
     expect(fila.getByText("Panadería Sol")).toBeTruthy();
     expect(fila.getByText("20100047226-01-F001-7")).toBeTruthy();
     expect(fila.getByText("Factura · 1 Oct 2026")).toBeTruthy();
-    expect(fila.getByText("Error de envío", { selector: "span:not([data-slot])" })).toBeTruthy();
+    expect(fila.getByText("Error de envío", { selector: "span.text-muted-foreground" })).toBeTruthy();
     expect(within(filas()[0]).getByTestId("errores-fault").textContent).toBe("0109 - El sistema no puede responder");
     expect(within(filas()[0]).getByTestId("errores-intentos").textContent).toBe("3");
     expect(fila.getByText("Próximo intento: 4 Oct 2026, 13:30")).toBeTruthy();
@@ -125,7 +125,7 @@ describe("ColaDeErroresTabla (#196)", () => {
   it("el color de la clase dice si todavía se puede arreglar (aviso) o ya es terminal (error)", () => {
     render(<ColaDeErroresTabla errores={[error(1), formato(2), plazo(3)]} total={3} params={PARAMS} />);
 
-    const etiqueta = (i: number) => filas()[i].querySelector('[data-slot="badge"]')?.className ?? "";
+    const etiqueta = (i: number) => filas()[i].querySelector("span.rounded-full")?.className ?? "";
     expect(etiqueta(0)).toContain("bg-warning");
     expect(etiqueta(1)).toContain("bg-destructive-suave");
     expect(etiqueta(2)).toContain("bg-destructive-suave");
@@ -182,7 +182,8 @@ describe("ColaDeErroresTabla (#196)", () => {
 
     await waitFor(() => expect(screen.getByTestId("errores-resultado").textContent).toBe("20100047226-01-F001-7: SUNAT volvió a fallar (intento 4). 0000 - SUNAT respondió HTTP 503"));
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("errores-resultado").getAttribute("role")).toBe("status");
+    // La `Alerta` del DS pone el rol; el `data-testid` va en su envoltorio.
+    expect(within(screen.getByTestId("errores-resultado")).getByRole("status")).toBeTruthy();
   });
 
   it("lo que pasó con un descarte también se dice arriba", async () => {

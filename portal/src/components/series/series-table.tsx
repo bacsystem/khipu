@@ -7,6 +7,7 @@ import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { etiquetasTipo } from "@/lib/api/facturas";
@@ -190,17 +191,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
-                  {s.activa ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
-                      <span className="size-1.5 rounded-full bg-success-solid" />
-                      {t.activa}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
-                      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-                      {t.inactiva}
-                    </span>
-                  )}
+                  {s.activa ? <PillEstado tono="ok">{t.activa}</PillEstado> : <PillEstado tono="neutro">{t.inactiva}</PillEstado>}
                 </TableCell>
               </TableRow>
             ))}

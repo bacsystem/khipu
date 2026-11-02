@@ -1,5 +1,6 @@
 "use client";
 
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
@@ -82,15 +83,20 @@ export function PanelDelMonitor({ inicial, intervaloMs = INTERVALO_DEL_MONITOR_M
       </div>
 
       {fallo ? (
-        <p data-testid="monitor-error" role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive-border bg-destructive-suave px-3 py-2.5 text-cuerpo text-destructive-texto">
-          <span>{monitor ? t.errorAlActualizar : t.errorInicial}</span>
-          <span className="text-control">{fallo}</span>
-          {sesionTerminada ? null : (
-            <button type="button" onClick={() => void leer()} className="ml-auto text-control font-medium underline">
-              {t.reintentar}
-            </button>
-          )}
-        </p>
+        <div data-testid="monitor-error">
+          <Alerta
+            tono="error"
+            accion={
+              sesionTerminada ? null : (
+                <button type="button" onClick={() => void leer()} className="text-control font-medium underline">
+                  {t.reintentar}
+                </button>
+              )
+            }
+          >
+            {monitor ? t.errorAlActualizar : t.errorInicial} {fallo}
+          </Alerta>
+        </div>
       ) : null}
 
       {monitor ? <Lectura monitor={monitor} /> : null}
@@ -119,12 +125,11 @@ function AlertaDelOutbox({ outbox }: { outbox: ColaDeEnvios }) {
   const tiempo = duracionEnPalabras(outbox.vencido_hace_segundos ?? 0);
   const texto = outbox.vencidos === 1 ? t.alerta.uno.replace("{tiempo}", tiempo) : t.alerta.varios.replace("{n}", String(outbox.vencidos)).replace("{tiempo}", tiempo);
   return (
-    <div data-testid="monitor-alerta" role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-      <WarningIcon className="mt-0.5 size-4 shrink-0" />
-      <div className="grid gap-0.5">
-        <p className="font-medium">{t.alerta.titulo}</p>
-        <p>{texto}</p>
-      </div>
+    // La `Alerta` de error del DS ya es `role="alert"`; el `data-testid` va en el envoltorio.
+    <div data-testid="monitor-alerta">
+      <Alerta tono="error" icon={WarningIcon} titulo={t.alerta.titulo}>
+        {texto}
+      </Alerta>
     </div>
   );
 }
@@ -138,13 +143,12 @@ function AlertaDeResumenes({ resumenes }: { resumenes: ResumenesSinRespuesta }) 
     ? t.alertaResumenes.uno.replace("{tiempo}", tiempo).replace("{umbral}", umbral)
     : t.alertaResumenes.varios.replace("{n}", String(resumenes.cantidad)).replace("{umbral}", umbral).replace("{tiempo}", tiempo);
   return (
-    <div data-testid="monitor-alerta-resumenes" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-cuerpo text-warning-foreground">
-      <WarningIcon className="mt-0.5 size-4 shrink-0" />
-      <div className="grid gap-0.5">
-        <p className="font-medium">{t.alertaResumenes.titulo}</p>
+    // Ámbar pero urgente para el administrador: el envoltorio conserva `role="alert"` (la `Alerta` ámbar del DS sería `status`).
+    <div data-testid="monitor-alerta-resumenes" role="alert">
+      <Alerta tono="aviso" titulo={t.alertaResumenes.titulo}>
         <p>{texto}</p>
-        <p className="text-control">{t.alertaResumenes.ayuda}</p>
-      </div>
+        <p className="opacity-90">{t.alertaResumenes.ayuda}</p>
+      </Alerta>
     </div>
   );
 }
@@ -158,19 +162,23 @@ function AlertaDeBoletas({ boletas }: { boletas: BoletasSinInformar }) {
   const fecha = formatearFecha(boletas.mas_antigua_emitida_el ?? "", useLocale());
   const texto = boletas.cantidad === 1 ? t.alertaBoletas.uno.replace("{fecha}", fecha) : t.alertaBoletas.varios.replace("{n}", String(boletas.cantidad)).replace("{fecha}", fecha);
   return (
-    <div data-testid="monitor-alerta-boletas" role="alert" className="flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning/40 px-4 py-3 text-cuerpo text-warning-foreground">
-      <WarningIcon className="mt-0.5 size-4 shrink-0" />
-      <div className="grid gap-0.5">
-        <p className="font-medium">{t.alertaBoletas.titulo}</p>
+    // Como la de resúmenes: ámbar, y el envoltorio conserva `role="alert"`.
+    <div data-testid="monitor-alerta-boletas" role="alert">
+      <Alerta
+        tono="aviso"
+        titulo={t.alertaBoletas.titulo}
+        accion={
+          <Link href="/admin/errores" className="text-control font-medium underline underline-offset-2">
+            {t.alertaBoletas.verLista}
+          </Link>
+        }
+      >
         <p>
           {texto}
           {boletas.por_vencer_el_plazo === 1 ? ` ${t.alertaBoletas.urgente}` : boletas.por_vencer_el_plazo > 1 ? ` ${t.alertaBoletas.urgentes.replace("{n}", String(boletas.por_vencer_el_plazo))}` : ""}
         </p>
-        <p className="text-control">{t.alertaBoletas.ayuda}</p>
-        <Link href="/admin/errores" className="w-fit text-control font-medium underline underline-offset-2">
-          {t.alertaBoletas.verLista}
-        </Link>
-      </div>
+        <p className="opacity-90">{t.alertaBoletas.ayuda}</p>
+      </Alerta>
     </div>
   );
 }

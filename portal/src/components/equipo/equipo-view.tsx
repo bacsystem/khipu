@@ -18,10 +18,10 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Chip, PillEstado } from "khipu-design-system/patrones/pill-estado";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
-const PASTILLA = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium";
 
 /** Una acción de fila que llama a la API y refresca: el error queda debajo de la fila. */
 function useAccion() {
@@ -48,14 +48,9 @@ function useAccion() {
 
 function EstadoDelMiembro({ m }: { m: MiembroDelEquipo }) {
   const t = useMessages().equipo;
-  if (!m.activo) return <span className={cn(PASTILLA, "border-border bg-secondary text-muted-foreground")}>{t.desactivado}</span>;
-  if (!m.correo_verificado) return <span className={cn(PASTILLA, "border-warning-border bg-warning text-warning-foreground")}>{t.sinVerificar}</span>;
-  return (
-    <span className={cn(PASTILLA, "border-success-border bg-success text-success-foreground")}>
-      <span className="size-1.5 rounded-full bg-success-solid" />
-      {t.activo}
-    </span>
-  );
+  if (!m.activo) return <PillEstado tono="neutro">{t.desactivado}</PillEstado>;
+  if (!m.correo_verificado) return <PillEstado tono="aviso">{t.sinVerificar}</PillEstado>;
+  return <PillEstado tono="ok">{t.activo}</PillEstado>;
 }
 
 function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
@@ -103,7 +98,7 @@ function FilaMiembro({ m }: { m: MiembroDelEquipo }) {
       <TableCell className="py-2 pr-3 pl-4">
         <div className="flex items-center gap-2">
           <span className="font-mono text-control text-foreground">{m.email}</span>
-          {m.es_usted ? <span className={cn(PASTILLA, "border-primary/20 bg-accent text-accent-foreground")}>{t.usted}</span> : null}
+          {m.es_usted ? <Chip>{t.usted}</Chip> : null}
         </div>
       </TableCell>
       <TableCell className="px-3 py-2">
@@ -183,7 +178,7 @@ function FilaInvitacion({ i }: { i: InvitacionAlEquipo }) {
       <TableCell className="px-3 py-2 text-control">{etiquetas[i.rol] ?? i.rol}</TableCell>
       <TableCell className="px-3 py-2 whitespace-nowrap">
         {i.vencida ? (
-          <span className={cn(PASTILLA, "border-warning-border bg-warning text-warning-foreground")}>{t.vencida}</span>
+          <PillEstado tono="aviso">{t.vencida}</PillEstado>
         ) : (
           <span className="font-mono text-control text-muted-foreground tabular-nums">{t.venceEl.replace("{fecha}", formatearFechaHora(i.expira_en, locale))}</span>
         )}

@@ -1,5 +1,5 @@
 import { MegaphoneIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { Banner } from "khipu-design-system/feedback/banner";
 import { useLocale, useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
 import { formatearFechaHora } from "@/lib/formato";
@@ -12,14 +12,12 @@ export function BannerDeMantenimiento({ texto, hasta }: { texto: string; hasta: 
   const messages = useMessages();
   const locale = useLocale();
   return (
-    <div
-      role="status"
-      data-testid="banner-de-mantenimiento"
-      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-warning-border bg-warning px-4 py-2 text-center text-control text-warning-foreground"
-    >
-      <MegaphoneIcon weight={PESO_ICONO} className="size-4 shrink-0" aria-hidden="true" />
-      <span data-testid="banner-de-mantenimiento-texto">{texto}</span>
-      <span className="text-control opacity-80">{interpolar(messages.banner.hasta, { fecha: formatearFechaHora(hasta, locale) })}</span>
+    // El `Banner` del DS pone el rol (`status`) y el tinte; el `data-testid` va en el envoltorio.
+    <div data-testid="banner-de-mantenimiento">
+      <Banner tono="aviso" icon={MegaphoneIcon}>
+        <span data-testid="banner-de-mantenimiento-texto">{texto}</span>{" "}
+        <span className="opacity-80">{interpolar(messages.banner.hasta, { fecha: formatearFechaHora(hasta, locale) })}</span>
+      </Banner>
     </div>
   );
 }

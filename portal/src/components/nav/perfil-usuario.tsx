@@ -15,7 +15,7 @@ import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ROTULO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /** Las dos primeras letras del nombre de la cuenta («FT» de «Ferretería Torres»), o del correo si no se pudo leer la cuenta. */
 function iniciales(nombre: string): string {
@@ -57,12 +57,12 @@ export function CambiarContrasenaDialog({ email, abierto, onOpenChange }: { emai
 
         <div className="grid gap-3 px-5 py-4">
           {estado === "enviado" ? (
-            <div role="status" className="flex items-start gap-2.5 rounded-lg border border-success-border bg-success px-3 py-2.5 text-control leading-relaxed text-success-foreground">
-              <EnvelopeSimpleOpenIcon weight="duotone" className="mt-0.5 size-4 shrink-0" />
-              <p>
+            // El `Aviso` del DS no lleva rol: el envoltorio conserva `role="status"` para que se anuncie.
+            <div role="status">
+              <Aviso tono="ok" icon={EnvelopeSimpleOpenIcon}>
                 {t.enviadoA} <strong className="font-semibold">{email}</strong>
                 {t.enviadoDetalle}
-              </p>
+              </Aviso>
             </div>
           ) : (
             <>

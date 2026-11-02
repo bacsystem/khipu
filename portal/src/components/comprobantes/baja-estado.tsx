@@ -5,12 +5,13 @@ import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "khipu-design-system/ui/button";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
 import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
-import { TITULO_SECCION } from "@/lib/estilos";
+import { TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,14 +55,16 @@ export function BajaEstado({ baja }: { baja: Baja }) {
     return () => clearInterval(t);
   }, [pendiente, actualizar]);
 
+  // Una baja aceptada (el comprobante quedó anulado) o rechazada dice su estado en una `Alerta` del DS; la tarjeta ya no se tiñe.
+  const tono = baja.estado === "ACEPTADA" && !alta ? "error" : baja.estado === "RECHAZADA" ? "aviso" : null;
+  const estado = (
+    <span className="font-semibold" role="status">
+      {etiqueta}
+    </span>
+  );
+
   return (
-    <section
-      className={cn(
-        "rounded-xl border p-5 shadow-xs",
-        baja.estado === "ACEPTADA" && !alta ? "border-destructive/40 bg-destructive/5" : baja.estado === "RECHAZADA" ? "border-warning-border bg-warning/40" : "border-border bg-card",
-      )}
-      data-testid="baja"
-    >
+    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="baja">
       <div className={cn(TITULO_SECCION, "mb-3 justify-between")}>
         <span className="flex items-center gap-1.5">
           <ProhibitIcon className="size-4" />
@@ -75,11 +78,18 @@ export function BajaEstado({ baja }: { baja: Baja }) {
           </button>
         ) : null}
       </div>
-      <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-etiqueta text-muted-foreground">{t.estado}</span>
-          <span className="font-semibold text-foreground" role="status">{etiqueta}</span>
-        </div>
+      {tono ? (
+        <Alerta tono={tono} className="mb-4">
+          {estado}
+        </Alerta>
+      ) : null}
+      <div className={cn("grid grid-cols-1 gap-4 text-etiqueta", tono ? "md:grid-cols-3" : "md:grid-cols-4")}>
+        {tono ? null : (
+          <div className="flex flex-col gap-1">
+            <span className="text-etiqueta text-muted-foreground">{t.estado}</span>
+            <span className="text-foreground">{estado}</span>
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <span className="text-etiqueta text-muted-foreground">{t.motivo}</span>
           <p className="leading-snug text-foreground/80">{baja.motivo}</p>

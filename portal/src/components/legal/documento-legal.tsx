@@ -1,5 +1,4 @@
-import { WarningIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import Link from "next/link";
 import { LogoMarca } from "@/components/nav/logo";
 import type { DocumentoLegal } from "@/content/legal/tipos";
@@ -39,12 +38,10 @@ export function DocumentoLegalVista({
       <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         {/* Mientras nadie con formación legal lo haya revisado, se dice arriba de todo: no se presenta un borrador como texto definitivo. */}
         {revisado ? null : (
-          <div role="note" data-testid="borrador-legal" className="mb-8 flex gap-3 rounded-xl border border-warning-border bg-warning px-4 py-3 text-sm text-warning-foreground">
-            <WarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0 text-warning-solid" aria-hidden="true" />
-            <div>
-              <p className="font-semibold">{t.borradorTitulo}</p>
-              <p className="mt-0.5">{t.borradorDescripcion}</p>
-            </div>
+          <div role="note" data-testid="borrador-legal" className="mb-8">
+            <Alerta tono="aviso" titulo={t.borradorTitulo}>
+              {t.borradorDescripcion}
+            </Alerta>
           </div>
         )}
 

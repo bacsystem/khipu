@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { useMessages } from "next-intl";
 import { getMessages } from "next-intl/server";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
 import { indiceGuia } from "@/components/developers/indices";
 import { casos, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
@@ -149,7 +150,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             <>
               {" "}
               {t.casos.marcadosAntes}{" "}
-              <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-etiqueta font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>{" "}
+              <PillEstado tono="aviso">{t.casos.enDesarrollo}</PillEstado>{" "}
               {t.casos.marcadosDespues}
             </>
           ) : null}
@@ -160,7 +161,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
               <header className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-semibold text-foreground">{c.titulo}</h3>
                 {c.disponible ? null : (
-                  <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 text-etiqueta font-medium text-warning-foreground">{t.casos.enDesarrollo}</span>
+                  <PillEstado tono="aviso">{t.casos.enDesarrollo}</PillEstado>
                 )}
               </header>
               <P>
