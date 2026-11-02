@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build context: raíz del repo (proyecto Gradle multi-módulo). Lo construye y publica CI (.github/workflows/imagenes.yml);
 # Railway despliega la imagen de Docker Hub. Requiere BuildKit por el cache mount de abajo.
-FROM eclipse-temurin:21-jdk-jammy AS build
+FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /app
 COPY . .
 # El caché de Gradle va en un cache mount y no en la capa del COPY. Donde el constructor conserve ese
@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.gradle/caches \
     ./gradlew :bootstrap:bootJar --no-daemon -x test
 
 # -jammy en vez de -alpine: la app firma XML con PKCS#12/JCE y se evita musl libc en certificados/locale.
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-jammy AS runtime
 WORKDIR /app
 RUN groupadd -r khipu && useradd -r -g khipu khipu
 # WORKDIR crea /app como root: sin esto el usuario khipu no puede crear ./logs (el default de LOG_DIR) y Spring Boot
