@@ -22,7 +22,24 @@ export function instanteALima(iso: string): string {
   return new Date(Date.parse(iso) - HORAS_DE_LIMA * MS_POR_HORA).toISOString().slice(0, 16);
 }
 
-export type ValoresDeAviso = { texto: string; desde: string; hasta: string };
+/**
+ * «2026-10-15T22:00» → su fecha y su hora por separado, para el par «fecha del design system + hora» del formulario (el design system no tiene fecha y hora en un solo
+ * campo). Lo a medio llenar también se parte: «T22:00» es una hora sin fecha y «2026-10-15T», una fecha sin hora.
+ */
+export function partirFechaHora(valor: string): { fecha: string; hora: string } {
+  const corte = valor.indexOf("T");
+  return corte < 0 ? { fecha: valor, hora: "" } : { fecha: valor.slice(0, corte), hora: valor.slice(corte + 1) };
+}
+
+/**
+ * Lo inverso: la fecha y la hora vuelven al mismo texto de siempre, así lo que se envía no cambia ({@link limaAInstante}). Con una de las dos vacía el texto queda incompleto y
+ * `limaAInstante` lo rechaza (el formulario dice que falta); con las dos vacías, es vacío.
+ */
+export function unirFechaHora(fecha: string, hora: string): string {
+  return fecha === "" && hora === "" ? "" : `${fecha}T${hora}`;
+}
+
+export type ValoresDeAviso ={ texto: string; desde: string; hasta: string };
 
 /** Lo que muestra el formulario al abrirse: nada escrito, empezando ahora. */
 export function valoresNuevoAviso(ahora: Date): ValoresDeAviso {

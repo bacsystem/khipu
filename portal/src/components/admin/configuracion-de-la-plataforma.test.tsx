@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BannerConfigurado, PlantillaDeCorreo, RemitenteConfigurado } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
+import { elegirFecha } from "@/test/fecha-de-prueba";
 import { ConfiguracionDeLaPlataforma } from "./configuracion-de-la-plataforma";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
@@ -85,7 +86,8 @@ describe("ConfiguracionDeLaPlataforma: el mensaje de que quedó guardado (#199)"
     vi.mocked(apiRequest).mockResolvedValue(exito as never);
     const { rerender } = render(<ConfiguracionDeLaPlataforma contenido={{ seccion: "aviso", banner: null }} ahora={AHORA} />);
     fireEvent.change(screen.getByTestId("aviso-texto"), { target: { value: "Mantenimiento" } });
-    fireEvent.change(screen.getByTestId("aviso-hasta"), { target: { value: "2026-10-15T23:00" } });
+    await elegirFecha("Hasta", "2026-10-15");
+    fireEvent.change(screen.getByTestId("aviso-hasta-hora"), { target: { value: "23:00" } });
 
     fireEvent.click(screen.getByTestId("aviso-publicar"));
     await waitFor(() => expect(screen.getByTestId("aviso-resultado").textContent).toBe("Aviso publicado."));
@@ -111,7 +113,7 @@ describe("ConfiguracionDeLaPlataforma (#199)", () => {
     expect(screen.getByTestId("correo-vigente")).toBeTruthy();
     expect(screen.queryByTestId("plantilla-editor")).toBeNull();
     expect(screen.queryByTestId("aviso-actual")).toBeNull();
-    expect(screen.getByRole("link", { name: "Correo saliente" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("tab", { name: "Correo saliente" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("las plantillas muestran la lista y el editor del correo elegido", () => {
@@ -121,7 +123,7 @@ describe("ConfiguracionDeLaPlataforma (#199)", () => {
     expect(screen.getByTestId("plantilla-editor").getAttribute("data-tipo")).toBe("BIENVENIDA");
     expect((screen.getByTestId("plantilla-asunto") as HTMLInputElement).value).toBe("Asunto de BIENVENIDA");
     expect(screen.queryByTestId("correo-vigente")).toBeNull();
-    expect(screen.getByRole("link", { name: "Plantillas" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("tab", { name: "Plantillas" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("sin correo elegido, o con uno que no existe, se edita el primero", () => {
@@ -151,7 +153,7 @@ describe("ConfiguracionDeLaPlataforma (#199)", () => {
 
     expect(screen.getByTestId("aviso-ninguno")).toBeTruthy();
     expect(screen.queryByTestId("correo-vigente")).toBeNull();
-    expect(screen.getByRole("link", { name: "Aviso de mantenimiento" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("tab", { name: "Aviso de mantenimiento" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("el aviso publicado se ve con su estado", () => {

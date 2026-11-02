@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { elegirFecha, fechaElegida } from "@/test/fecha-de-prueba";
 import { FormularioDeAviso } from "./formulario-de-aviso";
 
 const refresh = vi.fn();
@@ -20,9 +21,19 @@ const exito = (datos: unknown = {}): ApiEnvelope<unknown> => ({ estado: "exito",
 const error = (codigo: string | null, mensaje: string | null): ApiEnvelope<unknown> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 
 const texto = () => screen.getByTestId("aviso-texto") as HTMLInputElement;
-const desde = () => screen.getByTestId("aviso-desde") as HTMLInputElement;
-const hasta = () => screen.getByTestId("aviso-hasta") as HTMLInputElement;
+/** La fecha es la del design system (un botón con su calendario) y la hora va al lado: las dos se leen y se llenan por separado. */
+const DESDE = "Se muestra desde";
+const HASTA = "Hasta";
+const desde = () => screen.getByLabelText(DESDE);
+const hasta = () => screen.getByLabelText(HASTA);
+const horaDesde = () => screen.getByTestId("aviso-desde-hora") as HTMLInputElement;
+const horaHasta = () => screen.getByTestId("aviso-hasta-hora") as HTMLInputElement;
 const escribir = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
+/** Fecha y hora de Lima, como las pondría el administrador: elige el día en el calendario y escribe la hora. */
+async function poner(cual: typeof DESDE | typeof HASTA, fecha: string, hora: string) {
+  await elegirFecha(cual, fecha);
+  escribir(cual === DESDE ? horaDesde() : horaHasta(), hora);
+}
 const alResultado = vi.fn();
 
 afterEach(() => {
@@ -34,24 +45,30 @@ afterEach(() => {
 
 describe("FormularioDeAviso (#199)", () => {
   describe("sin aviso publicado", () => {
-    it("dice que no hay ninguno y ofrece publicar, empezando ahora en hora de Lima", () => {
+    it("dice que no hay ninguno y ofrece publicar, empezando ahora en hora de Lima", async () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
 
       expect(screen.getByTestId("aviso-ninguno").textContent).toBe("No hay ningún aviso publicado.");
       expect(screen.getByTestId("aviso-publicar").textContent).toContain("Publicar aviso");
       expect(texto().value).toBe("");
-      expect(desde().value).toBe("2026-10-15T12:00");
-      expect(hasta().value).toBe("");
+      expect(await fechaElegida(DESDE)).toBe("2026-10-15");
+      expect(horaDesde().value).toBe("12:00");
+      expect(await fechaElegida(HASTA)).toBeNull();
+      expect(horaHasta().value).toBe("");
       expect(screen.queryByTestId("aviso-retirar")).toBeNull();
       expect(screen.queryByTestId("aviso-estado")).toBeNull();
     });
 
-    it("el texto tiene el tope del backend y las dos fechas son de fecha y hora", () => {
+    it("el texto tiene el tope del backend y las dos fechas son la fecha del design system con su hora al lado", () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
 
       expect(texto().maxLength).toBe(300);
-      expect(desde().type).toBe("datetime-local");
-      expect(hasta().type).toBe("datetime-local");
+      expect(desde().tagName).toBe("BUTTON");
+      expect(hasta().tagName).toBe("BUTTON");
+      expect(screen.getByLabelText("Hora de inicio")).toBe(horaDesde());
+      expect(screen.getByLabelText("Hora de fin")).toBe(horaHasta());
+      expect(horaDesde().type).toBe("time");
+      expect(horaHasta().type).toBe("time");
     });
 
     it("explica los límites: una línea, hasta 300 caracteres, fin obligatorio y a lo sumo 90 días", () => {
@@ -63,21 +80,24 @@ describe("FormularioDeAviso (#199)", () => {
   });
 
   describe("la vista previa", () => {
-    it("no aparece hasta que hay texto y un fin válido", () => {
+    it("no aparece hasta que hay texto y un fin válido: con día pero sin hora todavía no", async () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       expect(screen.queryByTestId("aviso-vista-previa")).toBeNull();
 
       escribir(texto(), "Mantenimiento");
       expect(screen.queryByTestId("aviso-vista-previa")).toBeNull();
 
-      escribir(hasta(), "2026-10-15T23:00");
+      await elegirFecha(HASTA, "2026-10-15");
+      expect(screen.queryByTestId("aviso-vista-previa")).toBeNull();
+
+      escribir(horaHasta(), "23:00");
       expect(screen.getByTestId("aviso-vista-previa")).toBeTruthy();
     });
 
-    it("muestra el banner tal como lo verán los clientes, con el fin en hora de Lima", () => {
+    it("muestra el banner tal como lo verán los clientes, con el fin en hora de Lima", async () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       escribir(texto(), "  Mantenimiento esta noche  ");
-      escribir(hasta(), "2026-10-15T23:00");
+      await poner(HASTA, "2026-10-15", "23:00");
 
       const previa = screen.getByTestId("aviso-vista-previa");
 
@@ -85,26 +105,26 @@ describe("FormularioDeAviso (#199)", () => {
       expect(previa.textContent).toContain("Hasta 15 Oct 2026, 23:00");
     });
 
-    it("un texto en blanco no genera vista previa", () => {
+    it("un texto en blanco no genera vista previa", async () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
       escribir(texto(), "   ");
-      escribir(hasta(), "2026-10-15T23:00");
+      await poner(HASTA, "2026-10-15", "23:00");
 
       expect(screen.queryByTestId("aviso-vista-previa")).toBeNull();
     });
   });
 
   describe("publicar", () => {
-    function llenar() {
+    async function llenar() {
       escribir(texto(), "Mantenimiento esta noche");
-      escribir(desde(), "2026-10-15T22:00");
-      escribir(hasta(), "2026-10-15T23:30");
+      await poner(DESDE, "2026-10-15", "22:00");
+      await poner(HASTA, "2026-10-15", "23:30");
     }
 
     it("manda un PUT con el texto y las fechas de Lima convertidas a instantes, dice que se publicó y recarga", async () => {
       apiRequest.mockResolvedValue(exito(banner()));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
@@ -118,7 +138,7 @@ describe("FormularioDeAviso (#199)", () => {
 
     it("sin texto o sin fechas lo dice bajo cada campo y no manda nada", () => {
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      escribir(desde(), "");
+      escribir(horaDesde(), "");
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
@@ -127,7 +147,9 @@ describe("FormularioDeAviso (#199)", () => {
       expect(screen.getByText("Indica hasta cuándo se muestra.")).toBeTruthy();
       expect(texto().getAttribute("aria-invalid")).toBe("true");
       expect(desde().getAttribute("aria-invalid")).toBe("true");
+      expect(horaDesde().getAttribute("aria-invalid")).toBe("true");
       expect(hasta().getAttribute("aria-invalid")).toBe("true");
+      expect(horaHasta().getAttribute("aria-invalid")).toBe("true");
       expect(apiRequest).not.toHaveBeenCalled();
     });
 
@@ -146,7 +168,7 @@ describe("FormularioDeAviso (#199)", () => {
     it("lo que el backend rechaza (el orden, el límite de 90 días) se muestra tal cual, sin decir que se publicó ni recargar", async () => {
       apiRequest.mockResolvedValue(error("BANNER_INVALIDO", "Un aviso puede durar hasta 90 días"));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
@@ -158,7 +180,7 @@ describe("FormularioDeAviso (#199)", () => {
     it("un corte de red no se reintenta a ciegas", async () => {
       apiRequest.mockResolvedValue(error("RED", "No se pudo conectar"));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
 
@@ -170,7 +192,7 @@ describe("FormularioDeAviso (#199)", () => {
       let responder: (v: ApiEnvelope<unknown>) => void = () => {};
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
       const boton = screen.getByTestId("aviso-publicar") as HTMLButtonElement;
 
       act(() => {
@@ -187,7 +209,7 @@ describe("FormularioDeAviso (#199)", () => {
     it("al volver a escribir pide que se deje de decir que se publicó", async () => {
       apiRequest.mockResolvedValue(exito(banner()));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
       fireEvent.click(screen.getByTestId("aviso-publicar"));
       await waitFor(() => expect(alResultado).toHaveBeenLastCalledWith("Aviso publicado."));
 
@@ -200,7 +222,7 @@ describe("FormularioDeAviso (#199)", () => {
       let responder: (v: ApiEnvelope<unknown>) => void = () => {};
       apiRequest.mockReturnValue(new Promise((r) => (responder = r)));
       render(<FormularioDeAviso banner={null} ahora={AHORA} alResultado={alResultado} />);
-      llenar();
+      await llenar();
       alResultado.mockClear();   // escribir ya había pedido borrar el resultado: acá importa lo que hace publicar
 
       fireEvent.click(screen.getByTestId("aviso-publicar"));
@@ -235,12 +257,14 @@ describe("FormularioDeAviso (#199)", () => {
       expect(screen.getByTestId("aviso-estado").getAttribute("data-estado")).toBe("vencido");
     });
 
-    it("el formulario arranca con sus datos, en hora de Lima, y el botón dice «Reemplazar aviso»", () => {
+    it("el formulario arranca con sus datos, en hora de Lima, y el botón dice «Reemplazar aviso»", async () => {
       render(<FormularioDeAviso banner={banner()} ahora={AHORA} alResultado={alResultado} />);
 
       expect(texto().value).toBe("Mantenimiento esta noche");
-      expect(desde().value).toBe("2026-10-15T11:00");
-      expect(hasta().value).toBe("2026-10-15T23:00");
+      expect(await fechaElegida(DESDE)).toBe("2026-10-15");
+      expect(horaDesde().value).toBe("11:00");
+      expect(await fechaElegida(HASTA)).toBe("2026-10-15");
+      expect(horaHasta().value).toBe("23:00");
       expect(screen.getByTestId("aviso-publicar").textContent).toContain("Reemplazar aviso");
     });
 

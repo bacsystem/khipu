@@ -109,12 +109,12 @@ test("cambiar cualquiera de los dos filtros vuelve a la primera página", async 
   await expect(page).toHaveURL(/certificado=SIN_CERTIFICADO/);
 });
 
-test("«Quitar filtros» vuelve al listado completo", async ({ page }) => {
+test("«Limpiar» vuelve al listado completo", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/empresas?entorno=PRODUCCION&certificado=VENCIDO");
   await expect(filas(page)).toHaveCount(1);
 
-  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await page.getByRole("link", { name: "Limpiar" }).click();
 
   await expect(page).toHaveURL(/\/admin\/empresas$/);
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*12/);

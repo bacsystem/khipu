@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConsumoDeCuentas, CuentaConsumo, ParamsConsumo } from "@/lib/api/admin-consumo";
-import { elegirOpcion } from "@/test/select-de-prueba";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { ConsumoTabla } from "./consumo-tabla";
 
 const push = vi.fn();
@@ -10,7 +10,14 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 afterEach(() => {
   cleanup();
   push.mockClear();
+  vi.useRealTimers();
 });
+
+/** Hoy, para el selector de mes: solo se falsea la fecha (los combos esperan con relojes reales). */
+function hoyEs(iso: string) {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(iso));
+}
 
 const PARAMS: ParamsConsumo = { filtro: "TODAS", orden: "PORCENTAJE", pagina: 1, porPagina: 10 };
 
@@ -165,32 +172,59 @@ describe("ConsumoTabla (#193)", () => {
 
   // --- el mes y el orden ------------------------------------------------------------------------------------------------------------------
 
-  it("el selector de mes muestra el mes que se midió, también cuando es el mes en curso sin pedirlo", () => {
+  it("el selector de mes es una píldora que muestra el mes que se midió, también cuando es el mes en curso sin pedirlo", () => {
+    hoyEs("2026-11-02T15:00:00Z");
     render(<ConsumoTabla datos={datos([ANA], "2026-10")} total={1} params={PARAMS} />);
 
-    expect((screen.getByLabelText("Mes") as HTMLInputElement).value).toBe("2026-10");
+    expect(screen.getByRole("combobox", { name: "Mes" })).toHaveTextContent("Oct 2026");
+    expect(screen.getByRole("search", { name: "Filtrar el consumo" }).contains(screen.getByLabelText("Mes"))).toBe(true);
   });
 
-  it("elegir otro mes desde la página 3 navega a la primera y conserva filtro, orden y tamaño", () => {
+  it("ofrece el mes en curso y los anteriores, dos años, del más reciente al más antiguo", async () => {
+    hoyEs("2026-11-02T15:00:00Z");
+    render(<ConsumoTabla datos={datos([ANA], "2026-11")} total={1} params={PARAMS} />);
+
+    const meses = await opcionesDe(screen.getByLabelText("Mes"));
+    expect(meses).toHaveLength(24);
+    expect(meses.slice(0, 3)).toEqual(["Nov 2026", "Oct 2026", "Set 2026"]);
+    expect(meses.at(-1)).toBe("Dic 2024");
+  });
+
+  it("un mes de la URL fuera de esos dos años también se ve: el selector dice lo que se mide", () => {
+    hoyEs("2026-11-02T15:00:00Z");
+    render(<ConsumoTabla datos={datos([ANA], "2020-03")} total={1} params={{ ...PARAMS, mes: "2020-03" }} />);
+
+    expect(screen.getByLabelText("Mes")).toHaveTextContent("Mar 2020");
+  });
+
+  it("elegir otro mes desde la página 3 navega a la primera y conserva filtro, orden y tamaño", async () => {
+    hoyEs("2026-11-02T15:00:00Z");
     render(<ConsumoTabla datos={datos([ANA])} total={90} params={{ filtro: "PLAN_VENCIDO", orden: "DOCUMENTOS", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Mes"), { target: { value: "2026-08" } });
+    await elegirOpcion(screen.getByLabelText("Mes"), "Ago 2026");
 
     expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-08&filtro=PLAN_VENCIDO&orden=DOCUMENTOS&por_pagina=20");
   });
 
-  it("borrar el mes vuelve al mes en curso, sin mes en la URL", () => {
-    render(<ConsumoTabla datos={datos([ANA])} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
+  it("volver al mes en curso lo quita de la URL, como al entrar", async () => {
+    hoyEs("2026-11-02T15:00:00Z");
+    render(<ConsumoTabla datos={datos([ANA], "2026-08")} total={1} params={{ ...PARAMS, mes: "2026-08" }} />);
 
-    fireEvent.change(screen.getByLabelText("Mes"), { target: { value: "" } });
+    await elegirOpcion(screen.getByLabelText("Mes"), "Nov 2026");
 
     expect(push).toHaveBeenCalledWith("/admin/consumo");
+  });
+
+  it("el orden es una píldora que dice por sí sola cómo ordena", () => {
+    render(<ConsumoTabla datos={datos([ANA])} total={1} params={PARAMS} />);
+
+    expect(screen.getByRole("combobox", { name: "Ordenar por" })).toHaveTextContent("Por porcentaje usado");
   });
 
   it("cambiar el orden navega a la primera página y conserva el mes y el filtro", async () => {
     render(<ConsumoTabla datos={datos([ANA])} total={90} params={{ mes: "2026-08", filtro: "CERCA_DEL_LIMITE", orden: "PORCENTAJE", pagina: 4, porPagina: 10 }} />);
 
-    await elegirOpcion(screen.getByLabelText("Ordenar por"), "Documentos consumidos");
+    await elegirOpcion(screen.getByLabelText("Ordenar por"), "Por documentos consumidos");
 
     expect(push).toHaveBeenCalledWith("/admin/consumo?mes=2026-08&filtro=CERCA_DEL_LIMITE&orden=DOCUMENTOS");
   });

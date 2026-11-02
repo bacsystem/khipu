@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
+import { elegirFecha } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) guarda la configuración de la plataforma. Las specs de la corrida comparten esa memoria en paralelo, y dentro de esta spec los tests también
@@ -19,8 +20,14 @@ async function abrir(page: Page, ruta: string, hidratado: string) {
   await esperarHidratacion(page, `[data-testid="${hidratado}"]`);
 }
 
-/** Lo que escribe un campo `datetime-local`: ahora más {horas}, en hora de Lima (UTC−5). */
+/** Ahora más {horas}, en hora de Lima (UTC−5): `AAAA-MM-DDTHH:mm`. */
 const enLima = (horas: number) => new Date(Date.now() + horas * 3_600_000 - 5 * 3_600_000).toISOString().slice(0, 16);
+
+/** Pone una fecha y hora del aviso como el administrador: el día en el calendario del design system y la hora en su campo. */
+async function ponerFechaHora(page: Page, cual: "desde" | "hasta", valor: string) {
+  await elegirFecha(page.getByLabel(cual === "desde" ? "Se muestra desde" : "Hasta", { exact: true }), valor.slice(0, 10));
+  await page.getByTestId(`aviso-${cual}-hora`).fill(valor.slice(11, 16));
+}
 
 // --- la pantalla ----------------------------------------------------------------------------------------------------------------------------
 
@@ -34,19 +41,19 @@ test("el menú lleva a Configuración y la miga dice «Plataforma / Configuraci�
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Configuración de la plataforma");
 });
 
-test("las tres secciones se recorren por enlaces y la actual va en la URL", async ({ page }) => {
+test("las tres secciones son pestañas y la actual va en la URL", async ({ page }) => {
   await abrir(page, SECCION.correo, "correo-email");
-  const secciones = page.getByRole("navigation", { name: "Qué configurar" });
+  const secciones = page.getByRole("tablist");
 
-  await secciones.getByRole("link", { name: "Plantillas" }).click();
+  await secciones.getByRole("tab", { name: "Plantillas" }).click();
   await expect(page).toHaveURL(/seccion=plantillas/);
   await expect(page.getByTestId("plantilla-editor")).toBeVisible();
 
-  await secciones.getByRole("link", { name: "Aviso de mantenimiento" }).click();
+  await secciones.getByRole("tab", { name: "Aviso de mantenimiento" }).click();
   await expect(page).toHaveURL(/seccion=aviso/);
   await expect(page.getByTestId("aviso-actual")).toBeVisible();
 
-  await secciones.getByRole("link", { name: "Correo saliente" }).click();
+  await secciones.getByRole("tab", { name: "Correo saliente" }).click();
   await expect(page).toHaveURL(/\/admin\/configuracion$/);
   await expect(page.getByTestId("correo-vigente")).toBeVisible();
 });
@@ -210,15 +217,15 @@ test.describe("aviso de mantenimiento", () => {
     await expect(page.getByText("Escribe el texto del aviso.")).toBeVisible();
     await expect(page.getByText("Indica hasta cuándo se muestra.")).toBeVisible();
     await page.getByTestId("aviso-texto").fill("Mantenimiento programado esta noche");
-    await page.getByTestId("aviso-desde").fill(enLima(3));
-    await page.getByTestId("aviso-hasta").fill(enLima(1));
+    await ponerFechaHora(page, "desde", enLima(3));
+    await ponerFechaHora(page, "hasta", enLima(1));
     await page.getByTestId("aviso-publicar").click();
     await expect(page.getByTestId("aviso-error")).toHaveText("El aviso tiene que terminar después de empezar");
     await expect(page.getByTestId("aviso-ninguno")).toBeVisible();
 
     // Uno válido y vigente ya se publica.
-    await page.getByTestId("aviso-desde").fill(enLima(-1));
-    await page.getByTestId("aviso-hasta").fill(enLima(3));
+    await ponerFechaHora(page, "desde", enLima(-1));
+    await ponerFechaHora(page, "hasta", enLima(3));
     await expect(page.getByTestId("aviso-vista-previa")).toContainText("Mantenimiento programado esta noche");
     await page.getByTestId("aviso-publicar").click();
     await expect(page.getByTestId("aviso-estado")).toHaveText("Se está mostrando ahora.");
@@ -261,8 +268,8 @@ test.describe("aviso de mantenimiento", () => {
     await expect(page.getByTestId("aviso-ninguno")).toBeVisible();
 
     await page.getByTestId("aviso-texto").fill("Mañana hay mantenimiento");
-    await page.getByTestId("aviso-desde").fill(enLima(24));
-    await page.getByTestId("aviso-hasta").fill(enLima(27));
+    await ponerFechaHora(page, "desde", enLima(24));
+    await ponerFechaHora(page, "hasta", enLima(27));
     await page.getByTestId("aviso-publicar").click();
     await expect(page.getByTestId("aviso-estado")).toHaveText("Programado: todavía no se muestra.");
 
