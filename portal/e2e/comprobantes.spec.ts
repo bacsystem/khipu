@@ -1645,7 +1645,7 @@ test("descarga masiva: un ZIP con los archivos de lo que muestra la lista, con s
   await page.goto("/comprobantes?serie=F001&desde=2026-09-02&hasta=2026-09-02");
   await esperarHidratacion(page, "#filtro-hasta");
   await page.getByRole("button", { name: "Descargar ZIP" }).click();
-  await page.getByLabel("CDR de SUNAT").uncheck();
+  await page.getByRole("checkbox", { name: "CDR de SUNAT" }).click();
   const enlace = page.getByTestId("descarga-enlace");
   await expect(enlace).toHaveAttribute("href", /serie=F001.*tipos=pdf%2Cxml|tipos=pdf%2Cxml/);
 
