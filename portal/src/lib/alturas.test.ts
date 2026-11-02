@@ -75,6 +75,7 @@ export function controlesFueraDeEscala(texto: string): Array<{ linea: number; co
 const EXCEPCIONES: Record<string, string> = {
   "app/page.tsx": "portada pública: sus CTA de marketing miden h-11",
   "components/landing/planes.tsx": "portada pública: el CTA de cada plan",
+  "components/nav/logo.tsx": "la caja de la marca (LogoIcono, #525): la misma pieza decorativa de 32 px del LogoMarca del design system, no un control",
   "components/empresa/certificado-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/empresa/credenciales-sol-form.tsx": "mostrar/ocultar la clave va dentro del input",
   "components/empresa/credenciales-api-sunat-form.tsx": "mostrar/ocultar la clave va dentro del input",
