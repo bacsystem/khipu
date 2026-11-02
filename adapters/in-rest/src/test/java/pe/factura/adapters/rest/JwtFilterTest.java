@@ -506,7 +506,7 @@ class JwtFilterTest {
             {"GET", "/v1/empresa"}, {"GET", "/v1/empresa/establecimientos"}, {"GET", "/v1/empresas"}, {"GET", "/v1/clientes"}, {"GET", "/v1/cuenta"},
             {"GET", "/v1/webhooks"}, {"HEAD", "/v1/facturas"}, {"OPTIONS", "/v1/series"},
             // #321 y #325
-            {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"},
+            {"GET", "/v1/facturas/exportacion"}, {"GET", "/v1/empresa/envio-al-cliente"}, {"GET", "/v1/empresa/preferencias-emision"},
             // #39
             {"GET", "/v1/guias-remision"}, {"GET", "/v1/guias-remision/1/pdf"},
             // #322: la conciliación es un POST que no escribe
@@ -529,6 +529,8 @@ class JwtFilterTest {
             {"DELETE", "/v1/webhooks/1"}, {"POST", "/v1/webhooks/1/secreto"}, {"POST", "/v1/webhooks/1/prueba"}, {"POST", "/v1/webhooks/entregas/1/reenviar"},
             // #318 y #325
             {"PUT", "/v1/empresa/credenciales-api-sunat"}, {"DELETE", "/v1/empresa/credenciales-api-sunat"}, {"PUT", "/v1/empresa/envio-al-cliente"},
+            // las preferencias de emisión del portal
+            {"PUT", "/v1/empresa/preferencias-emision"},
             // una escritura que nadie clasificó es de administrador
             {"POST", "/v1/algo-nuevo"}, {"DELETE", "/v1/facturas/1"}};
     static final String[][] EQUIPO = {{"GET", "/v1/cuenta/usuarios"}, {"PUT", "/v1/cuenta/usuarios/1/rol"}, {"POST", "/v1/cuenta/usuarios/1/desactivar"},

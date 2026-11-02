@@ -2761,6 +2761,9 @@
         "topeSinDocumento": "Una boleta de más de S/ {tope}.00 (o en otra moneda) identifica al comprador con su documento.",
         "corrijaAjustes": "Corrija los descuentos, cargos o tributos marcados antes de emitir.",
         "vencimientoAnterior": "La fecha de vencimiento no puede ser anterior a la de emisión.",
+        "sinCliente": "Falta el cliente: escribe su RUC o elígelo de tus clientes guardados.",
+        "clienteSinResolver": "Elige un cliente de la lista o escribe su RUC (11 dígitos) o, en boleta, su DNI (8) completo. Si no está, usa «Ingresar a mano».",
+        "nombreDelCliente": "El nombre del cliente debe tener al menos 3 caracteres: corrígelo en sus datos.",
         "esperaVencida": "El servidor tardó demasiado en responder mientras se emitía",
         "conexionCortada": "Se cortó la conexión mientras se emitía",
         "reintentar": "{causa}. Vuelve a emitir sin cambiar nada: si la {nombre} ya se había emitido, verás la misma, sin duplicarla."
@@ -2782,7 +2785,6 @@
       "ayudaTipoCambio": "Soles por 1 {moneda}; va al PDF y al registro de ventas, no a SUNAT",
       "comprador": "Comprador",
       "cliente": "Cliente",
-      "guardarCliente": "Guardar en mis clientes al emitir",
       "documentoComprador": "Documento del comprador",
       "sinDocumentoAyuda": "SUNAT lo admite hasta S/ {tope}.00 de total; en otra moneda, con el tipo de cambio.",
       "numeroDocumento": "Número de documento",
@@ -2804,8 +2806,6 @@
       "ayudaCorreo": "Si activaste el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepte",
       "placeholderCorreo": "compras@cliente.pe",
       "tipoOperacion": "Tipo de operación",
-      "formaPago": "Forma de pago",
-      "alContado": "Al contado",
       "alCredito": "Al crédito (cuotas)",
       "incoterm": "Incoterm",
       "ayudaIncoterm": "Incoterms 2020; lo exige Aduanas, SUNAT no lo valida",
@@ -2813,7 +2813,8 @@
       "paisUso": "País de uso del servicio",
       "ayudaPaisUso": "Donde se usa o aprovecha el servicio (3098); distinto de Perú",
       "detraccionCheck": "Operación sujeta a detracción (SPOT)",
-      "avisoDetraccion": "Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, marque la detracción.",
+      "avisoDetraccion": "Esta factura pasa de S/ 700.00. Si es un servicio sujeto al SPOT, agregue la detracción.",
+      "activarDetraccion": "Agregar detracción",
       "percepcionCheck": "Operación con percepción del IGV",
       "retencionCheck": "El cliente retiene el IGV (agente de retención)",
       "items": "Ítems",
@@ -2861,6 +2862,32 @@
       "anticipoAyuda": "Se emite como cualquier {nombre}. Cuando entregue el bien o servicio, en la {nombre} final elija este anticipo en «Descontar anticipos» para regularizarlo.",
       "descontarAnticipos": "Descontar anticipos",
       "datosAdicionales": "Datos adicionales: guías, documentos relacionados y observaciones",
+      "agregar": "Agregar:",
+      "extras": {
+        "credito": "Crédito",
+        "detraccion": "Detracción",
+        "percepcion": "Percepción",
+        "retencion": "Retención",
+        "operacion": "Tipo de operación",
+        "masOpciones": "Más opciones",
+        "anticipos": "Anticipos",
+        "referencias": "Referencias",
+        "correo": "Correo"
+      },
+      "quitarExtra": "Quitar «{extra}»",
+      "masOpcionesEnEmpresa": "Más opciones en Empresa → Emisión",
+      "clienteSinNombre": "Sin nombre: escríbelo en «Editar datos»",
+      "editarDatosCliente": "Editar datos",
+      "cambiarCliente": "Cambiar",
+      "sinDocumentoCorto": "Sin documento",
+      "placeholderClienteFactura": "RUC o razón social",
+      "placeholderClienteBoleta": "DNI, RUC o nombre",
+      "placeholderClienteExportacion": "Nombre de un cliente guardado",
+      "ayudaClienteFactura": "Con el RUC completo se traen la razón social y la dirección del padrón de SUNAT.",
+      "ayudaClienteBoleta": "Vacío, la boleta va a «Clientes varios» (hasta S/ {tope}.00). Tras un DNI, pulsa Enter.",
+      "ayudaClienteExportacion": "Elige un cliente guardado o ingresa a mano su documento del exterior.",
+      "ingresarAMano": "Ingresar a mano",
+      "descartarDatosCliente": "Descartar datos",
       "verPlan": "Ver plan y consumo",
       "totales": {
         "gravado": "Gravado",
@@ -2879,7 +2906,8 @@
       "totalAPagar": "Total a pagar",
       "loCalculaKhipu": "Lo calcula khipu",
       "emitiendo": "Emitiendo…",
-      "emitir": "Emitir {nombre}"
+      "emitir": "Emitir {nombre}",
+      "emitirConTotal": "Emitir {nombre} · {total}"
     },
     "editores": {
       "ajuste": {
@@ -2967,7 +2995,7 @@
       "clientes": {
         "etiqueta": "Buscar un cliente guardado",
         "placeholder": "Buscar un cliente guardado por documento o nombre",
-        "sinResultados": "Ningún cliente guardado coincide. Escríbelo abajo y márcalo para guardarlo.",
+        "sinResultados": "Ningún cliente guardado coincide. Escribe su RUC o DNI completo, o usa «Ingresar a mano».",
         "fallo": "No se pudieron buscar tus clientes; escríbelo a mano.",
         "encontradoUno": "cliente encontrado",
         "encontradoVarios": "clientes encontrados"
@@ -3356,6 +3384,13 @@
         "desactivado": "Desactivado",
         "errorTitulo": "No se pudo cargar la preferencia",
         "errorTexto": "Vuelve a intentarlo en unos minutos."
+      },
+      "emision": {
+        "titulo": "Opciones al emitir",
+        "activadas": "Avanzadas",
+        "desactivadas": "Simples",
+        "errorTitulo": "No se pudo cargar la preferencia",
+        "errorTexto": "Vuelve a intentarlo en unos minutos."
       }
     },
     "secciones": {
@@ -3365,6 +3400,7 @@
         "sol": "Credenciales SOL",
         "pdf": "PDF",
         "correo": "Envío al cliente",
+        "emision": "Emisión",
         "empresas": "Empresas"
       },
       "pendiente": ", pendiente"
@@ -3435,6 +3471,14 @@
       "casillaAyuda": "Le llegan el PDF, el XML firmado y la constancia de SUNAT (CDR) al correo que indiques al emitir. Una nota de crédito o débito va al correo del comprobante que modifica, y una boleta informada en el resumen diario sale cuando SUNAT acepta el resumen. Vale para lo que se acepte desde ahora; al desactivarlo, lo que esperaba salir ya no sale.",
       "activado": "Envío automático activado.",
       "desactivado": "Envío automático desactivado.",
+      "guardar": "Guardar preferencia"
+    },
+    "preferenciasEmision": {
+      "interruptor": "Mostrar opciones avanzadas al emitir",
+      "interruptorAyuda": "Agrega al formulario de emisión el tipo de operación y la exportación, los anticipos, la percepción, la retención, «Más opciones» y las referencias. Apagado, el formulario queda más simple. El crédito, la detracción y el correo del cliente están siempre.",
+      "soloAdmin": "Solo un administrador puede cambiarlo.",
+      "activadas": "Opciones avanzadas activadas.",
+      "desactivadas": "Opciones avanzadas desactivadas.",
       "guardar": "Guardar preferencia"
     },
     "nueva": {
