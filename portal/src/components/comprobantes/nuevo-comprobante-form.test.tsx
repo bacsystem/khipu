@@ -98,7 +98,8 @@ describe("NuevoComprobanteForm — unidad de medida (#308)", () => {
     render(<NuevoComprobanteForm series={SERIES} tasaIgv={18} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Más opciones del ítem 1" }));
-    await waitFor(async () => expect((await opcionesDeCombobox("Unidad de medida")).map(codigoDeOpcion)).toEqual(["NIU", "ZZ"]));
+    // Cada intento abre y cierra la lista del combo: con la suite entera en paralelo, el segundo por defecto de `waitFor` no alcanza para que llegue el catálogo.
+    await waitFor(async () => expect((await opcionesDeCombobox("Unidad de medida")).map(codigoDeOpcion)).toEqual(["NIU", "ZZ"]), { timeout: 10_000 });
   });
 });
 
