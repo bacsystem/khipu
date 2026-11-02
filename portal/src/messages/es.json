@@ -2758,6 +2758,9 @@
         "topeSinDocumento": "Una boleta de más de S/ {tope}.00 (o en otra moneda) identifica al comprador con su documento.",
         "corrijaAjustes": "Corrija los descuentos, cargos o tributos marcados antes de emitir.",
         "vencimientoAnterior": "La fecha de vencimiento no puede ser anterior a la de emisión.",
+        "sinCliente": "Falta el cliente: escribe su RUC o elígelo de tus clientes guardados.",
+        "clienteSinResolver": "Elige un cliente de la lista o escribe su RUC (11 dígitos) o, en boleta, su DNI (8) completo. Si no está, usa «Ingresar a mano».",
+        "nombreDelCliente": "El nombre del cliente debe tener al menos 3 caracteres: corrígelo en sus datos.",
         "esperaVencida": "El servidor tardó demasiado en responder mientras se emitía",
         "conexionCortada": "Se cortó la conexión mientras se emitía",
         "reintentar": "{causa}. Vuelve a emitir sin cambiar nada: si la {nombre} ya se había emitido, verás la misma, sin duplicarla."
@@ -2869,6 +2872,19 @@
         "correo": "Correo"
       },
       "quitarExtra": "Quitar «{extra}»",
+      "masOpcionesEnEmpresa": "Más opciones en Empresa → Emisión",
+      "clienteSinNombre": "Sin nombre: escríbelo en «Editar datos»",
+      "editarDatosCliente": "Editar datos",
+      "cambiarCliente": "Cambiar",
+      "sinDocumentoCorto": "Sin documento",
+      "placeholderClienteFactura": "RUC o razón social",
+      "placeholderClienteBoleta": "DNI, RUC o nombre",
+      "placeholderClienteExportacion": "Nombre de un cliente guardado",
+      "ayudaClienteFactura": "Con el RUC completo se traen la razón social y la dirección del padrón de SUNAT.",
+      "ayudaClienteBoleta": "Vacío, la boleta va a «Clientes varios» (hasta S/ {tope}.00). Tras un DNI, pulsa Enter.",
+      "ayudaClienteExportacion": "Elige un cliente guardado o ingresa a mano su documento del exterior.",
+      "ingresarAMano": "Ingresar a mano",
+      "descartarDatosCliente": "Descartar datos",
       "verPlan": "Ver plan y consumo",
       "totales": {
         "gravado": "Gravado",
@@ -2976,7 +2992,7 @@
       "clientes": {
         "etiqueta": "Buscar un cliente guardado",
         "placeholder": "Buscar un cliente guardado por documento o nombre",
-        "sinResultados": "Ningún cliente guardado coincide. Escríbelo abajo y márcalo para guardarlo.",
+        "sinResultados": "Ningún cliente guardado coincide. Escribe su RUC o DNI completo, o usa «Ingresar a mano».",
         "fallo": "No se pudieron buscar tus clientes; escríbelo a mano.",
         "encontradoUno": "cliente encontrado",
         "encontradoVarios": "clientes encontrados"
