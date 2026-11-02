@@ -5,7 +5,7 @@ import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, BOTON_PRIMARIO, CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { ChipCodigo } from "khipu-design-system/patrones/pill-estado";
@@ -39,10 +39,7 @@ export function ReferenciaTecnicaDialog({
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger
-        className={
-          className ??
-          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-        }
+        className={className ?? ACCION_SECUNDARIA}
       >
         <BookOpenIcon className="size-4" />
         {t.abrir}
@@ -58,11 +55,7 @@ export function ReferenciaTecnicaDialog({
 
         <div className={cn("flex flex-wrap items-center gap-2 border-t border-border/60 px-5 py-3", pie ? "justify-between" : "justify-end")}>
           {pie}
-          <button
-            type="button"
-            onClick={() => setAbierto(false)}
-            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
-          >
+          <button type="button" onClick={() => setAbierto(false)} className={BOTON_PRIMARIO}>
             {t.entendido}
           </button>
         </div>

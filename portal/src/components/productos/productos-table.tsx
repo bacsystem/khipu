@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { ProductoGuardado } from "@/lib/api/productos";
 import { buscarProductos } from "@/lib/api/productos-browser";
 import { afectaciones } from "@/lib/comprobantes/tributos";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { formatearPrecioUnitario } from "@/lib/formato";
 import type { Locale } from "@/i18n/config";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 import { alCambiarLosProductos, avisarQueCambiaronLosProductos } from "./eventos";
 import { ProductoDialog } from "./producto-dialog";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
-
-const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+import { ConfirmacionEnLinea } from "khipu-design-system/patrones/confirmacion-en-linea";
 
 /** La lista de productos guardados (#320): búsqueda por código o descripción, páginas y las acciones de cambiar y eliminar. */
 export function ProductosTable() {
@@ -38,8 +37,6 @@ export function ProductosTable() {
   const [productos, setProductos] = useState<ProductoGuardado[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [confirmando, setConfirmando] = useState<string | null>(null);
-  const [eliminando, setEliminando] = useState<string | null>(null);
   const ultimaLectura = useRef(0);
 
   // Lo tecleado pasa a la búsqueda 300 ms después de la última tecla.
@@ -77,10 +74,7 @@ export function ProductosTable() {
   }, [cargar, version]);
 
   async function eliminar(p: ProductoGuardado) {
-    setEliminando(p.id);
     const res = await apiRequest<null>(`/api/proxy/productos/${p.id}`, { method: "DELETE" });
-    setEliminando(null);
-    setConfirmando(null);
     if (res.estado !== "exito") {
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
@@ -148,26 +142,12 @@ export function ProductosTable() {
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatearPrecioUnitario(p.precio_unitario, locale)}</TableCell>
                 <TableCell className="py-2 pr-4 pl-2 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {confirmando === p.id ? (
-                      <>
-                        <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarEliminar}</span>
-                        <button type="button" disabled={eliminando === p.id} onClick={() => eliminar(p)} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                          {t.siEliminar}
-                        </button>
-                        <button type="button" onClick={() => setConfirmando(null)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                          {messages.comun.cancelar}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <ProductoDialog existente={p} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-xs hover:bg-muted")} />
-                        <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(p.id)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
-                          <TrashIcon className="size-3.5" />
-                          {t.eliminar}
-                        </button>
-                      </>
-                    )}
+                  <div className="flex flex-wrap items-start justify-end gap-1">
+                    <ProductoDialog existente={p} className={ACCION_SECUNDARIA} />
+                    {/* `fieldset disabled` apaga el disparador de la confirmación del DS (que no recibe `disabled`) en solo lectura. */}
+                    <fieldset disabled={soloLectura !== null} title={soloLectura ?? undefined} className="m-0 min-w-0 border-0 p-0">
+                      <ConfirmacionEnLinea etiqueta={t.eliminar} pregunta={t.confirmarEliminar} confirmar={t.siEliminar} icon={TrashIcon} onConfirmar={() => eliminar(p)} />
+                    </fieldset>
                   </div>
                 </TableCell>
               </TableRow>

@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dia
 import { type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
@@ -111,24 +113,26 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
           </Aviso>
 
           {suspendida ? null : (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="suspension-motivo" className={ETIQUETA_CAMPO}>
-                {t.suspender.motivo}
-              </label>
-              <input
+            <Campo
+              id="suspension-motivo"
+              etiqueta={t.suspender.motivo}
+              ayuda={
+                <>
+                  {t.suspender.motivoAyuda}
+                  {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
+                </>
+              }
+            >
+              <Entrada
                 id="suspension-motivo"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.suspender.motivoEjemplo}
-                className={CAMPO}
+                aria-describedby="suspension-motivo-ayuda"
                 autoFocus
               />
-              <span className={AYUDA_CAMPO}>
-                {t.suspender.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
-              </span>
-            </div>
+            </Campo>
           )}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
@@ -141,16 +145,16 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
-          <button
-            type="button"
-            disabled={enviando}
+          <BotonAsync
+            pendiente={enviando}
             onClick={confirmar}
             data-testid="suspension-confirmar"
+            icon={<Icono className="size-4" />}
+            textoPendiente={textos.enviando}
             className={suspendida ? BOTON_PRIMARIO : BOTON_DESTRUCTIVO}
           >
-            <Icono className="size-4" />
-            {enviando ? textos.enviando : textos.confirmar}
-          </button>
+            {textos.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>

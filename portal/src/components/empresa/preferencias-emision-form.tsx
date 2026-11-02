@@ -6,6 +6,7 @@ import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Interruptor } from "khipu-design-system/formularios/casilla";
 import { guardarPreferenciasDeEmision, type PreferenciasDeEmision } from "@/lib/api/preferencias-emision";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -68,10 +69,9 @@ export function PreferenciasEmisionForm({ inicial }: { inicial: PreferenciasDeEm
       ) : null}
 
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
-        <button type="submit" disabled={sinPermiso !== null || enviando || activadas === guardadas} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? messages.empresa.comun.guardando : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} disabled={sinPermiso !== null || activadas === guardadas} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={messages.empresa.comun.guardando} className={BOTON_PRIMARIO}>
+          {t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

@@ -8,7 +8,9 @@ import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { Direccion, RemitenteConfigurado } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { BOTON_PRIMARIO, TARJETA } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -88,35 +90,23 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
       </div>
 
       <div className="grid max-w-xl gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="correo-nombre" className={ETIQUETA_CAMPO}>
-            {t.nombre}
-          </label>
-          <input id="correo-nombre" data-testid="correo-nombre" value={nombre} maxLength={100} onChange={(e) => cambiar(setNombre, e.target.value)} autoComplete="off" className={CAMPO} />
-          <span className={AYUDA_CAMPO}>{t.nombreAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="correo-email" className={ETIQUETA_CAMPO}>
-            {t.email}
-          </label>
-          <input id="correo-email" data-testid="correo-email" type="email" value={email} onChange={(e) => cambiar(setEmail, e.target.value)} autoComplete="off" className={CAMPO} />
-          <span className={AYUDA_CAMPO}>{t.emailAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="correo-responder-a" className={ETIQUETA_CAMPO}>
-            {t.responderA}
-          </label>
-          <input
+        <Campo id="correo-nombre" etiqueta={t.nombre} ayuda={t.nombreAyuda}>
+          <Entrada id="correo-nombre" data-testid="correo-nombre" value={nombre} maxLength={100} onChange={(e) => cambiar(setNombre, e.target.value)} autoComplete="off" aria-describedby="correo-nombre-ayuda" />
+        </Campo>
+        <Campo id="correo-email" etiqueta={t.email} ayuda={t.emailAyuda}>
+          <Entrada id="correo-email" data-testid="correo-email" type="email" value={email} onChange={(e) => cambiar(setEmail, e.target.value)} autoComplete="off" aria-describedby="correo-email-ayuda" />
+        </Campo>
+        <Campo id="correo-responder-a" etiqueta={t.responderA} ayuda={t.responderAyuda}>
+          <Entrada
             id="correo-responder-a"
             data-testid="correo-responder-a"
             type="email"
             value={responderA}
             onChange={(e) => cambiar(setResponderA, e.target.value)}
             autoComplete="off"
-            className={CAMPO}
+            aria-describedby="correo-responder-a-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.responderAyuda}</span>
-        </div>
+        </Campo>
       </div>
 
       {error ? (
@@ -126,10 +116,9 @@ export function FormularioDeRemitente({ remitente, alResultado }: { remitente: R
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando} onClick={guardar} data-testid="correo-guardar" className={BOTON_PRIMARIO}>
-          <EnvelopeSimpleIcon className="size-4" />
-          {enviando ? t.guardando : t.guardar}
-        </button>
+        <BotonAsync pendiente={enviando} onClick={guardar} data-testid="correo-guardar" icon={<EnvelopeSimpleIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {t.guardar}
+        </BotonAsync>
         {remitente.personalizado ? (
           <DialogoDeAccion
             testId="correo-restablecer"

@@ -4,10 +4,9 @@ import { BookOpenIcon, TerminalWindowIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
-import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { BloqueCodigo, Segmentado } from "khipu-design-system/patrones/bloque-codigo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
-import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_SECUNDARIA, BOTON_PRIMARIO } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 import { PillEstado } from "khipu-design-system/patrones/pill-estado";
@@ -108,10 +107,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
-        className={
-          className ??
-          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-        }
+        className={className ?? ACCION_SECUNDARIA}
       >
         <TerminalWindowIcon className="size-4" />
         {t.boton}
@@ -122,46 +118,32 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
 
         <div className="@container bg-muted/40 px-5 py-4">
           <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-12">
-            <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-7")}>
-              <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted px-4 py-2">
-                <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-etiqueta font-bold text-primary-foreground">{"POST"}</span>
-                <code className="min-w-0 flex-1 truncate font-mono text-control text-foreground">{`${baseUrl}/v1/facturas`}</code>
-                <div className={cn(SEGMENTADO, "shrink-0")}>
-                  {TABS.map((t) => (
-                    <button key={t.id} type="button" onClick={() => setLenguaje(t.id)} data-active={lenguaje === t.id ? "" : undefined} className={SEGMENTO}>
-                      {t.etiqueta}
-                    </button>
-                  ))}
-                </div>
-                <BotonCopiar texto={codigo} etiqueta className={ACCION_SECUNDARIA} />
-              </div>
+            <BloqueCodigo
+              className="@3xl:col-span-7"
+              metodo="post"
+              url={`${baseUrl}/v1/facturas`}
+              barra={<Segmentado opciones={TABS} valor={lenguaje} onCambio={setLenguaje} />}
+              codigo={codigo}
+              pie={tr.rich("notaCodigo", { code: (texto) => <code className="font-mono text-foreground">{texto}</code> })}
+            />
 
-              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-control leading-relaxed text-code-foreground">
-                <code>{codigo}</code>
-              </pre>
-
-              <div className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
-                {tr.rich("notaCodigo", { code: (texto) => <code className="font-mono text-foreground">{texto}</code> })}
-              </div>
-            </div>
-
-            <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-5")}>
-              <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
-                <h4 className="text-cuerpo font-semibold text-foreground">{t.respuesta}</h4>
-                <PillEstado tono="ok" className="font-mono">
-                  {"201 Created"}
-                </PillEstado>
-              </div>
-              <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-etiqueta leading-relaxed text-foreground">
-                <code>{RESPUESTA}</code>
-              </pre>
-              <p className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
-                {tr.rich("notaRespuesta", {
-                  code: (texto) => <code className="font-mono text-foreground">{texto}</code>,
-                  estado: (texto) => <code className="font-mono">{texto}</code>,
-                })}
-              </p>
-            </div>
+            <BloqueCodigo
+              className="@3xl:col-span-5"
+              tono="claro"
+              barra={
+                <>
+                  <h4 className="min-w-0 flex-1 text-cuerpo font-semibold text-foreground">{t.respuesta}</h4>
+                  <PillEstado tono="ok" className="font-mono">
+                    {"201 Created"}
+                  </PillEstado>
+                </>
+              }
+              codigo={RESPUESTA}
+              pie={tr.rich("notaRespuesta", {
+                code: (texto) => <code className="font-mono text-foreground">{texto}</code>,
+                estado: (texto) => <code className="font-mono">{texto}</code>,
+              })}
+            />
           </div>
         </div>
 
@@ -170,11 +152,7 @@ export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: stri
             <BookOpenIcon className="size-3.5" />
             {t.referencia}
           </Link>
-          <button
-            type="button"
-            onClick={() => setAbierto(false)}
-            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
-          >
+          <button type="button" onClick={() => setAbierto(false)} className={BOTON_PRIMARIO}>
             {t.entendido}
           </button>
         </div>

@@ -174,7 +174,8 @@ describe("FormularioDePlan — nuevo", () => {
 
     await waitFor(() => expect(screen.getAllByText("Ya existe un plan llamado «Estudio»").length).toBeGreaterThan(0));
     expect(campo("Nombre").getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByRole("alert").textContent).toContain("Ya existe un plan");
+    // El error bajo el campo (el `Campo` del DS le pone `role="alert"`) y el general del modal.
+    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toEqual([expect.stringContaining("Ya existe un plan"), expect.stringContaining("Ya existe un plan")]);
     expect(screen.getByTestId("plan-formulario")).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
   });

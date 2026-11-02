@@ -9,7 +9,9 @@ import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
@@ -98,24 +100,26 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
           </Aviso>
 
           {deBaja ? null : (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>
-                {t.darDeBaja.motivo}
-              </label>
-              <input
+            <Campo
+              id="baja-motivo"
+              etiqueta={t.darDeBaja.motivo}
+              ayuda={
+                <>
+                  {t.darDeBaja.motivoAyuda}
+                  {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
+                </>
+              }
+            >
+              <Entrada
                 id="baja-motivo"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.darDeBaja.motivoEjemplo}
-                className={CAMPO}
+                aria-describedby="baja-motivo-ayuda"
                 autoFocus
               />
-              <span className={AYUDA_CAMPO}>
-                {t.darDeBaja.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
-              </span>
-            </div>
+            </Campo>
           )}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
@@ -128,10 +132,9 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={BOTON_PRIMARIO}>
-            <Icono className="size-4" />
-            {enviando ? textos.enviando : textos.confirmar}
-          </button>
+          <BotonAsync pendiente={enviando} onClick={confirmar} data-testid="baja-confirmar" icon={<Icono className="size-4" />} textoPendiente={textos.enviando} className={BOTON_PRIMARIO}>
+            {textos.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>

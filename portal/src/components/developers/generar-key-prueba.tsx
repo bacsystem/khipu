@@ -1,13 +1,13 @@
 "use client";
 
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Button } from "khipu-design-system/ui/button";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { apiRequest } from "@/lib/api/browser";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
-import { TARJETA } from "@/lib/estilos";
+import { BOTON_SECUNDARIO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => void }) {
@@ -16,7 +16,6 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
   const mensajeError = useMensajeError();
   const [generando, setGenerando] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [copiada, setCopiada] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function generar() {
@@ -29,14 +28,7 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
       return;
     }
     setApiKey(res.datos.api_key);
-    setCopiada(false);
     onGenerada(res.datos.api_key);
-  }
-
-  async function copiar() {
-    if (!apiKey) return;
-    await navigator.clipboard.writeText(apiKey);
-    setCopiada(true);
   }
 
   if (apiKey) {
@@ -46,13 +38,10 @@ export function GenerarKeyPrueba({ onGenerada }: { onGenerada: (key: string) => 
           {t.cargada}
         </p>
         <div className="flex items-center gap-2">
-          <code className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-control">
+          <code className="flex h-control min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-control">
             <span className="truncate">{apiKey}</span>
           </code>
-          <Button type="button" variant="outline" size="icon-sm" onClick={copiar}>
-            {copiada ? <CheckIcon weight="bold" className="size-4" /> : <CopyIcon weight="bold" className="size-4" />}
-            <span className="sr-only">{t.copiar}</span>
-          </Button>
+          <BotonCopiar texto={apiKey} titulo={t.copiar} className={cn(BOTON_SECUNDARIO, "size-control shrink-0 px-0")} />
         </div>
       </div>
     );

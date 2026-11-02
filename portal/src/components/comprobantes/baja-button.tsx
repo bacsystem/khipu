@@ -10,7 +10,9 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import { seCortoLaConexion } from "@/lib/api/corte-de-red";
 import { type Baja, PLAZO_BAJA_DIAS } from "@/lib/api/facturas";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { useSoloLectura } from "@/lib/solo-lectura";
@@ -104,8 +106,8 @@ export function BajaButton({
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={cn(ACCION_SECUNDARIA, "text-destructive hover:text-destructive")} data-testid="dar-de-baja">
-        <ProhibitIcon className="size-4" />
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined} className={cn(ACCION_SECUNDARIA, "text-destructive-texto")} data-testid="dar-de-baja">
+        <ProhibitIcon weight="bold" className="size-4" />
         {t.darDeBaja}
       </DialogTrigger>
       <DialogContent className="gap-0 p-0" data-testid="baja-confirmacion" showCloseButton={!enviando}>
@@ -129,23 +131,27 @@ export function BajaButton({
               {t.condicionBoleta}
             </p>
           ) : null}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>{t.motivo}</label>
-            <input
+          <Campo
+            id="baja-motivo"
+            etiqueta={t.motivo}
+            ayuda={
+              <>
+                {t.motivoAyuda}{" "}
+                {boleta ? t.motivoSoloKhipu : t.motivoEnXml}
+                {motivo.length >= 100 ? t.motivoMaximo : ""}
+              </>
+            }
+          >
+            <Entrada
               id="baja-motivo"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               maxLength={100}
               placeholder={t.motivoPlaceholder}
-              className={CAMPO}
+              aria-describedby="baja-motivo-ayuda"
               autoFocus
             />
-            <span className={AYUDA_CAMPO}>
-              {t.motivoAyuda}{" "}
-              {boleta ? t.motivoSoloKhipu : t.motivoEnXml}
-              {motivo.length >= 100 ? t.motivoMaximo : ""}
-            </span>
-          </div>
+          </Campo>
           {error ? <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">{error}</p> : null}
         </div>
 
@@ -153,10 +159,16 @@ export function BajaButton({
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {messages.comun.cancelar}
           </button>
-          <button type="button" disabled={motivo.trim().length < 3 || enviando} onClick={confirmar} className={BOTON_DESTRUCTIVO}>
-            <ProhibitIcon className="size-4" />
-            {enviando ? t.enviando : t.confirmar}
-          </button>
+          <BotonAsync
+            pendiente={enviando}
+            disabled={motivo.trim().length < 3}
+            onClick={confirmar}
+            className={BOTON_DESTRUCTIVO}
+            icon={<ProhibitIcon weight="bold" className="size-4" />}
+            textoPendiente={t.enviando}
+          >
+            {t.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>

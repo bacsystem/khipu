@@ -5701,8 +5701,7 @@
     },
     "revelada": {
       "etiqueta": "Your API key",
-      "aviso": "Save it somewhere safe now: <b>it won’t be shown again</b>. Only a hash is kept, so if you lose it you’ll have to revoke it and create another one.",
-      "copiada": "Copied",
+      "aviso": "Save it somewhere safe now: <b>it won’t be shown again</b>. Only a hash is kept, so if you lose it you’ll have to revoke it and create another one.",
       "copiar": "Copy"
     },
     "nueva": {

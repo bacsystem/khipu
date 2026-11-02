@@ -1,6 +1,7 @@
 "use client";
 
 import { Alerta } from "khipu-design-system/feedback/alerta";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
@@ -124,10 +125,16 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
           />
           {errores.hasta ? <span id="integridad-hasta-error" className="text-control text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
         </div>
-        <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-6")}>
-          <ShieldCheckIcon className="size-4" />
-          {verificando ? t.verificando : t.verificar}
-        </button>
+        <BotonAsync
+          type="submit"
+          pendiente={verificando}
+          data-testid="integridad-verificar"
+          className={cn(BOTON_PRIMARIO, "mt-6")}
+          icon={<ShieldCheckIcon weight="bold" className="size-4" />}
+          textoPendiente={t.verificando}
+        >
+          {t.verificar}
+        </BotonAsync>
       </form>
 
       <div role="status" aria-live="polite" className="grid min-w-0 gap-4">

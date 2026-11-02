@@ -6,7 +6,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
-import { AYUDA_CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { Campo } from "khipu-design-system/formularios/campo";
 
 type Ubigeo = { codigo: string; departamento: string; provincia: string; distrito: string };
 
@@ -80,10 +80,7 @@ export function UbigeoSelector({
           </button>
         </p>
       ) : null}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-departamento`} className={ETIQUETA_CAMPO}>
-          {t.departamento}
-        </label>
+      <Campo id={`${idPrefijo}-departamento`} etiqueta={t.departamento}>
         <SelectCampo
           id={`${idPrefijo}-departamento`}
           valor={departamento}
@@ -95,11 +92,8 @@ export function UbigeoSelector({
           }}
           opciones={[{ value: "", label: cargando ? t.cargando : errorCatalogo ? t.noDisponible : t.seleccione }, ...departamentos.map((d) => ({ value: d, label: d }))]}
         />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-provincia`} className={ETIQUETA_CAMPO}>
-          {t.provincia}
-        </label>
+      </Campo>
+      <Campo id={`${idPrefijo}-provincia`} etiqueta={t.provincia}>
         <SelectCampo
           id={`${idPrefijo}-provincia`}
           valor={provincia}
@@ -110,11 +104,8 @@ export function UbigeoSelector({
           }}
           opciones={[{ value: "", label: t.seleccione }, ...provincias.map((p) => ({ value: p, label: p }))]}
         />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-distrito`} className={ETIQUETA_CAMPO}>
-          {t.distrito}
-        </label>
+      </Campo>
+      <Campo id={`${idPrefijo}-distrito`} etiqueta={t.distrito} ayuda={value ? interpolar(t.elegido, { codigo: value }) : t.ayuda}>
         <SelectCampo
           id={`${idPrefijo}-distrito`}
           valor={value}
@@ -122,8 +113,7 @@ export function UbigeoSelector({
           onCambio={onChange}
           opciones={[{ value: "", label: t.seleccione }, ...distritos.map((d) => ({ value: d.codigo, label: d.distrito }))]}
         />
-        <span className={AYUDA_CAMPO}>{value ? interpolar(t.elegido, { codigo: value }) : t.ayuda}</span>
-      </div>
+      </Campo>
     </>
   );
 }

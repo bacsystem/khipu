@@ -6,9 +6,10 @@ import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Contrasena } from "khipu-design-system/formularios/contrasena";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 
 export function CredencialesSolForm({ configuradas }: { configuradas: boolean }) {
   const router = useRouter();
@@ -44,33 +45,27 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="usuario-sol" className={ETIQUETA_CAMPO}>
-            {t.usuario}
-          </label>
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+        <Campo id="usuario-sol" etiqueta={t.usuario} ayuda={t.usuarioAyuda}>
           <div className="relative">
             <UserIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
+            <Entrada
               id="usuario-sol"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value.toUpperCase())}
               placeholder="MODDATOS"
               autoComplete="off"
               required
-              className={cn(CAMPO, "pl-9 font-mono")}
+              mono
+              aria-describedby="usuario-sol-ayuda"
+              className="pl-9"
             />
           </div>
-          <span className={AYUDA_CAMPO}>{t.usuarioAyuda}</span>
-        </div>
+        </Campo>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="clave-sol" className={ETIQUETA_CAMPO}>
-            {t.clave}
-          </label>
+        <Campo id="clave-sol" etiqueta={t.clave} ayuda={tc.cifradaEnReposo}>
           <Contrasena id="clave-sol" valor={clave} onCambio={setClave} placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"} autoComplete="new-password" etiquetaMostrar={tc.mostrarClave} etiquetaOcultar={tc.ocultarClave} className="font-mono" />
-          <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
-        </div>
+        </Campo>
       </div>
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
@@ -79,10 +74,9 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
       {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
         {/* La clave es la `Contrasena` del design system, que no lleva `required`: sin clave no se ofrece guardar, como antes no dejaba el navegador. */}
-        <button type="submit" disabled={enviando || clave === ""} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} disabled={clave === ""} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={messages.empresa.comun.guardando} className={BOTON_PRIMARIO}>
+          {configuradas ? tc.reemplazar : tc.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

@@ -7,9 +7,10 @@ import { type FormEvent, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { apiRequest } from "@/lib/api/browser";
 import type { Domicilio, EmpresaDetalle } from "@/lib/api/empresas";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 import { UbigeoSelector } from "./ubigeo-selector";
 
 /**
@@ -82,18 +83,15 @@ export function DatosFiscalesForm({
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4" data-testid="datos-fiscales">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
         <UbigeoSelector value={ubigeo} onChange={setUbigeo} inicial={domicilio} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
-        <div className="flex flex-col gap-1.5 sm:col-span-4">
-          <label htmlFor="dom-direccion" className={ETIQUETA_CAMPO}>
-            {t.direccion}
-          </label>
+        <Campo id="dom-direccion" etiqueta={t.direccion} ayuda={t.direccionAyuda} className="sm:col-span-4">
           <div className="relative">
             <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
+            <Entrada
               id="dom-direccion"
               value={direccion}
               onChange={(e) => setDireccion(e.target.value)}
@@ -101,55 +99,49 @@ export function DatosFiscalesForm({
               required={Boolean(ubigeo)}
               minLength={3}
               maxLength={200}
-              className={cn(CAMPO, "pl-9")}
+              aria-describedby="dom-direccion-ayuda"
+              className="pl-9"
             />
           </div>
-          <span className={AYUDA_CAMPO}>{t.direccionAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="dom-urbanizacion" className={ETIQUETA_CAMPO}>
-            {t.urbanizacion} <span className="font-normal text-muted-foreground">{opcional}</span>
-          </label>
-          <input id="dom-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} className={CAMPO} />
-        </div>
+        </Campo>
+        <Campo id="dom-urbanizacion" etiqueta={<>{t.urbanizacion} <span className="font-normal text-muted-foreground">{opcional}</span></>} className="sm:col-span-2">
+          <Entrada id="dom-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} />
+        </Campo>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="dom-establecimiento" className={ETIQUETA_CAMPO}>
-            {t.establecimiento}
-          </label>
-          <input
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+        <Campo id="dom-establecimiento" etiqueta={t.establecimiento} ayuda={t.establecimientoAyuda}>
+          <Entrada
             id="dom-establecimiento"
             value={establecimiento}
             onChange={(e) => setEstablecimiento(e.target.value.replace(/\D/g, "").slice(0, 4))}
             inputMode="numeric"
             pattern="\d{4}"
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="dom-establecimiento-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="cuenta-detracciones" className={ETIQUETA_CAMPO}>
-            {t.cuentaDetracciones} <span className="font-normal text-muted-foreground">{opcional}</span>
-          </label>
-          <input
+        </Campo>
+        <Campo id="cuenta-detracciones" etiqueta={<>{t.cuentaDetracciones} <span className="font-normal text-muted-foreground">{opcional}</span></>} ayuda={t.cuentaDetraccionesAyuda}>
+          <Entrada
             id="cuenta-detracciones"
             value={cuenta}
             onChange={(e) => setCuenta(e.target.value)}
             placeholder="00-000-123456"
             pattern="[0-9-]{8,20}"
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="cuenta-detracciones-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.cuentaDetraccionesAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="nombre-comercial" className={ETIQUETA_CAMPO}>
-            {t.nombreComercial} <span className="font-normal text-muted-foreground">{opcional}</span>
-          </label>
-          <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombreComercialPlaceholder} maxLength={1500} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>{t.nombreComercialAyuda}</span>
-        </div>
+        </Campo>
+        <Campo id="nombre-comercial" etiqueta={<>{t.nombreComercial} <span className="font-normal text-muted-foreground">{opcional}</span></>} ayuda={t.nombreComercialAyuda} className="sm:col-span-2">
+          <Entrada
+            id="nombre-comercial"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder={t.nombreComercialPlaceholder}
+            maxLength={1500}
+            aria-describedby="nombre-comercial-ayuda"
+          />
+        </Campo>
         <div className="sm:col-span-2">
           <Casilla id="padron-tasa-especial" etiqueta={t.padron} descripcion={t.padronAyuda} checked={tasaEspecial} onCheckedChange={setTasaEspecial} className="select-none" />
         </div>
@@ -159,10 +151,9 @@ export function DatosFiscalesForm({
       {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizados}</p> : null}
 
       <div className="flex justify-end border-t border-border/60 pt-4">
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? messages.empresa.comun.guardando : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={messages.empresa.comun.guardando} className={BOTON_PRIMARIO}>
+          {t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

@@ -3,7 +3,9 @@
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Button } from "khipu-design-system/ui/button";
+import { SealCheckIcon } from "@phosphor-icons/react";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { Comprobante } from "@/lib/api/facturas";
@@ -53,9 +55,18 @@ export function RecuperarCdrButton({ id, estado }: { id: string; estado: string 
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button variant="outline" disabled={consultando || soloLectura !== null} title={soloLectura ?? undefined} onClick={recuperar} data-testid="recuperar-cdr">
-        {consultando ? messages.comprobantes.acciones.consultandoSunat : t.boton}
-      </Button>
+      <BotonAsync
+        pendiente={consultando}
+        disabled={soloLectura !== null}
+        title={soloLectura ?? undefined}
+        onClick={recuperar}
+        className={ACCION_SECUNDARIA}
+        icon={<SealCheckIcon weight="bold" className="size-4 text-muted-foreground" />}
+        textoPendiente={messages.comprobantes.acciones.consultandoSunat}
+        data-testid="recuperar-cdr"
+      >
+        {t.boton}
+      </BotonAsync>
       {mensaje ? (
         <p role={mensaje.tono === "error" ? "alert" : "status"} className={mensaje.tono === "error" ? "max-w-md text-right text-cuerpo text-destructive" : "max-w-md text-right text-cuerpo text-muted-foreground"} data-testid="recuperar-cdr-mensaje">
           {mensaje.texto}

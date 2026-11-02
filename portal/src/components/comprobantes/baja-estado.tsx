@@ -4,7 +4,7 @@ import { ArrowClockwiseIcon, ProhibitIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { buttonVariants } from "khipu-design-system/ui/button";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
@@ -13,8 +13,7 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest } from "@/lib/api/browser";
 import type { Baja } from "@/lib/api/facturas";
 import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
-import { TARJETA } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_SECUNDARIA, TARJETA } from "@/lib/estilos";
 
 /**
  * Estado de la comunicación de baja en la ficha. Mientras está en curso (ENVIADA/ERROR_ENVIO/GENERADA) se puede reconsultar
@@ -77,10 +76,15 @@ export function BajaEstado({ baja }: { baja: Baja }) {
         }
         derecha={
           pendiente ? (
-            <button type="button" onClick={actualizar} disabled={consultando} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", consultando ? "animate-spin" : "")} />
-              {consultando ? messages.comprobantes.acciones.consultandoSunat : t.actualizar}
-            </button>
+            <BotonAsync
+              pendiente={consultando}
+              onClick={actualizar}
+              className={ACCION_SECUNDARIA}
+              icon={<ArrowClockwiseIcon weight="bold" className="size-3.5" />}
+              textoPendiente={messages.comprobantes.acciones.consultandoSunat}
+            >
+              {t.actualizar}
+            </BotonAsync>
           ) : null
         }
       />

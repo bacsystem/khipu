@@ -5,8 +5,7 @@ import { useMessages } from "next-intl";
 import { useState } from "react";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { ErrorDeEmision } from "@/lib/api/admin-errores";
-import { AreaTexto } from "khipu-design-system/formularios/campo";
-import { AYUDA_CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AreaTexto, Campo } from "khipu-design-system/formularios/campo";
 import { mensajeDeDescarte } from "@/lib/errores-formato";
 
 /**
@@ -49,13 +48,9 @@ export function DescartarComprobante({ comprobante, alResultado }: { comprobante
       alCerrar={() => setMotivo("")}
       alExito={() => alResultado(mensajeDeDescarte(comprobante.nombre_archivo, messages))}
     >
-      <div className="grid gap-1.5">
-        <label htmlFor={id} className={ETIQUETA_CAMPO}>
-          {t.motivo}
-        </label>
-        <AreaTexto id={id} data-testid="errores-motivo" rows={3} maxLength={MAX_MOTIVO} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
-        <span className={AYUDA_CAMPO}>{t.ayudaMotivo.replace("{max}", String(MAX_MOTIVO))}</span>
-      </div>
+      <Campo id={id} etiqueta={t.motivo} ayuda={t.ayudaMotivo.replace("{max}", String(MAX_MOTIVO))}>
+        <AreaTexto id={id} data-testid="errores-motivo" rows={3} maxLength={MAX_MOTIVO} value={motivo} onChange={(e) => setMotivo(e.target.value)} aria-describedby={`${id}-ayuda`} />
+      </Campo>
     </DialogoDeAccion>
   );
 }

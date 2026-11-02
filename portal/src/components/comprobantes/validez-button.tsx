@@ -2,7 +2,9 @@
 
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
-import { Button } from "khipu-design-system/ui/button";
+import { SealQuestionIcon } from "@phosphor-icons/react";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
@@ -72,9 +74,16 @@ export function ValidezButton({ datos }: { datos: DatosDeValidez }) {
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button variant="outline" disabled={consultando} onClick={consultar} data-testid="consultar-validez">
-        {consultando ? messages.comprobantes.acciones.consultandoSunat : t.consultar}
-      </Button>
+      <BotonAsync
+        pendiente={consultando}
+        onClick={consultar}
+        className={ACCION_SECUNDARIA}
+        icon={<SealQuestionIcon weight="bold" className="size-4 text-muted-foreground" />}
+        textoPendiente={messages.comprobantes.acciones.consultandoSunat}
+        data-testid="consultar-validez"
+      >
+        {t.consultar}
+      </BotonAsync>
       {resultado ? (
         <p
           role={resultado.tono === "error" ? "alert" : "status"}

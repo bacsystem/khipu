@@ -7,6 +7,9 @@ import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patro
 import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { buttonVariants } from "khipu-design-system/ui/button";
+import { Spinner } from "khipu-design-system/feedback/spinner";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest } from "@/lib/api/browser";
 import type { EntregaWebhook, EstadoEntrega } from "@/lib/api/webhooks";
 import { listarEntregas } from "@/lib/api/webhooks-browser";
@@ -124,7 +127,7 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
             </SelectContent>
           </Select>
           <button type="button" title={t.refrescar} aria-label={t.refrescar} onClick={() => setLectura((n) => n + 1)} className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground hover:text-foreground")}>
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", leyendo && "animate-spin")} />
+            {leyendo ? <Spinner aria-label={messages.comun.cargando} /> : <ArrowClockwiseIcon weight="bold" className="size-4" />}
           </button>
         </div>
       </div>
@@ -164,16 +167,16 @@ export function EntregasWebhook({ webhookId, version }: { webhookId: string; ver
                   {e.estado === "PENDIENTE" ? (
                     <span className="text-etiqueta text-muted-foreground/60">—</span>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={soloLectura !== null || reenviando === e.id}
+                    <BotonAsync
+                      pendiente={reenviando === e.id}
+                      icon={<ArrowClockwiseIcon weight="bold" className="size-3.5" />}
+                      disabled={soloLectura !== null}
                       title={soloLectura ?? undefined}
                       onClick={() => reenviar(e.id)}
-                      className="inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={buttonVariants({ variant: "ghost", size: "sm" })}
                     >
-                      <ArrowClockwiseIcon weight="bold" className={cn("size-3.5", reenviando === e.id && "animate-spin")} />
                       {t.reenviar}
-                    </button>
+                    </BotonAsync>
                   )}
                 </TableCell>
               </TableRow>

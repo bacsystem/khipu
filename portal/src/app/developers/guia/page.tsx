@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { useMessages } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { PillEstado } from "khipu-design-system/patrones/pill-estado";
-import { BloqueCodigo } from "@/components/developers/guia/bloque-codigo";
+import { BloqueCodigo } from "khipu-design-system/patrones/bloque-codigo";
 import { indiceGuia } from "@/components/developers/indices";
 import { casos, ERROR_EJEMPLO, RESPUESTA_EJEMPLO } from "@/components/developers/guia/casos-emision";
 import { Codigo, NotaProsa, P, PaginaGuia, Seccion, Tabla } from "@/components/developers/guia/prosa";
@@ -38,8 +38,8 @@ export default function GuiaPage() {
             </li>
           ))}
         </ol>
-        <BloqueCodigo
-          titulo={t.inicioRapido.curl}
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.inicioRapido.curl} />}
           codigo={tecnico`curl -X POST ${base}/v1/facturas \
   -H "X-Api-Key: fk_TU_API_KEY" \
   -H "Content-Type: application/json" \
@@ -55,9 +55,9 @@ export default function GuiaPage() {
 }
 EOF`}
         />
-        <BloqueCodigo
-          titulo={t.inicioRapido.node}
-          lenguaje="javascript"
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.inicioRapido.node} />}
+         
           codigo={tecnico`// Node 18 o superior. Guárdelo como .mjs: usa await en el nivel superior.
 import { randomUUID } from "node:crypto";
 
@@ -90,9 +90,9 @@ try {
 if (cuerpo.estado !== "exito") throw new Error(cuerpo.codigo + ": " + cuerpo.mensaje);
 console.log(cuerpo.datos.estado_documento, cuerpo.datos.enlaces.pdf);`}
         />
-        <BloqueCodigo
-          titulo={t.inicioRapido.python}
-          lenguaje="python"
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.inicioRapido.python} />}
+         
           codigo={tecnico`import os
 import uuid
 from datetime import datetime
@@ -167,8 +167,8 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
               <P>
                 <strong className="font-medium text-foreground">{t.casos.cuando}</strong> {c.cuando}
               </P>
-              <BloqueCodigo
-                titulo={interpolar(c.disponible ? t.casos.request : t.casos.requestPrevisto, { endpoint: c.endpoint ?? "/v1/facturas" })}
+              <BloqueCodigo alturaMax="none"
+                barra={<TituloBloque texto={interpolar(c.disponible ? t.casos.request : t.casos.requestPrevisto, { endpoint: c.endpoint ?? "/v1/facturas" })} />}
                 codigo={c.request}
               />
               <ul className="list-disc space-y-1 pl-5 text-control leading-relaxed text-muted-foreground">
@@ -187,7 +187,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <P>
           <Rico texto={interpolar(t.respuesta.intro, { sobre: SOBRE })} />
         </P>
-        <BloqueCodigo titulo={tecnico`201 Created`} codigo={RESPUESTA_EJEMPLO} />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`201 Created`} />} codigo={RESPUESTA_EJEMPLO} />
         <Tabla cabeceras={t.respuesta.cabeceras} filas={t.respuesta.filas.map(([campo, texto]) => [campo, <Rico key={campo} texto={texto} />])} />
       </Seccion>
 
@@ -195,7 +195,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <P>
           <Rico texto={t.errores.intro} />
         </P>
-        <BloqueCodigo titulo={tecnico`422 Unprocessable Entity`} codigo={ERROR_EJEMPLO} />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`422 Unprocessable Entity`} />} codigo={ERROR_EJEMPLO} />
         <P>
           <Rico texto={t.errores.lista} />
         </P>
@@ -205,7 +205,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <P>
           <Rico texto={t.webhooks.intro} />
         </P>
-        <BloqueCodigo titulo={tecnico`POST /v1/webhooks · 201 Created`} codigo={RESPUESTA_CREAR_WEBHOOK} />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`POST /v1/webhooks · 201 Created`} />} codigo={RESPUESTA_CREAR_WEBHOOK} />
         <ul className={lista}>
           {t.webhooks.registro.map((texto) => (
             <li key={texto}>
@@ -224,7 +224,7 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         </NotaProsa>
 
         <h3 className={subtitulo}>{t.webhooks.recibeTitulo}</h3>
-        <BloqueCodigo titulo={t.webhooks.entrega} codigo={EJEMPLO_ENTREGA} lenguaje="http" />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={t.webhooks.entrega} />} codigo={EJEMPLO_ENTREGA} />
         <Tabla
           cabeceras={t.webhooks.cabecerasCabeceras}
           filas={t.webhooks.cabeceras.map(([cabecera, para]) => [<Codigo key={cabecera}>{cabecera}</Codigo>, <Rico key={`${cabecera}-texto`} texto={para} negrita="" />])}
@@ -234,9 +234,9 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <P>
           <Rico texto={t.webhooks.verificar} negrita="" />
         </P>
-        <BloqueCodigo titulo={tecnico`Node.js`} codigo={VERIFICAR_NODE} lenguaje="javascript" />
-        <BloqueCodigo titulo={tecnico`Python`} codigo={VERIFICAR_PYTHON} lenguaje="python" />
-        <BloqueCodigo titulo={tecnico`PHP`} codigo={VERIFICAR_PHP} lenguaje="php" />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`Node.js`} />} codigo={VERIFICAR_NODE} />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`Python`} />} codigo={VERIFICAR_PYTHON} />
+        <BloqueCodigo alturaMax="none" barra={<TituloBloque texto={tecnico`PHP`} />} codigo={VERIFICAR_PHP} />
 
         <h3 className={subtitulo}>{t.webhooks.reintentosTitulo}</h3>
         <ul className={lista}>
@@ -253,8 +253,8 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
           <Rico texto={t.sire.experimental} negrita="" />
         </NotaProsa>
         <P>{t.sire.intro}</P>
-        <BloqueCodigo
-          titulo={t.sire.curlRegistro}
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.sire.curlRegistro} />}
           codigo={tecnico`curl -o rvie.zip -D - "${base}/v1/sire/rvie?periodo=202610" \\
   -H "X-Api-Key: fk_TU_API_KEY"`}
         />
@@ -265,8 +265,8 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
             </li>
           ))}
         </ul>
-        <BloqueCodigo
-          titulo={t.sire.curlConciliar}
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.sire.curlConciliar} />}
           codigo={tecnico`curl -X POST "${base}/v1/sire/rvie/conciliacion?periodo=202610" \\
   -H "X-Api-Key: fk_TU_API_KEY" \\
   -H "Content-Type: application/zip" \\
@@ -281,8 +281,8 @@ print(cuerpo["datos"]["estado_documento"], cuerpo["datos"]["enlaces"]["pdf"])`}
         <P>
           <Rico texto={t.sire.propuestaSunat} />
         </P>
-        <BloqueCodigo
-          titulo={t.sire.curlPropuesta}
+        <BloqueCodigo alturaMax="none"
+          barra={<TituloBloque texto={t.sire.curlPropuesta} />}
           codigo={tecnico`curl -X POST "${base}/v1/sire/rvie/propuesta?periodo=202610" \\
   -H "X-Api-Key: fk_TU_API_KEY"
 curl "${base}/v1/sire/rvie/propuesta/TICKET/conciliacion?periodo=202610" \\
@@ -301,4 +301,9 @@ curl "${base}/v1/sire/rvie/propuesta/TICKET/conciliacion?periodo=202610" \\
       </Seccion>
     </PaginaGuia>
   );
+}
+
+/** Rótulo del bloque (lenguaje o respuesta) en la barra del `BloqueCodigo` del DS, a la izquierda del botón de copiar. */
+function TituloBloque({ texto }: { texto: string }) {
+  return <span className="min-w-0 flex-1 truncate font-mono text-etiqueta text-muted-foreground">{texto}</span>;
 }

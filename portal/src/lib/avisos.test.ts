@@ -21,9 +21,6 @@ const RAIZ = join(import.meta.dirname, "..");
  */
 const EXCEPCIONES: Record<string, string> = {};
 
-/** Partes de `src/` que esta guarda no mira porque otra tarea las está migrando al DS en paralelo; se quitan cuando esa tarea termine. */
-const FUERA_DE_ALCANCE = [/^app\/\(privado\)\/empresa\//, /^components\/empresa\//, /^components\/comprobantes\/nuevo-comprobante-/];
-
 const INTERACCION = new Set(["hover", "focus", "focus-visible", "focus-within", "active", "group-hover", "peer-hover", "disabled", "aria-selected", "data-highlighted"]);
 const TINTE = /^bg-(destructive-suave|destructive\/\d+|warning(\/\d+)?)$/;
 const FONDO_DE_ESTADO = /^bg-(success|warning|destructive)(-suave)?(\/\d+)?$/;
@@ -79,7 +76,6 @@ function archivos(dir: string): string[] {
 describe("los avisos y las pills de estado son los del design system", () => {
   const hallazgos = archivos(RAIZ).flatMap((ruta) => {
     const rel = ruta.slice(RAIZ.length + 1).replaceAll("\\", "/");
-    if (FUERA_DE_ALCANCE.some((r) => r.test(rel))) return [];
     return codigo(readFileSync(ruta, "utf8")).flatMap((linea, i) => reglasRotas(linea).map((regla) => ({ clave: `${rel}:${regla}`, donde: `${rel}:${i + 1} ${regla}` })));
   });
 

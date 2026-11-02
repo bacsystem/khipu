@@ -7,9 +7,10 @@ import { type FormEvent, useState } from "react";
 import { UbigeoSelector } from "@/components/empresa/ubigeo-selector";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 
 /**
  * Alta (`POST`) o edición (`PUT`, código fijo) de un establecimiento anexo: código de la ficha RUC, nombre y domicilio
@@ -52,12 +53,9 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" data-testid="establecimiento-form">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="est-codigo" className={ETIQUETA_CAMPO}>
-            {t.codigo}
-          </label>
-          <input
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
+        <Campo id="est-codigo" etiqueta={t.codigo} ayuda={t.codigoAyuda}>
+          <Entrada
             id="est-codigo"
             value={codigo}
             onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 4))}
@@ -67,31 +65,24 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
             required
             disabled={Boolean(existente)}
             autoFocus={!existente}
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="est-codigo-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.codigoAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="est-nombre" className={ETIQUETA_CAMPO}>
-            {t.nombre}
-          </label>
-          <input id="est-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombrePlaceholder} maxLength={100} required autoFocus={Boolean(existente)} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>{t.nombreAyuda}</span>
-        </div>
+        </Campo>
+        <Campo id="est-nombre" etiqueta={t.nombre} ayuda={t.nombreAyuda} className="sm:col-span-2">
+          <Entrada id="est-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombrePlaceholder} maxLength={100} required autoFocus={Boolean(existente)} aria-describedby="est-nombre-ayuda" />
+        </Campo>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
         <UbigeoSelector value={ubigeo} onChange={setUbigeo} inicial={existente?.domicilio} idPrefijo="est" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
-        <div className="flex flex-col gap-1.5 sm:col-span-4">
-          <label htmlFor="est-direccion" className={ETIQUETA_CAMPO}>
-            {t.direccion}
-          </label>
+        <Campo id="est-direccion" etiqueta={t.direccion} ayuda={t.direccionAyuda} className="sm:col-span-4">
           <div className="relative">
             <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
+            <Entrada
               id="est-direccion"
               value={direccion}
               onChange={(e) => setDireccion(e.target.value)}
@@ -99,17 +90,15 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
               required
               minLength={3}
               maxLength={200}
-              className={cn(CAMPO, "pl-9")}
+              aria-describedby="est-direccion-ayuda"
+              className="pl-9"
             />
           </div>
-          <span className={AYUDA_CAMPO}>{t.direccionAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="est-urbanizacion" className={ETIQUETA_CAMPO}>
-            {t.urbanizacion} <span className="font-normal text-muted-foreground">{t.opcional}</span>
-          </label>
-          <input id="est-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} className={CAMPO} />
-        </div>
+        </Campo>
+        {/* «(opcional)» en la etiqueta: la prop `opcional` de `Campo` lo escribe fijo en castellano. */}
+        <Campo id="est-urbanizacion" etiqueta={<>{t.urbanizacion} <span className="font-normal text-muted-foreground">{t.opcional}</span></>} className="sm:col-span-2">
+          <Entrada id="est-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} />
+        </Campo>
       </div>
 
       {error ? (
@@ -124,10 +113,9 @@ export function EstablecimientoForm({ existente, onGuardado, onCancelar }: { exi
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? t.guardando : existente ? t.guardarCambios : t.registrar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {existente ? t.guardarCambios : t.registrar}
+        </BotonAsync>
       </div>
     </form>
   );

@@ -5,6 +5,7 @@ import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { PillEstado } from "khipu-design-system/patrones/pill-estado";
@@ -122,7 +123,7 @@ export function SeriesTable({ series }: { series: Serie[] }) {
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
+            {refrescando ? <Spinner aria-label={t.refrescar} /> : <ArrowClockwiseIcon weight="bold" className="size-4" />}
           </button>
         </div>
       </div>
