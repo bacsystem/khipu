@@ -32,6 +32,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/empresa/preferencias-emision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver las preferencias de emisión */
+        get: operations["verPreferenciasDeEmision"];
+        /**
+         * Guardar las preferencias de emisión
+         * @description Solo un administrador de la cuenta (`403 ROL_INSUFICIENTE` para los demás roles).
+         */
+        put: operations["guardarPreferenciasDeEmision"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/empresa/personalizacion-pdf": {
         parameters: {
             query?: never;
@@ -3454,6 +3475,47 @@ export interface components {
             creado_en?: string;
             /** Format: date-time */
             actualizado_en?: string;
+        };
+        PreferenciasDeEmisionRequest: {
+            /**
+             * @description Si el modal de emisión del portal ofrece las opciones avanzadas: tipo de operación/exportación, anticipos, percepción, retención, más opciones y referencias. Crédito, detracción y correo se ofrecen siempre. Solo cambia lo que muestra el portal; la API acepta los mismos campos
+             * @example true
+             */
+            opciones_avanzadas: boolean;
+        };
+        ApiResponsePreferenciasDeEmision: {
+            /**
+             * @description "exito" o "error"
+             * @example exito
+             */
+            estado?: string;
+            datos?: components["schemas"]["PreferenciasDeEmision"];
+            /**
+             * @description Mensaje legible, presente solo en error
+             * @example null
+             */
+            mensaje?: string;
+            /**
+             * @description Código de error, presente solo en error
+             * @example null
+             */
+            codigo?: string;
+            /**
+             * @description Errores de validación por campo, presente solo en VALIDACION
+             * @example null
+             */
+            errores?: {
+                [key: string]: string[];
+            };
+            /** @description Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar */
+            avisos?: components["schemas"]["Aviso"][];
+        };
+        PreferenciasDeEmision: {
+            /**
+             * @description Si el modal de emisión del portal ofrece las opciones avanzadas: tipo de operación/exportación, anticipos, percepción, retención, más opciones y referencias. Crédito, detracción y correo se ofrecen siempre. Solo cambia lo que muestra el portal; la API acepta los mismos campos
+             * @example false
+             */
+            opciones_avanzadas?: boolean;
         };
         PersonalizacionPdfRequest: {
             /**
@@ -11236,6 +11298,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    verPreferenciasDeEmision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreferenciasDeEmision"];
+                };
+            };
+        };
+    };
+    guardarPreferenciasDeEmision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenciasDeEmisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePreferenciasDeEmision"];
+                };
             };
         };
     };
