@@ -715,6 +715,9 @@ public class AppConfig {
         return new EnviarAlClienteService(envios, consultar, tenants, correo, uow, clock, bajas);
     }
     @Bean EnviarAlClienteWorker enviarAlClienteWorker(EnviarAlClienteUseCase envios) { return new EnviarAlClienteWorker(envios); }
+    // Preferencias de emisión del portal (p. ej. mostrar las opciones avanzadas en el modal de emisión).
+    @Bean PreferenciasDeEmisionRepository preferenciasDeEmisionRepository(JdbcTemplate jdbc) { return new JdbcPreferenciasDeEmisionRepository(jdbc); }
+    @Bean PreferenciasDeEmisionUseCase preferenciasDeEmision(PreferenciasDeEmisionRepository preferencias) { return new PreferenciasDeEmisionService(preferencias); }
     // Ambos filtros se registran sobre "/v1/*": el contenedor los aplica sobre la ruta ya decodificada y
     // normalizada, lo que actúa como segunda barrera además de RutaRequest dentro de cada filtro.
     @Bean FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(JdbcApiKeyRepository k, AppProperties p, SuspensionRepository suspensiones,

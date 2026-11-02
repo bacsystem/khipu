@@ -1,5 +1,5 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import { ArrowSquareOutIcon, BuildingsIcon, CertificateIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOutIcon, BuildingsIcon, CertificateIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon, SlidersHorizontalIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -12,8 +12,9 @@ import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { SeccionesEmpresa } from "@/components/empresa/secciones-empresa";
-import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf, obtenerPreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
+import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf, obtenerPreferenciaDeEnvioAlCliente, obtenerPreferenciasDeEmision } from "@/lib/api/empresas";
 import { EnvioAlClienteForm } from "@/components/empresa/envio-al-cliente-form";
+import { PreferenciasEmisionForm } from "@/components/empresa/preferencias-emision-form";
 import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
@@ -94,12 +95,14 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas, personalizacion, envioAlCliente, series, { seccion }] = await Promise.all([
+  const [empresa, empresas, personalizacion, envioAlCliente, preferenciasEmision, series, { seccion }] = await Promise.all([
     obtenerEmpresaActual(access, empresaId),
     listarEmpresas(access),
     obtenerPersonalizacionPdf(access, empresaId),
     // #325: si no carga, la pestaña lo dice y el resto de la página sigue.
     obtenerPreferenciaDeEnvioAlCliente(access, empresaId).catch(() => null),
+    // Igual: si las preferencias de emisión no cargan, su pestaña lo dice y el resto sigue.
+    obtenerPreferenciasDeEmision(access, empresaId).catch(() => null),
     // Solo alimenta la guía: si no carga, la página sigue y la guía no afirma nada de las series.
     listarSeries(access, empresaId).catch(() => null),
     searchParams,
@@ -479,6 +482,32 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               ) : (
                 <Alerta tono="error" titulo={t.correo.errorTitulo}>
                   {t.correo.errorTexto}
+                </Alerta>
+              )}
+            </div>
+          </section>
+          ),
+          emision: (
+          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="seccion-preferencias-emision">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className={TITULO_SECCION}>
+                <SlidersHorizontalIcon weight={PESO_ICONO} className="size-4" />
+                {t.emision.titulo}
+              </div>
+              {preferenciasEmision ? (
+                <Pill tono={preferenciasEmision.opciones_avanzadas ? "ok" : "neutro"}>
+                  {preferenciasEmision.opciones_avanzadas ? t.emision.activadas : t.emision.desactivadas}
+                </Pill>
+              ) : null}
+            </div>
+            <div className="mt-4">
+              {preferenciasEmision ? (
+                <FormulariosDeEscritura permiso="configurar">
+                  <PreferenciasEmisionForm inicial={preferenciasEmision} />
+                </FormulariosDeEscritura>
+              ) : (
+                <Alerta tono="error" titulo={t.emision.errorTitulo}>
+                  {t.emision.errorTexto}
                 </Alerta>
               )}
             </div>
