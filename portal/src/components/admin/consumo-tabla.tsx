@@ -24,7 +24,6 @@ import {
 } from "@/lib/api/admin-consumo";
 import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { formatearFecha, formatearMes, hoyLima, ultimoDiaCubierto } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 const TONO_DEL_PLAN: Record<EstadoDelPlan, Tono> = { VIGENTE: "ok", EN_GRACIA: "aviso", VENCIDA: "error" };
 
