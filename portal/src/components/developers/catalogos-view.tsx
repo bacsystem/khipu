@@ -1,6 +1,5 @@
 "use client";
 
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useMemo, useState } from "react";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -9,6 +8,7 @@ import { useSeccionActiva } from "@/lib/seccion-activa";
 import { cn } from "@/lib/utils";
 import { Rico } from "./guia/rico";
 import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
+import { Buscador } from "khipu-design-system/formularios/buscador";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 
 /**
@@ -41,15 +41,8 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[200px_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
-        <div className="relative mb-3">
-          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            placeholder={t.buscarPlaceholder}
-            aria-label={t.buscarAria}
-            className="h-control w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-control text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
-          />
+        <div className="mb-3">
+          <Buscador etiqueta={t.buscarAria} valor={filtro} onCambio={setFiltro} placeholder={t.buscarPlaceholder} />
         </div>
         {/*
           La lista sigue al filtro: antes mostraba los 22 catálogos siempre, así que con una búsqueda puesta la mitad

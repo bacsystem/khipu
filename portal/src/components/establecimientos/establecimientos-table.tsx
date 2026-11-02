@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowClockwiseIcon, ProhibitIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, StorefrontIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { ChipCodigo, PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
@@ -17,11 +17,10 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
-
-const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+import { ConfirmacionEnLinea } from "khipu-design-system/patrones/confirmacion-en-linea";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 
 function Estado({ activo, principal }: { activo: boolean; principal: boolean }) {
   const t = useMessages().establecimientos.tabla.estado;
@@ -37,75 +36,46 @@ function Acciones({ establecimiento, seriesActivas }: { establecimiento: Estable
   const mensajeError = useMensajeError();
   const router = useRouter();
   const sinPermiso = useSinPermisoDeConfigurar();
-  const [confirmando, setConfirmando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [bajando, startTransition] = useTransition();
 
   if (establecimiento.principal)
     return (
-      <Link href={enlaceASeccion("datos")} className={cn(ACCION, "text-primary hover:bg-accent")}>
+      <Link href={enlaceASeccion("datos")} className={ACCION_SECUNDARIA}>
         {t.editarEnEmpresa}
       </Link>
     );
   if (!establecimiento.activo) return <span className="text-etiqueta text-muted-foreground/60">—</span>;
 
-  function darDeBaja() {
-    setError(null);
-    startTransition(async () => {
-      const res = await apiRequest<null>(`/api/proxy/empresa/establecimientos/${establecimiento.codigo}`, { method: "DELETE" });
-      if (res.estado !== "exito") {
-        setError(res.mensaje ?? mensajeError(res.codigo));
-        return;
-      }
-      setConfirmando(false);
-      router.refresh();
-    });
+  async function darDeBaja() {
+    const res = await apiRequest<null>(`/api/proxy/empresa/establecimientos/${establecimiento.codigo}`, { method: "DELETE" });
+    if (res.estado !== "exito") return res.mensaje ?? mensajeError(res.codigo);
+    router.refresh();
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center justify-end gap-1">
-        {confirmando ? (
-          <>
-            <span className="mr-1 text-etiqueta text-muted-foreground">{interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}</span>
-            <button type="button" disabled={bajando} onClick={darDeBaja} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-              {bajando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
-              {t.siDarDeBaja}
-            </button>
-            <button type="button" disabled={bajando} onClick={() => setConfirmando(false)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-              {messages.comun.cancelar}
-            </button>
-          </>
-        ) : (
-          <>
-            <EstablecimientoDialog existente={establecimiento} className={cn(ACCION, "text-primary hover:bg-accent")} />
-            <span className="text-border">|</span>
-            <button
-              type="button"
-              onClick={() => setConfirmando(true)}
-              // H4 (#21): dar de baja es configuración; sin ese permiso (emisor, solo lectura, modo soporte) se ve deshabilitado, como «Editar».
-              disabled={sinPermiso !== null || seriesActivas.length > 0}
-              title={sinPermiso ?? (seriesActivas.length > 0 ? interpolar(t.tieneSeriesActivas, { series: seriesActivas.join(", ") }) : undefined)}
-              className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}
-              data-testid={`baja-establecimiento-${establecimiento.codigo}`}
-            >
-              <ProhibitIcon className="size-3.5" />
-              {t.darDeBaja}
-            </button>
-          </>
-        )}
-      </div>
-      {error ? (
-        <span className="text-etiqueta text-destructive" role="alert">
-          {error}
-        </span>
-      ) : null}
+    <div className="flex flex-wrap items-start justify-end gap-1">
+      <EstablecimientoDialog existente={establecimiento} className={ACCION_SECUNDARIA} />
+      {/* H4 (#21): dar de baja es configuración; sin ese permiso (emisor, solo lectura, modo soporte) o con series activas se ve
+          deshabilitado. La confirmación del DS no recibe `disabled`: lo apaga el `fieldset`, que también lleva el título y el testid. */}
+      <fieldset
+        disabled={sinPermiso !== null || seriesActivas.length > 0}
+        title={sinPermiso ?? (seriesActivas.length > 0 ? interpolar(t.tieneSeriesActivas, { series: seriesActivas.join(", ") }) : undefined)}
+        className="m-0 min-w-0 border-0 p-0"
+        data-testid={`baja-establecimiento-${establecimiento.codigo}`}
+      >
+        <ConfirmacionEnLinea
+          etiqueta={t.darDeBaja}
+          pregunta={interpolar(t.confirmarBaja, { codigo: establecimiento.codigo })}
+          confirmar={t.siDarDeBaja}
+          onConfirmar={darDeBaja}
+        />
+      </fieldset>
     </div>
   );
 }
 
 export function EstablecimientosTable({ establecimientos, series }: { establecimientos: Establecimiento[]; series: Serie[] }) {
-  const t = useMessages().establecimientos.tabla;
+  const messages = useMessages();
+  const t = messages.establecimientos.tabla;
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
   const seriesDe = (codigo: string) => series.filter((s) => s.activa && (s.establecimiento ?? "0000") === codigo).map((s) => s.serie);
@@ -127,7 +97,7 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
                 title={t.refrescar}
                 className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
               >
-                <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
+                {refrescando ? <Spinner aria-label={messages.comun.cargando} /> : <ArrowClockwiseIcon weight="bold" className="size-4" />}
               </button>
               {/* «Nuevo establecimiento» vive en la barra superior, como la acción principal de las demás páginas (#277). */}
             </div>

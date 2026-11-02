@@ -28,7 +28,9 @@ describe("paneles de Exportar y Descargar ZIP (#321-M7)", () => {
     expect(screen.queryByTestId("exportar-comprobantes")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Descargar ZIP" }));
-    fireEvent.mouseDown(screen.getByText("afuera"));
+    expect(screen.getByTestId("descarga-masiva")).toBeInTheDocument();
+    // El `Popover` del DS (base-ui) cierra con el clic afuera, no con el mousedown.
+    fireEvent.click(screen.getByText("afuera"));
     expect(screen.queryByTestId("descarga-masiva")).not.toBeInTheDocument();
   });
 });
@@ -80,7 +82,10 @@ describe("ExportarComprobantes (#321)", () => {
     expect(screen.getByTestId("exportar-comprobantes")).toHaveTextContent("Para abrirlo en Excel");
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 
-    expect(await screen.findByRole("button", { name: "Exportando…" })).toBeDisabled();
+    // `BotonAsync`: deshabilitado, con el spinner y el texto de «en curso».
+    await waitFor(() => expect(screen.getByTestId("exportar-descargar")).toHaveTextContent("Exportando…"));
+    expect(screen.getByTestId("exportar-descargar")).toBeDisabled();
+    expect(screen.getByTestId("exportar-descargar")).toHaveAttribute("aria-busy", "true");
     expect(fetch.mock.calls[0][0]).toBe("/api/proxy/facturas/exportacion?desde=2026-09-01&formato=xlsx");
     soltar(new Response(new Blob(["PK"]), { status: 200, headers: { "content-disposition": 'attachment; filename="comprobantes-2026-09-01_2026-10-20.xlsx"' } }));
 

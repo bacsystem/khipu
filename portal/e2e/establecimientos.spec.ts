@@ -42,8 +42,8 @@ test("registra un anexo, lo asigna a una serie nueva y no permite darlo de baja 
   // Con una serie activa el anexo no se puede dar de baja; el que no tiene series, sí.
   await page.goto("/establecimientos");
   await expect(page.getByTestId("establecimiento-0003")).toContainText("F003");
-  await expect(page.getByTestId("baja-establecimiento-0003")).toBeDisabled();
-  await page.getByTestId("baja-establecimiento-0002").click();
+  await expect(page.getByTestId("baja-establecimiento-0003").getByRole("button")).toBeDisabled();
+  await page.getByTestId("baja-establecimiento-0002").getByRole("button", { name: "Dar de baja" }).click();
   await page.getByRole("button", { name: "Sí, dar de baja" }).click();
   await expect(page.getByTestId("establecimiento-0002")).toContainText("Dado de baja");
 });

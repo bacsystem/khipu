@@ -4,6 +4,7 @@ import { useLocale, useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 import { interpolar } from "@/i18n/mensajes";
 import { AFECTACIONES_ANTICIPO, anticipoInicial, errorDeAnticipos, type AnticipoForm } from "@/lib/comprobantes/anticipos";
 import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
@@ -40,7 +41,11 @@ export function AnticiposEditor({
       {!hayCliente ? (
         <p className={AYUDA_CAMPO}>{t.sinCliente}</p>
       ) : disponibles.estado === "cargando" ? (
-        <p className={AYUDA_CAMPO} role="status">{t.cargando}</p>
+        // El `Spinner` del DS va mudo: el texto traducido ya dice que está cargando (su `aria-label` es fijo en español).
+        <p className={cn(AYUDA_CAMPO, "inline-flex items-center gap-1.5")} role="status">
+          <Spinner tamano="sm" aria-hidden role={undefined} aria-label={undefined} />
+          {t.cargando}
+        </p>
       ) : disponibles.estado === "error" ? (
         <p className={cn(AYUDA_CAMPO, "text-destructive")} role="alert">{t.error}</p>
       ) : disponibles.candidatos.length === 0 ? (

@@ -2,10 +2,10 @@
 
 import { CopyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
-import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { useSoloLectura } from "@/lib/solo-lectura";
+import { ACCION_SECUNDARIA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,9 +30,9 @@ export function DuplicarButton({ id, numero, compacto = false, className }: { id
     );
   }
   return (
-    <Button variant="outline" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => pedirDuplicado(id)} data-testid="duplicar" className={className}>
-      <CopyIcon weight="bold" className="size-4" />
+    <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => pedirDuplicado(id)} data-testid="duplicar" className={cn(ACCION_SECUNDARIA, className)}>
+      <CopyIcon weight="bold" className="size-4 text-muted-foreground" />
       {t.boton}
-    </Button>
+    </button>
   );
 }

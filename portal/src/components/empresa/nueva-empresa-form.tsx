@@ -7,9 +7,10 @@ import { type FormEvent, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 
 export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {
   const router = useRouter();
@@ -48,12 +49,9 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nueva-ruc" className={ETIQUETA_CAMPO}>
-            {tc.ruc}
-          </label>
-          <input
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+        <Campo id="nueva-ruc" etiqueta={tc.ruc} ayuda={t.rucAyuda}>
+          <Entrada
             id="nueva-ruc"
             value={ruc}
             onChange={(e) => setRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
@@ -62,14 +60,11 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
             placeholder="20123456786"
             required
             autoFocus
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="nueva-ruc-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.rucAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nuevo-entorno" className={ETIQUETA_CAMPO}>
-            {tc.entornoSunat}
-          </label>
+        </Campo>
+        <Campo id="nuevo-entorno" etiqueta={tc.entornoSunat} ayuda={t.entornoAyuda}>
           <SelectCampo
             id="nuevo-entorno"
             valor={entorno}
@@ -79,23 +74,12 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
               { value: "PRODUCCION", label: t.produccion },
             ]}
           />
-          <span className={AYUDA_CAMPO}>{t.entornoAyuda}</span>
-        </div>
+        </Campo>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="nueva-razon" className={ETIQUETA_CAMPO}>
-          {tc.razonSocial}
-        </label>
-        <input
-          id="nueva-razon"
-          value={razonSocial}
-          onChange={(e) => setRazonSocial(e.target.value)}
-          placeholder={t.razonSocialPlaceholder}
-          required
-          className={CAMPO}
-        />
-      </div>
+      <Campo id="nueva-razon" etiqueta={tc.razonSocial}>
+        <Entrada id="nueva-razon" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} placeholder={t.razonSocialPlaceholder} required />
+      </Campo>
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
 
@@ -105,10 +89,9 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <PlusIcon weight="bold" className="size-4" />
-          {enviando ? t.registrando : t.registrar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<PlusIcon weight="bold" className="size-4" />} textoPendiente={t.registrando} className={BOTON_PRIMARIO}>
+          {t.registrar}
+        </BotonAsync>
       </div>
     </form>
   );

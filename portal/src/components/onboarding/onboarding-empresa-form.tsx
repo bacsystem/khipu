@@ -9,6 +9,7 @@ import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
@@ -103,7 +104,14 @@ export function OnboardingEmpresaForm() {
     router.refresh();
   }
 
-  if (cargando) return <div className="mx-auto w-full max-w-lg py-16 text-center text-cuerpo text-muted-foreground" role="status">{t.cargando}</div>;
+  if (cargando)
+    return (
+      <div className="mx-auto flex w-full max-w-lg items-center justify-center gap-2 py-16 text-cuerpo text-muted-foreground" role="status">
+        {/* Mudo: el texto traducido ya lo dice (el `aria-label` del `Spinner` del DS es fijo en español). */}
+        <Spinner aria-hidden role={undefined} aria-label={undefined} />
+        {t.cargando}
+      </div>
+    );
 
   return (
     <div className="mx-auto w-full max-w-lg">

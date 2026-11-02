@@ -244,6 +244,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
   const tipoDoc = c.receptor ? (etiquetasTipoDoc(messages)[c.receptor.tipo_doc] ?? interpolar(t.receptor.tipo, { tipo: c.receptor.tipo_doc })) : null;
   // #356: una boleta (o nota B) que sigue sin informarse desde el 5.º día se avisa con lo que le queda.
   const aviso = avisoDePlazo(c, hoyLima());
+  const porEnviar = c.estado_documento === "ERROR_ENVIO" || c.estado_documento === "FIRMADO";
   const hashCorto = c.hash && c.hash.length > 16 ? `${c.hash.slice(0, 8)}…${c.hash.slice(-5)}` : c.hash;
 
   return (
@@ -251,20 +252,21 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <EnlaceVolver href="/comprobantes">{t.volver}</EnlaceVolver>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
-          {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta={t.enviarASunat} enCurso={t.enviando} /> : null}
+        {/* Una sola acción principal: «Enviar a SUNAT»/«Reenviar» mientras el comprobante no llegó a SUNAT; si no, «Ver PDF». La principal va al final de la barra; el resto, secundarias. */}
+
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
           {/* #315: la constancia de un comprobante atascado (solo facturas y sus notas: SUNAT no la expone para boletas) y la consulta de validez. */}
           {puedeRecuperarCdr(c) ? <RecuperarCdrButton id={c.id} estado={c.estado_documento} /> : null}
           {datosValidez ? <ValidezButton datos={datosValidez} /> : null}
           {sePuedeDuplicar(c) ? <DuplicarButton id={c.id} numero={numero} /> : null}
           {admiteNotas(c) ? (
             <Link href={`/comprobantes/${c.id}/nota`} className={ACCION_SECUNDARIA} data-testid="emitir-nota">
-              <FileMinusIcon weight={PESO_ICONO} className="size-4" />
+              <FileMinusIcon weight={PESO_ICONO} className="size-4 text-muted-foreground" />
               {t.emitirNota}
             </Link>
           ) : null}
           {admiteBaja(c) ? <BajaButton id={c.id} numero={numero} fechaEmision={c.fecha_emision} boleta={esDeBoleta(c)} reversion={esDeAgente(c)} notasVigentes={(c.notas ?? []).filter((n) => n.estado_documento !== "RECHAZADO" && n.estado_documento !== "INVALIDO" && n.estado_documento !== "ANULADO").length} /> : null}
+          {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} correoDelCliente={c.receptor?.email ?? null} /> : null}
           <VistaPrevia id={c.id} numero={numero} nombreArchivo={c.nombre_archivo} tieneCdr={tieneConstanciaCdr(c)} />
           {c.enlaces?.pdf ? (
             <a
@@ -272,14 +274,15 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               target="_blank"
               rel="noopener"
               title={t.pdfTitulo}
-              className={ACCION_PRINCIPAL}
+              className={porEnviar ? ACCION_SECUNDARIA : ACCION_PRINCIPAL}
               data-testid="ver-pdf"
             >
-              <FileTextIcon weight={PESO_ICONO} className="size-4" />
+              <FileTextIcon weight={PESO_ICONO} className={porEnviar ? "size-4 text-muted-foreground" : "size-4"} />
               {t.verPdf}
             </a>
           ) : null}
-          {admiteCorreo(c) ? <CorreoButton id={c.id} numero={numero} correoDelCliente={c.receptor?.email ?? null} /> : null}
+          {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
+          {c.estado_documento === "FIRMADO" ? <ReenviarButton id={c.id} etiqueta={t.enviarASunat} enCurso={t.enviando} /> : null}
         </div>
       </div>
 

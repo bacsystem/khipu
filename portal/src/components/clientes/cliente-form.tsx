@@ -3,16 +3,16 @@
 import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
-import { Campo } from "khipu-design-system/formularios/campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { listarPaises } from "@/lib/comprobantes/paises";
 import { Combobox } from "khipu-design-system/formularios/combobox";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
 
 
@@ -78,7 +78,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
           />
         </Campo>
         <Campo id="cli-num-doc" etiqueta={t.numero} error={intento ? errorDoc : null} ayuda={documento.titulo}>
-          <input
+          <Entrada
             id="cli-num-doc"
             key={tipoDoc}
             value={numDoc}
@@ -86,15 +86,18 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             inputMode={documento.codigo === "1" || documento.codigo === "6" ? "numeric" : "text"}
             placeholder={documento.ejemplo}
             autoFocus={!existente}
-            className={cn(CAMPO, "font-mono tabular-nums")}
+            invalido={intento && !!errorDoc}
+            aria-describedby={intento && errorDoc ? "cli-num-doc-error" : "cli-num-doc-ayuda"}
+            mono
+            className="tabular-nums"
           />
         </Campo>
       </div>
       <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? t.razonSocial : t.nombre} error={intento ? errorNombre : null}>
-        <input id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} className={CAMPO} />
+        <Entrada id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} invalido={intento && !!errorNombre} aria-describedby={intento && errorNombre ? "cli-razon-error" : undefined} />
       </Campo>
       <Campo id="cli-direccion" etiqueta={t.direccion} opcional>
-        <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO} />
+        <Entrada id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} />
       </Campo>
       <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
         {/* Unos 250 países: se escribe para buscar. «Sin país» sigue siendo una opción más, la primera de la lista. */}
@@ -109,7 +112,7 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
         />
       </Campo>
       <Campo id="cli-email" etiqueta={t.correo} opcional error={intento ? errorCorreo : null} ayuda={t.correoAyuda}>
-        <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO} />
+        <Entrada id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} invalido={intento && !!errorCorreo} aria-describedby={intento && errorCorreo ? "cli-email-error" : "cli-email-ayuda"} />
       </Campo>
 
       {error ? (
@@ -124,10 +127,9 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {existente ? t.guardarCambios : t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

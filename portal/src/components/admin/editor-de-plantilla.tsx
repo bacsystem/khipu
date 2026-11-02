@@ -4,19 +4,20 @@ import { ArrowUUpLeftIcon, EyeIcon, FloppyDiskIcon } from "@phosphor-icons/react
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { Button } from "khipu-design-system/ui/button";
+import { AreaTexto, Campo, Entrada } from "khipu-design-system/formularios/campo";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { PlantillaDeCorreo, TextoDeCorreo } from "@/lib/api/admin-configuracion";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { insertarEnPosicion } from "@/lib/configuracion-formulario";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, TARJETA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
-type Campo = "asunto" | "cuerpo";
+type CampoDeTexto = "asunto" | "cuerpo";
 
 /**
  * El texto de un correo de la plataforma (#199): asunto y cuerpo, con las variables que ese correo admite a un clic de donde está el cursor, una vista previa con valores de
@@ -40,8 +41,8 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
   const cuerpoRef = useRef<HTMLTextAreaElement>(null);
   const alertaRef = useRef<HTMLParagraphElement>(null);
   /** Dónde está el cursor: la variable se inserta en el campo que el administrador tocó por última vez. */
-  const campoActivo = useRef<Campo>("cuerpo");
-  const cursorPendiente = useRef<{ campo: Campo; posicion: number } | null>(null);
+  const campoActivo = useRef<CampoDeTexto>("cuerpo");
+  const cursorPendiente = useRef<{ campo: CampoDeTexto; posicion: number } | null>(null);
   // Refs, no el estado: dos clics en el mismo tick leen el `enviando`/`calculando` viejo del closure.
   const enviandoRef = useRef(false);
   const calculandoRef = useRef(false);
@@ -135,11 +136,8 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="grid gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="plantilla-asunto" className={ETIQUETA_CAMPO}>
-              {t.asunto}
-            </label>
-            <input
+          <Campo id="plantilla-asunto" etiqueta={t.asunto}>
+            <Entrada
               ref={asuntoRef}
               id="plantilla-asunto"
               data-testid="plantilla-asunto"
@@ -151,13 +149,9 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
                 editado();
               }}
               autoComplete="off"
-              className={CAMPO}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="plantilla-cuerpo" className={ETIQUETA_CAMPO}>
-              {t.cuerpo}
-            </label>
+          </Campo>
+          <Campo id="plantilla-cuerpo" etiqueta={t.cuerpo}>
             <AreaTexto
               ref={cuerpoRef}
               id="plantilla-cuerpo"
@@ -172,7 +166,7 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
               }}
               className="min-h-48 font-mono"
             />
-          </div>
+          </Campo>
         </div>
 
         <aside className="grid content-start gap-2" aria-label={t.variables}>
@@ -181,15 +175,17 @@ export function EditorDePlantilla({ plantilla, alResultado }: { plantilla: Plant
           <ul className="grid gap-1.5">
             {plantilla.variables.map((v) => (
               <li key={v.nombre} className="grid gap-0.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="xs"
                   data-testid={`plantilla-variable-${v.nombre}`}
                   onClick={() => insertar(`{${v.nombre}}`)}
                   title={t.insertar.replace("{variable}", `{${v.nombre}}`)}
-                  className="w-fit rounded-md bg-card px-1.5 py-0.5 font-mono text-control font-medium text-foreground shadow-xs transition-colors hover:bg-secondary"
+                  className="w-fit font-mono"
                 >
                   {`{${v.nombre}}`}
-                </button>
+                </Button>
                 <span className="text-control text-foreground/80">
                   {v.descripcion}
                   {v.indispensable ? <strong className="ml-1 font-semibold text-foreground">({t.indispensable})</strong> : null}

@@ -3,7 +3,9 @@
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Button } from "khipu-design-system/ui/button";
+import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { ACCION_PRINCIPAL } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { useSoloLectura } from "@/lib/solo-lectura";
@@ -49,9 +51,18 @@ export function ReenviarButton({ id, etiqueta, enCurso }: { id: string; etiqueta
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      <Button disabled={enviando || soloLectura !== null} title={soloLectura ?? undefined} onClick={reenviar}>
-        {enviando ? (enCurso ?? t.enCurso) : (etiqueta ?? t.etiqueta)}
-      </Button>
+      {/* Cuando aparece es la acción principal de la ficha: el comprobante todavía no llegó a SUNAT. */}
+      <BotonAsync
+        pendiente={enviando}
+        disabled={soloLectura !== null}
+        title={soloLectura ?? undefined}
+        onClick={reenviar}
+        className={ACCION_PRINCIPAL}
+        icon={<PaperPlaneTiltIcon weight="bold" className="size-4" />}
+        textoPendiente={enCurso ?? t.enCurso}
+      >
+        {etiqueta ?? t.etiqueta}
+      </BotonAsync>
       {error ? (
         <p role="alert" className="max-w-md text-right text-cuerpo text-destructive">
           {error}

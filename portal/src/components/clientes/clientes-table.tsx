@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado } from "@/lib/api/clientes";
 import { buscarClientes } from "@/lib/api/clientes-browser";
 import { documentosDeCliente } from "@/lib/comprobantes/documentos";
-import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { useSoloLectura } from "@/lib/solo-lectura";
@@ -17,8 +17,7 @@ import { cn } from "@/lib/utils";
 import { ClienteDialog } from "./cliente-dialog";
 import { alCambiarLosClientes, avisarQueCambiaronLosClientes } from "./eventos";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
-
-const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+import { ConfirmacionEnLinea } from "khipu-design-system/patrones/confirmacion-en-linea";
 
 /** La lista de clientes guardados (#319): búsqueda por documento o nombre, páginas y las acciones de cambiar y eliminar. */
 export function ClientesTable() {
@@ -35,8 +34,6 @@ export function ClientesTable() {
   const [clientes, setClientes] = useState<ClienteGuardado[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [confirmando, setConfirmando] = useState<string | null>(null);
-  const [eliminando, setEliminando] = useState<string | null>(null);
   const ultimaLectura = useRef(0);
 
   // Lo tecleado pasa a la búsqueda 300 ms después de la última tecla.
@@ -74,10 +71,7 @@ export function ClientesTable() {
   }, [cargar, version]);
 
   async function eliminar(c: ClienteGuardado) {
-    setEliminando(c.id);
     const res = await apiRequest<null>(`/api/proxy/clientes/${c.id}`, { method: "DELETE" });
-    setEliminando(null);
-    setConfirmando(null);
     if (res.estado !== "exito") {
       setError(res.mensaje ?? mensajeError(res.codigo));
       return;
@@ -143,26 +137,12 @@ export function ClientesTable() {
                 <TableCell className="max-w-64 px-3 py-2 text-muted-foreground">{c.direccion ?? "—"}</TableCell>
                 <TableCell className="px-3 py-2 text-muted-foreground">{c.email ?? "—"}</TableCell>
                 <TableCell className="py-2 pr-4 pl-2 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {confirmando === c.id ? (
-                      <>
-                        <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarEliminar}</span>
-                        <button type="button" disabled={eliminando === c.id} onClick={() => eliminar(c)} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-                          {t.siEliminar}
-                        </button>
-                        <button type="button" onClick={() => setConfirmando(null)} className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}>
-                          {messages.comun.cancelar}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <ClienteDialog existente={c} className={cn(ACCION, "border border-border bg-card text-foreground/80 shadow-xs hover:bg-muted")} />
-                        <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(c.id)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
-                          <TrashIcon className="size-3.5" />
-                          {t.eliminar}
-                        </button>
-                      </>
-                    )}
+                  <div className="flex flex-wrap items-start justify-end gap-1">
+                    <ClienteDialog existente={c} className={ACCION_SECUNDARIA} />
+                    {/* `fieldset disabled` apaga el disparador de la confirmación del DS (que no recibe `disabled`) en solo lectura. */}
+                    <fieldset disabled={soloLectura !== null} title={soloLectura ?? undefined} className="m-0 min-w-0 border-0 p-0">
+                      <ConfirmacionEnLinea etiqueta={t.eliminar} pregunta={t.confirmarEliminar} confirmar={t.siEliminar} icon={TrashIcon} onConfirmar={() => eliminar(c)} />
+                    </fieldset>
                   </div>
                 </TableCell>
               </TableRow>

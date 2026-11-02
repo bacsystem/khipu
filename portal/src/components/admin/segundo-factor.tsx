@@ -90,6 +90,8 @@ export function ConfigurarSegundoFactor({ alConfirmar, alFallar }: { alConfirmar
       <p className="text-control">1. {t.configurarPaso1}</p>
       {configuracion ? (
         <div className="grid justify-items-center gap-3">
+          {/* `bg-white` fijo a propósito, no un token: el PNG del QR puede venir con fondo transparente y los lectores necesitan
+              módulos oscuros sobre claro; con `bg-card` en modo oscuro quedaría negro sobre negro y no se escanearía. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- PNG en data URI generado por el backend: no hay nada que optimizar */}
           <img src={`data:image/png;base64,${configuracion.qr_png}`} alt={t.configurarQrAlt} width={220} height={220} className="rounded-lg border border-border bg-white" />
           <div className="grid w-full gap-1.5">

@@ -23,7 +23,9 @@ import {
   type ErroresDeAviso,
   type ValoresDeAviso,
 } from "@/lib/configuracion-formulario";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { BOTON_PRIMARIO, TARJETA } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -113,29 +115,18 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       </div>
 
       <div className="grid max-w-xl gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="aviso-texto" className={ETIQUETA_CAMPO}>
-            {t.texto}
-          </label>
-          <input
+        <Campo id="aviso-texto" etiqueta={t.texto} error={errores.texto} ayuda={t.textoAyuda.replace("{max}", String(TEXTO_DE_AVISO_MAX))}>
+          <Entrada
             id="aviso-texto"
             data-testid="aviso-texto"
             value={valores.texto}
             maxLength={TEXTO_DE_AVISO_MAX}
             onChange={(e) => poner("texto", e.target.value)}
             autoComplete="off"
-            aria-invalid={errores.texto ? true : undefined}
-            aria-describedby={errores.texto ? "aviso-texto-error" : undefined}
-            className={CAMPO}
+            invalido={Boolean(errores.texto)}
+            aria-describedby={errores.texto ? "aviso-texto-error" : "aviso-texto-ayuda"}
           />
-          {errores.texto ? (
-            <span id="aviso-texto-error" className="text-control text-destructive">
-              {errores.texto}
-            </span>
-          ) : (
-            <span className={AYUDA_CAMPO}>{t.textoAyuda.replace("{max}", String(TEXTO_DE_AVISO_MAX))}</span>
-          )}
-        </div>
+        </Campo>
         <div className="grid gap-4 sm:grid-cols-2">
           <FechaYHora id="aviso-desde" etiqueta={t.desde} etiquetaHora={t.horaDesde} valor={valores.desde} onCambio={(v) => poner("desde", v)} error={errores.desde} />
           <FechaYHora
@@ -166,10 +157,9 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando} onClick={publicar} data-testid="aviso-publicar" className={BOTON_PRIMARIO}>
-          <MegaphoneIcon className="size-4" />
-          {enviando ? t.publicando : banner ? t.reemplazar : t.publicar}
-        </button>
+        <BotonAsync pendiente={enviando} onClick={publicar} data-testid="aviso-publicar" icon={<MegaphoneIcon className="size-4" />} textoPendiente={t.publicando} className={BOTON_PRIMARIO}>
+          {banner ? t.reemplazar : t.publicar}
+        </BotonAsync>
         {banner ? (
           <DialogoDeAccion
             testId="aviso-retirar"
@@ -215,12 +205,9 @@ function FechaYHora({
 }) {
   const messages = useMessages();
   const { fecha, hora } = partirFechaHora(valor);
-  const idError = `${id}-error`;
+  const describidoPor = error ? `${id}-error` : ayuda ? `${id}-ayuda` : undefined;
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className={ETIQUETA_CAMPO}>
-        {etiqueta}
-      </label>
+    <Campo id={id} etiqueta={etiqueta} error={error} ayuda={ayuda}>
       <div className="flex gap-2">
         <EntradaFecha
           id={id}
@@ -228,28 +215,21 @@ function FechaYHora({
           onCambio={(f) => onCambio(unirFechaHora(f, hora))}
           placeholder={messages.comun.elegirFecha}
           invalido={Boolean(error)}
-          describidoPor={error ? idError : undefined}
+          describidoPor={describidoPor}
           className="flex-1"
         />
-        <input
+        <Entrada
           id={`${id}-hora`}
           data-testid={`${id}-hora`}
           type="time"
           value={hora}
           onChange={(e) => onCambio(unirFechaHora(fecha, e.target.value))}
           aria-label={etiquetaHora}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? idError : undefined}
-          className={cn(CAMPO, "w-28 tabular-nums")}
+          invalido={Boolean(error)}
+          aria-describedby={describidoPor}
+          className="w-28 tabular-nums"
         />
       </div>
-      {error ? (
-        <span id={idError} className="text-control text-destructive">
-          {error}
-        </span>
-      ) : ayuda ? (
-        <span className={AYUDA_CAMPO}>{ayuda}</span>
-      ) : null}
-    </div>
+    </Campo>
   );
 }

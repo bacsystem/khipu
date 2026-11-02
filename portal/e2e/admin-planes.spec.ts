@@ -126,7 +126,8 @@ test("un nombre repetido (sin importar mayúsculas) lo rechaza el backend y el f
   await page.getByTestId("plan-guardar").click();
 
   const dialogo = page.getByTestId("plan-formulario");
-  await expect(dialogo.getByRole("alert")).toContainText("Ya existe un plan llamado «EMPRENDE»");
+  // Dos alertas: bajo el campo (el `Campo` del DS le pone `role="alert"`) y la general del modal.
+  await expect(dialogo.getByRole("alert").filter({ hasText: "Ya existe un plan llamado «EMPRENDE»" })).toHaveCount(2);
   await expect(page.getByLabel("Nombre", { exact: true })).toHaveAttribute("aria-invalid", "true");
 });
 

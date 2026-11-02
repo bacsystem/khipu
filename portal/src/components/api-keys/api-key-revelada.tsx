@@ -1,9 +1,10 @@
 "use client";
 
-import { CheckIcon, CopyIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Aviso } from "khipu-design-system/patrones/cabecera-dialogo";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { BOTON_SECUNDARIO, ETIQUETA_DATO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
@@ -15,17 +16,6 @@ import { cn } from "@/lib/utils";
 export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; etiqueta?: string; aviso?: ReactNode }) {
   const t = useMessages().apiKeys.revelada;
   const tr = useTranslations("apiKeys.revelada");
-  const [copiada, setCopiada] = useState(false);
-
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(apiKey);
-      setCopiada(true);
-    } catch {
-      // el navegador puede denegar el portapapeles; la llave sigue visible para copiarla a mano
-    }
-  }
-
   return (
     <>
       <div>
@@ -38,14 +28,8 @@ export function ApiKeyRevelada({ apiKey, etiqueta, aviso }: { apiKey: string; et
           >
             <span className="truncate">{apiKey}</span>
           </code>
-          <button
-            type="button"
-            onClick={copiar}
-            className={cn(BOTON_SECUNDARIO, "shrink-0", copiada && "border-success-border bg-success text-success-foreground")}
-          >
-            {copiada ? <CheckIcon weight="bold" className="size-4" /> : <CopyIcon weight="bold" className="size-4" />}
-            {copiada ? t.copiada : t.copiar}
-          </button>
+          {/* Solo el icono: el texto «Copiar»/«Copiado» del `BotonCopiar` del DS va fijo en español; el nombre accesible sale de `titulo` (traducido). */}
+          <BotonCopiar texto={apiKey} titulo={t.copiar} className={cn(BOTON_SECUNDARIO, "size-control shrink-0 px-0")} />
         </div>
       </div>
       <Aviso tono="aviso" icon={WarningIcon}>

@@ -7,6 +7,8 @@ import { type FormEvent, useState } from "react";
 import { Contrasena } from "khipu-design-system/formularios/contrasena";
 import { ZonaArchivos } from "khipu-design-system/formularios/zona-archivos";
 import { apiRequest } from "@/lib/api/browser";
+import { Campo } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
@@ -76,26 +78,24 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
         <ZonaArchivos id="certificado-archivo" archivo={archivo} onCambio={(f) => (f ? elegir(f) : setArchivo(null))} accept={EXTENSIONES.join(",")} titulo={t.arrastra} ayuda={t.examinar} etiquetaQuitar={t.quitarArchivo} />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="clave-cert" className={ETIQUETA_CAMPO}>
-          {t.contrasena}
-        </label>
+      <Campo id="clave-cert" etiqueta={t.contrasena} ayuda={t.ayudaOu}>
         <Contrasena id="clave-cert" valor={clave} onCambio={setClave} autoComplete="off" etiquetaMostrar={t.mostrarContrasena} etiquetaOcultar={t.ocultarContrasena} describidoPor="clave-cert-ayuda" className="font-mono" />
-        <span id="clave-cert-ayuda" className={AYUDA_CAMPO}>{t.ayudaOu}</span>
-      </div>
+      </Campo>
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
       {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizado}</p> : null}
 
       {/* La clave es la `Contrasena` del design system, que no lleva `required`: sin clave no se ofrece subir, como antes no dejaba el navegador. */}
-      <button
+      <BotonAsync
         type="submit"
-        disabled={enviando || !archivo || clave === ""}
+        pendiente={enviando}
+        disabled={!archivo || clave === ""}
+        icon={<ArrowsClockwiseIcon className="size-4" />}
+        textoPendiente={messages.empresa.comun.subiendo}
         className={cn(BOTON_PRIMARIO, "w-full")}
       >
-        <ArrowsClockwiseIcon className="size-4" />
-        {enviando ? messages.empresa.comun.subiendo : tieneCertificado ? t.actualizarDigital : t.cargarDigital}
-      </button>
+        {tieneCertificado ? t.actualizarDigital : t.cargarDigital}
+      </BotonAsync>
 
       <div className={cn(AYUDA_CAMPO, "flex items-center gap-1.5 border-t border-border/60 pt-3")}>
         <LockIcon className="size-3.5 shrink-0" />

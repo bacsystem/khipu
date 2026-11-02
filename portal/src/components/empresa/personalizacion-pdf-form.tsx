@@ -1,15 +1,17 @@
 "use client";
 
-import { ArrowsClockwiseIcon, CheckIcon, CloudArrowUpIcon, ImageIcon, PaletteIcon, TrashIcon } from "@phosphor-icons/react";
+import { CheckIcon, CloudArrowUpIcon, ImageIcon, PaletteIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
-import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { AreaTexto, Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { Spinner } from "khipu-design-system/feedback/spinner";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { apiRequest } from "@/lib/api/browser";
 import { interpolar } from "@/i18n/mensajes";
 import { plantillasPdf, type PersonalizacionPdf, type PlantillaPdf } from "@/lib/api/empresas";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
@@ -127,15 +129,13 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
           />
         </fieldset>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="pdf-color" className={ETIQUETA_CAMPO}>{t.colorPrimario}</label>
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          <Campo id="pdf-color" etiqueta={t.colorPrimario} ayuda={plantilla === "gris" ? t.grisSinColor : t.colorAyuda}>
             <div className="flex items-center gap-2">
               <input id="pdf-color" type="color" value={colorValido ? color : "#1E1E24"} onChange={(e) => setColor(e.target.value.toUpperCase())} className="h-control w-12 cursor-pointer rounded-lg border border-border bg-card p-1" disabled={plantilla === "gris"} />
-              <input aria-label={t.colorHex} value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} className={cn(CAMPO, "font-mono")} disabled={plantilla === "gris"} />
+              <Entrada aria-label={t.colorHex} value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} maxLength={7} mono disabled={plantilla === "gris"} aria-describedby="pdf-color-ayuda" />
             </div>
-            <span className={AYUDA_CAMPO}>{plantilla === "gris" ? t.grisSinColor : t.colorAyuda}</span>
-          </div>
+          </Campo>
           <div className="flex flex-col gap-1.5">
             <span className={ETIQUETA_CAMPO}>{t.logo}</span>
             <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
                 <span className="flex size-control items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground"><ImageIcon className="size-4" /></span>
               )}
               <label htmlFor={logoInputId} className={cn(BOTON_SECUNDARIO, "cursor-pointer")}>
-                <CloudArrowUpIcon className="size-3.5" />
+                {subiendoLogo ? <Spinner tamano="sm" /> : <CloudArrowUpIcon className="size-3.5" />}
                 {subiendoLogo ? messages.empresa.comun.subiendo : tieneLogo ? t.cambiar : t.subir}
               </label>
               <input id={logoInputId} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => subirLogo(e.target.files?.[0])} disabled={subiendoLogo} />
@@ -160,25 +160,20 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="pdf-pie" className={ETIQUETA_CAMPO}>{t.pie}</label>
-          <input id="pdf-pie" value={pie} onChange={(e) => setPie(e.target.value)} maxLength={300} placeholder={t.piePlaceholder} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>{interpolar(t.pieAyuda, { n: pie.length })}</span>
-        </div>
+        <Campo id="pdf-pie" etiqueta={t.pie} ayuda={interpolar(t.pieAyuda, { n: pie.length })}>
+          <Entrada id="pdf-pie" value={pie} onChange={(e) => setPie(e.target.value)} maxLength={300} placeholder={t.piePlaceholder} aria-describedby="pdf-pie-ayuda" />
+        </Campo>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="pdf-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones}</label>
-          <AreaTexto id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder={t.observacionesPlaceholder} />
-          <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
-        </div>
+        <Campo id="pdf-observaciones" etiqueta={t.observaciones} ayuda={interpolar(t.observacionesAyuda, { n: observaciones.length })}>
+          <AreaTexto id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder={t.observacionesPlaceholder} aria-describedby="pdf-observaciones-ayuda" />
+        </Campo>
 
         {error ? <p className="text-cuerpo text-destructive" role="alert">{error}</p> : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" disabled={guardando || !colorValido} className={BOTON_PRIMARIO}>
-            {guardando ? <ArrowsClockwiseIcon className="size-4 animate-spin" /> : <PaletteIcon className="size-4" />}
-            {guardando ? messages.empresa.comun.guardando : t.guardar}
-          </button>
+          <BotonAsync type="submit" pendiente={guardando} disabled={!colorValido} icon={<PaletteIcon className="size-4" />} textoPendiente={messages.empresa.comun.guardando} className={BOTON_PRIMARIO}>
+            {t.guardar}
+          </BotonAsync>
           {ok ? (
             <span className="inline-flex items-center gap-1 text-control text-success-foreground" role="status" data-testid="diseno-guardado">
               <CheckIcon weight="bold" className="size-3.5" /> {t.guardado}
