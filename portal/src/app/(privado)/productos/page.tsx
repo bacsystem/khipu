@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { ProductosTable } from "@/components/productos/productos-table";
 import { getServerSession } from "@/lib/session-server";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -15,17 +16,12 @@ export default async function ProductosPage() {
 
   if (!access || !empresaId) {
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       <ProductosTable />
     </div>
   );

@@ -12,6 +12,9 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { Acordeon } from "khipu-design-system/navegacion/acordeon";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
@@ -20,7 +23,7 @@ import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/
 import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -382,14 +385,26 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       </div>
 
       {esParcial && admiteAjustesPropios ? (
-        <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
-          <summary className="cursor-pointer text-control font-medium">{t.ajustes.titulo}</summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
-            <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
-          </div>
-          <p className={cn(AYUDA_CAMPO, "mt-2")}>{interpolar(t.ajustes.ayuda, { documento })}</p>
-        </details>
+        <div data-testid="nota-ajustes">
+          <Acordeon
+            defaultAbiertos={descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" ? ["ajustes"] : []}
+            items={[
+              {
+                id: "ajustes",
+                titulo: t.ajustes.titulo,
+                contenido: (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
+                      <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
+                    </div>
+                    <p className={cn(AYUDA_CAMPO, "mt-2")}>{interpolar(t.ajustes.ayuda, { documento })}</p>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </div>
       ) : null}
 
       {esTotal ? (
@@ -418,21 +433,21 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       ) : null}
 
       {esParcial ? (
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-left text-etiqueta">
-            <thead>
-              <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta text-muted-foreground">
-                <th className="px-3 py-2 font-medium">{interpolar(t.thItem, { documento })}</th>
-                <th className="w-24 px-3 py-2 text-right font-medium">{t.thFacturado}</th>
-                <th className="w-32 px-3 py-2 text-right font-medium">{t.thCantidad}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
+        <div className={CONTENEDOR_TABLA}>
+          <Table className="text-control">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={CABECERA_TABLA}>{interpolar(t.thItem, { documento })}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-24 text-right")}>{t.thFacturado}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-32 text-right")}>{t.thCantidad}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {factura.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="px-3 py-2 text-foreground">{item.descripcion}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad, locale)} {item.unidad}</td>
-                  <td className="px-3 py-2 text-right">
+                <TableRow key={idx}>
+                  <TableCell className="px-3 py-2 whitespace-normal text-foreground">{item.descripcion}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad, locale)} {item.unidad}</TableCell>
+                  <TableCell className="px-3 py-2 text-right">
                     <input
                       type="number"
                       min={0}
@@ -444,11 +459,11 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                       onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(Number(e.target.value).toFixed(10)))) : v)))}
                       className={cn(CAMPO, "w-28 text-right font-mono")}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
             {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo)
               ? factura.totales.total > 0

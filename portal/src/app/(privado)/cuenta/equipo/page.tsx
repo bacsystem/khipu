@@ -5,6 +5,7 @@ import { EquipoView } from "@/components/equipo/equipo-view";
 import { esRolInsuficiente, SinPermisoDePagina } from "@/components/sin-permiso";
 import { listarInvitaciones, listarMiembros } from "@/lib/api/equipo";
 import { getServerSession } from "@/lib/session-server";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -27,7 +28,7 @@ export default async function EquipoPage() {
   const messages = await getMessages();
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       <p className="text-cuerpo text-muted-foreground">{messages.equipo.descripcion}</p>
       <EquipoView miembros={cargado.miembros} invitaciones={cargado.invitaciones} />
     </div>

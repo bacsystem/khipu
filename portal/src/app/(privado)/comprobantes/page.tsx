@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ComprobantesTable } from "@/components/comprobantes/comprobantes-table";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { ResumenDeComprobantes } from "@/components/comprobantes/resumen-de-comprobantes";
@@ -11,6 +10,8 @@ import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { getServerSession } from "@/lib/session-server";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -32,12 +33,7 @@ export default async function ComprobantesPage({
   if (!access || !empresaId) {
     const t = (await getMessages()).comprobantes.pagina;
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
@@ -54,7 +50,7 @@ export default async function ComprobantesPage({
   ]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       {empresa ? <GuiaParaEmitir pasos={pasosParaEmitir(empresa, series, hoyLima(), messages)} /> : null}
 
       <ResumenDeComprobantes resumen={resumen} periodo={periodo} />

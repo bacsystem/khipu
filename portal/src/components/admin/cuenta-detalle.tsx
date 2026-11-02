@@ -1,3 +1,4 @@
+import { BuildingsIcon, ClockCounterClockwiseIcon, NotebookIcon, ReceiptIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
 import type { ReactNode } from "react";
 import { AccionesDeBaja } from "@/components/admin/acciones-de-baja";
@@ -6,13 +7,15 @@ import { AccionesDeUsuario } from "@/components/admin/acciones-de-usuario";
 import { CertificadoEtiqueta, Etiqueta, EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 import { Tabs } from "khipu-design-system/navegacion/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { estadoCertificado, type CuentaDetalleAdmin, type EmpresaCuenta, type EventoReciente } from "@/lib/api/admin-cuenta-detalle";
 import { detalleLegible, motivoDe } from "@/lib/bitacora";
-import { CABECERA_TABLA } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
 import type { Mensajes } from "@/i18n/mensajes";
+import { cn } from "@/lib/utils";
 
 function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDetalleAdmin["usuarios"] }) {
   const messages = useMessages();
@@ -20,7 +23,7 @@ function Usuarios({ cuentaId, usuarios }: { cuentaId: string; usuarios: CuentaDe
   const t = messages.admin.detalle;
   const u = t.usuarios;
   return (
-    <Seccion titulo={u.titulo} id="detalle-usuarios" tabla>
+    <Seccion titulo={u.titulo} id="detalle-usuarios" icon={UsersIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -68,7 +71,7 @@ function Empresas({ empresas, hoy }: { empresas: EmpresaCuenta[]; hoy: string })
   const t = useMessages().admin.detalle;
   const e = t.empresas;
   return (
-    <Seccion titulo={e.titulo} id="detalle-empresas" tabla>
+    <Seccion titulo={e.titulo} id="detalle-empresas" icon={BuildingsIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -111,7 +114,7 @@ function Comprobantes({ comprobantes }: { comprobantes: CuentaDetalleAdmin["comp
   const t = messages.admin.detalle;
   const c = t.comprobantes;
   return (
-    <Seccion titulo={c.titulo} id="detalle-comprobantes" tabla>
+    <Seccion titulo={c.titulo} id="detalle-comprobantes" icon={ReceiptIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -156,7 +159,7 @@ function Eventos({ eventos }: { eventos: CuentaDetalleAdmin["eventos"] }) {
   const e = t.eventos;
   const acciones = e.acciones as Record<string, string>;
   return (
-    <Seccion titulo={e.titulo} id="detalle-eventos" tabla>
+    <Seccion titulo={e.titulo} id="detalle-eventos" icon={NotebookIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -191,7 +194,7 @@ function HistorialEstado({ historial }: { historial: EventoReciente[] }) {
   const h = t.historial;
   const acciones = t.eventos.acciones as Record<string, string>;
   return (
-    <Seccion titulo={h.titulo} id="detalle-historial-estado" tabla>
+    <Seccion titulo={h.titulo} id="detalle-historial-estado" icon={ClockCounterClockwiseIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -249,58 +252,55 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
     { id: "bitacora", etiqueta: p.bitacora },
   ];
   return (
-    <div className="grid min-w-0 gap-6" data-testid="cuenta-detalle">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-cuerpo">
-          <div>
-            <dt className="text-etiqueta text-muted-foreground">{t.estado}</dt>
-            <dd className="text-control">
-              <EstadoCuentaEtiqueta estado={cuenta.estado} />
-              {cuenta.suspendida_en ? (
-                <span data-testid="suspendida-desde" className="mt-1 block text-etiqueta text-muted-foreground">
-                  {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en, locale))}
-                </span>
-              ) : null}
-              {motivoSuspension ? (
-                <span data-testid="motivo-suspension" className="block max-w-sm text-etiqueta text-foreground/80">
-                  {t.motivo.replace("{motivo}", motivoSuspension)}
-                </span>
-              ) : null}
-              {cuenta.baja_en ? (
-                <span data-testid="baja-desde" className="mt-1 block text-etiqueta text-muted-foreground">
-                  {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en, locale))}
-                </span>
-              ) : null}
-              {motivoBaja ? (
-                <span data-testid="motivo-baja" className="block max-w-sm text-etiqueta text-foreground/80">
-                  {t.motivo.replace("{motivo}", motivoBaja)}
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-etiqueta text-muted-foreground">{t.correo}</dt>
-            <dd className="font-mono text-control">{cuenta.email}</dd>
-          </div>
-          <div>
-            <dt className="text-etiqueta text-muted-foreground">{t.telefono}</dt>
-            <dd className="font-mono text-control">{cuenta.telefono ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-etiqueta text-muted-foreground">{t.alta}</dt>
-            <dd className="text-control">{formatearFechaHora(cuenta.creada_en, locale)}</dd>
-          </div>
-        </dl>
+    <div className="grid min-w-0 gap-3" data-testid="cuenta-detalle">
+      <section className={cn(TARJETA, "flex flex-wrap items-start justify-between gap-4 p-4")} aria-label={cuenta.nombre}>
+        <ListaDatos
+          columnas={2}
+          className="min-w-0 flex-1 basis-96"
+          datos={[
+            {
+              etiqueta: t.estado,
+              valor: (
+                <>
+                  <EstadoCuentaEtiqueta estado={cuenta.estado} />
+                  {cuenta.suspendida_en ? (
+                    <span data-testid="suspendida-desde" className="mt-1 block text-etiqueta text-muted-foreground">
+                      {t.suspendidaDesde.replace("{fecha}", formatearFechaHora(cuenta.suspendida_en, locale))}
+                    </span>
+                  ) : null}
+                  {motivoSuspension ? (
+                    <span data-testid="motivo-suspension" className="block max-w-sm text-etiqueta text-foreground/80">
+                      {t.motivo.replace("{motivo}", motivoSuspension)}
+                    </span>
+                  ) : null}
+                  {cuenta.baja_en ? (
+                    <span data-testid="baja-desde" className="mt-1 block text-etiqueta text-muted-foreground">
+                      {t.bajaDesde.replace("{fecha}", formatearFechaHora(cuenta.baja_en, locale))}
+                    </span>
+                  ) : null}
+                  {motivoBaja ? (
+                    <span data-testid="motivo-baja" className="block max-w-sm text-etiqueta text-foreground/80">
+                      {t.motivo.replace("{motivo}", motivoBaja)}
+                    </span>
+                  ) : null}
+                </>
+              ),
+            },
+            { etiqueta: t.correo, valor: cuenta.email, mono: true },
+            { etiqueta: t.telefono, valor: cuenta.telefono ?? "—", mono: true },
+            { etiqueta: t.alta, valor: formatearFechaHora(cuenta.creada_en, locale) },
+          ]}
+        />
         <div className="flex flex-wrap items-center gap-2">
           {/* Suspender también vale con la cuenta de baja (H16): la baja no corta el acceso, y suspenderla es lo que corta el servicio. */}
           <AccionesDeCuenta id={cuenta.id} nombre={cuenta.nombre} suspendida={Boolean(cuenta.suspendida_en)} empresas={cuenta.empresas.length} />
           <AccionesDeBaja id={cuenta.id} nombre={cuenta.nombre} estado={cuenta.estado} />
         </div>
-      </div>
+      </section>
       <Tabs<Pestana>
         items={pestanas}
         paneles={{
-          plan: <div className="grid gap-4">{plan}</div>,
+          plan: <div className="grid gap-3">{plan}</div>,
           estado: <HistorialEstado historial={cuenta.historial_estado} />,
           usuarios: <Usuarios cuentaId={cuenta.id} usuarios={cuenta.usuarios} />,
           empresas: <Empresas empresas={cuenta.empresas} hoy={hoy} />,

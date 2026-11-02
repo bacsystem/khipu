@@ -1,4 +1,4 @@
-import { CalendarIcon } from "@phosphor-icons/react/dist/ssr";
+import { CalendarIcon, PackageIcon } from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { CambiarPlan } from "@/components/admin/cambiar-plan";
@@ -26,8 +26,8 @@ export function PlanDeCuenta({ cuentaId, cuentaNombre, plan, planes, hoy }: { cu
   const t = messages.admin.planDeCuenta;
   const l = plan.plan.limites;
   return (
-    <Seccion titulo={t.titulo} id="detalle-plan">
-      <div data-testid="plan-de-cuenta" className="grid gap-3 p-4">
+    <Seccion titulo={t.titulo} id="detalle-plan" icon={PackageIcon}>
+      <div data-testid="plan-de-cuenta" className="grid gap-3 px-4 pt-1 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-1">
             <div className="flex flex-wrap items-center gap-2">

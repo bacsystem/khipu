@@ -5,6 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
+import { ProgresoLineal } from "khipu-design-system/feedback/progreso";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
@@ -37,9 +38,14 @@ function BarraDeUso({ cuenta }: { cuenta: CuentaConsumo }) {
   const columnas = useMessages().admin.consumo.columnas;
   const pct = Math.min(cuenta.porcentaje ?? 0, 100);
   return (
-    <div role="progressbar" aria-label={columnas.uso} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
-      <div style={{ width: `${pct}%` }} className={cn("h-full rounded-full", alTope(cuenta) ? "bg-destructive" : cuenta.en_alerta ? "bg-warning-foreground" : "bg-primary")} />
-    </div>
+    // El nombre accesible va en la etiqueta del DS, solo para el lector de pantalla: el porcentaje ya se lee al lado, en texto.
+    <ProgresoLineal
+      valor={pct}
+      tono={alTope(cuenta) ? "destructive" : cuenta.en_alerta ? "warning" : "primary"}
+      etiqueta={<span className="sr-only">{columnas.uso}</span>}
+      mostrarValor={false}
+      className="w-24 gap-0"
+    />
   );
 }
 

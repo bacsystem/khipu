@@ -1,21 +1,13 @@
+import { ProhibitIcon } from "@phosphor-icons/react/dist/ssr";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { useLocale, useMessages } from "next-intl";
 import { interpolar } from "@/i18n/mensajes";
 import type { BajaAdmin } from "@/lib/api/admin-comprobante";
 import { avisoAltaFueraDePlazo, bajaVencida, etiquetaDeBaja } from "@/lib/baja-etiqueta";
-import { ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { TARJETA } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
 import { cn } from "@/lib/utils";
-
-function Dato({ etiqueta, children, testId }: { etiqueta: string; children: React.ReactNode; testId: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</dt>
-      <dd className="text-control break-words text-foreground" data-testid={testId}>
-        {children}
-      </dd>
-    </div>
-  );
-}
 
 /**
  * #362 H9: la baja (RA) o el resumen diario (RC) de un comprobante en la ficha del backoffice, con el mismo criterio que la ficha del cliente (`BajaEstado`): el
@@ -29,54 +21,64 @@ export function BajasDeComprobante({ bajas, tipo }: { bajas: BajaAdmin[]; tipo: 
   const t = messages.admin.comprobanteDetalle.bajas;
   const que = tipo === "03" ? "boleta" : "nota";
   return (
-    <section className={cn(TARJETA, "p-5 lg:col-span-2")} aria-labelledby="titulo-bajas" data-testid="comprobante-bajas">
-      <h2 id="titulo-bajas" className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>
-        {t.titulo}
-      </h2>
-      <p className="pt-3 text-control text-muted-foreground">{t.ayuda}</p>
-      <div className="grid gap-4 pt-4">
+    <section className={cn(TARJETA, "lg:col-span-2")} aria-labelledby="titulo-bajas" data-testid="comprobante-bajas">
+      <CabeceraSeccion icon={ProhibitIcon} titulo={<span id="titulo-bajas">{t.titulo}</span>} />
+      <p className="px-4 text-control text-muted-foreground">{t.ayuda}</p>
+      <div className="grid gap-3 px-4 pt-3 pb-4">
         {bajas.map((b) => {
           const resumenDiario = b.identificador.startsWith("RC-");
           const alta = b.condicion === "ALTA";
           const vencida = bajaVencida(b);
           return (
-            <article key={b.id} className="rounded-lg border border-border/60 p-4" data-testid={`comprobante-baja-${b.identificador}`}>
+            <article key={b.id} className="rounded-lg bg-secondary/60 p-4" data-testid={`comprobante-baja-${b.identificador}`}>
               <h3 className="mb-3 text-cuerpo font-semibold text-foreground">
                 {resumenDiario ? t.resumenDiario : t.comunicacionDeBaja} <span className="font-mono">{b.identificador}</span>
                 {alta ? ` ${t.alta}` : null}
               </h3>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Dato etiqueta={t.estado} testId="baja-estado">
-                  {etiquetaDeBaja(b, que, messages)}
-                </Dato>
-                <Dato etiqueta={t.ticket} testId="baja-ticket">
-                  <span className="font-mono">{b.ticket ?? t.sinDato}</span>
-                </Dato>
-                <Dato etiqueta={t.motivo} testId="baja-motivo">
-                  {b.motivo}
-                  {/* El RC no lleva el motivo de una anulación: queda en khipu. El de un alta lo escribe khipu y tampoco viaja, pero no es de nadie que lo pidiera. */}
-                  {resumenDiario && !alta ? <span className="mt-1 block text-control text-muted-foreground">{t.motivoSoloKhipu}</span> : null}
-                </Dato>
-                <Dato etiqueta={t.generada} testId="baja-generada">
-                  {formatearFecha(b.fecha_generacion, locale)}
-                </Dato>
-                <Dato etiqueta={t.emision} testId="baja-emision">
-                  {formatearFecha(b.fecha_referencia, locale)}
-                </Dato>
-                <Dato etiqueta={vencida ? t.detalle : b.cdr ? t.respuesta : t.ultimoIntento} testId="baja-respuesta">
-                  {b.cdr ? (
-                    <>
-                      <span className="font-mono">{b.cdr.codigo}</span>
-                      {b.cdr.descripcion ? ` — ${b.cdr.descripcion}` : null}
-                    </>
-                  ) : (
-                    <span className="font-mono text-control">
-                      {b.ultimo_error ?? t.sinDato}
-                      {b.intentos > 1 ? interpolar(t.intentos, { n: b.intentos }) : ""}
-                    </span>
-                  )}
-                </Dato>
-              </dl>
+              <ListaDatos
+                columnas={2}
+                datos={[
+                  { etiqueta: t.estado, valor: <span data-testid="baja-estado">{etiquetaDeBaja(b, que, messages)}</span> },
+                  {
+                    etiqueta: t.ticket,
+                    valor: (
+                      <span data-testid="baja-ticket" className="font-mono">
+                        {b.ticket ?? t.sinDato}
+                      </span>
+                    ),
+                  },
+                  {
+                    etiqueta: t.motivo,
+                    valor: (
+                      <span data-testid="baja-motivo" className="break-words">
+                        {b.motivo}
+                        {/* El RC no lleva el motivo de una anulación: queda en khipu. El de un alta lo escribe khipu y tampoco viaja, pero no es de nadie que lo pidiera. */}
+                        {resumenDiario && !alta ? <span className="mt-1 block text-control text-muted-foreground">{t.motivoSoloKhipu}</span> : null}
+                      </span>
+                    ),
+                  },
+                  { etiqueta: t.generada, valor: <span data-testid="baja-generada">{formatearFecha(b.fecha_generacion, locale)}</span> },
+                  { etiqueta: t.emision, valor: <span data-testid="baja-emision">{formatearFecha(b.fecha_referencia, locale)}</span> },
+                  {
+                    etiqueta: vencida ? t.detalle : b.cdr ? t.respuesta : t.ultimoIntento,
+                    valor: (
+                      <span data-testid="baja-respuesta" className="break-words">
+                        {b.cdr ? (
+                          <>
+                            <span className="font-mono">{b.cdr.codigo}</span>
+                            {b.cdr.descripcion ? ` — ${b.cdr.descripcion}` : null}
+                          </>
+                        ) : (
+                          <span className="font-mono text-control">
+                            {b.ultimo_error ?? t.sinDato}
+                            {b.intentos > 1 ? interpolar(t.intentos, { n: b.intentos }) : ""}
+                          </span>
+                        )}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
               {alta && b.fuera_de_plazo ? (
                 <p className="mt-3 text-control text-warning-foreground" data-testid="baja-fuera-de-plazo">
                   {avisoAltaFueraDePlazo(messages)}

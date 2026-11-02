@@ -74,9 +74,9 @@ test("cada servicio de SUNAT dice si contesta y la consulta de CDR caída dice p
 test("la tabla por hora trae las 24 horas", async ({ page }) => {
   await abrir(page);
 
-  await page.getByText("Ver los números por hora").click();
+  await page.getByRole("button", { name: "Ver los números por hora" }).click();
 
-  await expect(page.locator("details tbody tr")).toHaveCount(24);
+  await expect(page.getByTestId("monitor-tabla-horas").locator("tbody tr")).toHaveCount(24);
 });
 
 // --- el refresco ----------------------------------------------------------------------------------------------------------------------------

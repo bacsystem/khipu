@@ -16,6 +16,7 @@ import { useSoloLectura } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { ClienteDialog } from "./cliente-dialog";
 import { alCambiarLosClientes, avisarQueCambiaronLosClientes } from "./eventos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 
 const ACCION = "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -91,28 +92,28 @@ export function ClientesTable() {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4" data-testid="clientes">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <UsersIcon className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
-          </div>
-        </div>
-        <label className="relative">
-          <span className="sr-only">{t.buscar}</span>
-          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            type="search"
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder={t.buscarPlaceholder}
-            className={cn(CONTROL_FILTRO, "w-72 max-w-full pr-3 pl-9 font-normal")}
-          />
-        </label>
-      </div>
+      <CabeceraSeccion
+        icon={UsersIcon}
+        titulo={t.titulo}
+        subtitulo={t.subtitulo}
+        conBorde={false}
+        className="p-0"
+        derecha={
+          <>
+            <label className="relative">
+              <span className="sr-only">{t.buscar}</span>
+              <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
+              <input
+                type="search"
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder={t.buscarPlaceholder}
+                className={cn(CONTROL_FILTRO, "w-72 max-w-full pr-3 pl-9 font-normal")}
+              />
+            </label>
+          </>
+        }
+      />
 
       {error ? (
         <p role="alert" className="text-control text-destructive">

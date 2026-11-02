@@ -1,6 +1,11 @@
+import { ChartBarIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
+import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
+import { Acordeon } from "khipu-design-system/navegacion/acordeon";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Aviso } from "khipu-design-system/patrones/cabecera-dialogo";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
-import { CABECERA_TABLA, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
@@ -61,22 +66,24 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
   const monedas = serie ? monedasDeLaSerie(serie) : [];
 
   return (
-    <section aria-labelledby="grafico-emision-titulo" data-testid="grafico-emision" data-cargado={serie !== null} className={cn(TARJETA, "grid min-w-0 gap-3 p-5")}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 pb-3">
-        <h2 id="grafico-emision-titulo" className={TITULO_SECCION}>
-          {titulo}
-        </h2>
-        {serie && maximo > 0 ? <span className="hidden font-mono text-etiqueta text-muted-foreground sm:inline">{t.subtitulo}</span> : null}
-      </div>
+    <section aria-labelledby="grafico-emision-titulo" data-testid="grafico-emision" data-cargado={serie !== null} className={cn(TARJETA, "min-w-0")}>
+      <CabeceraSeccion
+        icon={ChartBarIcon}
+        titulo={<span id="grafico-emision-titulo">{titulo}</span>}
+        subtitulo={serie && maximo > 0 ? t.subtitulo : undefined}
+      />
 
+      <div className="grid min-w-0 gap-3 px-4 pb-4">
       {serie === null ? (
-        <p data-testid="grafico-emision-error" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-          {t.error}
-        </p>
+        <div data-testid="grafico-emision-error">
+          <Aviso tono="neutro" icon={WarningCircleIcon}>
+            {t.error}
+          </Aviso>
+        </div>
       ) : maximo === 0 ? (
-        <p data-testid="grafico-emision-vacio" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-          {t.vacio}
-        </p>
+        <div data-testid="grafico-emision-vacio">
+          <EstadoVacio icon={ChartBarIcon} titulo={t.vacio} className="py-8" />
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2">
@@ -131,39 +138,47 @@ export function GraficoDeEmision({ serie, titulo }: { serie: PuntoDelDia[] | nul
             </div>
           </div>
 
-          <details className="text-control">
-            <summary className="cursor-pointer text-control text-primary">{t.verTabla}</summary>
-            <div className="mt-2 min-w-0">
-              <Table data-testid="grafico-emision-tabla">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.dia}</TableHead>
-                    <TableHead className={`${CABECERA_TABLA} text-right`}>{t.emitidos}</TableHead>
-                    {monedas.map((m) => (
-                      <TableHead key={m} className={`${CABECERA_TABLA} text-right`}>
-                        {interpolar(t.facturadoMoneda, { moneda: m })}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="text-control tabular-nums">
-                  {serie.map((p) => (
-                    <TableRow key={p.fecha}>
-                      <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha, locale)}</TableCell>
-                      <TableCell className="py-1.5 text-right">{p.emitidos}</TableCell>
-                      {monedas.map((m) => (
-                        <TableCell key={m} className="py-1.5 text-right">
-                          {formatearMonto(m, p.facturado[m] ?? 0, locale)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </details>
+          <Acordeon
+            items={[
+              {
+                id: "tabla",
+                titulo: t.verTabla,
+                contenido: (
+                  <div className="min-w-0">
+                    <Table data-testid="grafico-emision-tabla">
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className={`${CABECERA_TABLA} pl-3`}>{t.dia}</TableHead>
+                          <TableHead className={`${CABECERA_TABLA} text-right`}>{t.emitidos}</TableHead>
+                          {monedas.map((m) => (
+                            <TableHead key={m} className={`${CABECERA_TABLA} text-right`}>
+                              {interpolar(t.facturadoMoneda, { moneda: m })}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="text-control tabular-nums">
+                        {serie.map((p) => (
+                          <TableRow key={p.fecha}>
+                            <TableCell className="py-1.5 pl-3">{formatearFecha(p.fecha, locale)}</TableCell>
+                            <TableCell className="py-1.5 text-right">{p.emitidos}</TableCell>
+                            {monedas.map((m) => (
+                              <TableCell key={m} className="py-1.5 text-right">
+                                {formatearMonto(m, p.facturado[m] ?? 0, locale)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </>
       )}
+      </div>
     </section>
   );
 }

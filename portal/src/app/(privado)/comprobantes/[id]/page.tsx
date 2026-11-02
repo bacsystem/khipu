@@ -1,11 +1,18 @@
-import { ArrowLeftIcon, ClockCounterClockwiseIcon, FileMinusIcon, FileTextIcon, IdentificationCardIcon, LinkIcon, RowsIcon } from "@phosphor-icons/react/dist/ssr";
+import { ChatTextIcon, ClockCounterClockwiseIcon, CodeIcon, FileMinusIcon, FileTextIcon, IdentificationCardIcon, LinkIcon, ReceiptIcon, RowsIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Alerta } from "khipu-design-system/feedback/alerta";
-import { PillEstado } from "khipu-design-system/patrones/pill-estado";
-import { EstadoBadge, etiquetasEstado, PUNTOS } from "@/components/comprobantes/estado-badge";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { EnlaceVolver } from "khipu-design-system/patrones/cabecera-pagina";
+import { Chip, ChipCodigo, PillEstado } from "khipu-design-system/patrones/pill-estado";
+import { TarjetaDestacada } from "khipu-design-system/patrones/tarjeta-destacada";
+import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
+import { ListaDatos, type DatoLista } from "khipu-design-system/datos/lista-datos";
+import { Timeline } from "khipu-design-system/datos/timeline";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { EstadoBadge, etiquetasEstado, TONOS_ESTADO } from "@/components/comprobantes/estado-badge";
 import { BajaButton } from "@/components/comprobantes/baja-button";
 import { BajaEstado } from "@/components/comprobantes/baja-estado";
 import { CorreoButton } from "@/components/comprobantes/correo-button";
@@ -26,7 +33,8 @@ import { avisoDePlazo } from "@/lib/comprobantes/plazo";
 import { formatearFecha, formatearFechaHora, formatearMonto, formatearNumero, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, CABECERA_TABLA, CONTENEDOR_PAGINA, ETIQUETA_DATO, TARJETA } from "@/lib/estilos";
+import { TITULO_REGISTRO } from "@/lib/detalle";
 import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -136,24 +144,13 @@ function DetraccionDetalle({ detraccion, t, locale }: { detraccion: Detraccion; 
   );
 }
 
-function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
-      {children}
-    </div>
-  );
-}
+/** Un valor vacío de la ficha: la raya, apagada. */
+const VACIO = <span className="text-muted-foreground/60">—</span>;
 
-function Tecnico({ nombre, children }: { nombre: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded bg-muted px-2.5 py-1.5">
-      <span className="text-muted-foreground">{nombre}:</span>
-      <span className="min-w-0 truncate text-right font-medium text-foreground/90">{children}</span>
-    </div>
-  );
-}
-
+/**
+ * Una fila de importes: etiqueta y monto alineado a la derecha. No es `ListaDatos`: la columna de montos tiene que alinearse a la derecha
+ * (y el cero, apagado) para sumarse de un vistazo, y la lista del DS deja el valor alineado a la izquierda a continuación de la etiqueta.
+ */
 function Importe({ etiqueta, moneda, valor, locale, destacado = false }: { etiqueta: string; moneda: string; valor: number; locale: Locale; destacado?: boolean }) {
   return (
     <div className="flex justify-between py-1 text-muted-foreground">
@@ -194,30 +191,30 @@ function CajaRespuesta({ comprobante, t }: { comprobante: Comprobante; t: T }) {
 /** Historial de intentos (#7): un punto por cambio de estado, en hora de Lima, con el motivo; «Sin historial» si el backend no lo envía. */
 function Historial({ eventos, t, estados, locale }: { eventos: Comprobante["eventos"]; t: T; estados: Record<string, string>; locale: Locale }) {
   return (
-    <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="historial">
-      <div className={cn(TITULO_SECCION, "mb-3")}>
-        <ClockCounterClockwiseIcon weight={PESO_ICONO} className="size-4" />
-        {t.historial.titulo}
+    <section className={TARJETA} data-testid="historial">
+      <CabeceraSeccion icon={ClockCounterClockwiseIcon} titulo={t.historial.titulo} />
+      <div className="px-4 pb-4">
+        {eventos && eventos.length > 0 ? (
+          <Timeline
+            className="ml-1.5"
+            eventos={eventos.map((e, i) => ({
+              id: String(i),
+              titulo: estados[e.estado_resultante] ?? e.estado_resultante,
+              fecha: formatearFechaHora(e.fecha, locale),
+              tono: TONOS_ESTADO[e.estado_resultante as keyof typeof TONOS_ESTADO] ?? "neutro",
+              detalle:
+                e.estado_anterior || e.mensaje ? (
+                  <>
+                    {e.estado_anterior ? <span className="block">{interpolar(t.historial.desde, { estado: estados[e.estado_anterior] ?? e.estado_anterior })}</span> : null}
+                    {e.mensaje ? <span className="block font-mono text-etiqueta text-foreground/80">{e.mensaje}</span> : null}
+                  </>
+                ) : undefined,
+            }))}
+          />
+        ) : (
+          <p className="text-control text-muted-foreground">{t.historial.vacio}</p>
+        )}
       </div>
-      {eventos && eventos.length > 0 ? (
-        <ol className="relative ml-1.5 space-y-3 border-l border-border pl-4">
-          {eventos.map((e, i) => (
-            <li key={i} className="relative text-etiqueta">
-              <span className={cn("absolute top-1.5 -left-[21px] size-2.5 rounded-full ring-2 ring-card", PUNTOS[e.estado_resultante] ?? "bg-muted-foreground/60")} />
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="font-mono text-etiqueta text-muted-foreground tabular-nums">{formatearFechaHora(e.fecha, locale)}</span>
-                <span className="font-semibold text-foreground">{estados[e.estado_resultante] ?? e.estado_resultante}</span>
-                {e.estado_anterior ? (
-                  <span className="text-etiqueta text-muted-foreground/70">{interpolar(t.historial.desde, { estado: estados[e.estado_anterior] ?? e.estado_anterior })}</span>
-                ) : null}
-              </div>
-              {e.mensaje ? <p className="mt-0.5 font-mono text-etiqueta leading-snug text-foreground/80">{e.mensaje}</p> : null}
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="text-etiqueta text-muted-foreground/70">{t.historial.vacio}</p>
-      )}
     </section>
   );
 }
@@ -250,18 +247,9 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
   const hashCorto = c.hash && c.hash.length > 16 ? `${c.hash.slice(0, 8)}…${c.hash.slice(-5)}` : c.hash;
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl min-w-0 grid-cols-1 gap-6">
+    <div className={CONTENEDOR_PAGINA}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3 text-cuerpo">
-          <Link href="/comprobantes" className={ACCION_SECUNDARIA}>
-            <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
-            {t.volver}
-          </Link>
-          <span className="text-muted-foreground/40">/</span>
-          <span className="text-etiqueta text-muted-foreground">{t.miga}</span>
-          <span className="text-muted-foreground/40">/</span>
-          <span className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-etiqueta font-semibold text-foreground">{numero}</span>
-        </div>
+        <EnlaceVolver href="/comprobantes">{t.volver}</EnlaceVolver>
 
         <div className="flex flex-wrap items-center gap-2">
           {c.estado_documento === "ERROR_ENVIO" ? <ReenviarButton id={c.id} /> : null}
@@ -299,14 +287,12 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
       {aviso ? <AvisoBoletaSinInformar aviso={aviso} que={c.tipo === "03" ? "boleta" : "nota"} /> : null}
 
-      <section className={cn(TARJETA, "p-6 shadow-xs")}>
-        <div className="flex flex-col justify-between gap-4 border-b border-border/60 pb-5 md:flex-row md:items-center">
+      <section className={TARJETA}>
+        <div className="flex flex-col justify-between gap-4 px-4 pt-4 pb-3 md:flex-row md:items-center">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="font-heading text-titulo-pagina font-bold tracking-tight text-foreground">{interpolar(t.tipoElectronico, { tipo: tipoLabel })}</h2>
-              <span className="rounded-md border border-accent-border bg-accent px-2.5 py-0.5 font-mono text-cuerpo font-semibold text-accent-foreground">
-                {numero}
-              </span>
+              <h2 className={TITULO_REGISTRO}>{interpolar(t.tipoElectronico, { tipo: tipoLabel })}</h2>
+              <ChipCodigo>{numero}</ChipCodigo>
             </div>
             <p className="mt-1 truncate font-mono text-etiqueta text-muted-foreground">
               {t.documentoId} <span className="text-foreground/80">{c.id}</span>
@@ -323,59 +309,63 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     ? interpolar(t.cdrDelResumen, { resumen: c.cdr.resumen })
                     : tieneConstanciaCdr(c) ? t.cdrConstancia : t.cdrSinConstancia
                 }
-                className="rounded border border-border bg-secondary px-2 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground"
               >
-                {tieneConstanciaCdr(c) ? t.etiquetaCdr : t.etiquetaCodigoSunat}: {c.cdr.codigo}
+                <Chip className="font-mono">
+                  {tieneConstanciaCdr(c) ? t.etiquetaCdr : t.etiquetaCodigoSunat}: {c.cdr.codigo}
+                </Chip>
               </span>
             ) : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 pt-5 sm:grid-cols-4">
-          <Campo etiqueta={t.fechaEmision}>
-            <span className="font-mono text-etiqueta font-medium text-foreground">{formatearFecha(c.fecha_emision, locale)}</span>
-            {c.fecha_vencimiento ? <span className="block text-etiqueta text-muted-foreground">{interpolar(t.vence, { fecha: formatearFecha(c.fecha_vencimiento, locale) })}</span> : null}
-            {c.fecha_limite_envio && seInformaFueraDePlazo(c) ? (
-              // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT no la rechaza (puede observarla con la 4443).
-              <span className="block text-etiqueta text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
-                {interpolar(t.plazoVencidoResumen, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}
-              </span>
-            ) : c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
-              <span className="block text-etiqueta text-warning-foreground">{interpolar(t.enviarHasta, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
-            ) : null}
-            {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
-              <span className="block text-etiqueta text-destructive">{interpolar(t.plazoVencido, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
-            ) : null}
-            {c.estado_documento === "DESCARTADO" ? <span className="block text-etiqueta text-muted-foreground">{t.descartado}</span> : null}
-          </Campo>
-          <Campo etiqueta={t.moneda}>
-            <span className="text-etiqueta font-semibold text-foreground">{monedas[c.moneda] ?? c.moneda}</span>
-          </Campo>
-          <Campo etiqueta={t.tipoOperacion}>
-            {tipoOperacion ? (
-              <span className="font-mono text-etiqueta font-medium text-foreground">{tipoOperacion}</span>
-            ) : (
-              <span className="text-etiqueta text-muted-foreground/60">—</span>
-            )}
-          </Campo>
-          <Campo etiqueta={t.firma}>
-            {c.hash ? (
-              <div className="flex items-center gap-1">
-                <span className="truncate font-mono text-etiqueta text-foreground/80" title={c.hash}>
-                  {hashCorto}
-                </span>
-                <BotonCopiar texto={c.hash} titulo={t.copiarHash} />
-              </div>
-            ) : (
-              <span className="text-etiqueta text-muted-foreground/60">{t.sinFirmar}</span>
-            )}
-          </Campo>
+        <div className="px-4 pb-4">
+          <ListaDatos
+            columnas={2}
+            datos={[
+              {
+                etiqueta: t.fechaEmision,
+                valor: (
+                  <>
+                    <span className="font-mono">{formatearFecha(c.fecha_emision, locale)}</span>
+                    {c.fecha_vencimiento ? <span className="block text-etiqueta text-muted-foreground">{interpolar(t.vence, { fecha: formatearFecha(c.fecha_vencimiento, locale) })}</span> : null}
+                    {c.fecha_limite_envio && seInformaFueraDePlazo(c) ? (
+                      // #331: no vence; al enviarla va en un resumen diario fuera de plazo y SUNAT no la rechaza (puede observarla con la 4443).
+                      <span className="block text-etiqueta text-warning-foreground" data-testid="aviso-envio-fuera-de-plazo">
+                        {interpolar(t.plazoVencidoResumen, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}
+                      </span>
+                    ) : c.fecha_limite_envio && (c.estado_documento === "FIRMADO" || c.estado_documento === "ERROR_ENVIO") ? (
+                      <span className="block text-etiqueta text-warning-foreground">{interpolar(t.enviarHasta, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
+                    ) : null}
+                    {c.fecha_limite_envio && c.estado_documento === "FUERA_DE_PLAZO" ? (
+                      <span className="block text-etiqueta text-destructive">{interpolar(t.plazoVencido, { fecha: formatearFecha(c.fecha_limite_envio, locale) })}</span>
+                    ) : null}
+                    {c.estado_documento === "DESCARTADO" ? <span className="block text-etiqueta text-muted-foreground">{t.descartado}</span> : null}
+                  </>
+                ),
+              },
+              { etiqueta: t.moneda, valor: monedas[c.moneda] ?? c.moneda },
+              { etiqueta: t.tipoOperacion, valor: tipoOperacion ?? VACIO, mono: !!tipoOperacion },
+              {
+                etiqueta: t.firma,
+                valor: c.hash ? (
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="truncate font-mono text-foreground/80" title={c.hash}>
+                      {hashCorto}
+                    </span>
+                    <BotonCopiar texto={c.hash} titulo={t.copiarHash} />
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/60">{t.sinFirmar}</span>
+                ),
+              },
+            ]}
+          />
         </div>
         {c.leyendas && c.leyendas.length > 0 ? (
-          <div className="mt-4 flex flex-col gap-1 border-t border-border/60 pt-4" data-testid="leyendas">
-            <span className="text-etiqueta font-semibold text-muted-foreground/80">{t.leyendas}</span>
+          <div className="flex flex-col gap-1 px-4 pb-4" data-testid="leyendas">
+            <span className={ETIQUETA_DATO}>{t.leyendas}</span>
             {c.leyendas.map((l) => (
-              <p key={l.codigo} className="text-etiqueta text-foreground/90">
+              <p key={l.codigo} className="text-control text-foreground/90">
                 <span className="font-mono text-muted-foreground">{l.codigo}</span> · {l.texto}
               </p>
             ))}
@@ -383,46 +373,38 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
         ) : null}
       </section>
 
-      <section className={cn(TARJETA, "p-5 shadow-xs")}>
-        <div className={cn(TITULO_SECCION, "mb-3")}>
-          <IdentificationCardIcon weight={PESO_ICONO} className="size-4" />
-          {t.receptor.titulo}
+      <section className={TARJETA}>
+        <CabeceraSeccion icon={IdentificationCardIcon} titulo={t.receptor.titulo} />
+        <div className="px-4 pb-4">
+          {c.receptor ? (
+            <ListaDatos
+              columnas={2}
+              datos={[
+                { etiqueta: t.receptor.razonSocial, valor: <span className="font-semibold">{c.receptor.razon_social}</span> },
+                {
+                  etiqueta: t.receptor.documento,
+                  // #20: una boleta de hasta S/ 700 puede no identificar al comprador («-»): se dice así, sin un «Tipo -» ni un número «-».
+                  valor:
+                    c.receptor.tipo_doc === "-" ? (
+                      tipoDoc
+                    ) : (
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <Chip className="font-mono">
+                          {interpolar(t.receptor.tipo, { tipo: c.receptor.tipo_doc })} · {tipoDoc}
+                        </Chip>
+                        <span className="font-mono font-semibold">{c.receptor.num_doc}</span>
+                      </span>
+                    ),
+                },
+                { etiqueta: t.receptor.direccion, valor: c.receptor.direccion ?? VACIO },
+                ...(c.receptor.pais ? [{ etiqueta: t.receptor.pais, valor: <span data-testid="receptor-pais">{c.receptor.pais}</span>, mono: true }] : []),
+                ...(c.receptor.email ? [{ etiqueta: t.receptor.correo, valor: <span className="break-all" data-testid="receptor-email">{c.receptor.email}</span>, mono: true }] : []),
+              ] satisfies DatoLista[]}
+            />
+          ) : (
+            <p className="text-control text-muted-foreground">{t.receptor.vacio}</p>
+          )}
         </div>
-        {c.receptor ? (
-          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
-            <Campo etiqueta={t.receptor.razonSocial}>
-              <p className="text-cuerpo font-semibold text-foreground">{c.receptor.razon_social}</p>
-            </Campo>
-            <Campo etiqueta={t.receptor.documento}>
-              {/* #20: una boleta de hasta S/ 700 puede no identificar al comprador («-»): se dice así, sin un «Tipo -» ni un número «-». */}
-              {c.receptor.tipo_doc === "-" ? (
-                <p className="text-cuerpo text-foreground">{tipoDoc}</p>
-              ) : (
-                <div className="flex items-center gap-1.5 font-mono">
-                  <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-muted-foreground">
-                    {interpolar(t.receptor.tipo, { tipo: c.receptor.tipo_doc })} · {tipoDoc}
-                  </span>
-                  <span className="font-semibold text-foreground">{c.receptor.num_doc}</span>
-                </div>
-              )}
-            </Campo>
-            <Campo etiqueta={t.receptor.direccion}>
-              <p className="leading-snug text-foreground/80">{c.receptor.direccion ?? "—"}</p>
-            </Campo>
-            {c.receptor.pais ? (
-              <Campo etiqueta={t.receptor.pais}>
-                <p className="font-mono text-foreground/80" data-testid="receptor-pais">{c.receptor.pais}</p>
-              </Campo>
-            ) : null}
-            {c.receptor.email ? (
-              <Campo etiqueta={t.receptor.correo}>
-                <p className="font-mono break-all text-foreground/80" data-testid="receptor-email">{c.receptor.email}</p>
-              </Campo>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-etiqueta text-muted-foreground/60">{t.receptor.vacio}</p>
-        )}
       </section>
 
       {/* Arriba del historial: es lo primero que hay que ver tras confirmar una baja, y antes quedaba fuera de la vista. */}
@@ -434,42 +416,43 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
 
 
       {c.observaciones ? (
-        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="observaciones">
-          <div className={cn(TITULO_SECCION, "mb-2")}>{t.observaciones}</div>
-          <p className="text-control leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
+        <section className={TARJETA} data-testid="observaciones">
+          <CabeceraSeccion icon={ChatTextIcon} titulo={t.observaciones} />
+          <p className="px-4 pb-4 text-control leading-relaxed whitespace-pre-line text-foreground/90">{c.observaciones}</p>
         </section>
       ) : null}
 
       {c.nota ? (
-        <section className="rounded-xl border border-accent-border bg-accent/40 p-5 shadow-xs" data-testid="nota">
-          <div className={cn(TITULO_SECCION, "mb-3")}>
-            <FileMinusIcon weight={PESO_ICONO} className="size-4" />
-            {c.tipo === "07" ? t.nota.creditoSobre : t.nota.debitoSobre}
-          </div>
-          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
-            <Campo etiqueta={c.nota.tipo_afectado === "03" ? t.nota.boletaModificada : t.nota.facturaModificada}>
-              <span className="font-mono text-cuerpo font-semibold text-foreground">{c.nota.documento_afectado}</span>
-            </Campo>
-            <Campo etiqueta={t.nota.motivo}>
-              <span className="text-foreground">
-                <span className="mr-1.5 rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta text-muted-foreground">{c.nota.motivo}</span>
-                {c.nota.motivo_descripcion}
-              </span>
-            </Campo>
-            <Campo etiqueta={t.nota.sustento}>
-              <p className="leading-snug text-foreground/80">{c.nota.descripcion}</p>
-            </Campo>
-          </div>
-        </section>
+        <TarjetaDestacada
+          tono="info"
+          data-testid="nota"
+          icono={<FileMinusIcon weight={PESO_ICONO} />}
+          titulo={c.tipo === "07" ? t.nota.creditoSobre : t.nota.debitoSobre}
+        >
+          <ListaDatos
+            columnas={2}
+            datos={[
+              { etiqueta: c.nota.tipo_afectado === "03" ? t.nota.boletaModificada : t.nota.facturaModificada, valor: <span className="font-semibold">{c.nota.documento_afectado}</span>, mono: true },
+              {
+                etiqueta: t.nota.motivo,
+                valor: (
+                  <>
+                    {/* Chip y no ChipCodigo: el código va sobre la tarjeta de acento, y ChipCodigo es del mismo color. */}
+                    <Chip className="mr-1.5 font-mono">{c.nota.motivo}</Chip>
+                    {c.nota.motivo_descripcion}
+                  </>
+                ),
+              },
+              { etiqueta: t.nota.sustento, valor: c.nota.descripcion },
+            ]}
+          />
+        </TarjetaDestacada>
       ) : null}
 
       {c.notas?.length ? (
-        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="notas">
-          <div className={cn(TITULO_SECCION, "mb-3")}>
-            <FileMinusIcon weight={PESO_ICONO} className="size-4" />
-            {c.tipo === "03" ? t.notas.sobreBoleta : t.notas.sobreFactura}
-          </div>
-          <ul className="divide-y divide-border/60 text-etiqueta">
+        <section className={TARJETA} data-testid="notas">
+          <CabeceraSeccion icon={FileMinusIcon} titulo={c.tipo === "03" ? t.notas.sobreBoleta : t.notas.sobreFactura} />
+          <ul className="divide-y divide-border/60 px-4 pb-2 text-control">
             {c.notas.map((n) => (
               <li key={n.id} className="flex flex-wrap items-center gap-3 py-2">
                 <Link href={`/comprobantes/${n.id}`} className="font-mono font-semibold text-primary hover:underline">
@@ -490,41 +473,43 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       ) : null}
 
       {c.referencias ? (
-        <section className={cn(TARJETA, "p-5 shadow-xs")} data-testid="referencias">
-          <div className={cn(TITULO_SECCION, "mb-3")}>
-            <LinkIcon weight={PESO_ICONO} className="size-4" />
-            {t.referencias.titulo}
-          </div>
-          <div className="grid grid-cols-1 gap-4 text-etiqueta md:grid-cols-3">
-            <Campo etiqueta={t.referencias.ordenCompra}>
-              {c.referencias.orden_compra ? <span className="font-mono font-medium text-foreground">{c.referencias.orden_compra}</span> : <span className="text-muted-foreground/60">—</span>}
-            </Campo>
-            <Campo etiqueta={t.referencias.guias}>
-              {c.referencias.guias?.length ? (
-                <ul className="space-y-0.5">
-                  {c.referencias.guias.map((g) => (
-                    <li key={`${g.tipo}-${g.numero}`} className="font-mono text-foreground">
-                      {g.numero} <span className="text-etiqueta text-muted-foreground">{g.tipo} · {etiquetasGuia(messages)[g.tipo] ?? t.referencias.guia}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <span className="text-muted-foreground/60">—</span>
-              )}
-            </Campo>
-            <Campo etiqueta={t.referencias.otros}>
-              {c.referencias.documentos_relacionados?.length ? (
-                <ul className="space-y-0.5">
-                  {c.referencias.documentos_relacionados.map((d) => (
-                    <li key={`${d.tipo}-${d.numero}`} className="font-mono text-foreground">
-                      {d.numero} <span className="text-etiqueta text-muted-foreground">{d.tipo} · {etiquetasDocRelacionado(messages)[d.tipo] ?? t.referencias.documento}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <span className="text-muted-foreground/60">—</span>
-              )}
-            </Campo>
+        <section className={TARJETA} data-testid="referencias">
+          <CabeceraSeccion icon={LinkIcon} titulo={t.referencias.titulo} />
+          <div className="px-4 pb-4">
+            <ListaDatos
+              columnas={2}
+              datos={[
+                { etiqueta: t.referencias.ordenCompra, valor: c.referencias.orden_compra ?? VACIO, mono: !!c.referencias.orden_compra },
+                {
+                  etiqueta: t.referencias.guias,
+                  valor: c.referencias.guias?.length ? (
+                    <ul className="space-y-0.5">
+                      {c.referencias.guias.map((g) => (
+                        <li key={`${g.tipo}-${g.numero}`} className="font-mono">
+                          {g.numero} <span className="text-etiqueta text-muted-foreground">{g.tipo} · {etiquetasGuia(messages)[g.tipo] ?? t.referencias.guia}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    VACIO
+                  ),
+                },
+                {
+                  etiqueta: t.referencias.otros,
+                  valor: c.referencias.documentos_relacionados?.length ? (
+                    <ul className="space-y-0.5">
+                      {c.referencias.documentos_relacionados.map((d) => (
+                        <li key={`${d.tipo}-${d.numero}`} className="font-mono">
+                          {d.numero} <span className="text-etiqueta text-muted-foreground">{d.tipo} · {etiquetasDocRelacionado(messages)[d.tipo] ?? t.referencias.documento}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    VACIO
+                  ),
+                },
+              ]}
+            />
           </div>
         </section>
       ) : null}
@@ -533,38 +518,34 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
       {c.agente ? (
         <DocumentosDeAgente agente={c.agente} retencion={c.tipo === "20"} />
       ) : (
-      <section className={cn(TARJETA, "overflow-hidden")}>
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
-          <div className={TITULO_SECCION}>
-            <RowsIcon weight={PESO_ICONO} className="size-4" />
-            {t.items.titulo}
-          </div>
-          <span className="font-mono text-etiqueta text-muted-foreground">
-            {interpolar(c.items.length === 1 ? t.items.uno : t.items.varios, { n: c.items.length })}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-etiqueta">
-            <thead>
-              <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta font-medium text-muted-foreground">
-                <th className="w-12 px-4 py-2.5 text-center font-medium">#</th>
-                <th className="w-28 px-3 py-2.5 font-medium">{t.items.codigo}</th>
-                <th className="px-4 py-2.5 font-medium">{t.items.descripcion}</th>
-                <th className="w-20 px-3 py-2.5 text-right font-medium">{t.items.cantidad}</th>
-                <th className="w-24 px-3 py-2.5 text-center font-medium">{t.items.unidad}</th>
-                <th className="w-48 px-4 py-2.5 text-center font-medium">{t.items.afectacion}</th>
-                <th className="w-28 px-4 py-2.5 text-right font-medium">{t.items.precioUnitario}</th>
-                <th className="w-28 px-4 py-2.5 text-right font-medium">{t.items.descuento}</th>
-                <th className="w-28 px-4 py-2.5 text-right font-medium">{t.items.cargos}</th>
-                <th className="w-28 px-4 py-2.5 text-right font-medium">{t.items.subtotal}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
+      <section className={CONTENEDOR_TABLA}>
+        <CabeceraSeccion
+          icon={RowsIcon}
+          titulo={t.items.titulo}
+          className="px-2"
+          derecha={<Chip>{interpolar(c.items.length === 1 ? t.items.uno : t.items.varios, { n: c.items.length })}</Chip>}
+        />
+          <Table className="text-control">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={cn(CABECERA_TABLA, "w-12 text-center")}>#</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-28")}>{t.items.codigo}</TableHead>
+                <TableHead className={CABECERA_TABLA}>{t.items.descripcion}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-20 text-right")}>{t.items.cantidad}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-24 text-center")}>{t.items.unidad}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-48 text-center")}>{t.items.afectacion}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-28 text-right")}>{t.items.precioUnitario}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-28 text-right")}>{t.items.descuento}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-28 text-right")}>{t.items.cargos}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-28 text-right")}>{t.items.subtotal}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {c.items.map((item, i) => (
-                <tr key={i} className="transition-colors hover:bg-muted/60">
-                  <td className="px-4 py-3 text-center font-mono text-muted-foreground/70">{i + 1}</td>
-                  <td className="px-3 py-3 font-mono font-medium text-muted-foreground">{item.codigo ?? "—"}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">
+                <TableRow key={i}>
+                  <TableCell className="px-3 py-2 text-center font-mono text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono font-medium text-muted-foreground">{item.codigo ?? "—"}</TableCell>
+                  <TableCell className="px-3 py-2 font-medium whitespace-normal text-foreground">
                     {item.descripcion}
                     {item.codigo_sunat || item.gtin ? (
                       <span className="mt-0.5 block font-mono text-etiqueta font-normal text-muted-foreground">
@@ -600,15 +581,15 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                         </span>
                       </span>
                     ) : null}
-                  </td>
-                  <td className="px-3 py-3 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad, locale)}</td>
-                  <td className="px-3 py-3 text-center font-mono">
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta text-muted-foreground">{item.unidad}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-etiqueta font-medium text-foreground/80">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono text-foreground/90 tabular-nums">{formatearNumero(item.cantidad, locale)}</TableCell>
+                  <TableCell className="px-3 py-2 text-center font-mono">
+                    <Chip>{item.unidad}</Chip>
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-center">
+                    <Chip>
                       {item.tipo_afectacion_igv} · {etiquetasAfectacion(messages)[item.tipo_afectacion_igv] ?? t.items.otraAfectacion}
-                    </span>
+                    </Chip>
                     {item.isc ? (
                       <span className="ml-1" title={interpolar(t.items.iscTitulo, { sistema: item.isc.sistema, monto: formatearNumero(item.isc.monto, locale) })}>
                         <PillEstado tono="aviso">{interpolar(t.items.iscTasa, { tasa: item.isc.tasa })}</PillEstado>
@@ -619,9 +600,9 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                         <PillEstado tono="aviso">{interpolar(t.items.icbperMonto, { monto: formatearNumero(item.icbper, locale) })}</PillEstado>
                       </span>
                     ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">{formatearNumero(item.precio_unitario, locale)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono text-foreground/80 tabular-nums">{formatearNumero(item.precio_unitario, locale)}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono text-foreground/80 tabular-nums">
                     {item.descuento ? (
                       <span title={interpolar(t.items.codigoAfecta, { codigo: item.descuento.codigo, afecta: item.descuento.afecta_base_igv ? t.items.afectaBase : t.items.noAfectaBase })}>
                         −{formatearNumero(item.descuento.monto, locale)}
@@ -632,8 +613,8 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     ) : (
                       <span className="text-muted-foreground/50">—</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-foreground/80 tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono text-foreground/80 tabular-nums">
                     {item.cargos?.length ? (
                       <span title={item.cargos.map((cg) => interpolar(t.items.codigoAfecta, { codigo: cg.codigo, afecta: cg.afecta_base_igv ? t.items.afectaBase : t.items.noAfectaBase })).join(" / ")}>
                         +{formatearNumero(item.cargos.reduce((acc, cg) => acc + Number(cg.monto), 0), locale)}
@@ -642,61 +623,47 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
                     ) : (
                       <span className="text-muted-foreground/50">—</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono font-medium text-foreground tabular-nums">
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono font-medium text-foreground tabular-nums">
                     {item.gratuita ? (
-                      <span className="rounded bg-secondary px-1.5 py-0.5 text-etiqueta font-medium text-muted-foreground" title={t.items.gratuitaTitulo}>
-                        {t.items.gratuita}
+                      <span title={t.items.gratuitaTitulo}>
+                        <Chip>{t.items.gratuita}</Chip>
                       </span>
                     ) : (
                       formatearNumero(item.precio_venta ?? (item.valor_venta != null && item.igv != null ? Number(item.valor_venta) + Number(item.igv) : Number(item.cantidad) * Number(item.precio_unitario)), locale)
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-              {c.items.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                    {t.items.vacio}
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+              {c.items.length === 0 ? <FilaVacia columnas={10}>{t.items.vacio}</FilaVacia> : null}
+            </TableBody>
+          </Table>
       </section>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <section className={cn(TARJETA, "space-y-4 p-5 shadow-xs lg:col-span-7")}>
-          <div className="flex items-center justify-between border-b border-border/60 pb-2">
-            <span className={TITULO_SECCION}>{t.tecnica.titulo}</span>
-            <span className="font-mono text-etiqueta text-muted-foreground/70">{t.tecnica.tabla}</span>
-          </div>
-          <CajaRespuesta comprobante={c} t={t} />
-          <div className="space-y-2 font-mono text-etiqueta">
-            <Tecnico nombre="nombre_archivo">
-              <span className="select-all">{c.nombre_archivo ?? "—"}</span>
-            </Tecnico>
-            <Tecnico nombre="cdr_observaciones">
-              {c.cdr && c.cdr.observaciones.length > 0 ? (
-                c.cdr.observaciones.join(" · ")
-              ) : (
-                <span className="rounded border border-border bg-card px-2 py-0.5 text-etiqueta font-normal text-muted-foreground">{t.tecnica.sinObservaciones}</span>
-              )}
-            </Tecnico>
-            <Tecnico nombre="intentos">
-              <span className="font-semibold">{c.intentos}</span>
-            </Tecnico>
-            {/* Sin fila de idempotency_key (264-H2): la API no la expone, y un «—» deshabilitado con la explicación en un tooltip es justo lo que C6 quita. */}
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-12">
+        <section className={cn(TARJETA, "lg:col-span-7")}>
+          <CabeceraSeccion icon={CodeIcon} titulo={t.tecnica.titulo} derecha={<Chip className="font-mono">{t.tecnica.tabla}</Chip>} />
+          <div className="space-y-4 px-4 pb-4">
+            <CajaRespuesta comprobante={c} t={t} />
+            <ListaDatos
+              datos={[
+                { etiqueta: "nombre_archivo", valor: <span className="break-all select-all">{c.nombre_archivo ?? "—"}</span>, mono: true },
+                {
+                  etiqueta: "cdr_observaciones",
+                  valor: c.cdr && c.cdr.observaciones.length > 0 ? c.cdr.observaciones.join(" · ") : <Chip>{t.tecnica.sinObservaciones}</Chip>,
+                  mono: !!(c.cdr && c.cdr.observaciones.length > 0),
+                },
+                { etiqueta: "intentos", valor: <span className="font-semibold">{c.intentos}</span>, mono: true },
+                /* Sin fila de idempotency_key (264-H2): la API no la expone, y un «—» deshabilitado con la explicación en un tooltip es justo lo que C6 quita. */
+              ]}
+            />
           </div>
         </section>
 
-        <section className={cn(TARJETA, "space-y-3 p-5 shadow-xs lg:col-span-5")}>
-          <div className="flex items-center justify-between border-b border-border/60 pb-2">
-            <span className={TITULO_SECCION}>{t.importes.titulo}</span>
-            <span className="font-mono text-etiqueta text-muted-foreground/70">{monedas[c.moneda] ?? c.moneda}</span>
-          </div>
+        <section className={cn(TARJETA, "lg:col-span-5")}>
+          <CabeceraSeccion icon={ReceiptIcon} titulo={t.importes.titulo} derecha={<Chip>{monedas[c.moneda] ?? c.moneda}</Chip>} />
+          <div className="space-y-3 px-4 pb-4">
           {c.agente ? (
             <ImportesDeAgente agente={c.agente} retencion={c.tipo === "20"} />
           ) : (
@@ -824,6 +791,7 @@ export default async function ComprobanteDetallePage({ params }: { params: Promi
               <p className="mt-1 text-etiqueta text-muted-foreground/80">{c.percepcion.descripcion}</p>
             </div>
           ) : null}
+          </div>
         </section>
       </div>
     </div>

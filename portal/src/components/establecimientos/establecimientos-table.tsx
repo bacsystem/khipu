@@ -18,6 +18,7 @@ import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
 import { EstablecimientoDialog } from "./establecimiento-dialog";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 
 const ACCION =
   "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -111,28 +112,28 @@ export function EstablecimientosTable({ establecimientos, series }: { establecim
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <StorefrontIcon className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => startTransition(() => router.refresh())}
-            title={t.refrescar}
-            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
-          >
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
-          </button>
-          {/* «Nuevo establecimiento» vive en la barra superior, como la acción principal de las demás páginas (#277). */}
-        </div>
-      </div>
+      <CabeceraSeccion
+        icon={StorefrontIcon}
+        titulo={t.titulo}
+        subtitulo={t.subtitulo}
+        conBorde={false}
+        className="p-0"
+        derecha={
+          <>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => startTransition(() => router.refresh())}
+                title={t.refrescar}
+                className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+              >
+                <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
+              </button>
+              {/* «Nuevo establecimiento» vive en la barra superior, como la acción principal de las demás páginas (#277). */}
+            </div>
+          </>
+        }
+      />
 
       <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
