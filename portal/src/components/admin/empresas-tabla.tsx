@@ -1,13 +1,14 @@
 "use client";
 
-import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
-import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
+import { LimpiarFiltros } from "@/components/compartidos/limpiar-filtros";
+import { SelectDeFiltro } from "@/components/compartidos/select-de-filtro";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
@@ -22,9 +23,9 @@ import {
   type EstadoCertificadoAdmin,
   type ParamsEmpresas,
 } from "@/lib/api/admin-empresas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { MAX_BUSQUEDA } from "@/lib/api/admin-errores";
+import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFecha } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 /**
  * Listado de empresas del backoffice (#185), paginado y filtrado en el servidor: cambiar un filtro o la página solo cambia la URL, y
@@ -36,7 +37,6 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
   const locale = useLocale();
   const t = messages.admin.empresas;
   const router = useRouter();
-  const buscador = useRef<HTMLInputElement>(null);
 
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
@@ -44,64 +44,41 @@ export function EmpresasTabla({ datos, total, params }: { datos: EmpresaAdmin[];
   const hayFiltros = Boolean(params.q || params.entorno || params.certificado || params.bajas);
 
   /** H17: buscar por RUC o razón social, como en Cuentas; la búsqueda se combina con los filtros y vuelve a la primera página. */
-  function buscar(e: React.FormEvent) {
-    e.preventDefault();
-    const q = buscador.current?.value.trim();
+  function buscar(texto: string) {
+    const q = texto.trim();
     router.push(hrefEmpresas({ ...params, q: q ? q : undefined, pagina: 1 }));
   }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        {/* `key`: al cambiar la búsqueda (p. ej. «Quitar filtros») el campo se vuelve a montar con el valor de la URL. */}
-        <form key={params.q ?? ""} role="search" onSubmit={buscar} className="flex w-full max-w-md items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
-              ref={buscador}
-              id="buscar-empresas"
-              type="search"
-              name="q"
-              defaultValue={params.q ?? ""}
-              placeholder={t.buscar}
-              aria-label={t.buscar}
-              className={cn(CAMPO, "pl-9")}
-            />
-          </div>
-          <button type="submit" className={ACCION_SECUNDARIA}>
-            {t.botonBuscar}
-          </button>
-        </form>
-        <div className="grid gap-1">
-          <label htmlFor="filtro-entorno" className="text-etiqueta font-medium text-muted-foreground">
-            {t.filtroEntorno}
-          </label>
-          <SelectCampo
-            id="filtro-entorno"
-            opciones={[{ value: "", label: t.todosEntornos }, ...ENTORNOS.map((x) => ({ value: x, label: x === "BETA" ? t.beta : t.produccion }))]}
-            valor={params.entorno ?? ""}
-            onCambio={(v) => router.push(hrefEmpresas({ ...params, entorno: (v || undefined) as EntornoAdmin | undefined, pagina: 1 }))}
-            className="w-auto"
-          />
-        </div>
-        <div className="grid gap-1">
-          <label htmlFor="filtro-certificado" className="text-etiqueta font-medium text-muted-foreground">
-            {t.filtroCertificado}
-          </label>
-          <SelectCampo
-            id="filtro-certificado"
-            opciones={[{ value: "", label: t.todosCertificados }, ...ESTADOS_CERTIFICADO.map((x) => ({ value: x, label: t.estados[x] }))]}
-            valor={params.certificado ?? ""}
-            onCambio={(v) => router.push(hrefEmpresas({ ...params, certificado: (v || undefined) as EstadoCertificadoAdmin | undefined, pagina: 1 }))}
-            className="w-auto"
-          />
-        </div>
+      {/* La barra de filtros del design system (§12), la misma del portal del cliente: cada filtro se aplica al cambiarlo, la búsqueda tras una pausa. */}
+      <div role="search" aria-label={t.barraDeFiltros} className="flex flex-wrap items-center justify-end gap-2.5">
+        <BusquedaDelListado
+          id="buscar-empresas"
+          etiqueta={t.buscar}
+          ayuda={t.buscar}
+          placeholder={t.buscar}
+          valor={params.q ?? ""}
+          onCambio={buscar}
+          ancho="w-full sm:w-72"
+          maxLength={MAX_BUSQUEDA}
+        />
+        <SelectDeFiltro
+          id="filtro-entorno"
+          etiqueta={t.filtroEntorno}
+          opciones={[{ value: "", label: t.todosEntornos }, ...ENTORNOS.map((x) => ({ value: x, label: x === "BETA" ? t.beta : t.produccion }))]}
+          valor={params.entorno ?? ""}
+          onCambio={(v) => router.push(hrefEmpresas({ ...params, entorno: (v || undefined) as EntornoAdmin | undefined, pagina: 1 }))}
+        />
+        <SelectDeFiltro
+          id="filtro-certificado"
+          etiqueta={t.filtroCertificado}
+          opciones={[{ value: "", label: t.todosCertificados }, ...ESTADOS_CERTIFICADO.map((x) => ({ value: x, label: t.estados[x] }))]}
+          valor={params.certificado ?? ""}
+          onCambio={(v) => router.push(hrefEmpresas({ ...params, certificado: (v || undefined) as EstadoCertificadoAdmin | undefined, pagina: 1 }))}
+        />
         <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefEmpresas({ ...params, bajas, pagina: 1 }))} />
-        {hayFiltros ? (
-          <Link href={hrefEmpresas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-etiqueta text-primary hover:underline">
-            {t.quitarFiltros}
-          </Link>
-        ) : null}
+        {hayFiltros ? <LimpiarFiltros href={hrefEmpresas({ pagina: 1, porPagina: params.porPagina })}>{t.quitarFiltros}</LimpiarFiltros> : null}
       </div>
 
       <div className={CONTENEDOR_TABLA}>

@@ -38,14 +38,15 @@ export function ConfiguracionDeLaPlataforma({ contenido, ahora }: { contenido: C
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <SeccionesDeConfiguracion actual={contenido.seccion} />
-      {contenido.seccion === "correo" ? (
-        <FormularioDeRemitente key={`${contenido.remitente.actualizado_en ?? "servidor"}|${contenido.remitente.vigente.email}`} remitente={contenido.remitente} alResultado={alResultado} />
-      ) : null}
-      {contenido.seccion === "plantillas" ? <Plantillas plantillas={contenido.plantillas} elegida={contenido.elegida} alResultado={alResultado} /> : null}
-      {contenido.seccion === "aviso" ? (
-        <FormularioDeAviso key={contenido.banner?.actualizado_en ?? "ninguno"} banner={contenido.banner} ahora={ahora} alResultado={alResultado} />
-      ) : null}
+      <SeccionesDeConfiguracion actual={contenido.seccion}>
+        {contenido.seccion === "correo" ? (
+          <FormularioDeRemitente key={`${contenido.remitente.actualizado_en ?? "servidor"}|${contenido.remitente.vigente.email}`} remitente={contenido.remitente} alResultado={alResultado} />
+        ) : null}
+        {contenido.seccion === "plantillas" ? <Plantillas plantillas={contenido.plantillas} elegida={contenido.elegida} alResultado={alResultado} /> : null}
+        {contenido.seccion === "aviso" ? (
+          <FormularioDeAviso key={contenido.banner?.actualizado_en ?? "ninguno"} banner={contenido.banner} ahora={ahora} alResultado={alResultado} />
+        ) : null}
+      </SeccionesDeConfiguracion>
       {resultado && resultado.clave === clave ? (
         <p data-testid={`${PREFIJO[contenido.seccion]}-resultado`} role="status" className="text-cuerpo text-foreground">
           {resultado.mensaje}

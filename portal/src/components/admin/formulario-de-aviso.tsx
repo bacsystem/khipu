@@ -4,6 +4,7 @@ import { MegaphoneIcon, XIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
@@ -14,7 +15,9 @@ import {
   DIAS_MAX_DE_AVISO,
   estadoDelAviso,
   limaAInstante,
+  partirFechaHora,
   TEXTO_DE_AVISO_MAX,
+  unirFechaHora,
   valoresDeAviso,
   valoresNuevoAviso,
   type ErroresDeAviso,
@@ -124,30 +127,17 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
             aria-describedby={errores.texto ? "aviso-texto-error" : "aviso-texto-ayuda"}
           />
         </Campo>
-        {/* Fecha y hora: el DS no tiene un control de fecha con hora (`EntradaFecha` es solo el día), así que va su `Entrada` con `datetime-local`. */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo id="aviso-desde" etiqueta={t.desde} error={errores.desde}>
-            <Entrada
-              id="aviso-desde"
-              data-testid="aviso-desde"
-              type="datetime-local"
-              value={valores.desde}
-              onChange={(e) => poner("desde", e.target.value)}
-              invalido={Boolean(errores.desde)}
-              aria-describedby={errores.desde ? "aviso-desde-error" : undefined}
-            />
-          </Campo>
-          <Campo id="aviso-hasta" etiqueta={t.hasta} error={errores.hasta} ayuda={t.hastaAyuda.replace("{dias}", String(DIAS_MAX_DE_AVISO))}>
-            <Entrada
-              id="aviso-hasta"
-              data-testid="aviso-hasta"
-              type="datetime-local"
-              value={valores.hasta}
-              onChange={(e) => poner("hasta", e.target.value)}
-              invalido={Boolean(errores.hasta)}
-              aria-describedby={errores.hasta ? "aviso-hasta-error" : "aviso-hasta-ayuda"}
-            />
-          </Campo>
+          <FechaYHora id="aviso-desde" etiqueta={t.desde} etiquetaHora={t.horaDesde} valor={valores.desde} onCambio={(v) => poner("desde", v)} error={errores.desde} />
+          <FechaYHora
+            id="aviso-hasta"
+            etiqueta={t.hasta}
+            etiquetaHora={t.horaHasta}
+            valor={valores.hasta}
+            onCambio={(v) => poner("hasta", v)}
+            error={errores.hasta}
+            ayuda={t.hastaAyuda.replace("{dias}", String(DIAS_MAX_DE_AVISO))}
+          />
         </div>
       </div>
 
@@ -189,5 +179,57 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
         ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * Una fecha y hora de Lima del aviso: la fecha del design system (su calendario) y la hora al lado. El design system no tiene fecha y hora en un solo campo, y el
+ * `datetime-local` del navegador no se puede estilizar. El valor sigue siendo el texto «2026-10-15T22:00» de siempre ({@link unirFechaHora}): lo que se envía no cambia.
+ */
+function FechaYHora({
+  id,
+  etiqueta,
+  etiquetaHora,
+  valor,
+  onCambio,
+  error,
+  ayuda,
+}: {
+  id: string;
+  etiqueta: string;
+  etiquetaHora: string;
+  valor: string;
+  onCambio: (valor: string) => void;
+  error?: string;
+  ayuda?: string;
+}) {
+  const messages = useMessages();
+  const { fecha, hora } = partirFechaHora(valor);
+  const describidoPor = error ? `${id}-error` : ayuda ? `${id}-ayuda` : undefined;
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error} ayuda={ayuda}>
+      <div className="flex gap-2">
+        <EntradaFecha
+          id={id}
+          valor={fecha}
+          onCambio={(f) => onCambio(unirFechaHora(f, hora))}
+          placeholder={messages.comun.elegirFecha}
+          invalido={Boolean(error)}
+          describidoPor={describidoPor}
+          className="flex-1"
+        />
+        <Entrada
+          id={`${id}-hora`}
+          data-testid={`${id}-hora`}
+          type="time"
+          value={hora}
+          onChange={(e) => onCambio(unirFechaHora(fecha, e.target.value))}
+          aria-label={etiquetaHora}
+          invalido={Boolean(error)}
+          aria-describedby={describidoPor}
+          className="w-28 tabular-nums"
+        />
+      </div>
+    </Campo>
   );
 }
