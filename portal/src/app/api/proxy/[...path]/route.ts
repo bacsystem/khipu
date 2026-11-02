@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiBaseUrl } from "@/lib/api/client";
 import { refrescar, type Tokens } from "@/lib/api/auth";
+import { CABECERA_IDEMPOTENCIA } from "@/lib/idempotencia";
+import { cabecerasDeOrigen } from "@/lib/origen";
 import { clearSession, readSession, writeTokens } from "@/lib/session";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -14,6 +16,11 @@ type RouteContext = { params: Promise<{ path: string[] }> };
  * para todo el proceso, así que dos usuarios distintos pueden estar refrescando a la
  * vez. Con una sola promesa compartida, al segundo se le escribirían las cookies del
  * primero — es decir, terminaría dentro de la sesión ajena.
+ *
+ * Este mapa solo ve su propio proceso: el middleware (edge) y las otras instancias del
+ * portal no lo comparten. Para eso el backend acepta un refresh recién rotado durante
+ * 30 segundos (S6), así que una carrera entre procesos no cierra la sesión. Esto evita
+ * la mayoría de las carreras; aquello cubre las que quedan.
  */
 const refrescosEnCurso = new Map<string, Promise<Tokens>>();
 
@@ -37,6 +44,23 @@ function segmentoValido(segmento: string): boolean {
   return segmento !== "" && segmento !== "." && segmento !== ".." && !segmento.includes("/") && !segmento.includes("\\");
 }
 
+/**
+ * `/v1/auth/**` no se reenvía nunca desde acá (issue #174).
+ *
+ * Este proxy no exige sesión: `middleware.ts` solo protege las páginas privadas, no `/api/proxy/**`, así que
+ * cualquier visitante sin cuenta puede llamarlo. Antes de esto, un `POST /api/proxy/auth/registro` llegaba
+ * directo a `/v1/auth/registro` del backend sin pasar por `/api/auth/registro`, que es donde vive el chequeo de
+ * «registro cerrado» del portal — el registro cerrado de la página no protegía nada si alguien llamaba a la API.
+ *
+ * Los endpoints de auth ya tienen su propia ruta dedicada (`/api/auth/login`, `/registro`, `/recuperar`,
+ * `/restablecer`; el refresh no tiene una porque nada del navegador lo llama directo, solo el propio proxy y el
+ * middleware), y ninguna parte del portal usa `/api/proxy/auth/*` — comprobado, no hay una sola llamada así en
+ * el código. Bloquear el prefijo entero cierra la clase de bypass, no solo el caso del registro.
+ */
+function esRutaDeAuth(path: string[]): boolean {
+  return path[0] === "auth";
+}
+
 async function readBody(req: NextRequest): Promise<ArrayBuffer | undefined> {
   if (req.method === "GET" || req.method === "HEAD") return undefined;
   return req.arrayBuffer();
@@ -49,12 +73,19 @@ async function forward(
   access: string | undefined,
   empresa: string | undefined,
 ): Promise<Response> {
-  const url = `${apiBaseUrl()}/v1/${path.join("/")}${req.nextUrl.search}`;
+  // Next entrega los segmentos ya decodificados: un `#`, un `?` o un `;` de un número de documento (`/clientes/documento/7/AB#12`) cortaría la ruta si no se vuelven a codificar.
+  const url = `${apiBaseUrl()}/v1/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const headers = new Headers();
   const contentType = req.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
   if (access) headers.set("Authorization", `Bearer ${access}`);
   if (empresa) headers.set("X-Empresa", empresa);
+  // La clave de idempotencia de la emisión (#115) es del navegador y viaja tal cual; también en el reintento tras renovar el token,
+  // que es el mismo pedido.
+  const clave = req.headers.get(CABECERA_IDEMPOTENCIA);
+  if (clave) headers.set(CABECERA_IDEMPOTENCIA, clave);
+  // Solo la IP de confianza ya resuelta (#208): este proxy no copia las cabeceras del navegador, y esta tampoco.
+  for (const [nombre, valor] of Object.entries(cabecerasDeOrigen(req.headers))) headers.set(nombre, valor);
   return fetch(url, { method: req.method, headers, body, cache: "no-store" });
 }
 
@@ -62,6 +93,9 @@ async function handle(req: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   if (path.length === 0 || !path.every(segmentoValido)) {
     return new NextResponse(null, { status: 400 });
+  }
+  if (esRutaDeAuth(path)) {
+    return new NextResponse(null, { status: 404 });
   }
 
   const { access, refresh, empresa } = readSession(req);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { describe, expect, it } from "vitest";
-import { clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, readSession, writeTokens } from "./session";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearSession, COOKIE_ACCESS, COOKIE_EMPRESA, COOKIE_REFRESH, COOKIES_ANTERIORES, cookieSegura, readSession, writeTokens } from "./session";
 
 function requestWithCookies(cookies: Record<string, string>) {
   const header = Object.entries(cookies)
@@ -48,5 +48,80 @@ describe("session", () => {
     expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("");
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
     expect(res.cookies.get(COOKIE_EMPRESA)?.value).toBe("");
+  });
+
+  // #10: las cookies se llamaban factura_*. Un navegador con una sesión de antes del cambio conserva el refresh viejo (30 días) y nadie lo lee ni lo borra: seguiría siendo una
+  // credencial válida en el disco después de cerrar sesión. El logout y el login las expiran.
+  it("clearSession y writeTokens expiran las cookies con el nombre anterior", () => {
+    for (const operacion of [(r: NextResponse) => clearSession(r), (r: NextResponse) => writeTokens(r, { access: "a1", refresh: "r1" })]) {
+      const res = NextResponse.json({ ok: true });
+
+      operacion(res);
+
+      expect(COOKIES_ANTERIORES).toEqual(["factura_access", "factura_refresh", "factura_empresa"]);
+      for (const nombre of COOKIES_ANTERIORES) {
+        expect(res.cookies.get(nombre)?.value, nombre).toBe("");
+        expect(res.cookies.get(nombre)?.maxAge, nombre).toBe(0);
+      }
+    }
+  });
+});
+
+/**
+ * `Secure` hace que el navegador solo guarde la cookie por HTTPS (con la excepción de `localhost`). El despliegue de develop en Docker
+ * es HTTP local y se abre desde el celular por la IP de la red: ahí la sesión nunca se guardaba. `COOKIE_SECURE=false` lo apaga solo
+ * donde se pide; en producción el default sigue siendo `Secure`.
+ */
+describe("cookieSegura", () => {
+  it("en producción es Secure por defecto", () => {
+    expect(cookieSegura({ NODE_ENV: "production" })).toBe(true);
+  });
+
+  it("fuera de producción no es Secure por defecto", () => {
+    expect(cookieSegura({ NODE_ENV: "development" })).toBe(false);
+    expect(cookieSegura({})).toBe(false);
+  });
+
+  it("COOKIE_SECURE=false la apaga aun en producción (despliegue HTTP local)", () => {
+    expect(cookieSegura({ NODE_ENV: "production", COOKIE_SECURE: "false" })).toBe(false);
+  });
+
+  it("COOKIE_SECURE=true la fuerza aun fuera de producción", () => {
+    expect(cookieSegura({ NODE_ENV: "development", COOKIE_SECURE: "true" })).toBe(true);
+  });
+
+  it("cualquier otro valor se ignora y vale el default: un typo no debilita producción", () => {
+    for (const valor of ["", "0", "no", "off", "False", "FALSE", " false", "falso"]) {
+      expect(cookieSegura({ NODE_ENV: "production", COOKIE_SECURE: valor }), `«${valor}»`).toBe(true);
+    }
+  });
+
+});
+
+/**
+ * `baseCookie` se calcula al cargar el módulo: se recarga con el entorno controlado y se mira la cookie que de verdad se escribe.
+ * Comparar `baseCookie.secure` con `cookieSegura()` no basta: en Vitest ambos dan `false` y un `secure: false` fijo pasaría.
+ */
+describe("cookies de sesión según el entorno", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function secureDeLaCookieEscrita(env: Record<string, string>) {
+    for (const [nombre, valor] of Object.entries(env)) vi.stubEnv(nombre, valor);
+    vi.resetModules();
+    const session = await import("./session");
+    const res = NextResponse.json({ ok: true });
+    session.writeTokens(res, { access: "a1", refresh: "r1" });
+    return [res.cookies.get(session.COOKIE_ACCESS)?.secure, res.cookies.get(session.COOKIE_REFRESH)?.secure];
+  }
+
+  it("en producción las cookies salen Secure", async () => {
+    expect(await secureDeLaCookieEscrita({ NODE_ENV: "production" })).toEqual([true, true]);
+  });
+
+  it("con COOKIE_SECURE=false salen sin Secure aun en producción", async () => {
+    expect(await secureDeLaCookieEscrita({ NODE_ENV: "production", COOKIE_SECURE: "false" })).toEqual([false, false]);
   });
 });

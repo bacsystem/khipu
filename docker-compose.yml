@@ -5,42 +5,116 @@ services:
       POSTGRES_DB: factura
       POSTGRES_USER: factura
       POSTGRES_PASSWORD: factura
-    ports: ["5432:5432"]
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U factura"]
       interval: 5s
       timeout: 3s
       retries: 10
-  # Storage S3 local (#38): `docker compose --profile s3 up -d minio`; el bucket `khipu` se crea al arrancar.
+  # Storage S3 local (#38): `docker compose --profile s3 up -d minio minio-init`; minio-init crea el bucket `khipu` con versionado.
+  # MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025): se usan las de Chainguard, que solo ofrecen `latest`.
+  # Son distroless (sin shell ni `mc` dentro del servidor): por eso minio no tiene healthcheck, y minio-init llama a `mc`
+  # directo y se reintenta (`restart: on-failure`) hasta que el servidor responda. `user: "0:0"` es solo para desarrollo
+  # local: la imagen corre como 65532, que no puede escribir en el volumen /data.
+  # `latest` no está fijada por digest a propósito: no se verificó que Chainguard conserve digests antiguos en su capa gratuita, y
+  # uno retirado rompería el pull de golpe. Si una actualización de la imagen rompe `S3DocumentStorageTest`, `FacturaS3E2ETest` o este
+  # servicio, fija el digest que funcione (`docker buildx imagetools inspect cgr.dev/chainguard/minio:latest`) en los tres sitios.
+  # Lo mismo vale para `minio-client` en `minio-init` si lo que se rompe es la creación del bucket (`mb --with-versioning`); esa
+  # imagen solo se usa aquí.
   minio:
-    image: quay.io/minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     profiles: ["s3"]
+    user: "0:0"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: khipu
       MINIO_ROOT_PASSWORD: khipu-minio
     ports: ["9000:9000", "9001:9001"]
     volumes: ["miniodata:/data"]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest
     profiles: ["s3"]
     depends_on:
-      minio:
+      - minio
+    restart: on-failure
+    environment:
+      MC_HOST_local: http://khipu:khipu-minio@minio:9000
+    # El versionado se activa al crear el bucket; si ya existía sin versionado, no lo cambia.
+    command: ["mb", "--ignore-existing", "--with-versioning", "local/khipu"]
+  # Correo de desarrollo (`make deploy-develop`): Mailpit recibe lo que envía el backend y lo muestra en su interfaz web
+  # (http://localhost:${MAILPIT_UI_PORT}). El SMTP (1025) solo se usa dentro de la red del compose, no se publica.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ["app"]
+    ports: ["${MAILPIT_UI_PORT:-8025}:8025"]
+  # Backend (`make deploy-develop`): la misma imagen que despliega Railway (deploy/backend/Dockerfile), con el Postgres de este compose.
+  # Perfil `app`: sin él `docker compose up` no lo construye, así que el flujo de desarrollo (backend por Gradle) no cambia.
+  # Las claves vienen del .env (`make env` lo crea). No se rotan: cifran certificados y claves SOL guardados en la base.
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend/Dockerfile
+    profiles: ["app"]
+    depends_on:
+      postgres:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c", "mc alias set local http://minio:9000 khipu khipu-minio && mc mb --ignore-existing local/khipu && mc version enable local/khipu"]
+      mailpit:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/factura
+      DB_USER: factura
+      DB_PASSWORD: factura
+      MASTER_KEY: ${MASTER_KEY:-}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:-}
+      MASTER_KEY_ANTERIOR: ${MASTER_KEY_ANTERIOR:-}
+      API_KEY_PEPPER_ANTERIOR: ${API_KEY_PEPPER_ANTERIOR:-}
+      PLATFORM_ADMIN_KEY: ${PLATFORM_ADMIN_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
+      REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
+      # IP real del administrador (#208): vacío = no se confía en X-Forwarded-For. Ver deploy/README.md.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # SOLO PARA PRUEBAS (#363): mueve el reloj del backend (p. ej. `-P8D`). Vacío = hora real. Ver deploy/README.md §10.
+      RELOJ_DESPLAZAMIENTO: ${RELOJ_DESPLAZAMIENTO:-}
+      # Padrón de RUC de SUNAT (#361), el que responde la búsqueda por RUC del portal (#390). Apagado por defecto: baja ~400 MB y escribe ~18 millones de filas.
+      # Con los mismos defaults de application.yml y no `:-` vacío: una variable vacía no cae al default de Spring y dejaría el cron en blanco.
+      # La primera carga es por cron: ver «Padrón de RUC» en el README de la raíz. Para cargar un archivo que ya tienes en disco en vez de descargarlo:
+      # PADRON_RUC_DIR = la carpeta del host (se monta en /padron, solo lectura) y PADRON_RUC_ORIGEN=/padron/<archivo>.txt.
+      PADRON_RUC_HABILITADO: ${PADRON_RUC_HABILITADO:-false}
+      PADRON_RUC_ORIGEN: ${PADRON_RUC_ORIGEN:-https://www2.sunat.gob.pe/padron_reducido_ruc.zip}
+      PADRON_RUC_CRON: ${PADRON_RUC_CRON:-0 30 4 * * *}
+      PADRON_RUC_LIMITE_DESCARGA_MINUTOS: ${PADRON_RUC_LIMITE_DESCARGA_MINUTOS:-30}
+      PADRON_RUC_MINIMO_PRIMERA_CARGA: ${PADRON_RUC_MINIMO_PRIMERA_CARGA:-1000000}
+      PADRON_RUC_MAXIMO_DIAS_DE_ATRASO: ${PADRON_RUC_MAXIMO_DIAS_DE_ATRASO:-3}
+      # Correo habilitado hacia Mailpit (sin credenciales, de ahí MAIL_SMTP_AUTH=false): la recuperación de contraseña y el envío
+      # de comprobantes se ven en la interfaz de Mailpit en vez de perderse.
+      MAIL_HABILITADO: "true"
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MAIL_SMTP_AUTH: "false"
+      STORAGE_FS_ROOT: /app/storage
+    volumes: ["storagedata:/app/storage", "${PADRON_RUC_DIR:-./deploy/padron}:/padron:ro"]
+    ports: ["${BACKEND_PORT:-8001}:8001"]
   portal:
     build: ./portal
     environment:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
       API_PUBLIC_URL: ${PORTAL_API_PUBLIC_URL:-http://localhost:8001}
-    ports: ["3000:3000"]
+      # El mismo `REGISTRO_ABIERTO` del backend, a propósito: el portal cierra su ruta (`/registro` 404, `POST /api/auth/registro` 403) y el backend la suya,
+      # y son independientes. Sin la variable, la imagen del portal (NODE_ENV=production) arranca cerrada aunque el backend esté abierto (#385).
+      # `CONTACTO_URL`: a dónde lleva «Solicitar acceso» cuando el registro está cerrado.
+      REGISTRO_ABIERTO: ${REGISTRO_ABIERTO:-true}
+      CONTACTO_URL: ${CONTACTO_URL:-}
+      # IP real del administrador (#208): proxies de confianza delante del portal; 0 = no se reenvía ninguna IP. Ver deploy/README.md.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # Vacío = el default del portal: cookie Secure en producción (la imagen corre en producción). `make deploy-develop` lo pone en
+      # `false` porque ese despliegue es HTTP local: por HTTP desde otro dispositivo (el celular) el navegador descarta una cookie
+      # Secure y el login no deja sesión. Nunca en un despliegue con HTTPS real.
+      COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-}
+    ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:
   miniodata:
+  storagedata:

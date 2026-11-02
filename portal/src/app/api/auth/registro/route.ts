@@ -11,9 +11,10 @@ export async function POST(req: NextRequest) {
       { estado: "error", datos: null, mensaje: "El registro está por invitación: escríbenos para pedir acceso.", codigo: "REGISTRO_CERRADO", errores: null },
       { status: 403 },
     );
-  const { nombre, email, password, telefono } = await req.json();
+  const { nombre, email, password, telefono, acepta_terminos } = await req.json();
   try {
-    const tokens = await registrar(nombre, email, password, telefono);
+    // #342: solo un `true` cuenta como aceptación; cualquier otra cosa llega como `false` y el backend responde 400 TERMINOS_NO_ACEPTADOS.
+    const tokens = await registrar({ nombre, email, password, telefono, acepta_terminos: acepta_terminos === true });
     const res = NextResponse.json(
       { estado: "exito", datos: { usuario: tokens.usuario }, mensaje: null, codigo: null, errores: null },
       { status: 201 },

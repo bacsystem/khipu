@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paginasVisibles, porPaginaValido } from "./paginacion";
+import { paginasVisibles, porPaginaValido } from "khipu-design-system/lib/paginacion";
 
 describe("paginasVisibles", () => {
   it("muestra todas las páginas cuando son pocas", () => {

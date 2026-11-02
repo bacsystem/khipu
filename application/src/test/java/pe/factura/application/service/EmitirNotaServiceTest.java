@@ -4,7 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.in.EmitirNotaCommand;
+import pe.factura.application.port.in.Idempotencia;
 import pe.factura.application.port.out.FirmaResultado;
+import pe.factura.application.port.out.IdempotenciaRepository;
 import pe.factura.application.port.out.UnitOfWork;
 import pe.factura.application.port.out.UblGenerator;
 import pe.factura.application.port.out.XmlSigner;
@@ -14,8 +16,11 @@ import pe.factura.domain.documento.*;
 import pe.factura.domain.tenant.Serie;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -38,36 +43,228 @@ class EmitirNotaServiceTest {
     TipoDocumento[] validado = new TipoDocumento[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) { validado[0] = tipo; }
-        public void validarBaja(String xml) {}
+        public void validarBaja(String xml, ComunicacionBaja baja) {}
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml, "HASH");
     EmitirComprobanteService service;
+    Fakes.Tope tope = new Fakes.Tope();
 
     @BeforeEach void setUp() {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
         series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "FD01", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_CREDITO, "BC01", 0, true));
+        series.crear(new Serie(tenantId, TipoDocumento.NOTA_DEBITO, "BD01", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), tope, Fakes.SIN_COMPRADOR);
     }
 
-    /** Factura de 2 laptops (200 + 36) y un libro exonerado (50), descuento global 03 de 10: total 276.00. */
+    /** #18: una nota consume del plan como una factura, así que en el tope tampoco se emite. Para anular una factura queda la comunicación de baja, que no consume. */
+    @Test void enElTopeDelPlanTampocoSeEmiteUnaNota() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        tope.lleno = true;
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("LIMITE_PLAN");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    /** #378: SUNAT aplica la regla del RUC del receptor también a las notas (anexos de NC y ND, 1083); la nota lleva el comprador del documento. */
+    @Test void unaNotaSeRechazaSiElRucDelCompradorYaNoFiguraEnElPadron() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+        padron.cargada = Fakes.CLOCK.instant().minus(java.time.Duration.ofHours(6));
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        EmitirComprobanteService conPadron = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas,
+                new Fakes.Idempotencias(), new Fakes.Tope(), new ValidarCompradorEnPadron(padron, Fakes.CLOCK, java.time.Duration.ofDays(3)));
+
+        assertThatThrownBy(() -> conPadron.emitirNota(tenantId, nc(f.numero(), "01", null))).isInstanceOf(DomainException.class).hasMessageContaining("1083");
+        assertThatThrownBy(() -> conPadron.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_DEBITO, "FD01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "Intereses",
+                laptops("1", "11.80"), null, List.of(), null, true))).isInstanceOf(DomainException.class).hasMessageContaining("1083");
+
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    /** #325: la factura guarda el correo del cliente normalizado y la nota, que va al mismo cliente, lo hereda para que también le llegue al aceptarse. */
+    @Test void laNotaHeredaElCorreoDelClienteDeLaFactura() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, null, " Compras@Cliente.PE "));
+        assertThat(f.correoCliente()).isEqualTo("compras@cliente.pe");
+
+        Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
+
+        assertThat(nc.correoCliente()).isEqualTo("compras@cliente.pe");
+        assertThat(comprobantes.datos.get(nc.id()).correoCliente()).as("se guarda con la nota").isEqualTo("compras@cliente.pe");
+    }
+
+    /** Un correo mal formado se rechaza antes de numerar: el número no se consume. */
+    @Test void unCorreoDelClienteMalFormadoSeRechazaSinConsumirNumero() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, null, "compras@cliente")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(facturaAceptada(FormaPago.contado()).numero()).isEqualTo(1L);
+    }
+
+    /** Factura de 2 laptops (200 + 36) y un libro exonerado (40): total 276.00. Sin descuentos: una nota no admite los que no afectan la base (3280, #388). */
     private Comprobante facturaAceptada(FormaPago fp) {
         return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
                 new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.00"), TipoAfectacionIgv.EXONERADO)),
+                fp, null, List.of(), null, null, null, List.of(), null, null, true));
+    }
+
+    /**
+     * Como {@link #facturaAceptada} pero con un descuento global 02 de 8.48 (afecta la base): gravado 191.52, IGV 34.47, exonerado 50, total 275.99. Es el descuento que la
+     * nota total copia de la factura (#388: pasa al valor de las líneas, la nota no lo lleva).
+     */
+    private Comprobante facturaConDescuentoAceptada() {
+        return service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO),
                         new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
-                fp, Descuento.monto(new BigDecimal("10.00"), false), List.of(), null, null, null, List.of(), null, null, true));
+                FormaPago.contado(), Descuento.monto(new BigDecimal("8.48"), true), List.of(), null, null, null, List.of(), null, null, true));
     }
 
     private EmitirNotaCommand nc(long numeroFactura, String motivo, List<Item> items) {
         return new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC01", null, LocalDate.of(2026, 9, 13), "F001", numeroFactura, motivo, "Sustento", items, null, List.of(), null, true);
     }
 
-    @Test void notaTotalCopiaItemsDescuentoYCargosDeLaFactura() {
+    static final Receptor SIN_DOCUMENTO = new Receptor("-", "-", "CLIENTES VARIOS", null);
+
+    /** Boleta de 2 laptops (200 + 36) a un comprador sin documento: total 236.00. */
+    private Comprobante boletaAceptada() {
+        return service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+    }
+
+    private EmitirNotaCommand notaDeBoleta(TipoDocumento tipo, String serie, long numeroBoleta, String motivo, List<Item> items) {
+        return new EmitirNotaCommand(tipo, serie, null, LocalDate.of(2026, 9, 13), "B001", numeroBoleta, motivo, "Sustento", items, null, List.of(), null, true);
+    }
+
+    private static List<Item> laptops(String cantidad, String precio) {
+        return List.of(new Item("P1", "Laptop", "NIU", new BigDecimal(cantidad), new BigDecimal(precio), TipoAfectacionIgv.GRAVADO));
+    }
+
+    /** #316: una boleta en dólares sin documento se emite con tipo de cambio (S/ 375 ≤ 700) y su nota total hereda moneda y tipo de cambio. */
+    @Test void laNotaHeredaElTipoDeCambioDeLaBoletaEnDolares() {
+        Comprobante b = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "USD", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true, null, List.of(), null, new BigDecimal("3.750")));
+        assertThat(b.tipoCambio()).isEqualByComparingTo("3.750");
+        assertThat(b.totalEnSoles()).hasValueSatisfying(s -> assertThat(s).isEqualByComparingTo("375.00"));
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null));
+        assertThat(nc.moneda()).isEqualTo("USD");
+        assertThat(nc.tipoCambio()).isEqualByComparingTo("3.750");
+        // Sin tipo de cambio la misma boleta sigue pidiendo el documento del comprador.
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "USD", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("100.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true)))
+                .hasMessageContaining("identifica al comprador");
+    }
+
+    /** #295: una boleta que regularizó un anticipo no se anula con una nota total (el CreditNote no lleva PrepaidPayment): el mensaje dice «boleta» y pide los ítems por el neto. */
+    @Test void laNotaTotalSobreUnaBoletaConAnticiposPideLosItemsPorElNeto() {
+        Comprobante anticipo = boletaAceptada();   // B001: 200.00 gravado, mismo comprador sin documento
+        Comprobante conAnticipo = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101", SIN_DOCUMENTO,
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null,
+                List.of(new Anticipo("B001", anticipo.numero(), new BigDecimal("100.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(conAnticipo.totales().total()).isEqualByComparingTo("118.00");   // 236.00 − 118.00 del anticipo
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", conAnticipo.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("La boleta B001-" + conAnticipo.numero()).hasMessageContaining("regularizó anticipos")
+                .hasMessageContaining("indique los items").hasMessageNotContaining("La factura");
+    }
+
+    /** #293: la nota total sobre una boleta copia sus ítems y su comprador sin documento, y queda como nota de la boleta. */
+    @Test void notaDeCreditoTotalSobreUnaBoleta() {
+        Comprobante b = boletaAceptada();
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null));
+        assertThat(nc.nota().tipoAfectado()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(nc.nota().documentoAfectado()).isEqualTo("B001-" + b.numero());
+        assertThat(nc.receptor()).isEqualTo(SIN_DOCUMENTO);
+        assertThat(nc.items()).isEqualTo(b.items());
+        assertThat(nc.totales().total()).isEqualByComparingTo("236.00");
+        assertThat(nc.esDeBoleta()).isTrue();
+        assertThat(nc.nombreArchivo()).isEqualTo("20100066603-07-BC01-1");
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).extracting(Comprobante::id).containsExactly(nc.id());
+    }
+
+    @Test void notaDeDebitoSobreUnaBoleta() {
+        Comprobante b = boletaAceptada();
+        Comprobante nd = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_DEBITO, "BD01", b.numero(), "01", laptops("1", "11.80")));
+        assertThat(nd.tipo()).isEqualTo(TipoDocumento.NOTA_DEBITO);
+        assertThat(nd.nota().tipoAfectado()).isEqualTo(TipoDocumento.BOLETA);
+    }
+
+    /**
+     * 3286 sobre una boleta admite +1 (NotaCredito2_0 fila 113; desde 2027 es error y khipu lo aplica ya); sobre una factura, 0 (fila 111). El acumulado de NC
+     * vigentes cuenta igual que en la factura (#83).
+     */
+    @Test void laNotaDeCreditoSobreUnaBoletaAdmiteUnSolDeTolerancia() {
+        Comprobante b = boletaAceptada(); // 236.00
+        assertThat(service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "09", laptops("2", "118.50"))).totales().total())
+                .as("237.00: un sol por encima, dentro de la tolerancia").isEqualByComparingTo("237.00");
+        Comprobante otra = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "09", laptops("2", "118.60"))))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("boleta");
+        service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "07", laptops("1", "118.00")));
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", otra.numero(), "07", laptops("1", "120.00"))))
+                .as("118 + 120 = 238 > 236 + 1").hasMessageContaining("3286").hasMessageContaining("ya acreditado");
+    }
+
+    /** La letra de la serie de la nota sigue a la del documento que modifica (2399/2400): una nota F no modifica una boleta, ni una B una factura. */
+    @Test void laSerieDeLaNotaTieneLaLetraDelDocumentoQueModifica() {
+        Comprobante b = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "FC01", b.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
         Comprobante f = facturaAceptada(FormaPago.contado());
-        assertThat(f.totales().total()).isEqualByComparingTo("276.00");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "BC01", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x", null, null, List.of(), null, true)))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+    }
+
+    /** Sobre una boleta no hay NC 13 (3259) ni NC por descuento o bonificación (RCP 10.1.4, 4367): se rechazan antes de mirar la forma de pago. */
+    @Test void sobreUnaBoletaNoHayNotaDeCredito13NiDescuentos() {
+        Comprobante b = boletaAceptada();
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "13", null))).hasMessageContaining("3259");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "04", laptops("1", "10.00")))).hasMessageContaining("4367");
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).isEmpty();
+    }
+
+    /**
+     * La NC 10 de una boleta no va en el resumen diario (guía, p. 19): emitida el 13 sin enviar, el 19 (6.º día) ya no tiene canal y se cierra con el 1079.
+     * A diferencia de la boleta (#290: su fecha es la de la venta y no se reemplaza), una nota sí se vuelve a emitir con fecha vigente: el mensaje lo dice.
+     */
+    @Test void laNotaDeCredito10DeUnaBoletaVenceAlQuintoDia() {
+        Comprobante b = boletaAceptada();
+        Comprobante nc = service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "BC01", null, LocalDate.of(2026, 9, 13), "B001", b.numero(), "10", "Otros",
+                laptops("1", "10.00"), null, List.of(), null, false));
+        assertThat(nc.fechaLimiteEnvio()).isEqualTo(LocalDate.of(2026, 9, 18));
+        java.time.Clock dia19 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-19T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+        EnviarDocumentoService tarde = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, dia19);
+        assertThatThrownBy(() -> tarde.enviar(tenantId, nc.id())).extracting("codigo", "message")
+                .satisfies(t -> assertThat(t.get(0)).isEqualTo("FUERA_DE_PLAZO"), t -> assertThat((String) t.get(1)).contains("1079").contains("Emita"));
+        assertThat(comprobantes.buscar(tenantId, nc.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
+    }
+
+    /** La boleta tiene que existir, estar aceptada y no anulada ni con una baja en curso (2119/2120), como la factura; los mensajes la nombran. */
+    @Test void boletaInexistenteNoAceptadaOAnuladaSeRechaza() {
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 999, "01", null)))
+                .hasMessageContaining("2119").hasMessageContaining("boleta B001-999");
+        Comprobante b = boletaAceptada();
+        anular(b);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null)))
+                .hasMessageContaining("2120").hasMessageContaining("boleta");
+    }
+
+    @Test void notaTotalCopiaItemsDescuentoYCargosDeLaFactura() {
+        Comprobante f = facturaConDescuentoAceptada();
+        assertThat(f.totales().total()).isEqualByComparingTo("275.99");
 
         Comprobante nc = service.emitirNota(tenantId, nc(f.numero(), "01", null));
         assertThat(nc.tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
@@ -76,14 +273,77 @@ class EmitirNotaServiceTest {
         assertThat(nc.nombreArchivo()).isEqualTo("20100066603-07-FC01-1");
         assertThat(nc.items()).isEqualTo(f.items());
         assertThat(nc.descuentoGlobal()).isEqualTo(f.descuentoGlobal());
+        assertThat(nc.totales().descuentoGlobal()).as("#388: la nota no lleva el descuento global, lo reparte en las líneas").isNull();
         assertThat(nc.receptor()).isEqualTo(f.receptor());
         assertThat(nc.moneda()).isEqualTo("PEN");
-        assertThat(nc.totales().total()).isEqualByComparingTo("276.00");
+        assertThat(nc.totales().total()).isEqualByComparingTo("275.99");
+        assertThat(nc.totales().gravado()).isEqualByComparingTo(f.totales().gravado());
+        assertThat(nc.totales().igv()).isEqualByComparingTo(f.totales().igv());
         assertThat(nc.nota().documentoAfectado()).isEqualTo("F001-" + f.numero());
         assertThat(nc.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThat(validado[0]).isEqualTo(TipoDocumento.NOTA_CREDITO);
         assertThat(new String(storage.leer(nc.xmlKey()))).startsWith("<NOTA_CREDITO>");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).extracting(Comprobante::id).containsExactly(nc.id());
+    }
+
+    /**
+     * #388: una factura con un descuento que no afecta la base (03) no se puede anular con una nota total: el importe total de la nota no resta descuentos (3280, e-beta
+     * 2026-10-18). Se rechaza con el motivo antes de numerar; antes salía con número y SUNAT la devolvía.
+     */
+    @Test void laNotaTotalDeUnaFacturaConDescuentoQueNoAfectaLaBaseSeRechazaAntesDeNumerar() {
+        Comprobante f = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), Descuento.monto(new BigDecimal("10.00"), false), List.of(), null, null, null, List.of(), null, null, true));
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("3280").hasMessageContaining("F001-" + f.numero())
+                .extracting(e -> ((DomainException) e).codigo()).isEqualTo("DESCUENTO_INVALIDO");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).as("no se emitió ni numeró ninguna nota").isEmpty();
+    }
+
+    /**
+     * #308: una boleta emitida antes de validar el catálogo 03 con «ROL» (no existe en la rec 20) se informó en un resumen diario, que no
+     * lleva líneas, y quedó aceptada. Ni la nota con esa unidad en sus ítems ni la nota total que la copia se emiten, porque SUNAT cruza la
+     * unidad de la nota con el catálogo (2936) y la nota sale sola (#348-H1); ninguna consume número. Con ítems propios en «RO», sí.
+     */
+    @Test void unaUnidadFueraDelCatalogo03NoSeEmiteEnLaNotaNiCopiadaDelDocumento() {
+        Comprobante vieja = Comprobante.persistido(UUID.randomUUID(), tenantId, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.ACEPTADO, SIN_DOCUMENTO,
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).firma("h", "20100066603-03-B001-7", "k").rehidratar();
+        comprobantes.guardar(vieja);
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "07",
+                List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2936").hasMessageContaining("ROL");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2936 - La boleta B001-7 lleva la unidad ROL").hasMessageContaining("indique los items");
+        assertThat(series.ultimo).as("las notas rechazadas no consumen número").containsEntry(tenantId + "07BC01", 0L);
+
+        Comprobante nc = service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", 7L, "01",
+                List.of(new Item("P1", "Cable", "RO", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))));
+        assertThat(nc.items()).extracting(Item::unidad).containsExactly("RO");
+        assertThat(nc.numero()).isEqualTo(1L);
+    }
+
+    /**
+     * #354: las reglas de la línea (ICBPER 2892/4320, precio 0 2369, más de 999 líneas 2137) también valen en la nota, sobre factura y sobre boleta, y la rechazan antes de
+     * numerar. La NC 13 y su línea sin importe (3315) no pasan por ellas.
+     */
+    @Test void lasReglasDeLaLineaSeRechazanEnLaNotaSinConsumirNumero() {
+        Comprobante boleta = boletaAceptada();
+        Comprobante factura = facturaAceptada(FormaPago.contado());
+        List<Item> bolsasFraccionarias = List.of(new Item("B", "Bolsa", "NIU", new BigDecimal("1.5"), new BigDecimal("0.60"), TipoAfectacionIgv.GRAVADO, null, null, true));
+        List<Item> bolsasEnKilos = List.of(new Item("B", "Bolsa", "KGM", new BigDecimal("2"), new BigDecimal("0.60"), TipoAfectacionIgv.GRAVADO, null, null, true));
+        List<Item> sinPrecio = laptops("1", "0");
+        List<Item> demasiadas = java.util.Collections.nCopies(1000, new Item("P1", "Laptop", "NIU", BigDecimal.ONE, new BigDecimal("1.18"), TipoAfectacionIgv.GRAVADO));
+
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", bolsasFraccionarias))).hasMessageStartingWith("2892 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", bolsasEnKilos))).hasMessageStartingWith("4320 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", sinPrecio))).hasMessageStartingWith("2369 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", boleta.numero(), "07", demasiadas))).hasMessageStartingWith("2137 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(factura.numero(), "07", sinPrecio))).hasMessageStartingWith("2369 - ");
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(factura.numero(), "07", demasiadas))).hasMessageStartingWith("2137 - ");
+        assertThat(series.ultimo).as("las notas rechazadas no consumen número").containsEntry(tenantId + "07BC01", 0L).containsEntry(tenantId + "07FC01", 0L);
     }
 
     @Test void notaParcialSoloConLosItemsIndicados() {
@@ -100,13 +360,13 @@ class EmitirNotaServiceTest {
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("3"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)))))
                 .isInstanceOf(DomainException.class).hasMessageContaining("3286").hasMessageContaining("importe total");
-        // Total menor pero base exonerada mayor que la de la factura (3503): 60 exonerado vs 50
+        // Total menor pero base exonerada mayor que la de la factura (3503): 50 exonerado vs 40
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "09",
-                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("60.00"), TipoAfectacionIgv.EXONERADO)))))
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)))))
                 .hasMessageContaining("3503").hasMessageContaining("exonerado");
-        // Tolerancia +1 del 3503 (filas 114-122): 51 exonerado pasa
+        // Tolerancia +1 del 3503 (filas 114-122): 41 exonerado pasa
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "09",
-                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("51.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("51.00");
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("41.00"), TipoAfectacionIgv.EXONERADO)))).totales().total()).isEqualByComparingTo("41.00");
     }
 
     /**
@@ -134,7 +394,7 @@ class EmitirNotaServiceTest {
     }
 
     /**
-     * 3503 por tributo cuando el total (3286) pasa: la factura tiene gravado 200 + exonerado 50 − 10 = 276; una NC de una sola
+     * 3503 por tributo cuando el total (3286) pasa: la factura tiene gravado 200 + IGV 36 + exonerado 40 = 276; una NC de una sola
      * línea gravada de 237.77 (base 201.50) queda por debajo del total pero supera el gravado (200 + 1). Es el caso de una
      * NC por importe sobre una factura con ISC/anticipos (f-cargos en el portal); la recert #8 midió que quitar el límite
      * del gravado dejaba la suite verde. El límite del IVAP no puede atar solo: en una factura IVAP total = base × 1.04
@@ -234,7 +494,7 @@ class EmitirNotaServiceTest {
      * en e-beta (reproducido el 2026-09-19, #83). khipu sí lleva la cuenta para que el cliente no acredite dos veces.
      */
     @Test void elAcumuladoDeNotasDeCreditoNoPuedeSuperarALaFactura() {
-        Comprobante f = facturaAceptada(FormaPago.contado());   // 276.00: 200 gravado + 36 IGV + 50 exonerado − 10
+        Comprobante f = facturaAceptada(FormaPago.contado());   // 276.00: 200 gravado + 36 IGV + 40 exonerado
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "01", null)).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         // Segunda NC total: la factura ya está acreditada por completo.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "01", null)))
@@ -253,7 +513,7 @@ class EmitirNotaServiceTest {
         service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop)));   // gravado 200 de 200
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07", List.of(unaLaptop))))
                 .hasMessageContaining("3286").hasMessageContaining("ya acreditado 236.00");
-        // El exonerado sigue disponible (40 de 50 acreditando 236 + 40 = 276), pero 50 ya excede el total.
+        // El exonerado sigue disponible (los 40 acreditando 236 + 40 = 276), pero 5 más ya excede el total.
         assertThat(service.emitirNota(tenantId, nc(f.numero(), "07",
                 List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("40.00"), TipoAfectacionIgv.EXONERADO)))).estado()).isEqualTo(EstadoDocumento.ACEPTADO);
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(f.numero(), "07",
@@ -396,11 +656,23 @@ class EmitirNotaServiceTest {
                 List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
                 FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipo.numero(), new BigDecimal("200.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
         assertThat(finalConAnticipo.totales().total()).isEqualByComparingTo("0.00");
+        // H3 (revisión de #354): con neto 0.00 «indique los items por el importe neto» era un callejón sin salida (la línea en cero la rechaza 2369/2370 y cualquier
+        // importe supera el total de la factura, 3286): el mensaje manda a la comunicación de baja.
         assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", null)))
-                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00");
-        // Con ítems por el neto sí procede.
-        Comprobante nc = service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO))));
-        assertThat(nc.totales().total()).isEqualByComparingTo("0.00");
+                .isInstanceOf(DomainException.class).hasMessageContaining("regularizó anticipos").hasMessageContaining("0.00").hasMessageContaining("comunicación de baja")
+                .hasMessageNotContaining("indique los items");
+        // Con un neto mayor que cero sí hay nota posible por ese importe: el mensaje pide los items y no manda a la baja.
+        Comprobante anticipoParcial = facturaAceptada(FormaPago.contado());
+        Comprobante conNeto = service.emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Laptop", "NIU", new BigDecimal("2"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(new Anticipo("F001", anticipoParcial.numero(), new BigDecimal("100.00"), Anticipo.Afectacion.GRAVADO, LocalDate.of(2026, 9, 1))), null, null, true));
+        assertThat(conNeto.totales().total()).isGreaterThan(BigDecimal.ZERO);
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(conNeto.numero(), "01", null)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("indique los items").hasMessageNotContaining("comunicación de baja");
+        // Con ítems por el neto (0.00) tampoco: SUNAT rechaza la línea en cero (2369/2370, #354) y no hay importe que anular; antes salía y volvía rechazada.
+        assertThatThrownBy(() -> service.emitirNota(tenantId, nc(finalConAnticipo.numero(), "01", List.of(new Item("A", "Anulación", "ZZ", BigDecimal.ONE, BigDecimal.ZERO.setScale(2), TipoAfectacionIgv.GRAVADO)))))
+                .isInstanceOf(DomainException.class).hasMessageStartingWith("2369 - ");
 
         // Sin ítems, un descuento o cargo propio no se ignora en silencio.
         Comprobante f = facturaAceptada(FormaPago.contado());
@@ -431,18 +703,214 @@ class EmitirNotaServiceTest {
             public void ejecutar(Runnable w) { w.run(); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas);
+        EmitirComprobanteService conCarrera = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uowConBaja, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
         assertThatThrownBy(() -> conCarrera.emitirNota(tenantId, nc(f.numero(), "01", null))).hasMessageContaining("2120");
         assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
     }
 
+    /** Lo que otra transacción ya dejó en la base: la fila ANULADA tal cual, sin pasar por el guardado (que, como el real, exige el estado de origen; LOG-01). */
     private void anular(Comprobante f) {
-        comprobantes.guardar(Comprobante.persistido(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), EstadoDocumento.ANULADO, f.receptor(), f.items()).horaEmision(f.horaEmision()).fechaVencimiento(f.fechaVencimiento()).moneda(f.moneda()).tipoOperacion(f.tipoOperacion()).formaPago(f.formaPago()).descuentoGlobal(f.descuentoGlobal()).cargos(f.cargos()).detraccion(f.detraccion()).retencion(f.retencion()).percepcion(f.percepcion()).anticipos(f.anticipos()).referencias(f.referencias()).nota(f.nota()).firma(f.hash(), f.nombreArchivo(), f.xmlKey()).cdr(f.cdr(), f.cdrKey()).envio(f.intentos(), f.ultimoError()).rehidratar());
+        comprobantes.datos.put(f.id(), Comprobante.persistido(f.id(), tenantId, f.tipo(), f.serie(), f.numero(), f.fechaEmision(), EstadoDocumento.ANULADO, f.receptor(), f.items()).horaEmision(f.horaEmision()).fechaVencimiento(f.fechaVencimiento()).moneda(f.moneda()).tipoOperacion(f.tipoOperacion()).formaPago(f.formaPago()).descuentoGlobal(f.descuentoGlobal()).cargos(f.cargos()).detraccion(f.detraccion()).retencion(f.retencion()).percepcion(f.percepcion()).anticipos(f.anticipos()).referencias(f.referencias()).nota(f.nota()).firma(f.hash(), f.nombreArchivo(), f.xmlKey()).cdr(f.cdr(), f.cdrKey()).envio(f.intentos(), f.ultimoError()).rehidratar());
     }
 
     @Test void sinSerieDeNotaConfigurada() {
         Comprobante f = facturaAceptada(FormaPago.contado());
         assertThatThrownBy(() -> service.emitirNota(tenantId, new EmitirNotaCommand(TipoDocumento.NOTA_CREDITO, "FC02", null, LocalDate.of(2026, 9, 13), "F001", f.numero(), "01", "x", null, null, List.of(), null, false)))
                 .extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+    }
+
+    // --- #355: Idempotency-Key en la nota ----------------------------------------------------------------------------------------
+
+    private static final Idempotencia CLAVE = new Idempotencia("c1a7e5b0-0000-4000-8000-000000000355", "huella-nota-1");
+
+    /** Servicio con las claves a la vista, sobre los mismos datos; con otro reloj es el mismo sistema, más tarde. */
+    private record ConClaves(EmitirComprobanteService service, Fakes.Idempotencias claves) {}
+
+    private ConClaves conClaves() { return conClaves(new Fakes.Idempotencias(), Fakes.CLOCK); }
+
+    private ConClaves conClaves(Fakes.Idempotencias claves, Clock reloj) {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, tope, Fakes.SIN_COMPRADOR), claves);
+    }
+
+    @Test void conUnaClaveNuevaEmiteLaNotaYLaAnotaBajoLaClaveDeNotas() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+
+        var e = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(e.repetida()).isFalse();
+        assertThat(e.comprobante().tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        assertThat(s.claves().filas.get("nota:" + tenantId + "|" + CLAVE.clave()))
+                .extracting(IdempotenciaRepository.Registro::huella, IdempotenciaRepository.Registro::recursoId)
+                .containsExactly("huella-nota-1", e.comprobante().id());
+        assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
+        assertThat(s.claves().completadoDentro).as("y la clave se completa en la misma transacción: nunca queda una reserva sin nota ni una nota sin clave").containsExactly(true);
+    }
+
+    /** El reintento tras un corte de red, en una nota de factura: la misma nota, sin otro número ni otro envío a SUNAT. */
+    @Test void elReintentoDeUnaNotaDeFacturaDevuelveLaMismaNotaSinEmitirOtra() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante primera = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+
+        var otraVez = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primera.id());
+        assertThat(otraVez.comprobante().numero()).isEqualTo(1L);
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(1);
+        assertThat(gateway.enviados).as("no se reenvía a SUNAT").isEqualTo(enviosAntes);
+        assertThat(service.emitirNota(tenantId, nc(f.numero(), "10", laptops("1", "11.80"))).numero()).as("el número 2 de la serie sigue libre").isEqualTo(2L);
+    }
+
+    /** Lo mismo para una nota sobre una boleta: la clave no distingue entre las dos. */
+    @Test void elReintentoDeUnaNotaDeBoletaDevuelveLaMismaNotaSinEmitirOtra() {
+        Comprobante b = boletaAceptada();
+        ConClaves s = conClaves();
+        Comprobante primera = s.service().emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null), CLAVE).comprobante();
+
+        var otraVez = s.service().emitirNota(tenantId, notaDeBoleta(TipoDocumento.NOTA_CREDITO, "BC01", b.numero(), "01", null), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primera.id());
+        assertThat(otraVez.comprobante().esDeBoleta()).isTrue();
+        assertThat(comprobantes.notasDe(tenantId, "B001", b.numero())).hasSize(1);
+    }
+
+    @Test void laMismaClaveConOtraNotaSeRechazaSinEmitir() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(1);
+    }
+
+    /** Las claves de las facturas y las de las notas son espacios distintos: la misma cadena en las dos no se pisa (el pedido sería otro contenido). */
+    @Test void laMismaClaveEnFacturasYEnNotasNoSeCruza() {
+        ConClaves s = conClaves();
+        Comprobante f = s.service().emitirFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), laptops("1", "118.00"), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true), CLAVE).comprobante();
+
+        var nota = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "huella-de-la-nota"));
+
+        assertThat(nota.repetida()).isFalse();
+        assertThat(nota.comprobante().tipo()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+        assertThat(s.claves().filas).containsOnlyKeys("factura:" + tenantId + "|" + CLAVE.clave(), "nota:" + tenantId + "|" + CLAVE.clave());
+    }
+
+    @Test void laClaveDeLaNotaEsPorEmpresa() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        UUID otra = UUID.randomUUID();
+        tenants.guardar(Fakes.tenantListo(otra));
+        series.crear(new Serie(otra, TipoDocumento.FACTURA, "F001", 0, true));
+        series.crear(new Serie(otra, TipoDocumento.NOTA_CREDITO, "FC01", 0, true));
+        Comprobante deOtra = s.service().emitirFactura(otra, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 10), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), laptops("1", "118.00"), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+        Comprobante mia = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+
+        var suya = s.service().emitirNota(otra, nc(deOtra.numero(), "01", null), CLAVE);
+
+        assertThat(suya.repetida()).isFalse();
+        assertThat(suya.comprobante().id()).isNotEqualTo(mia.id());
+        assertThat(suya.comprobante().tenantId()).isEqualTo(otra);
+    }
+
+    /** H1 de la revisión de #225, en la nota: el reintento se contesta antes de mirar el estado del documento, el plazo y el certificado. */
+    @Test void elReintentoSeContestaAunqueElDocumentoYaEstéAnuladoPorUnaBaja() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante emitida = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        anular(f);
+
+        var reintento = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    @Test void elReintentoSeContestaAunqueElDocumentoYaNoExista() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        Comprobante emitida = s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+
+        var reintento = s.service().emitirNota(tenantId, nc(f.numero() + 77, "01", null), CLAVE);
+
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    @Test void elReintentoConElCertificadoYaVencidoDevuelveLaNotaYaEmitida() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        ConClaves muchoDespues = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(2000)));
+
+        var reintento = muchoDespues.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    /** Contestar antes de validar no abre la puerta a otro contenido: con otra huella se sigue rechazando, aunque el documento ya no admita notas. */
+    @Test void conOtraHuellaSeRechazaAunqueElDocumentoYaNoAdmitaNotas() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+        anular(f);
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), new Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+    }
+
+    /**
+     * Una clave que no se usó antes no sirve de pase: si el documento ya no admite la nota se rechaza como siempre, antes de reservar nada. (Que un rechazo
+     * posterior a la reserva, dentro de la transacción, deje la clave libre lo prueba la E2E con Postgres: aquí el fake no revierte.)
+     */
+    @Test void unaClaveNuevaSobreUnDocumentoAnuladoSeRechazaSinReservarLaClave() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        anular(f);
+        ConClaves s = conClaves();
+
+        assertThatThrownBy(() -> s.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE)).hasMessageContaining("2120");
+        assertThat(s.claves().filas).isEmpty();
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).isEmpty();
+    }
+
+    /**
+     * Dos pedidos simultáneos con la misma clave: los dos pasan la consulta previa (el otro aún no confirmó) y la reserva del segundo espera al
+     * primero. Esa reserva es la que tiene que ver la nota y devolverla, sin tomar la serie ni bloquear el documento: lo que impide la nota doble.
+     */
+    @Test void siLaReservaEncuentraLaNotaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves primero = conClaves();
+        Comprobante emitida = primero.service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+        Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
+            @Override public Optional<IdempotenciaRepository.Registro> buscar(String alcance, String clave) { return Optional.empty(); }
+        };
+        ciegaAlBuscar.filas.putAll(primero.claves().filas);
+
+        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirNota(tenantId, nc(f.numero(), "01", null), CLAVE);
+
+        assertThat(simultaneo.repetida()).isTrue();
+        assertThat(simultaneo.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).as("no se emitió otra nota").hasSize(1);
+        assertThat(gateway.enviados).as("tampoco se reenvía a SUNAT").isEqualTo(enviosAntes);
+    }
+
+    @Test void sinClaveCadaPedidoEsUnaNotaNueva() {
+        Comprobante f = facturaAceptada(FormaPago.contado());
+        ConClaves s = conClaves();
+        s.service().emitirNota(tenantId, nc(f.numero(), "07", laptops("1", "11.80")), null);
+        s.service().emitirNota(tenantId, nc(f.numero(), "07", laptops("1", "11.80")), null);
+
+        assertThat(comprobantes.notasDe(tenantId, "F001", f.numero())).hasSize(2);
+        assertThat(s.claves().filas).isEmpty();
     }
 }

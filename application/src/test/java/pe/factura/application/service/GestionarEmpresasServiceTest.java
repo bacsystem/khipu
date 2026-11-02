@@ -31,11 +31,12 @@ class GestionarEmpresasServiceTest {
         public Optional<Cuenta> buscar(UUID id) { return Optional.ofNullable(cuentasMap.get(id)); }
         public Optional<Cuenta> buscarPorEmail(String e) { return cuentasMap.values().stream().filter(c -> c.email().equals(e)).findFirst(); }
     };
+    Fakes.Cupo cupo = new Fakes.Cupo();
     GestionarEmpresasService service;
 
     @BeforeEach void setUp() {
         cuentas.guardar(new Cuenta(cuentaId, "Mi cuenta", "due@ejemplo.pe"));
-        service = new GestionarEmpresasService(tenants, cuentas, Fakes.UOW);
+        service = new GestionarEmpresasService(tenants, cuentas, Fakes.UOW, cupo);
     }
 
     @Test void elRucSeValidaConModulo11YPrefijo() {
@@ -69,5 +70,30 @@ class GestionarEmpresasServiceTest {
         service.exigirPertenencia(cuentaId, t.id());
         assertThatThrownBy(() -> service.exigirPertenencia(UUID.randomUUID(), t.id()))
                 .isInstanceOf(DomainException.class);
+    }
+
+    // --- #498: el tope de RUCs del plan ----------------------------------------------------------------------------------------------
+
+    @Test void unaEmpresaMasPideLugarEnElPlanDeLaCuenta() {
+        service.crear(cuentaId, "20100066603", "Comercial Andina SAC", Entorno.BETA);
+
+        assertThat(cupo.pedidos).containsExactly(pe.factura.domain.plan.RecursoDelPlan.RUCS);
+        assertThat(cupo.cuentas).containsExactly(cuentaId);
+    }
+
+    @Test void sinLugarEnElPlanNoSeCreaNiSeAsignaLaEmpresa() {
+        cupo.lleno = true;
+
+        assertThatThrownBy(() -> service.crear(cuentaId, "20100066603", "Comercial Andina SAC", Entorno.BETA))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CUPO_DEL_PLAN");
+
+        assertThat(tenants.buscarPorRuc("20100066603")).isEmpty();
+        assertThat(tenants.listarPorCuenta(cuentaId)).isEmpty();
+    }
+
+    /** Un RUC inválido o repetido se dice antes que el plan: no se le pide cupo a lo que de todos modos no se crearía. */
+    @Test void loInvalidoNoGastaCupo() {
+        assertThatThrownBy(() -> service.crear(cuentaId, "20123456789", "X", Entorno.BETA)).extracting("codigo").isEqualTo("RUC_INVALIDO");
+        assertThat(cupo.pedidos).isEmpty();
     }
 }

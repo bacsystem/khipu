@@ -6,8 +6,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.filter.OncePerRequestFilter;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
+import pe.factura.application.port.out.SuspensionRepository;
 import pe.factura.application.port.out.TenantRepository;
 import pe.factura.application.port.out.TokenEmisor;
+import pe.factura.application.port.out.UsuarioRepository;
+import pe.factura.domain.cuenta.Permiso;
+import pe.factura.domain.cuenta.Rol;
+import pe.factura.domain.cuenta.Usuario;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -21,6 +27,9 @@ import java.util.UUID;
  * ({@link CuentaActual}) y, cuando la cabecera {@code X-Empresa} identifica una empresa de esa
  * cuenta, también el tenant activo ({@link TenantActual}) para que los controladores existentes
  * (pensados para API key) funcionen sin cambios.
+ * <p>
+ * Aplica también el rol del usuario (#21): qué permiso pide cada ruta lo dice {@link PermisoDeRuta}, y si el rol que el usuario tiene en la base no lo incluye responde
+ * {@code 403 ROL_INSUFICIENTE}. Una API key no pasa por aquí y no depende de roles (ver {@link PermisoDeRuta}).
  */
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
@@ -28,6 +37,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final TokenEmisor tokenEmisor;
     private final TenantRepository tenants;
+    private final UsuarioRepository usuarios;
+    private final SuspensionRepository suspensiones;
+    private final AceptarTerminosUseCase terminos;
 
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String ruta = RutaRequest.rutaNormalizada(req);
@@ -46,6 +58,58 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
+        String ruta = RutaRequest.rutaNormalizada(req);
+        // Lo que no escribe, con la misma definición que el rol (PermisoDeRuta.esLectura): GET, HEAD, OPTIONS y los POST que solo leen, como la conciliación del SIRE.
+        boolean lectura = PermisoDeRuta.esLectura(req.getMethod(), ruta);
+
+        // Una sesión de soporte (#184: un administrador mirando el portal como un cliente) solo puede mirar: nada que escriba, ni siquiera lo de la propia sesión
+        // (/v1/auth/**). Es lo que garantiza que no cambie la contraseña, las credenciales SOL ni nada más del cliente, y que no emita en su nombre. Va antes que
+        // todo lo demás: ni se consulta la base.
+        if (claims.get().esSoporte() && !lectura) {
+            escribirError(res, 403, "SOPORTE_SOLO_LECTURA", "Estás viendo el portal en modo soporte: solo se puede mirar, no cambiar nada");
+            return;
+        }
+
+        // Una cuenta suspendida (#182) no entra: ni a mirar ni a escribir, y tampoco con una sesión que ya estaba abierta, porque se mira la
+        // cuenta en la base y no el token. Después de validar el token: quien presenta uno inválido no se entera del estado de ninguna cuenta.
+        // Lo de la propia sesión (/v1/auth/**: quién soy, cerrar sesión) sigue funcionando, para que el portal pueda decirle «tu cuenta está
+        // suspendida» en vez de mostrarle un error suelto.
+        if (!ruta.startsWith("/v1/auth/") && suspensiones.cuentaSuspendida(claims.get().cuentaId())) {
+            escribirError(res, 403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
+            return;
+        }
+
+        // Fuera de lo de la propia sesión (/v1/auth/**: quién soy, reenviar el enlace, cerrar sesión), el usuario se mira en la base y no en el token: desactivado,
+        // con el rol cambiado o con el correo verificado en otra pestaña, la siguiente petición ya lo refleja.
+        if (!ruta.startsWith("/v1/auth/")) {
+            Optional<Usuario> usuario = usuarios.buscar(claims.get().usuarioId())
+                    .filter(Usuario::activo).filter(u -> u.cuentaId().equals(claims.get().cuentaId()));
+            // Desactivado por un administrador de su cuenta (#21): ni a mirar. Falla cerrado también si el usuario ya no existe.
+            if (usuario.isEmpty()) {
+                escribirError(res, 401, "NO_AUTORIZADO", "Token inválido o expirado");
+                return;
+            }
+            // Sin verificar el correo (#22) se puede entrar y mirar, pero no escribir: ni crear empresas ni emitir.
+            if (!lectura && !usuario.get().correoVerificado()) {
+                escribirError(res, 403, "CORREO_SIN_VERIFICAR", "Verifica tu correo para continuar: te enviamos un enlace");
+                return;
+            }
+            // #342: sin aceptar la versión vigente de los términos tampoco se escribe con la sesión del portal (un usuario anterior a V64, o
+            // uno que aceptó una versión que cambió). Aceptarlos es /v1/auth/terminos, que queda afuera como todo /v1/auth/**. Una API key no
+            // pasa por aquí: los integradores no dependen de esto.
+            if (!lectura && terminos.pendiente(usuario.get().id())) {
+                escribirError(res, 403, "TERMINOS_PENDIENTES", "Acepta la versión vigente de los términos del servicio y la política de privacidad para continuar");
+                return;
+            }
+            // El rol (#21): lo que pide la ruta contra lo que permite el rol que el usuario tiene hoy en la base, no el del token.
+            Permiso permiso = PermisoDeRuta.requerido(req.getMethod(), ruta);
+            if (!usuario.get().rol().puede(permiso)) {
+                escribirError(res, 403, "ROL_INSUFICIENTE", mensajeDeRol(usuario.get().rol(), permiso));
+                return;
+            }
+        }
+
+        if (claims.get().esSoporte()) req.setAttribute(SoporteActual.ATRIBUTO, claims.get().soporte());
         req.setAttribute(CuentaActual.ATRIBUTO, claims.get().cuentaId());
         req.setAttribute(UsuarioActual.ATRIBUTO, claims.get().usuarioId());
 
@@ -66,6 +130,16 @@ public class JwtFilter extends OncePerRequestFilter {
             req.setAttribute(TenantActual.ATRIBUTO, tenantId);
         }
         chain.doFilter(req, res);
+    }
+
+    /** Sin comillas ni barras: va tal cual dentro del JSON de {@link #escribirError}. */
+    static String mensajeDeRol(Rol rol, Permiso permiso) {
+        String que = switch (permiso) {
+            case EMITIR -> "emitir ni cambiar comprobantes";
+            case GESTIONAR_EQUIPO -> "gestionar los usuarios de la cuenta";
+            case CONFIGURAR, LEER -> "gestionar la configuración de la empresa ni sus API keys";
+        };
+        return "Tu rol (" + rol.etiqueta() + ") no permite " + que + ". Pídeselo a un administrador de la cuenta";
     }
 
     private static void escribirError(HttpServletResponse res, int status, String codigo, String mensaje) throws IOException {

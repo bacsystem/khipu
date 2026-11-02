@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import pe.factura.application.port.in.*;
@@ -23,17 +23,19 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = FacturaController.class, excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@WebMvcTest(controllers = {FacturaController.class, EnvioAlClienteController.class})
 @Import(GlobalExceptionHandler.class)
 class FacturaControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @MockBean EmitirComprobanteUseCase emitir;
-    @MockBean EnviarDocumentoUseCase enviar;
-    @MockBean ConsultarComprobanteUseCase consultar;
-    @MockBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
-    @MockBean CompartirComprobanteUseCase compartir;
-    @MockBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
+    @MockitoBean EmitirComprobanteUseCase emitir;
+    @MockitoBean pe.factura.application.port.in.ValidarCompradorUseCase comprador;
+    @MockitoBean EnviarDocumentoUseCase enviar;
+    @MockitoBean ConsultarComprobanteUseCase consultar;
+    @MockitoBean pe.factura.application.port.in.DarDeBajaUseCase bajas;
+    @MockitoBean CompartirComprobanteUseCase compartir;
+    @MockitoBean pe.factura.application.port.in.RecuperarCdrUseCase cdrs;
+    @MockitoBean EnviarAlClienteUseCase envioAlCliente;
 
     UUID tenant = UUID.randomUUID();
 
@@ -106,6 +108,80 @@ class FacturaControllerTest {
                         .content("{\"email\":\"z@y.pe\"}"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.codigo").value("CORREO_NO_ENVIADO"));
+
+        doThrow(new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está configurado en el servidor"))
+                .when(compartir).enviarPorCorreo(eq(tenant), eq(id), eq("w@y.pe"), isNull());
+        mvc.perform(post("/v1/facturas/{id}/correo", id).requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content("{\"email\":\"w@y.pe\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.codigo").value("CORREO_NO_CONFIGURADO"));
+    }
+
+    // --- #325: envío automático al cliente --------------------------------------------------------------------------------------
+
+    @Test void elCorreoDelClienteLlegaAlComandoYVuelveEnElReceptor() throws Exception {
+        Comprobante c = aceptado(tenant);
+        c.dirigirA("compras@cliente.pe");
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                        .content(cuerpo.replace("\"direccion\":\"AV 1\"}", "\"direccion\":\"AV 1\",\"email\":\"Compras@Cliente.pe\"}")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.receptor.email").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente").doesNotExist());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().correoCliente()).as("se normaliza en el dominio").isEqualTo("Compras@Cliente.pe");
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo)).andExpect(status().isCreated());
+        verify(emitir, times(2)).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().correoCliente()).as("sin email, sin correo").isNull();
+    }
+
+    @Test void elDetalleDiceSiElComprobanteSalioAlCliente() throws Exception {
+        Comprobante c = aceptado(tenant);
+        c.dirigirA("compras@cliente.pe");
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        Instant enviado = Instant.parse("2026-09-13T15:00:12Z");
+        when(envioAlCliente.envioDe(tenant, c.id())).thenReturn(java.util.Optional.of(new EnvioAlCliente(c.id(), "compras@cliente.pe", EnvioAlCliente.Estado.ENVIADO, 1, null,
+                Instant.parse("2026-09-13T15:00:00Z"), enviado, Instant.parse("2026-09-13T15:00:00Z"))));
+
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.receptor.email").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.destinatario").value("compras@cliente.pe"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.estado").value("ENVIADO"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.intentos").value(1))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.enviado_en").value("2026-09-13T15:00:12Z"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.siguiente_intento").doesNotExist());
+
+        when(envioAlCliente.envioDe(tenant, c.id())).thenReturn(java.util.Optional.of(new EnvioAlCliente(c.id(), "compras@cliente.pe", EnvioAlCliente.Estado.PENDIENTE, 1, "SMTP caído",
+                Instant.parse("2026-09-13T15:01:00Z"), null, Instant.parse("2026-09-13T15:00:00Z"))));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.estado").value("PENDIENTE"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.ultimo_error").value("SMTP caído"))
+                .andExpect(jsonPath("$.datos.envio_al_cliente.siguiente_intento").value("2026-09-13T15:01:00Z"));
+    }
+
+    @Test void laPreferenciaDeEnvioAlClienteSeVeYSeCambia() throws Exception {
+        when(envioAlCliente.preferencia(tenant)).thenReturn(new EnviarAlClienteUseCase.Preferencia(false, true));
+        mvc.perform(get("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.enviar_automaticamente").value(false))
+                .andExpect(jsonPath("$.datos.correo_disponible").value(true));
+
+        when(envioAlCliente.fijarPreferencia(tenant, true)).thenReturn(new EnviarAlClienteUseCase.Preferencia(true, true));
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"enviar_automaticamente\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.enviar_automaticamente").value(true));
+
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+
+        when(envioAlCliente.fijarPreferencia(tenant, true)).thenThrow(new DomainException("CORREO_NO_CONFIGURADO", "El envío de correos no está habilitado en el servidor"));
+        mvc.perform(put("/v1/empresa/envio-al-cliente").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"enviar_automaticamente\":true}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.codigo").value("CORREO_NO_CONFIGURADO"));
     }
 
     @Test void lasObservacionesLleganAlComandoYVuelvenEnLaRespuesta() throws Exception {
@@ -119,6 +195,107 @@ class FacturaControllerTest {
         ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
         verify(emitir).emitirFactura(eq(tenant), cap.capture());
         assertThat(cap.getValue().observaciones()).isEqualTo("Entrega en almacén.");
+    }
+
+    /** #378: SUNAT acepta un comprobante a un RUC de baja o no habido con una observación (4013, 4014); la respuesta lo dice sin dejar de ser un 201. */
+    @Test void laRespuestaAvisaLoQueSunatObservaDelRucDelComprador() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of(
+                new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4013", "El RUC 20601234565 del comprador no está activo en SUNAT (BAJA DE OFICIO): SUNAT aceptará el comprobante con una observación"),
+                new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4014", "El RUC 20601234565 del comprador figura como no habido en SUNAT: SUNAT aceptará el comprobante con una observación")));
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.estado").value("exito"))
+                .andExpect(jsonPath("$.datos.numero").value(601))
+                .andExpect(jsonPath("$.avisos.length()").value(2))
+                .andExpect(jsonPath("$.avisos[0].codigo").value("4013"))
+                .andExpect(jsonPath("$.avisos[1].codigo").value("4014"))
+                .andExpect(jsonPath("$.avisos[1].mensaje").value(org.hamcrest.Matchers.containsString("no habido")));
+    }
+
+    @Test void sinNadaQueAvisarLaRespuestaNoTraeElCampo() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(c);
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of());
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.avisos").doesNotExist());
+    }
+
+    /** Con clave de idempotencia es otro camino del controlador: también avisa. */
+    @Test void conClaveDeIdempotenciaLaRespuestaTambienAvisa() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(c, false));
+        when(comprador.avisosDe(c.receptor())).thenReturn(List.of(new pe.factura.application.port.in.ValidarCompradorUseCase.Aviso("4013", "no activo")));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isCreated()).andExpect(jsonPath("$.avisos[0].codigo").value("4013"));
+    }
+
+    // --- #115: Idempotency-Key ---------------------------------------------------------------------------------------------------
+
+    static final String CLAVE = "5f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+
+    private org.springframework.test.web.servlet.ResultActions emitirConClave(String clave, String cuerpoJson) throws Exception {
+        return mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json")
+                .header("Idempotency-Key", clave).content(cuerpoJson));
+    }
+
+    private pe.factura.application.port.in.Idempotencia claveRecibida() {
+        ArgumentCaptor<pe.factura.application.port.in.Idempotencia> cap = ArgumentCaptor.forClass(pe.factura.application.port.in.Idempotencia.class);
+        verify(emitir, atLeastOnce()).emitirFactura(eq(tenant), any(), cap.capture());
+        return cap.getValue();
+    }
+
+    @Test void conClaveLaEmisionNuevaEs201YLlevaLaClaveYUnaHuellaDelPedido() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isCreated()).andExpect(jsonPath("$.datos.numero").value(601));
+
+        pe.factura.application.port.in.Idempotencia idem = claveRecibida();
+        assertThat(idem.clave()).isEqualTo(CLAVE);
+        assertThat(idem.huella()).matches("[0-9a-f]{64}");
+        verify(emitir, never()).emitirFactura(any(), any());
+    }
+
+    /** El reintento devuelve el mismo comprobante con 200: no se creó nada nuevo. */
+    @Test void unPedidoRepetidoEs200ConElMismoComprobante() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), true));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isOk()).andExpect(jsonPath("$.datos.numero").value(601));
+    }
+
+    /** La huella es del pedido interpretado, no de sus bytes: espacios o saltos de línea distintos son el mismo pedido. */
+    @Test void laHuellaNoDependeDelFormatoDelJsonPeroSiDeSusDatos() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+
+        emitirConClave(CLAVE, cuerpo);
+        String original = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+        emitirConClave(CLAVE, cuerpo.replace("\n", "\n\n  ").replace(":", " : "));
+        String reformateado = claveRecibida().huella();
+        reset(emitir);
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenReturn(new EmitirComprobanteUseCase.Emision(aceptado(tenant), false));
+        emitirConClave(CLAVE, cuerpo.replace("CLIENTE SAC", "OTRO CLIENTE SAC"));
+        String otroCliente = claveRecibida().huella();
+
+        assertThat(reformateado).isEqualTo(original);
+        assertThat(otroCliente).isNotEqualTo(original);
+    }
+
+    @Test void unaClaveMalFormadaEs422SinEmitir() throws Exception {
+        for (String mala : List.of("", "corta", "con espacios aquí", "a".repeat(101), "../../x", "<script>"))
+            emitirConClave(mala, cuerpo).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
+        verifyNoInteractions(emitir);
+    }
+
+    @Test void laMismaClaveConOtroPedidoEs422() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any(), any())).thenThrow(new DomainException("IDEMPOTENCIA_INVALIDA", "La clave ya se usó con otro contenido"));
+
+        emitirConClave(CLAVE, cuerpo).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("IDEMPOTENCIA_INVALIDA"));
     }
 
     @Test void enlaceCdrSoloCuandoHayConstancia() throws Exception {
@@ -158,12 +335,42 @@ class FacturaControllerTest {
         assertThat(cap.getValue().items().get(0).afectacion()).isEqualTo(TipoAfectacionIgv.GRAVADO);
     }
 
+    /** #20: la misma ruta emite una boleta con una serie B###, y un comprador sin documento viaja como «-». Otra letra sigue siendo un 422 de validación. */
+    @Test void unaSerieBPasaAlServicioComoBoletaYOtraLetraEs422() throws Exception {
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(aceptado(tenant));
+        String boleta = cuerpo.replace("\"F001\"", "\"B001\"").replace("\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"CLIENTE SAC\"",
+                "\"tipo_doc\":\"-\",\"num_doc\":\"-\",\"razon_social\":\"CLIENTES VARIOS\"");
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(boleta)).andExpect(status().isCreated());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        org.mockito.Mockito.verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().serie()).isEqualTo("B001");
+        assertThat(cap.getValue().receptor().sinDocumento()).isTrue();
+
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"F001\"", "\"T001\"")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.errores.serie").exists());
+    }
+
     @Test void validacionDeDtoDevuelve422() throws Exception {
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content("{\"serie\":\"F001\",\"items\":[]}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
                 .andExpect(jsonPath("$.errores.cliente").exists())
                 .andExpect(jsonPath("$.errores.items").exists());
+    }
+
+    /**
+     * H5 (revisión de #354): un elemento nulo de `items` (`[null]`, o 1000 nulos que ni llegan al tope de líneas) no lo ataja `@Valid` y reventaba al mapear al dominio con 500
+     * INTERNO; es un 422 VALIDACION sin llegar al caso de uso.
+     */
+    @Test void unItemNuloEs422DeValidacionYNoUn500() throws Exception {
+        String cuerpo = "{\"serie\":\"F001\",\"fecha_emision\":\"2026-09-13\",\"moneda\":\"PEN\",\"cliente\":{\"tipo_doc\":\"6\",\"num_doc\":\"20601234565\",\"razon_social\":\"CLIENTE SAC\"},\"items\":[%s]}";
+        for (String items : List.of("null", String.join(",", java.util.Collections.nCopies(1000, "null"))))
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.formatted(items)))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                    .andExpect(jsonPath("$.errores['items[0]']").exists());
+        verify(emitir, never()).emitirFactura(any(), any());
+        verify(emitir, never()).emitirFactura(any(), any(), any());
     }
 
     @Test void errorDeDominioSeMapea() throws Exception {
@@ -188,6 +395,29 @@ class FacturaControllerTest {
         when(enviar.enviar(tenant, c.id())).thenReturn(c);
         mvc.perform(post("/v1/facturas/{id}/enviar", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO"));
+    }
+
+    /**
+     * #331: una boleta enviada pasado el 7.º día se informa en un resumen diario fuera de plazo. La respuesta del envío trae ese resumen (`baja`, condición ALTA)
+     * con `fuera_de_plazo: true`, para que el integrador sepa por qué queda ACEPTADO_CON_OBS (4443) sin consultar aparte.
+     */
+    @Test void enviarUnaBoletaFueraDePlazoAvisaQueSeInformoFueraDePlazo() throws Exception {
+        Clock dia10 = Clock.fixed(Instant.parse("2026-09-20T15:00:00Z"), ZoneId.of("America/Lima"));
+        Comprobante b = Comprobante.persistido(UUID.randomUUID(), tenant, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.FIRMADO,
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)))
+                .firma("H", "20100066603-03-B001-7", "k.xml").rehidratar();
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(b, 1, dia10);
+        b.informarEnResumen(alta.identificador(), alta.fueraDePlazo());
+        b.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260920-1, ha sido aceptado", List.of("4443 - El comprobante fue informado fuera del plazo establecido")), "r.zip");
+        when(enviar.enviar(tenant, b.id())).thenReturn(b);
+        when(bajas.deComprobante(tenant, b.id())).thenReturn(List.of(alta));
+        mvc.perform(post("/v1/facturas/{id}/enviar", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.estado_documento").value("ACEPTADO_CON_OBS"))
+                .andExpect(jsonPath("$.datos.cdr.observaciones[0]").value("4443 - El comprobante fue informado fuera del plazo establecido"))
+                .andExpect(jsonPath("$.datos.baja.identificador").value("RC-20260920-1"))
+                .andExpect(jsonPath("$.datos.baja.condicion").value("ALTA"))
+                .andExpect(jsonPath("$.datos.baja.fuera_de_plazo").value(true));
     }
 
     @Test void listarDevuelveListaYTotalEnHeader() throws Exception {
@@ -236,6 +466,186 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos[0].serie").value("F001"));
         mvc.perform(get("/v1/facturas?serie=F0001").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    /** Filtros por tipo, cliente y número (#326): llegan al caso de uso normalizados, se combinan con los demás y los inválidos responden 400. */
+    @Test void listarFiltraPorTipoClienteYNumero() throws Exception {
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, null, null, "F001", "01", "andina sac", 125L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), eq(20))).thenReturn(List.of(aceptado(tenant)));
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        mvc.perform(get("/v1/facturas?serie=f001&tipo=01&numero=125").param("cliente", " andina sac ").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string(FacturaController.TOTAL_HEADER, "1"))
+                .andExpect(jsonPath("$.datos[0].serie").value("F001"));
+        mvc.perform(get("/v1/facturas?tipo=09").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?numero=0").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?numero=abc").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas?cliente=" + "x".repeat(101)).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    /** Lee un ZIP en memoria: nombre de entrada → bytes. */
+    private static java.util.Map<String, byte[]> entradas(byte[] zip) throws java.io.IOException {
+        var resultado = new java.util.LinkedHashMap<String, byte[]>();
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            for (var e = in.getNextEntry(); e != null; e = in.getNextEntry()) resultado.put(e.getName(), in.readAllBytes());
+        }
+        return resultado;
+    }
+
+    /** Descarga masiva (#324): XML, PDF y CDR de lo que cumple el filtro, con los nombres del comprobante; un comprobante sin firma se omite y uno ilegible se anota. */
+    @Test void descargaEnZipLosArchivosDeLosComprobantesDelFiltro() throws Exception {
+        Comprobante a = aceptado(tenant);
+        Comprobante sinFirma = Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima")));
+        sinFirma.asignarNumero(603, "20100066603");
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, "01", null, null);
+        when(consultar.contar(tenant, filtro)).thenReturn(2L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), anyInt())).thenReturn(List.of(a, sinFirma));
+        when(consultar.xml(tenant, a.id())).thenReturn("<xml/>".getBytes());
+        when(consultar.pdf(tenant, a.id())).thenThrow(new DomainException("SIN_FIRMA", "no hay PDF"));
+        when(consultar.cdr(tenant, a.id())).thenReturn(new byte[]{1, 2, 3});
+
+        var inicio = mvc.perform(get("/v1/facturas/descarga?desde=2026-09-01&hasta=2026-09-30&tipo=01").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/zip"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"comprobantes-")))
+                .andReturn().getResponse();
+
+        var zip = entradas(respuesta.getContentAsByteArray());
+        assertThat(zip.keySet()).containsExactly(a.nombreArchivo() + ".xml", "R-" + a.nombreArchivo() + ".zip", "LEEME.txt");
+        assertThat(zip.get(a.nombreArchivo() + ".xml")).isEqualTo("<xml/>".getBytes());
+        assertThat(zip.get("R-" + a.nombreArchivo() + ".zip")).containsExactly(1, 2, 3);
+        assertThat(new String(zip.get("LEEME.txt"))).contains(a.nombreArchivo() + ".pdf").contains("no hay PDF");
+        verify(consultar, never()).xml(tenant, sinFirma.id());
+    }
+
+    @Test void descargaSoloLoQueSePideEnTipos() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, filtro)).thenReturn(1L);
+        when(consultar.listar(eq(tenant), eq(filtro), eq(1), anyInt())).thenReturn(List.of(a));
+        when(consultar.xml(tenant, a.id())).thenReturn("<xml/>".getBytes());
+        var inicio = mvc.perform(get("/v1/facturas/descarga?tipos=xml").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var zip = entradas(mvc.perform(asyncDispatch(inicio)).andReturn().getResponse().getContentAsByteArray());
+        assertThat(zip.keySet()).containsExactly(a.nombreArchivo() + ".xml");
+        verify(consultar, never()).pdf(any(), any());
+        verify(consultar, never()).cdr(any(), any());
+    }
+
+    /** El tope se comprueba antes de empezar: el cliente recibe un 422 con el número, no un ZIP cortado; sin resultados, 404; un tipo desconocido, 400. */
+    @Test void descargaRespetaElTopeYValidaLosParametros() throws Exception {
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos)).thenReturn(501L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("DESCARGA_EXCEDE_EL_TOPE"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("501")));
+        verify(consultar, never()).listar(any(), any(), anyInt(), anyInt());
+
+        when(consultar.contar(tenant, todos)).thenReturn(500L);
+        when(consultar.listar(eq(tenant), eq(todos), eq(1), anyInt())).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted());
+
+        when(consultar.contar(tenant, todos)).thenReturn(0L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+
+        mvc.perform(get("/v1/facturas/descarga?tipos=xml,exe").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    /** Aislamiento: el tenant del request es el único que llega a las consultas; un id ajeno no existe para él. */
+    @Test void descargaSoloLeeLoDeSuEmpresa() throws Exception {
+        UUID otro = UUID.randomUUID();
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(otro, todos)).thenReturn(0L);
+        mvc.perform(get("/v1/facturas/descarga").requestAttr(TenantActual.ATRIBUTO, otro)).andExpect(status().isNotFound());
+        verify(consultar, never()).contar(eq(tenant), any());
+    }
+
+    // --- #321: exportación a CSV / XLSX -----------------------------------------------------------------------------------------
+
+    static final java.util.Set<EstadoDocumento> NO_SON_VENTAS = java.util.Set.of(EstadoDocumento.RECHAZADO, EstadoDocumento.INVALIDO, EstadoDocumento.DESCARTADO);
+
+    private void conPagina(UUID t, ConsultarComprobanteUseCase.Filtro filtro, List<Comprobante> filas) {
+        when(consultar.listarPorLlave(eq(t), eq(filtro), any(), any(), isNull(), anyInt())).thenReturn(new ConsultarComprobanteUseCase.PaginaPorLlave(filas, null));
+    }
+
+    @Test void exportaEnCsvConLosMismosFiltrosDelListado() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var filtro = new ConsultarComprobanteUseCase.Filtro(EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "F001", "01", "andina", 7L);
+        when(consultar.contar(eq(tenant), eq(filtro), eq(java.util.Set.of()), any())).thenReturn(1L);
+        conPagina(tenant, filtro, List.of(a));
+
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?estado=ACEPTADO&desde=2026-09-01&hasta=2026-09-30&serie=f001&tipo=01&cliente=andina&numero=7")
+                .requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"comprobantes-2026-09-01_2026-09-30.csv\""))
+                .andReturn().getResponse();
+
+        String csv = new String(respuesta.getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("\uFEFFtipo,serie,numero,fecha_emision,");
+        assertThat(csv).contains("\r\n01,F001,601,2026-09-13,6,20601234565,CLIENTE SAC,PEN,,100.00,0.00,0.00,0.00,0.00,18.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,118.00,ACEPTADO,\r\n");
+        // Con el filtro de estado manda el filtro: no se excluye nada más.
+        verify(consultar).listarPorLlave(eq(tenant), eq(filtro), eq(java.util.Set.of()), any(), isNull(), anyInt());
+    }
+
+    @Test void exportaEnXlsxSinLosQueNoSonVentas() throws Exception {
+        Comprobante a = aceptado(tenant);
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(1L);
+        conPagina(tenant, todos, List.of(a));
+
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?formato=XLSX").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        var respuesta = mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.matchesPattern("attachment; filename=\"comprobantes-\\d{4}-\\d{2}-\\d{2}\\.xlsx\"")))
+                .andReturn().getResponse();
+
+        var libro = ExportacionDeComprobantesTest.libro(respuesta.getContentAsByteArray());
+        assertThat(libro).containsKey("xl/worksheets/sheet1.xml");
+        assertThat(libro.get("xl/sharedStrings.xml")).contains("CLIENTE SAC").contains("documento_modificado");
+        verify(consultar).listarPorLlave(eq(tenant), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()), isNull(), anyInt());
+    }
+
+    /** El tope se comprueba antes de escribir: un 422 con cuántos hay, no un archivo cortado. Sin resultados sale el archivo con la cabecera sola; los parámetros raros, 400. */
+    @Test void exportacionRespetaElTopeYValidaLosParametros() throws Exception {
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(5001L);
+        mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("EXPORTACION_EXCEDE_EL_TOPE"))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("5001")));
+        verify(consultar, never()).listarPorLlave(any(), any(), any(), any(), any(), anyInt());
+
+        when(consultar.contar(tenant, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(0L);
+        conPagina(tenant, todos, List.of());
+        var inicio = mvc.perform(get("/v1/facturas/exportacion?separador=punto_y_coma").requestAttr(TenantActual.ATRIBUTO, tenant)).andExpect(request().asyncStarted()).andReturn();
+        String vacio = new String(mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(vacio).isEqualTo("\uFEFF" + String.join(";", ExportacionDeComprobantes.COLUMNAS) + "\r\n");
+
+        mvc.perform(get("/v1/facturas/exportacion?formato=pdf").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas/exportacion?separador=tab").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+        mvc.perform(get("/v1/facturas/exportacion?desde=2026-10-01&hasta=2026-09-01").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("RANGO_INVALIDO"));
+    }
+
+    /** M5: aislamiento. Lo único que se consulta es la empresa del request; la otra, ni se cuenta ni se lee. */
+    @Test void exportacionSoloLeeLoDeSuEmpresa() throws Exception {
+        UUID otro = UUID.randomUUID();
+        var todos = new ConsultarComprobanteUseCase.Filtro(null, null, null, null, null, null, null);
+        when(consultar.contar(otro, todos, NO_SON_VENTAS, pe.factura.domain.documento.TipoDocumento.ventas())).thenReturn(1L);
+        conPagina(otro, todos, List.of(aceptado(otro)));
+        var inicio = mvc.perform(get("/v1/facturas/exportacion").requestAttr(TenantActual.ATRIBUTO, otro)).andExpect(request().asyncStarted()).andReturn();
+        mvc.perform(asyncDispatch(inicio)).andExpect(status().isOk());
+        verify(consultar).contar(eq(otro), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()));
+        verify(consultar).listarPorLlave(eq(otro), eq(todos), eq(NO_SON_VENTAS), eq(pe.factura.domain.documento.TipoDocumento.ventas()), isNull(), anyInt());
+        verify(consultar, never()).contar(eq(tenant), any(), any(), any());
+        verify(consultar, never()).listarPorLlave(eq(tenant), any(), any(), any(), any(), anyInt());
     }
 
     @Test void obtenerPorId() throws Exception {
@@ -287,6 +697,59 @@ class FacturaControllerTest {
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"R-20100066603-01-F001-601.zip\""))
                 .andExpect(content().contentTypeCompatibleWith("application/zip"))
                 .andExpect(content().bytes(new byte[]{1, 2, 3}));
+    }
+
+    /** Una boleta aceptada con el CDR del resumen diario RC-20260920-1 en que se la informó (#362 B10). */
+    private Comprobante boletaInformadaPorResumen() {
+        Clock dia10 = Clock.fixed(Instant.parse("2026-09-20T15:00:00Z"), ZoneId.of("America/Lima"));
+        Comprobante b = Comprobante.persistido(UUID.randomUUID(), tenant, TipoDocumento.BOLETA, "B001", 7L, LocalDate.of(2026, 9, 10), EstadoDocumento.FIRMADO,
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)))
+                .firma("H", "20100066603-03-B001-7", "k.xml").rehidratar();
+        ComunicacionBaja alta = ComunicacionBaja.altaEnResumen(b, 1, dia10);
+        b.informarEnResumen(alta.identificador(), alta.fueraDePlazo());
+        b.aplicarCdr(new Cdr("0", "El Resumen diario RC-20260920-1, ha sido aceptado", List.of()), "t/2026/09/R-20100066603-RC-20260920-1.zip");
+        return b;
+    }
+
+    /**
+     * #362 B10: el CDR de una boleta informada por resumen diario es el del resumen. Contenido y nombre de archivo no cambian (los integradores ya los usan:
+     * `R-<boleta>.zip`), pero la respuesta lo dice con la cabecera `X-Cdr-Resumen` y, en la consulta, con `cdr.resumen`.
+     */
+    @Test void elCdrDeUnaBoletaInformadaPorResumenDiceDeQueResumenEsSinCambiarElNombreDelArchivo() throws Exception {
+        Comprobante b = boletaInformadaPorResumen();
+        when(consultar.obtener(tenant, b.id())).thenReturn(b);
+        when(consultar.cdr(tenant, b.id())).thenReturn(new byte[]{1, 2, 3});
+        when(consultar.cdrXml(tenant, b.id())).thenReturn("<ar/>".getBytes());
+
+        mvc.perform(get("/v1/facturas/{id}/cdr", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"R-20100066603-03-B001-7.zip\""))
+                .andExpect(header().string("X-Cdr-Resumen", "RC-20260920-1"))
+                .andExpect(content().bytes(new byte[]{1, 2, 3}));
+        mvc.perform(get("/v1/facturas/{id}/cdr?formato=xml", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Cdr-Resumen", "RC-20260920-1"));
+        when(consultar.notasDe(any(), any())).thenReturn(List.of());
+        when(consultar.eventos(any(), any())).thenReturn(List.of());
+        mvc.perform(get("/v1/facturas/{id}", b.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.cdr.codigo").value("0"))
+                .andExpect(jsonPath("$.datos.cdr.resumen").value("RC-20260920-1"));
+    }
+
+    @Test void elCdrPropioDeUnComprobanteNoLlevaCabeceraNiCampoDeResumen() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(consultar.obtener(tenant, c.id())).thenReturn(c);
+        when(consultar.cdr(tenant, c.id())).thenReturn(new byte[]{1});
+        when(consultar.notasDe(any(), any())).thenReturn(List.of());
+        when(consultar.eventos(any(), any())).thenReturn(List.of());
+
+        mvc.perform(get("/v1/facturas/{id}/cdr", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Cdr-Resumen"));
+        mvc.perform(get("/v1/facturas/{id}", c.id()).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(jsonPath("$.datos.cdr.codigo").value("0"))
+                .andExpect(jsonPath("$.datos.cdr.resumen").doesNotExist());
     }
 
     @Test void descargaCdrComoXmlExtraido() throws Exception {
@@ -727,6 +1190,80 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.datos.items[0].isc.monto").value(4.50));
     }
 
+    /** #317: `otros_tributos` y `placa` entran al comando y salen en la respuesta con el monto calculado; el total del comprobante los suma. */
+    @Test void otrosTributosYPlacaEntranYSalen() throws Exception {
+        String conOtros = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\",\"otros_tributos\":{\"tasa\":3.5},\"placa\":\"ABC-123\"}");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                        new OtrosTributos(new BigDecimal("3.5")), "ABC-123")))
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conOtros))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.items[0].otros_tributos.tasa").value(3.5))
+                .andExpect(jsonPath("$.datos.items[0].otros_tributos.monto").value(3.50))
+                .andExpect(jsonPath("$.datos.items[0].placa").value("ABC-123"))
+                .andExpect(jsonPath("$.datos.totales.otros_tributos").value(3.50))
+                .andExpect(jsonPath("$.datos.totales.total").value(121.50));
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().items().get(0).otrosTributos()).isEqualTo(new OtrosTributos(new BigDecimal("3.5")));
+        assertThat(cap.getValue().items().get(0).placa()).isEqualTo("ABC-123");
+    }
+
+    @Test void otrosTributosConTasaInvalidaOPlacaLargaEs422DeValidacion() throws Exception {
+        for (String mal : new String[]{"\"otros_tributos\":{\"tasa\":0}", "\"otros_tributos\":{\"tasa\":1000}", "\"otros_tributos\":{\"tasa\":1.123456}", "\"placa\":\"ABCDEFGHI\""}) {
+            String cuerpoMalo = cuerpo.replace("\"tipo_afectacion_igv\":\"10\"}", "\"tipo_afectacion_igv\":\"10\"," + mal + "}");
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpoMalo))
+                    .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        }
+    }
+
+    /** #316: `tipo_cambio` entra al comando y la respuesta trae el equivalente en soles; una moneda del catálogo 02 distinta de PEN/USD/EUR se acepta. */
+    @Test void tipoDeCambioYOtrasMonedasEntranYSalen() throws Exception {
+        String conTipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"GBP\",\"tipo_cambio\":4.712,");
+        Comprobante c = aceptado(tenant);
+        when(emitir.emitirFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "GBP", "0101", c.receptor(), c.items())
+                .tipoCambio(new BigDecimal("4.712")).crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(conTipo))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.datos.moneda").value("GBP"))
+                .andExpect(jsonPath("$.datos.tipo_cambio").value(4.712))
+                .andExpect(jsonPath("$.datos.total_en_soles").isNumber());
+        ArgumentCaptor<EmitirFacturaCommand> cap = ArgumentCaptor.forClass(EmitirFacturaCommand.class);
+        verify(emitir).emitirFactura(eq(tenant), cap.capture());
+        assertThat(cap.getValue().moneda()).isEqualTo("GBP");
+        assertThat(cap.getValue().tipoCambio()).isEqualByComparingTo("4.712");
+    }
+
+    @Test void tipoDeCambioInvalidoEs422DeValidacion() throws Exception {
+        for (String mal : new String[]{"0", "-1", "1000", "3.7561"}) {
+            String cuerpoMalo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"USD\",\"tipo_cambio\":" + mal + ",");
+            mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpoMalo))
+                    .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+        }
+    }
+
+    /** #405: `/calcular` recibe el cuerpo de la emisión, responde los importes (200) y no emite nada. */
+    @Test void calcularResponde200ConLosImportesYNoEmite() throws Exception {
+        Comprobante c = aceptado(tenant);
+        when(emitir.calcularFactura(eq(tenant), any())).thenReturn(Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", c.receptor(), c.items())
+                .crear(Clock.fixed(Instant.parse("2026-09-13T15:00:00Z"), ZoneId.of("America/Lima"))));
+        mvc.perform(post("/v1/facturas/calcular").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.totales.total").isNumber())
+                .andExpect(jsonPath("$.datos.items[0].valor_venta").isNumber())
+                .andExpect(jsonPath("$.datos.numero").doesNotExist())
+                .andExpect(jsonPath("$.datos.enlaces").isEmpty());
+        verify(emitir, never()).emitirFactura(any(), any(), any());
+        verify(emitir, never()).emitirFactura(any(), any());
+    }
+
+    @Test void calcularConDatosInvalidosEs422DeValidacionComoLaEmision() throws Exception {
+        mvc.perform(post("/v1/facturas/calcular").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo.replace("\"moneda\":\"PEN\"", "\"moneda\":\"pen\"")))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.codigo").value("VALIDACION"));
+    }
+
     @Test void anticiposEntranYSalen() throws Exception {
         String conAnticipo = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"F001\",\"numero\":10,\"monto\":30.00,\"fecha_pago\":\"2026-09-01\"}],");
         Comprobante c = aceptado(tenant);
@@ -775,7 +1312,8 @@ class FacturaControllerTest {
     }
 
     @Test void anticipoConSerieInvalidaEs422DeValidacion() throws Exception {
-        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"B001\",\"numero\":10,\"monto\":30.00}],");
+        // La B es de una boleta de anticipo y se admite desde #295: la serie inválida es otra letra.
+        String mal = cuerpo.replace("\"moneda\":\"PEN\",", "\"moneda\":\"PEN\",\"anticipos\":[{\"serie\":\"X001\",\"numero\":10,\"monto\":30.00}],");
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(mal))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
@@ -825,5 +1363,13 @@ class FacturaControllerTest {
         when(cdrs.recuperar(eq(tenant), any())).thenThrow(new DomainException("CDR_YA_DISPONIBLE", "ya tiene su CDR"));
         mvc.perform(post("/v1/facturas/" + UUID.randomUUID() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("CDR_YA_DISPONIBLE"));
+    }
+
+    /** #357: la boleta y sus notas no tienen getStatusCdr en SUNAT; el pedido es válido pero el comprobante no lo admite, así que es un 409 con el motivo. */
+    @Test void recuperarCdrDeUnaBoletaEsUnConflictoConSuMotivo() throws Exception {
+        when(cdrs.recuperar(eq(tenant), any())).thenThrow(new DomainException("CDR_NO_CONSULTABLE", "SUNAT no consulta boletas por getStatusCdr"));
+        mvc.perform(post("/v1/facturas/" + UUID.randomUUID() + "/cdr/recuperar").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("CDR_NO_CONSULTABLE"))
+                .andExpect(jsonPath("$.mensaje").value("SUNAT no consulta boletas por getStatusCdr"));
     }
 }

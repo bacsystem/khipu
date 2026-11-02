@@ -3,26 +3,31 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
-import { mensajeError, messages } from "@/lib/messages";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
-import { emailSchema } from "@/lib/validacion";
+import { cn } from "@/lib/utils";
+import { esquemas } from "@/lib/validacion";
 
-const schema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Ingresa tu contraseña"),
-});
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = { email: string; password: string };
 
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(
+    () => z.object({ email: esquemas(messages).email, password: z.string().min(1, messages.validacion.passwordRequerida) }),
+    [messages],
+  );
   const [error, setError] = useState<string | null>(null);
   const {
     register,
@@ -59,15 +64,15 @@ export function LoginForm() {
         register={register("password")}
         error={errors.password?.message}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
       <div className="-mt-2 flex justify-end">
-        <Link href="/recuperar" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/recuperar" className="text-control text-muted-foreground hover:text-foreground">
           {messages.auth.login.olvidaste}
         </Link>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.login.enviando : messages.auth.login.enviar}
-      </Button>
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.login.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.auth.login.enviar}
+      </BotonAsync>
     </form>
   );
 }

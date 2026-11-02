@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { admiteBaja, admiteNotas, normalizarComprobante, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { admiteBaja, admiteNotas, esDeBoleta, normalizarComprobante, seInformaFueraDePlazo, totalDesdeHeaders, type Baja, type Comprobante } from "./facturas";
 
 /**
  * `admiteNotas` es la única puerta al flujo irreversible de notas (la ficha ofrece «Emitir nota» y `/nota` deja
@@ -8,13 +8,20 @@ import { admiteBaja, admiteNotas, normalizarComprobante, totalDesdeHeaders, type
 describe("admiteNotas", () => {
   const f = (tipo: string, estado_documento: string) => ({ tipo, estado_documento }) as Pick<Comprobante, "tipo" | "estado_documento">;
 
-  it("solo una factura aceptada por SUNAT, con o sin observaciones", () => {
+  it("una factura o una boleta aceptada por SUNAT, con o sin observaciones (#293: la boleta informada en el resumen también)", () => {
     expect(admiteNotas(f("01", "ACEPTADO"))).toBe(true);
     expect(admiteNotas(f("01", "ACEPTADO_CON_OBS"))).toBe(true);
+    expect(admiteNotas(f("03", "ACEPTADO"))).toBe(true);
+    expect(admiteNotas(f("03", "ACEPTADO_CON_OBS"))).toBe(true);
   });
 
-  it("no sobre boletas ni sobre otras notas: las boletas van en el resumen diario (#20) y el backend responde 2116", () => {
-    expect(admiteNotas(f("03", "ACEPTADO"))).toBe(false);
+  it("una boleta sin respuesta de SUNAT, pendiente del resumen o anulada no admite notas (2119/2120)", () => {
+    for (const estado of ["FIRMADO", "PENDIENTE_AGRUPACION", "ENVIADO", "ANULADO", "FUERA_DE_PLAZO"]) {
+      expect(admiteNotas(f("03", estado)), estado).toBe(false);
+    }
+  });
+
+  it("no sobre otras notas: el backend responde 2116", () => {
     expect(admiteNotas(f("07", "ACEPTADO"))).toBe(false);
     expect(admiteNotas(f("08", "ACEPTADO"))).toBe(false);
   });
@@ -30,6 +37,49 @@ describe("admiteNotas", () => {
     for (const estado of ["GENERADA", "ENVIADA", "ERROR_ENVIO"]) expect(admiteNotas(conBaja(estado)), estado).toBe(false);
     // Una baja rechazada por SUNAT no cambia nada: la factura sigue aceptada.
     expect(admiteNotas(conBaja("RECHAZADA"))).toBe(true);
+  });
+});
+
+/** #293: la boleta y sus notas se anulan en el resumen diario (RC), no en una comunicación de baja (RA). */
+describe("esDeBoleta", () => {
+  it("una boleta, o una nota cuyo documento afectado es una boleta", () => {
+    expect(esDeBoleta({ tipo: "03", nota: null })).toBe(true);
+    expect(esDeBoleta({ tipo: "07", nota: { tipo_afectado: "03" } })).toBe(true);
+    expect(esDeBoleta({ tipo: "08", nota: { tipo_afectado: "03" } })).toBe(true);
+  });
+
+  it("no una factura ni una nota sobre factura", () => {
+    expect(esDeBoleta({ tipo: "01", nota: null })).toBe(false);
+    expect(esDeBoleta({ tipo: "07", nota: { tipo_afectado: "01" } })).toBe(false);
+    expect(esDeBoleta({ tipo: "07" })).toBe(false);
+  });
+});
+
+/**
+ * #331: pasado el 7.º día una boleta firmada o con el envío fallido no vence: al enviarla khipu la informa en un resumen diario fuera de plazo y SUNAT la
+ * puede observarla (4443). La ficha lo avisa antes de enviar. Espeja `Comprobante.informaFueraDePlazo` del backend.
+ */
+describe("seInformaFueraDePlazo", () => {
+  type C = Parameters<typeof seInformaFueraDePlazo>[0];
+  const c = (tipo: string, estado_documento: string, nota: C["nota"] = null): C => ({ tipo, estado_documento: estado_documento as C["estado_documento"], fecha_limite_envio: "2026-10-07", nota });
+  const HOY = "2026-10-08";
+
+  it("una boleta o una nota B pendiente de envío, pasado su plazo", () => {
+    expect(seInformaFueraDePlazo(c("03", "FIRMADO"), HOY)).toBe(true);
+    expect(seInformaFueraDePlazo(c("03", "ERROR_ENVIO"), HOY)).toBe(true);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "03", motivo: "07" }), HOY)).toBe(true);
+  });
+
+  it("no el último día del plazo, ni lo que SUNAT ya tiene", () => {
+    expect(seInformaFueraDePlazo(c("03", "FIRMADO"), "2026-10-07")).toBe(false);
+    for (const estado of ["ENVIADO", "ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "FUERA_DE_PLAZO"]) expect(seInformaFueraDePlazo(c("03", estado), HOY), estado).toBe(false);
+  });
+
+  it("no una factura, su nota, ni la NC 10 / ND 03 de boleta: esas no van en el resumen y vencen", () => {
+    expect(seInformaFueraDePlazo(c("01", "FIRMADO"), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "01", motivo: "01" }), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("07", "FIRMADO", { tipo_afectado: "03", motivo: "10" }), HOY)).toBe(false);
+    expect(seInformaFueraDePlazo(c("08", "FIRMADO", { tipo_afectado: "03", motivo: "03" }), HOY)).toBe(false);
   });
 });
 
@@ -83,21 +133,54 @@ describe("admiteBaja", () => {
   const aceptada: Parameters<typeof admiteBaja>[0] = { tipo: "01", estado_documento: "ACEPTADO", fecha_emision: "2026-09-15", baja: null };
   const bajaEn = (estado: Baja["estado"]): Baja => ({ id: "b", identificador: "RA-20260918-1", comprobante: "F001-1", tipo_comprobante: "01", fecha_generacion: "2026-09-18", motivo: "m", estado, ticket: null, cdr: null, intentos: 1, ultimo_error: null });
 
-  it("acepta facturas y notas aceptadas (con o sin observaciones) dentro de los 7 días", () => {
+  it("acepta facturas, boletas y notas aceptadas (con o sin observaciones) dentro de los 7 días", () => {
     expect(admiteBaja(aceptada, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, tipo: "07", estado_documento: "ACEPTADO_CON_OBS" }, hoy)).toBe(true);
     expect(admiteBaja({ ...aceptada, fecha_emision: "2026-09-11" }, hoy)).toBe(true); // justo 7 días (regla 2957)
+    // #20: la boleta se anula en el resumen diario (RC), con el mismo plazo.
+    expect(admiteBaja({ ...aceptada, tipo: "03" }, hoy)).toBe(true);
+    expect(admiteBaja({ ...aceptada, tipo: "03", fecha_emision: "2026-09-10" }, hoy)).toBe(false);
   });
 
-  it("rechaza fuera de plazo, boletas, estados no aceptados y bajas en curso", () => {
+  it("#40: una retención o una percepción aceptada se revierte en un resumen de reversiones, que SUNAT no limita por la emisión, salvo con una reversión en curso", () => {
+    expect(admiteBaja({ ...aceptada, tipo: "20", fecha_emision: "2026-06-01" }, hoy)).toBe(true);
+    expect(admiteBaja({ ...aceptada, tipo: "40", fecha_emision: "2026-06-01" }, hoy)).toBe(true);
+    expect(admiteBaja({ ...aceptada, tipo: "20", estado_documento: "RECHAZADO" }, hoy)).toBe(false);
+    expect(admiteBaja({ ...aceptada, tipo: "40", baja: bajaEn("ENVIADA") }, hoy)).toBe(false);
+  });
+
+  it("rechaza fuera de plazo, estados no aceptados y bajas en curso", () => {
     expect(admiteBaja({ ...aceptada, fecha_emision: "2026-09-10" }, hoy)).toBe(false);
-    expect(admiteBaja({ ...aceptada, tipo: "03" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, estado_documento: "ANULADO" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, estado_documento: "FIRMADO" }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, baja: bajaEn("ENVIADA") }, hoy)).toBe(false);
     expect(admiteBaja({ ...aceptada, baja: bajaEn("ERROR_ENVIO") }, hoy)).toBe(false);
     // Una baja rechazada por SUNAT no bloquea un nuevo intento.
     expect(admiteBaja({ ...aceptada, baja: bajaEn("RECHAZADA") }, hoy)).toBe(true);
+  });
+
+  /**
+   * #302: el plazo se cuenta desde la emisión (regla de SUNAT desde 2027-01-01, la más estricta) y «hoy» es la fecha de Lima, no la UTC: el día 7
+   * se admite hasta las 23:59 de Lima aunque en UTC ya sea el 8, y el día 8 empieza a las 00:00 de Lima. Sin `hoy` explícito, como en la ficha.
+   */
+  describe("en el borde del día 7, en hora de Lima", () => {
+    afterEach(() => vi.useRealTimers());
+    const boleta: Parameters<typeof admiteBaja>[0] = { tipo: "03", estado_documento: "ACEPTADO", fecha_emision: "2026-09-13", baja: null };
+    const notaDeBoleta: Parameters<typeof admiteBaja>[0] = { ...boleta, tipo: "07" };
+
+    it("el día 7 a las 23:59 de Lima (ya el 8 en UTC) todavía admite la baja", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-21T04:59:59Z"));
+      expect(admiteBaja(boleta)).toBe(true);
+      expect(admiteBaja(notaDeBoleta)).toBe(true);
+    });
+
+    it("el día 8 a las 00:00 de Lima ya no la admite", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-21T05:00:00Z"));
+      expect(admiteBaja(boleta)).toBe(false);
+      expect(admiteBaja(notaDeBoleta)).toBe(false);
+    });
   });
 });
 
@@ -122,5 +205,18 @@ describe("filtros del listado (#6)", async () => {
   it("serializa los filtros como query string de la API", () => {
     expect(paramsDeFiltros({ estado: "ERROR_ENVIO", serie: "F001" }).toString()).toBe("estado=ERROR_ENVIO&serie=F001");
     expect(paramsDeFiltros({}).toString()).toBe("");
+  });
+
+  it("tipo, cliente y número (#326): solo lo que la API aceptaría, y el cliente recortado", () => {
+    expect(filtrosDesdeParams({ tipo: "03", cliente: "  andina  ", numero: "125" })).toEqual({ tipo: "03", cliente: "andina", numero: 125 });
+    for (const malo of ["", "02", "09", "factura"]) expect(filtrosDesdeParams({ tipo: malo }), malo).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "   " })).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "x".repeat(101) })).toEqual({});
+    expect(filtrosDesdeParams({ cliente: "x".repeat(100) })).toEqual({ cliente: "x".repeat(100) });
+    for (const malo of ["0", "-3", "abc", "1.5", "1234567890123"]) expect(filtrosDesdeParams({ numero: malo }), malo).toEqual({});
+  });
+
+  it("serializa tipo, cliente y número en el orden de la API, con el cliente codificado", () => {
+    expect(paramsDeFiltros({ estado: "ACEPTADO", serie: "F001", tipo: "01", cliente: "ñandú & cía", numero: 7 }).toString()).toBe("estado=ACEPTADO&serie=F001&tipo=01&cliente=%C3%B1and%C3%BA+%26+c%C3%ADa&numero=7");
   });
 });

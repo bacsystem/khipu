@@ -1,11 +1,9 @@
-# Suite de homologación contra e-beta (#32): cada noche y bajo demanda. Emite los escenarios de factura con el flujo
+# Suite de homologación contra e-beta (#32), solo bajo demanda (antes corría cada noche; CI no gasta minutos en pruebas automáticas, ver pruebas.yml). Emite los escenarios de factura con el flujo
 # completo (API → firma → XSD → SOAP) y exige CDR 0 sin observaciones; XML y CDR quedan como artifact (evidencia SUNAT).
 name: Homologación e-beta
 
 on:
-  schedule:
-    - cron: "0 6 * * *"   # 01:00 Lima
-  # Bajo demanda. Emite con el certificado de prueba del repo (OU = 20100066603); para otro RUC hay que definir los
+  # Emite con el certificado de prueba del repo (OU = 20100066603); para otro RUC hay que definir los
   # secretos HOMOLOGACION_RUC, HOMOLOGACION_CERT_B64 (PKCS#12 en base64 con OU = ese RUC) y HOMOLOGACION_CERT_CLAVE.
   workflow_dispatch:
 

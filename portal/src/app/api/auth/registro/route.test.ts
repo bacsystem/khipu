@@ -23,7 +23,7 @@ describe("POST /api/auth/registro", () => {
     vi.mocked(registrar).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await POST(postRequest({ nombre: "Mi cuenta", email: "a@b.com", password: "secreto1" }));
@@ -33,6 +33,34 @@ describe("POST /api/auth/registro", () => {
     expect(json.datos).not.toHaveProperty("access");
     expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("a1");
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("r1");
+  });
+
+  /** #342: el backend es quien decide; el BFF solo no deja que un «sí» que no sea `true` (p. ej. `"true"` o `1`) pase como aceptación. */
+  it("manda la aceptación de los términos al backend, y solo un true cuenta", async () => {
+    vi.mocked(registrar).mockResolvedValue({
+      access: "a1",
+      refresh: "r1",
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: false, terminos_pendientes: false },
+    });
+    const datos = { nombre: "Mi cuenta", email: "a@b.com", password: "secreto1", telefono: "987654321" };
+
+    await POST(postRequest({ ...datos, acepta_terminos: true }));
+    expect(registrar).toHaveBeenLastCalledWith({ ...datos, acepta_terminos: true });
+
+    for (const valor of [undefined, false, "true", 1]) {
+      await POST(postRequest({ ...datos, acepta_terminos: valor }));
+      expect(registrar).toHaveBeenLastCalledWith({ ...datos, acepta_terminos: false });
+    }
+  });
+
+  it("sin aceptar los términos devuelve el 400 del backend", async () => {
+    vi.mocked(registrar).mockRejectedValue(new ApiError(400, "TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos"));
+
+    const res = await POST(postRequest({ nombre: "Mi cuenta", email: "a@b.com", password: "secreto1", telefono: "987654321", acepta_terminos: false }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).codigo).toBe("TERMINOS_NO_ACEPTADOS");
+    expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
   });
 
   it("propaga el status y código de ApiError", async () => {
@@ -49,7 +77,7 @@ describe("POST /api/auth/registro", () => {
     vi.mocked(registrar).mockResolvedValue({
       access: "a1",
       refresh: "r1",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await POST(

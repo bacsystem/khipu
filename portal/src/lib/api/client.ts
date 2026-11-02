@@ -1,4 +1,4 @@
-import { ApiError, type ApiEnvelope } from "./types";
+import { ApiError, CODIGO_COMUNICACION, type ApiEnvelope } from "./types";
 
 /** URL con la que el servidor Next (BFF, Server Components) habla con la API; puede ser interna (Docker, red privada). */
 export function apiBaseUrl(): string {
@@ -35,7 +35,7 @@ export async function backendFetchConHeaders<T>(
   const texto = await res.text();
   if (!texto) {
     if (res.ok) return { datos: undefined as T, headers: res.headers };
-    throw new ApiError(res.status, null, "Error de comunicación con la API", null);
+    throw new ApiError(res.status, CODIGO_COMUNICACION, "API communication error", null);
   }
 
   const json = (() => {
@@ -48,8 +48,8 @@ export async function backendFetchConHeaders<T>(
   if (!res.ok || !json || json.estado === "error") {
     throw new ApiError(
       res.status,
-      json?.codigo ?? null,
-      json?.mensaje ?? "Error de comunicación con la API",
+      json?.codigo ?? CODIGO_COMUNICACION,
+      json?.mensaje ?? "API communication error",
       json?.errores ?? null,
     );
   }

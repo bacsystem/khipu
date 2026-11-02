@@ -17,8 +17,7 @@ public final class MontoEnLetras {
         BigDecimal m = monto.setScale(2, RoundingMode.HALF_UP);
         long entero = m.longValue();
         int centavos = m.remainder(BigDecimal.ONE).movePointRight(2).intValue();
-        String nombreMoneda = switch (moneda) { case "USD" -> "DOLARES AMERICANOS"; case "EUR" -> "EUROS"; default -> "SOLES"; };
-        return numero(entero) + " CON " + String.format("%02d", centavos) + "/100 " + nombreMoneda;
+        return numero(entero) + " CON " + String.format("%02d", centavos) + "/100 " + Monedas.nombreEnLetras(moneda);
     }
 
     static String numero(long n) {

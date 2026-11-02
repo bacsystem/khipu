@@ -7,19 +7,19 @@ describe("rutaSegura", () => {
   });
 
   it("usa el destino por defecto cuando no hay next", () => {
-    expect(rutaSegura(null)).toBe("/comprobantes");
+    expect(rutaSegura(null)).toBe("/inicio");
   });
 
   it("rechaza una URL absoluta a otro origen", () => {
-    expect(rutaSegura("https://evil.com")).toBe("/comprobantes");
+    expect(rutaSegura("https://evil.com")).toBe("/inicio");
   });
 
   it("rechaza un protocolo-relativo //evil.com", () => {
-    expect(rutaSegura("//evil.com")).toBe("/comprobantes");
+    expect(rutaSegura("//evil.com")).toBe("/inicio");
   });
 
   it("rechaza /\\evil.com (algunos navegadores lo tratan como protocolo-relativo)", () => {
-    expect(rutaSegura("/\\evil.com")).toBe("/comprobantes");
+    expect(rutaSegura("/\\evil.com")).toBe("/inicio");
   });
 
   // El navegador descarta estos caracteres al parsear la URL: lo que queda es "//evil.com".
@@ -29,11 +29,11 @@ describe("rutaSegura", () => {
     ["tab", "/\t/evil.com"],
     ["nulo", "/\0/evil.com"],
   ])("rechaza un next con %s intercalado", (_caso, next) => {
-    expect(rutaSegura(next)).toBe("/comprobantes");
+    expect(rutaSegura(next)).toBe("/inicio");
   });
 
   it("rechaza una barra invertida en cualquier posición, no solo al inicio", () => {
-    expect(rutaSegura("/comprobantes\\@evil.com")).toBe("/comprobantes");
+    expect(rutaSegura("/comprobantes\\@evil.com")).toBe("/inicio");
   });
 
   it("acepta una ruta interna con query y fragmento", () => {

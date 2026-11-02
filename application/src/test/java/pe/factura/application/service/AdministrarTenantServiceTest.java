@@ -6,6 +6,9 @@ import pe.factura.application.port.in.AdministrarTenantUseCase.TenantCreado;
 import pe.factura.application.port.out.ApiKeyRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.AccionAdmin;
+import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.plataforma.RegistroAuditoria;
 import pe.factura.domain.tenant.ApiKey;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Entorno;
@@ -30,22 +33,111 @@ class AdministrarTenantServiceTest {
         public Optional<ApiKey> buscar(UUID id) { return keys.values().stream().filter(k -> k.id().equals(id)).findFirst(); }
         public List<ApiKey> listarPorTenant(UUID tenantId) { return keys.values().stream().filter(k -> k.tenantId().equals(tenantId)).toList(); }
     };
-    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, Fakes.UOW, "pepper", Fakes.CLOCK, establecimientos);
+    Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+    Fakes.Auditoria auditoria = new Fakes.Auditoria();
+    { auditoria.uow = uow; }
+    Fakes.RechazosDeSol rechazosDeSol = new Fakes.RechazosDeSol();
+    Fakes.Cupo cupo = new Fakes.Cupo();
+    { cupo.uow = uow; }
+    AdministrarTenantService service = new AdministrarTenantService(tenants, series, apiKeys, uow, "pepper", Fakes.CLOCK, establecimientos, auditoria, rechazosDeSol, cupo);
+    static final ActorAdmin ACTOR = ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7");
 
     @Test void crearTenantDevuelveApiKeyUnaVez() {
-        TenantCreado r = service.crearTenant("20100066603", "EMPRESA SAC", Entorno.BETA);
+        TenantCreado r = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA);
         assertThat(r.apiKeyEnClaro()).startsWith("fk_").hasSize(43);
         assertThat(keys).containsKey(ApiKeyGenerator.hash(r.apiKeyEnClaro(), "pepper"));
         assertThat(tenants.buscarPorRuc("20100066603")).isPresent();
     }
 
     @Test void rucDuplicadoFalla() {
-        service.crearTenant("20100066603", "A", Entorno.BETA);
-        assertThatThrownBy(() -> service.crearTenant("20100066603", "B", Entorno.BETA)).extracting("codigo").isEqualTo("DUPLICADO");
+        service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA);
+        assertThatThrownBy(() -> service.crearTenant(ACTOR, "20100066603", "B", Entorno.BETA)).extracting("codigo").isEqualTo("DUPLICADO");
+    }
+
+    @Test void crearTenantDejaEnLaBitacoraQuienLoCreoYQueEmpresa() {
+        TenantCreado r = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA);
+
+        assertThat(auditoria.registros).hasSize(1);
+        RegistroAuditoria reg = auditoria.registros.get(0);
+        assertThat(reg.actor()).isEqualTo(ACTOR);
+        assertThat(reg.accion()).isEqualTo(AccionAdmin.CREAR_TENANT);
+        assertThat(reg.tenantId()).isEqualTo(r.tenant().id());
+        assertThat(reg.cuentaId()).isNull();
+        assertThat(reg.ocurridoEn()).isEqualTo(Fakes.CLOCK.instant());
+        assertThat(reg.detalle()).contains("20100066603");
+    }
+
+    @Test void laBitacoraNuncaLlevaLaApiKeyEnClaro() {
+        TenantCreado r = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA);
+        assertThat(auditoria.registros.get(0).detalle()).doesNotContain(r.apiKeyEnClaro());
+    }
+
+    @Test void elRegistroSeEscribeDentroDeLaTransaccionDeLaAccion() {
+        service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA);
+        assertThat(auditoria.dentroAlRegistrar).containsExactly(true);
+    }
+
+    @Test void siLaBitacoraFallaLaAccionFalla() {
+        auditoria.falla = new IllegalStateException("tabla de auditoría no disponible");
+        assertThatThrownBy(() -> service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test void unaAccionRechazadaNoDejaRegistro() {
+        service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA);
+        assertThatThrownBy(() -> service.crearTenant(ACTOR, "20100066603", "B", Entorno.BETA)).extracting("codigo").isEqualTo("DUPLICADO");
+        assertThatThrownBy(() -> service.crearTenant(ACTOR, "123", "C", Entorno.BETA)).isInstanceOf(DomainException.class);
+        assertThat(auditoria.registros).hasSize(1);
+    }
+
+    /** #107: corregir las credenciales levanta la marca de rechazadas, y con eso el outbox retoma los envíos de la empresa. */
+    /**
+     * LOG-05: el servicio lee la empresa, valida y guarda. Si entre la lectura y el guardado otro proceso cargó las credenciales SOL, guardar el certificado no las
+     * revierte: cada edición escribe solo su sección. Antes se guardaba el tenant entero tal como se había leído, con las SOL viejas.
+     */
+    @Test void cargarElCertificadoNoPisaLasCredencialesSolQueOtroGuardoEntreLaLecturaYElGuardado(@TempDir Path dir) throws Exception {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        service.cargarCredencialesSol(id, "VIEJO", "vieja");
+        byte[] vigente = p12(dir, "vigente", "2026/09/01 00:00:00", 365);
+        tenants.alBuscar = () -> tenants.guardarCredencialesSol(id, new pe.factura.domain.tenant.CredencialesSol("NUEVO", "nueva"));
+
+        service.cargarCertificado(id, vigente, CLAVE_P12);
+
+        pe.factura.domain.tenant.Tenant t = tenants.buscar(id).orElseThrow();
+        assertThat(t.certificado()).isNotNull();
+        assertThat(t.sol().usuario()).as("las SOL que otro guardó mientras tanto").isEqualTo("NUEVO");
+    }
+
+    @Test void guardarCredencialesNuevasLevantaElRechazo() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        rechazosDeSol.marcar(id, "0102 - Usuario o contrasena incorrectos", Fakes.CLOCK.instant());
+
+        service.cargarCredencialesSol(id, "MODDATOS", "moddatos");
+
+        assertThat(rechazosDeSol.filas).doesNotContainKey(id);
+    }
+
+    /** #318: las credenciales API SUNAT se guardan normalizadas, conviven con las SOL y se pueden borrar sin tocar lo demás. */
+    @Test void credencialesApiSunatSeGuardanYSeBorran() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        service.cargarCredencialesSol(id, "MODDATOS", "moddatos");
+
+        service.cargarCredencialesApiSunat(id, " d20b421e-4ace-46d8-ac8c-4fbb44cfde17 ", "HhWwZVo8ZaWm4BZ7n/xEzw==");
+
+        assertThat(tenants.buscar(id).get().apiSunat().clientId()).isEqualTo("d20b421e-4ace-46d8-ac8c-4fbb44cfde17");
+        assertThat(tenants.buscar(id).get().apiSunat().clientSecret()).isEqualTo("HhWwZVo8ZaWm4BZ7n/xEzw==");
+        assertThat(tenants.buscar(id).get().sol()).as("no pisa la clave SOL").isNotNull();
+
+        service.borrarCredencialesApiSunat(id);
+        assertThat(tenants.buscar(id).get().apiSunat()).isNull();
+        assertThat(tenants.buscar(id).get().sol()).isNotNull();
+        service.borrarCredencialesApiSunat(id);   // idempotente
+        assertThatThrownBy(() -> service.cargarCredencialesApiSunat(id, "id con espacios", "x")).extracting("codigo").isEqualTo("CREDENCIALES_API_SUNAT_INVALIDAS");
+        assertThatThrownBy(() -> service.borrarCredencialesApiSunat(UUID.randomUUID())).extracting("codigo").isEqualTo("NO_ENCONTRADO");
     }
 
     @Test void credencialesYSerie() {
-        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         service.cargarCredencialesSol(id, "MODDATOS", "moddatos");
         assertThat(tenants.buscar(id).get().sol().usernameToken("20100066603")).isEqualTo("20100066603MODDATOS");
         service.crearSerie(id, TipoDocumento.FACTURA, "F001", 10);
@@ -53,8 +145,20 @@ class AdministrarTenantServiceTest {
         assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "B001", 0)).extracting("codigo").isEqualTo("SERIE_INVALIDA");
     }
 
+    /** #40: una serie R### o P### solo para la empresa que SUNAT designó agente de ese tipo. */
+    @Test void lasSeriesDeRetencionYPercepcionPidenLaDesignacion() {
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.RETENCION, "R001", 0)).hasMessageStartingWith("2617").extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.PERCEPCION, "P001", 0)).hasMessageStartingWith("4285").extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        tenants.guardar(tenants.buscar(id).orElseThrow().conAgente(new pe.factura.domain.tenant.DesignacionDeAgente(true, false)));
+        service.crearSerie(id, TipoDocumento.RETENCION, "R001", 0);
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.PERCEPCION, "P001", 0)).extracting("codigo").isEqualTo("AGENTE_NO_DESIGNADO");
+        assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.RETENCION, "F002", 0)).extracting("codigo").isEqualTo("SERIE_INVALIDA");
+        assertThat(service.listarSeries(id)).extracting(Serie::codigo).containsExactly("R001");
+    }
+
     @Test void establecimientosAnexosYSeriesPorEstablecimiento() {
-        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         Domicilio dom = Domicilio.de("150122", "Av. Larco 345");
         // Serie en un anexo que no existe: se rechaza antes de crearla.
         assertThatThrownBy(() -> service.crearSerie(id, TipoDocumento.FACTURA, "F002", 0, "0002")).extracting("codigo").isEqualTo("ESTABLECIMIENTO_INVALIDO");
@@ -77,7 +181,7 @@ class AdministrarTenantServiceTest {
     }
 
     @Test void certificadoInvalidoFalla() {
-        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         assertThatThrownBy(() -> service.cargarCertificado(id, new byte[]{1, 2, 3}, "x"))
                 .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CERTIFICADO_INVALIDO");
     }
@@ -89,7 +193,7 @@ class AdministrarTenantServiceTest {
      * correlativo ya gastado.
      */
     @Test void vigenciaDelCertificado(@TempDir Path dir) throws Exception {
-        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
 
         byte[] vigente = p12(dir, "vigente", "2026/09/01 00:00:00", 365);
         byte[] futuro = p12(dir, "futuro", "2026/10/23 00:00:00", 365);
@@ -109,11 +213,13 @@ class AdministrarTenantServiceTest {
 
     private static final String CLAVE_P12 = "secreto";
 
-    /** Genera un PKCS#12 autofirmado con el RUC en el OU y una ventana de vigencia exacta. `keytool` viene con el JDK. */
+    /** Genera un PKCS#12 autofirmado con el RUC en el OU y una ventana de vigencia exacta en hora de Lima (como la lee el servicio). `keytool` viene con el JDK. */
     private static byte[] p12(Path dir, String nombre, String desde, int dias) throws Exception {
         Path archivo = dir.resolve(nombre + ".p12");
         Process p = new ProcessBuilder(
                 Path.of(System.getProperty("java.home"), "bin", "keytool").toString(),
+                // -startdate se lee en la zona del proceso: sin fijarla, en un runner UTC el certificado vence un día antes en hora de Lima.
+                "-J-Duser.timezone=America/Lima",
                 "-genkeypair", "-alias", nombre, "-keyalg", "RSA", "-keysize", "2048",
                 "-dname", "CN=TEST,OU=20100066603,O=Khipu,C=PE",
                 "-keystore", archivo.toString(), "-storetype", "PKCS12",
@@ -126,7 +232,7 @@ class AdministrarTenantServiceTest {
     }
 
     @Test void listaYRevocaApiKeys() {
-        UUID id = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
+        UUID id = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
         String segunda = service.crearApiKey(id);
         List<ApiKey> lista = service.listarApiKeys(id);
         assertThat(lista).hasSize(2).allSatisfy(k -> {
@@ -145,8 +251,8 @@ class AdministrarTenantServiceTest {
     }
 
     @Test void revocarApiKeyDeOtroTenantEsNoEncontrado() {
-        UUID a = service.crearTenant("20100066603", "A", Entorno.BETA).tenant().id();
-        UUID b = service.crearTenant("20100066611", "B", Entorno.BETA).tenant().id();
+        UUID a = service.crearTenant(ACTOR, "20100066603", "A", Entorno.BETA).tenant().id();
+        UUID b = service.crearTenant(ACTOR, "20100066611", "B", Entorno.BETA).tenant().id();
         UUID keyDeB = service.listarApiKeys(b).get(0).id();
         assertThatThrownBy(() -> service.revocarApiKey(a, keyDeB)).extracting("codigo").isEqualTo("NO_ENCONTRADO");
         assertThatThrownBy(() -> service.revocarApiKey(a, UUID.randomUUID())).extracting("codigo").isEqualTo("NO_ENCONTRADO");
@@ -157,5 +263,43 @@ class AdministrarTenantServiceTest {
         assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=20100066603,O=Y", "20100066603")).isTrue();
         assertThat(AdministrarTenantService.ouContieneRuc("CN=X,OU=201000666035,O=Y", "20100066603")).isFalse();
         assertThat(AdministrarTenantService.ouContieneRuc("CN=20100066603,OU=Otro,O=Y", "20100066603")).isFalse();
+    }
+
+    // --- #498: el tope de API keys del plan ------------------------------------------------------------------------------------------
+
+    /** La key nueva de una empresa de una cuenta pide su lugar en el plan, de esa cuenta y dentro de la transacción (el bloqueo vale hasta el commit). */
+    @Test void crearApiKeyDeUnaEmpresaDeUnaCuentaPideLugarEnElPlanDentroDeLaTransaccion() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        UUID cuenta = UUID.randomUUID();
+        tenants.asignarCuenta(empresa, cuenta);
+        int antes = keys.size();
+
+        service.crearApiKey(empresa);
+
+        assertThat(cupo.pedidos).containsExactly(pe.factura.domain.plan.RecursoDelPlan.API_KEYS);
+        assertThat(cupo.cuentas).containsExactly(cuenta);
+        assertThat(cupo.controladoDentro).containsExactly(true);
+        assertThat(keys).hasSize(antes + 1);
+    }
+
+    @Test void sinLugarEnElPlanLaKeyNoSeGuarda() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        tenants.asignarCuenta(empresa, UUID.randomUUID());
+        int antes = keys.size();
+        cupo.lleno = true;
+
+        assertThatThrownBy(() -> service.crearApiKey(empresa)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("CUPO_DEL_PLAN");
+
+        assertThat(keys).as("no queda una key creada a medias").hasSize(antes);
+    }
+
+    /** Una empresa de integración, sin cuenta, no tiene plan que la limite. */
+    @Test void unaEmpresaSinCuentaNoSeControla() {
+        UUID empresa = service.crearTenant(ACTOR, "20100066603", "EMPRESA SAC", Entorno.BETA).tenant().id();
+        cupo.lleno = true;
+
+        assertThatCode(() -> service.crearApiKey(empresa)).doesNotThrowAnyException();
+
+        assertThat(cupo.pedidos).isEmpty();
     }
 }

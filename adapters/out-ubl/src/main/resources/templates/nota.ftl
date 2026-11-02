@@ -21,7 +21,7 @@
   <cbc:IssueDate>${fechaEmision}</cbc:IssueDate>
   <#if horaEmision??><cbc:IssueTime>${horaEmision}</cbc:IssueTime></#if>
   <cbc:Note languageLocaleID="1000">${montoEnLetras}</cbc:Note>
-  <#if tot.tieneGratuitas()>
+  <#if tot.todasGratuitas()><#-- #291: solo si toda la operación es gratuita (guía UBL 2.1, p. 32) -->
   <cbc:Note languageLocaleID="1002">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>
   </#if>
   <#if tot.tieneIvap()>
@@ -43,9 +43,17 @@
   </cac:BillingReference>
 <@u.guiasYOtrosDocumentos/>
 <@u.firmaYPartes/>
+<#-- #306: DebitNote pone los cargos y descuentos globales (AllowanceCharge) antes que Delivery/DeliveryTerms y PaymentMeans/PaymentTerms; CreditNote, después
+     (orden del XSD UBL 2.1). Ninguna nota lleva PrepaidPayment: no copian anticipos de la factura. -->
+<#if n.raiz == "DebitNote">
+<@u.cargosYDescuentosGlobales/>
+<@u.exportacion/>
+<@u.pagos contado=false/>
+<#else>
 <@u.exportacion/>
 <@u.pagos contado=false/>
 <@u.cargosYDescuentosGlobales/>
+</#if>
 <@u.impuestos/>
 <@u.totalMonetario elemento=n.total/>
 <@u.lineas elemento=n.linea cantidad=n.cantidad/>

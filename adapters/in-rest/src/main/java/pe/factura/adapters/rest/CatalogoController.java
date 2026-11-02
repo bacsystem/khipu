@@ -22,8 +22,8 @@ import java.util.List;
         Códigos oficiales que usan los campos de la API (tipo de documento, afectación del IGV, unidades de medida, tipo de
         operación, motivos de nota, cargos y descuentos, detracciones, medios de pago…). Son públicos: no requieren API key.
         La fuente es el Anexo 8 de las reglas de validación de SUNAT (versión 2026-08-26). La API valida contra ellos los códigos
-        que decide el emisor (tipo de operación, afectación del IGV, tipo de documento, moneda) y responde `422` antes de consumir
-        numeración; la unidad de medida no se valida (la lista UN/ECE completa excede el catálogo) y la rechaza SUNAT.""")
+        que decide el emisor (tipo de operación, afectación del IGV, tipo de documento, moneda, unidad de medida) y responde `422`
+        antes de consumir numeración. El 03 es la UN/ECE rec 20 completa, con las unidades más usadas primero (columna «Más usada»).""")
 public class CatalogoController {
 
     @GetMapping

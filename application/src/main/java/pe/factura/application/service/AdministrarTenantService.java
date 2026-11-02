@@ -5,6 +5,10 @@ import pe.factura.application.port.in.AdministrarTenantUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plan.RecursoDelPlan;
+import pe.factura.domain.plataforma.AccionAdmin;
+import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.plataforma.RegistroAuditoria;
 import pe.factura.domain.tenant.*;
 
 import javax.naming.ldap.LdapName;
@@ -28,9 +32,12 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     private final String pepper;
     private final Clock clock;
     private final EstablecimientoRepository establecimientos;
+    private final AuditoriaAdminRepository auditoria;
+    private final RechazoDeSolRepository rechazosDeSol;
+    private final CupoDelPlan cupo;
 
 
-    public TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno) {
+    public TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno) {
         Ruc.exigirValido(ruc, "RUC_INVALIDO", "Empresa");
         if (tenants.buscarPorRuc(ruc).isPresent()) throw new DomainException("DUPLICADO", "Ya existe un tenant con RUC " + ruc);
         Tenant t = new Tenant(UUID.randomUUID(), ruc, razonSocial, entorno, null, null);
@@ -38,16 +45,19 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         uow.ejecutar(() -> {
             tenants.guardar(t);
             apiKeys.guardar(nuevaApiKey(t.id(), key));
+            // En la misma transacción: si la bitácora falla, el alta tampoco queda. El detalle nunca lleva la API key.
+            auditoria.registrar(RegistroAuditoria.de(actor, AccionAdmin.CREAR_TENANT, null, t.id(), "ruc=" + ruc + " entorno=" + entorno, Instant.now(clock)));
         });
         return new TenantCreado(t, key);
     }
 
     public Tenant obtener(UUID tenantId) { return tenants.buscar(tenantId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Tenant no encontrado")); }
 
+    /** LOG-05: cada edición escribe solo su sección; el objeto leído fuera de la transacción no se vuelve a guardar entero (pisaba el entorno y los secretos de otros). */
     public Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv) {
-        Tenant t = obtener(tenantId).conDatosFiscales(domicilio, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv);
-        uow.ejecutar(() -> tenants.guardar(t));
-        return t;
+        obtener(tenantId);
+        uow.ejecutar(() -> tenants.guardarDatosFiscales(tenantId, domicilio, cuentaDetracciones, nombreComercial, padronTasaEspecialIgv));
+        return obtener(tenantId);
     }
 
     /**
@@ -78,7 +88,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
             throw new DomainException("CERTIFICADO_NO_VIGENTE",
                     "2327 - El certificado recién entra en vigencia el " + desde.atZone(ZoneId.of("America/Lima")).toLocalDate()
                             + "; SUNAT rechaza todo lo que se firme antes de esa fecha");
-        uow.ejecutar(() -> tenants.guardar(t.conCertificado(new CertificadoDigital(pkcs12, clave, vigencia))));
+        uow.ejecutar(() -> tenants.guardarCertificado(tenantId, new CertificadoDigital(pkcs12, clave, vigencia)));
     }
 
     /** Un PKCS#12 puede traer entradas de solo certificado (CA) antes de la clave; se elige la primera con clave privada. */
@@ -90,11 +100,30 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         throw new DomainException("CERTIFICADO_INVALIDO", "El PKCS#12 no contiene una clave privada");
     }
 
+    @Override public java.util.Optional<RechazoDeSolRepository.Rechazo> rechazoDeSol(UUID tenantId) { return rechazosDeSol.buscar(tenantId); }
+
     /** La validación y la normalización del usuario viven en {@link CredencialesSol}: así valen para cualquier camino. */
     public void cargarCredencialesSol(UUID tenantId, String usuario, String clave) {
-        Tenant t = obtener(tenantId);
+        obtener(tenantId);
         CredencialesSol sol = new CredencialesSol(usuario, clave);
-        uow.ejecutar(() -> tenants.guardar(t.conCredencialesSol(sol)));
+        uow.ejecutar(() -> {
+            tenants.guardarCredencialesSol(tenantId, sol);
+            // #107: si SUNAT había rechazado las anteriores, los envíos pendientes se reanudan ya, sin esperar su próximo reintento.
+            rechazosDeSol.levantar(tenantId, clock.instant());
+        });
+    }
+
+    /** La validación y la normalización del client_id viven en {@link CredencialesApiSunat}, como las de SOL. */
+    public void cargarCredencialesApiSunat(UUID tenantId, String clientId, String clientSecret) {
+        obtener(tenantId);
+        CredencialesApiSunat api = new CredencialesApiSunat(clientId, clientSecret);
+        uow.ejecutar(() -> tenants.guardarCredencialesApiSunat(tenantId, api));
+    }
+
+    public void borrarCredencialesApiSunat(UUID tenantId) {
+        Tenant t = obtener(tenantId);
+        if (t.apiSunat() == null) return;
+        uow.ejecutar(() -> tenants.guardarCredencialesApiSunat(tenantId, null));
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial) {
@@ -102,8 +131,10 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     }
 
     public void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial, String establecimiento) {
-        obtener(tenantId);
+        Tenant tenant = obtener(tenantId);
         if (!tipo.serieValida(codigo)) throw new DomainException("SERIE_INVALIDA", "Serie " + codigo + " no válida para " + tipo);
+        // #40: una serie R### o P### solo para la empresa que SUNAT designó agente de retención o de percepción.
+        tenant.exigirAgenteDe(tipo);
         Serie s = new Serie(tenantId, tipo, codigo, correlativoInicial, true, establecimiento);
         uow.ejecutar(() -> {
             // Bloquea la fila del anexo para que no se pueda dar de baja entre este chequeo y el INSERT (desactivarEstablecimiento hace el mismo bloqueo).
@@ -142,10 +173,14 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
         });
     }
 
+    /** #498: si la empresa es de una cuenta, la key nueva tiene que caber en las que su plan permite (las activas de todas sus empresas). Una empresa sin cuenta (integración) no se controla. */
     public String crearApiKey(UUID tenantId) {
         obtener(tenantId);
         String key = ApiKeyGenerator.generar();
-        uow.ejecutar(() -> apiKeys.guardar(nuevaApiKey(tenantId, key)));
+        uow.ejecutar(() -> {
+            tenants.cuentaDe(tenantId).ifPresent(cuenta -> cupo.exigirLugar(cuenta, RecursoDelPlan.API_KEYS));
+            apiKeys.guardar(nuevaApiKey(tenantId, key));
+        });
         return key;
     }
 
@@ -159,7 +194,7 @@ public class AdministrarTenantService implements AdministrarTenantUseCase {
     }
 
     private ApiKey nuevaApiKey(UUID tenantId, String key) {
-        return new ApiKey(UUID.randomUUID(), tenantId, ApiKeyGenerator.hash(key, pepper), ApiKeyGenerator.prefijo(key), true, Instant.now(clock), null);
+        return ApiKeyGenerator.nueva(tenantId, key, pepper, Instant.now(clock));
     }
 
     static boolean ouContieneRuc(String subjectDn, String ruc) {

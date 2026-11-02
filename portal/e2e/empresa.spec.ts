@@ -5,11 +5,30 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Correo electrónico").fill("demo@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
-  await expect(page).toHaveURL(/\/comprobantes/);
+  await expect(page).toHaveURL(/\/inicio/);
   await page.goto("/empresa");
 });
 
+/** #276: una pestaña por tema; la pestaña va en la URL para que los enlaces abran la que corresponde y recargar no la pierda. */
+test("las pestañas cambian la sección y la URL; recargar y los enlaces directos abren la pedida", async ({ page }) => {
+  await page.getByRole("tab", { name: /Credenciales SOL/ }).click();
+  await expect(page).toHaveURL(/\/empresa\?seccion=sol$/);
+  await expect(page.getByLabel("Usuario SOL secundario")).toBeVisible();
+  await expect(page.getByTestId("datos-fiscales")).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByRole("tab", { name: /Credenciales SOL/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.goto("/empresa?seccion=pdf");
+  await expect(page.getByTestId("personalizacion-pdf")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "PDF" })).toHaveAttribute("aria-selected", "true");
+
+  await page.goto("/empresa?seccion=inventada");
+  await expect(page.getByRole("tab", { selected: true })).toBeVisible();
+});
+
 test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de detracciones", async ({ page }) => {
+  await page.getByRole("tab", { name: "Datos fiscales" }).click();
   const form = page.getByTestId("datos-fiscales");
   // El catálogo 13 se carga al abrir; departamento → provincia → distrito.
   await expect(form.getByLabel("Departamento")).toBeEnabled();
@@ -30,12 +49,13 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
 });
 
 test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla y guarda", async ({ page }) => {
-  await page.goto("/empresa");
+  await page.goto("/empresa?seccion=pdf");
   const panel = page.getByTestId("personalizacion-pdf");
-  await expect(panel.getByTestId("plantilla-clasico")).toHaveAttribute("aria-checked", "true");
+  // Las plantillas son el `GrupoOpciones` del design system en tarjetas: un `role="radio"` por plantilla, con su nombre y su descripción.
+  await expect(panel.getByRole("radio", { name: /^Clásico/ })).toBeChecked();
 
-  await panel.getByTestId("plantilla-corporativo").click();
-  await expect(panel.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await panel.getByRole("radio", { name: /^Corporativo/ }).check();
+  await expect(panel.getByRole("radio", { name: /^Corporativo/ })).toBeChecked();
   await panel.getByLabel("Color primario en hexadecimal").fill("#C8552B");
   await panel.getByLabel("Pie de página").fill("Gracias por su preferencia");
   // Los textos llegan a la vista previa con retardo (un PDF por cambio, no por tecla).
@@ -48,12 +68,12 @@ test("personaliza el PDF: elige plantilla, ve la vista previa con esa plantilla 
   await panel.getByRole("button", { name: "Guardar diseño" }).click();
   await expect(panel.getByTestId("diseno-guardado")).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("plantilla-corporativo")).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("personalizacion-pdf").getByRole("radio", { name: /^Corporativo/ })).toBeChecked();
   await expect(page.getByLabel("Pie de página")).toHaveValue("Gracias por su preferencia");
 });
 
 test("sube y quita el logo del PDF", async ({ page }) => {
-  await page.goto("/empresa");
+  await page.goto("/empresa?seccion=pdf");
   const panel = page.getByTestId("personalizacion-pdf");
   await expect(panel.getByTestId("logo-actual")).toHaveCount(0);
 
@@ -66,4 +86,13 @@ test("sube y quita el logo del PDF", async ({ page }) => {
 
   await panel.getByTitle("Quitar logo").click();
   await expect(panel.getByTestId("logo-actual")).toHaveCount(0);
+});
+
+/** En un teléfono las cinco pestañas no entran: se desplazan ellas y la página no se corre a lo ancho (design system 0.5.4). */
+test("en un teléfono la página de la empresa no se desborda a lo ancho", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/empresa");
+  await expect(page.getByRole("tablist")).toBeVisible();
+  const desborde = await page.evaluate(() => (document.querySelector("main")?.scrollWidth ?? 0) - window.innerWidth);
+  expect(desborde).toBeLessThanOrEqual(0);
 });

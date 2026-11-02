@@ -2,33 +2,48 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useMemo, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
-import { mensajeError, messages } from "@/lib/messages";
-import { emailSchema, passwordSchema, soloTelefono, telefonoSchema } from "@/lib/validacion";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { useMessages } from "next-intl";
+import type { Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { cn } from "@/lib/utils";
+import { esquemas, soloTelefono } from "@/lib/validacion";
 
-const schema = z.object({
-  nombre: z.string().trim().min(1, "Ingresa el nombre de tu cuenta").max(150, "Hasta 150 caracteres"),
-  telefono: telefonoSchema,
-  email: emailSchema,
-  password: passwordSchema,
-});
+function esquema(messages: Mensajes) {
+  const v = esquemas(messages);
+  return z.object({
+    nombre: z.string().trim().min(1, messages.auth.registro.nombreRequerido).max(150, messages.auth.registro.nombreLargo),
+    telefono: v.telefono,
+    email: v.email,
+    password: v.password,
+    // #342: sin marcarla no se envía nada; el backend igual lo exige (400 TERMINOS_NO_ACEPTADOS).
+    acepta_terminos: z.boolean().refine((acepta) => acepta, messages.auth.registro.terminosRequeridos),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof esquema>>;
 
 export function RegistroForm() {
   const router = useRouter();
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => esquema(messages), [messages]);
   const [error, setError] = useState<string | null>(null);
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     // `onTouched`: el error aparece al salir del campo y no recién al enviar.
-  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched" });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched", defaultValues: { acepta_terminos: false } });
 
   async function onSubmit(values: FormValues) {
     setError(null);
@@ -80,10 +95,16 @@ export function RegistroForm() {
         error={errors.password?.message}
         hint={messages.auth.registro.ayudaPassword}
       />
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.registro.enviando : messages.auth.registro.enviar}
-      </Button>
+      {/* La casilla del design system es controlada: va por un `Controller`, no por `register`. */}
+      <Controller
+        name="acepta_terminos"
+        control={control}
+        render={({ field }) => <CasillaDeTerminos id="acepta_terminos" name={field.name} checked={field.value} onCheckedChange={field.onChange} error={errors.acepta_terminos?.message} />}
+      />
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.registro.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {messages.auth.registro.enviar}
+      </BotonAsync>
     </form>
   );
 }

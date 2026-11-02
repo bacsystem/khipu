@@ -54,6 +54,39 @@ class JdbcOutboxRepositoryTest extends PersistenciaTestBase {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox WHERE agregado_id = ?", Integer.class, doc)).isEqualTo(2);
     }
 
+    /** Sacar un envío de la cola (#196) quita solo esa acción de ese comprobante: ni otra acción del mismo agregado ni el envío de otro. */
+    @Test void completarPorAgregadoQuitaSoloEsaAccionDeEseAgregado() {
+        UUID t = tenantDePrueba(), doc = UUID.randomUUID(), otro = UUID.randomUUID();
+        repo.programar(t, "ENVIAR", doc, Instant.now().plusSeconds(60));
+        repo.programar(t, "BAJA", doc, Instant.now().plusSeconds(60));
+        repo.programar(t, "ENVIAR", otro, Instant.now().plusSeconds(60));
+
+        repo.completarPorAgregado(doc, "ENVIAR");
+
+        assertThat(jdbc.queryForList("SELECT agregado_id || ':' || accion FROM outbox ORDER BY accion, agregado_id", String.class))
+                .containsExactlyInAnyOrder(doc + ":BAJA", otro + ":ENVIAR");
+    }
+
+    @Test void completarPorAgregadoSinFilaNoHaceNada() {
+        UUID t = tenantDePrueba();
+        repo.programar(t, "ENVIAR", UUID.randomUUID(), Instant.now().plusSeconds(60));
+
+        repo.completarPorAgregado(UUID.randomUUID(), "ENVIAR");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Integer.class)).isEqualTo(1);
+    }
+
+    /** También saca la fila que un trabajo tiene tomada: el descarte manda sobre el reintento. */
+    @Test void completarPorAgregadoQuitaTambienLaFilaBloqueada() {
+        UUID t = tenantDePrueba(), doc = UUID.randomUUID();
+        repo.programar(t, "ENVIAR", doc, Instant.now().minusSeconds(5));
+        uow.ejecutar(() -> repo.tomarVencidas(10, Duration.ofMinutes(2)));
+
+        repo.completarPorAgregado(doc, "ENVIAR");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Integer.class)).isZero();
+    }
+
     @Test void programarTrasCompletarVuelveACrearLaFila() {
         UUID t = tenantDePrueba(), doc = UUID.randomUUID();
         repo.programar(t, "ENVIAR", doc, Instant.now().minusSeconds(5));

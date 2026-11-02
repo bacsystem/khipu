@@ -1,52 +1,23 @@
 "use client";
 
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  InboxIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  ReceiptTextIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { ArrowClockwiseIcon, TrayIcon } from "@phosphor-icons/react";
+import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PieTabla } from "@/components/ui/pie-tabla";
-import { POR_PAGINA_DEFECTO } from "@/lib/paginacion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ETIQUETAS_TIPO } from "@/lib/api/facturas";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
+import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { etiquetasTipo } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
 import { cn } from "@/lib/utils";
+import { interpolar } from "@/i18n/mensajes";
+import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 
 const TODOS = "todos";
 
-const ITEMS_ESTADO: Record<string, string> = {
-  [TODOS]: "Estado: Todas",
-  activa: "Activas",
-  inactiva: "Inactivas",
-};
-
-const TIPOS_FILTRO = ["01", "03", "07", "08"] as const;
-const ITEMS_TIPO: Record<string, string> = {
-  [TODOS]: "Tipo: Todos",
-  ...Object.fromEntries(TIPOS_FILTRO.map((t) => [t, `${t} · ${ETIQUETAS_TIPO[t] ?? t}`])),
-};
-
-const SUBTITULO_TIPO: Record<string, string> = {
-  "01": "UBL 2.1 · Tributario",
-  "03": "Consumidor final",
-  "07": "Afecta facturas o boletas",
-  "08": "Penalidades / ajustes",
-};
-
-const TABS_DESHABILITADOS = ["Facturas", "Boletas", "Notas de crédito"];
-
-const CONTROL = "h-9 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground shadow-2xs";
-const CONTROL_DESHABILITADO = "cursor-not-allowed text-muted-foreground opacity-70";
-const CABECERA = "h-auto px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase";
-const ACCION = "flex size-6 cursor-not-allowed items-center justify-center rounded text-muted-foreground/60";
+const TIPOS_FILTRO = ["01", "03", "04", "07", "08", "09", "20", "31", "40"] as const;
 
 function mascara(serie: string): string {
   return serie.replace(/[0-9]/g, "#");
@@ -58,6 +29,9 @@ function numero(n: number): string {
 
 
 export function SeriesTable({ series }: { series: Serie[] }) {
+  const messages = useMessages();
+  const t = messages.series.tabla;
+  const ETIQUETAS_TIPO = etiquetasTipo(messages);
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
   const [estado, setEstado] = useState(TODOS);
@@ -76,6 +50,21 @@ export function SeriesTable({ series }: { series: Serie[] }) {
       }),
     [series, estado, tipo],
   );
+
+  // Listas y no objetos: en un objeto, JavaScript ordena primero las claves que parecen enteros («20», «31», «40») y el menú salía con ellas antes de «Todos».
+  const itemsEstado = useMemo(
+    () => [
+      { value: TODOS, label: t.estadoTodas },
+      { value: "activa", label: t.activas },
+      { value: "inactiva", label: t.inactivas },
+    ],
+    [t],
+  );
+  const itemsTipo = useMemo(
+    () => [{ value: TODOS, label: t.tipoTodos }, ...TIPOS_FILTRO.map((tipo) => ({ value: tipo, label: `${tipo} · ${ETIQUETAS_TIPO[tipo] ?? tipo}` }))],
+    [t, ETIQUETAS_TIPO],
+  );
+  const subtitulos: Record<string, string> = t.subtitulos;
 
   const total = filtradas.length;
   const ultimaPagina = Math.max(1, Math.ceil(total / porPagina));
@@ -96,106 +85,75 @@ export function SeriesTable({ series }: { series: Serie[] }) {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-1">
-          <span className="inline-flex h-7 items-center rounded-md bg-card px-3 text-[12px] font-medium text-foreground shadow-2xs">Todas</span>
-          {TABS_DESHABILITADOS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              disabled
-              title="Pestañas por tipo de comprobante: próximamente (usa el filtro Tipo)"
-              className="inline-flex h-7 items-center rounded-md px-3 text-[12px] font-medium text-muted-foreground disabled:cursor-not-allowed"
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
+      {/* Solo filtros que funcionan (C6): las pestañas por tipo, el período, la selección múltiple y editar/historial/más acciones se
+          veían deshabilitados. El tipo se filtra con su selector. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Select items={ITEMS_ESTADO} value={estado} onValueChange={cambiarEstado}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-36 pl-3")}>
+          <Select items={itemsEstado} value={estado} onValueChange={cambiarEstado}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ITEMS_ESTADO).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
+              {itemsEstado.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select items={ITEMS_TIPO} value={tipo} onValueChange={cambiarTipo}>
-            <SelectTrigger className={cn(CONTROL, "w-auto min-w-32 pl-3")}>
+          <Select items={itemsTipo} value={tipo} onValueChange={cambiarTipo}>
+            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-32 pl-3")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ITEMS_TIPO).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
+              {itemsTipo.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-
-          <button
-            type="button"
-            disabled
-            title="Filtro por período de creación: próximamente"
-            className={cn(CONTROL, CONTROL_DESHABILITADO, "inline-flex items-center gap-1.5 px-3")}
-          >
-            <CalendarIcon className="size-4 text-muted-foreground/70" />
-            Período: Todos
-            <ChevronDownIcon className="size-4 text-muted-foreground/70" />
-          </button>
 
           <button
             type="button"
             onClick={() => startTransition(() => router.refresh())}
-            title="Refrescar lista"
-            className={cn(CONTROL, "inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+            title={t.refrescar}
+            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <RefreshCwIcon className={cn("size-4", refrescando && "animate-spin")} />
+            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
           </button>
         </div>
       </div>
 
-      <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border/90 bg-card shadow-2xs transition-opacity", refrescando && "opacity-60")}>
+      <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border/80 bg-muted hover:bg-muted">
-              <TableHead className="h-auto w-8 py-2 pr-2 pl-4">
-                <input type="checkbox" disabled title="Selección múltiple: próximamente" className="size-3.5 cursor-not-allowed rounded border-input" />
-              </TableHead>
-              <TableHead className={CABECERA}>Tipo de comprobante</TableHead>
-              <TableHead className={CABECERA}>Código serie</TableHead>
-              <TableHead className={cn(CABECERA, "px-4 text-right")}>Último número (correlativo)</TableHead>
-              <TableHead className={CABECERA}>Establecimiento</TableHead>
-              <TableHead className={CABECERA}>Formato / longitud</TableHead>
-              <TableHead className={cn(CABECERA, "px-4")}>Estado</TableHead>
-              <TableHead className={cn(CABECERA, "pr-4 pl-2 text-right")}>Acciones</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={cn(CABECERA_TABLA, "pl-4")}>{t.columnas.tipo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.codigo}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4 text-right")}>{t.columnas.ultimoNumero}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.establecimiento}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.columnas.formato}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "px-4")}>{t.columnas.estado}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="text-[13px]">
+          <TableBody className="text-control">
             {data.map((s) => (
-              <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group border-b border-border/60 hover:bg-muted/80", !s.activa && "opacity-80")}>
-                <TableCell className="py-2 pr-2 pl-4">
-                  <input type="checkbox" disabled title="Selección múltiple: próximamente" className="size-3.5 cursor-not-allowed rounded border-input" />
-                </TableCell>
-                <TableCell className="px-3 py-2">
+              <TableRow key={`${s.tipo}-${s.serie}`} className={cn("group", !s.activa && "opacity-80")}>
+                <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex items-center gap-2">
                     <div
                       className={cn(
-                        "flex size-7 shrink-0 items-center justify-center rounded font-mono text-[11px] font-semibold",
+                        "flex size-7 shrink-0 items-center justify-center rounded font-mono text-etiqueta font-semibold",
                         s.activa ? "bg-accent text-primary" : "bg-secondary text-muted-foreground",
                       )}
                     >
                       {s.tipo}
                     </div>
                     <div className="flex flex-col">
-                      <span className="leading-snug font-semibold text-foreground">{ETIQUETAS_TIPO[s.tipo] ?? s.tipo} electrónica</span>
-                      <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">{SUBTITULO_TIPO[s.tipo] ?? "Comprobante SUNAT"}</span>
+                      <span className="leading-snug font-semibold text-foreground">{interpolar(t.tipoElectronico, { tipo: ETIQUETAS_TIPO[s.tipo] ?? s.tipo })}</span>
+                      <span className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80">{subtitulos[s.tipo] ?? t.comprobanteSunat}</span>
                     </div>
                   </div>
                 </TableCell>
@@ -203,73 +161,53 @@ export function SeriesTable({ series }: { series: Serie[] }) {
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
-                        "rounded px-2 py-0.5 font-mono text-[13px] font-semibold tracking-tight",
+                        "rounded px-2 py-0.5 font-mono text-cuerpo font-semibold tracking-tight",
                         s.activa ? "bg-secondary text-primary" : "bg-muted text-muted-foreground",
                       )}
                     >
                       {s.serie}
                     </span>
-                    <BotonCopiar texto={s.serie} titulo="Copiar serie" className="opacity-0 group-hover:opacity-100" />
+                    <BotonCopiar texto={s.serie} titulo={t.copiar} className="opacity-0 group-hover:opacity-100" />
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 text-right whitespace-nowrap">
-                  <div className={cn("font-mono text-[13px] font-semibold tracking-tight tabular-nums", s.ultimo_numero === 0 ? "text-muted-foreground" : "text-foreground")}>
+                  <div className={cn("font-mono text-cuerpo font-semibold tracking-tight tabular-nums", s.ultimo_numero === 0 ? "text-muted-foreground" : "text-foreground")}>
                     {numero(s.ultimo_numero)}
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80 tabular-nums">
-                    {s.ultimo_numero === 0 ? "Sin emisiones previas" : `Siguiente: #${numero(s.ultimo_numero + 1)}`}
+                  <div className="mt-0.5 font-mono text-etiqueta text-muted-foreground/80 tabular-nums">
+                    {s.ultimo_numero === 0 ? t.sinEmisionesPrevias : interpolar(t.siguiente, { numero: numero(s.ultimo_numero + 1) })}
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[12px] whitespace-nowrap">
+                <TableCell className="px-3 py-2 font-mono text-control whitespace-nowrap">
                   <span className={cn("rounded px-1.5 py-0.5 font-medium", (s.establecimiento ?? "0000") === "0000" ? "bg-muted text-muted-foreground" : "bg-secondary text-primary")}>
                     {s.establecimiento ?? "0000"}
                   </span>
                 </TableCell>
-                <TableCell className="px-3 py-2 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+                <TableCell className="px-3 py-2 font-mono text-etiqueta whitespace-nowrap text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">{mascara(s.serie)}</span>
-                    <span>({s.serie.length} caracteres)</span>
+                    <span>{interpolar(t.caracteres, { cantidad: s.serie.length })}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2 whitespace-nowrap">
                   {s.activa ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-[11px] font-medium text-success-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
                       <span className="size-1.5 rounded-full bg-success-solid" />
-                      Activa
+                      {t.activa}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
                       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-                      Inactiva
+                      {t.inactiva}
                     </span>
                   )}
-                </TableCell>
-                <TableCell className="py-2 pr-4 pl-2">
-                  <div className="flex items-center justify-end gap-1 opacity-80 transition-opacity group-hover:opacity-100">
-                    <button disabled title="Editar serie: próximamente" className={ACCION}>
-                      <PencilIcon className="size-4" />
-                    </button>
-                    <button disabled title="Historial por serie: próximamente (requiere filtro por serie en la API)" className={ACCION}>
-                      <ReceiptTextIcon className="size-4" />
-                    </button>
-                    <button disabled title="Más acciones: próximamente" className={ACCION}>
-                      <MoreHorizontalIcon className="size-4" />
-                    </button>
-                  </div>
                 </TableCell>
               </TableRow>
             ))}
             {data.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-14 text-center">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <InboxIcon className="size-6" />
-                    <p className="text-sm">
-                      {series.length === 0 ? "Todavía no tienes series. Crea la primera con «Nueva serie»." : "No hay series con los filtros seleccionados."}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <FilaVacia columnas={6} icon={<TrayIcon className="size-6" />}>
+                {series.length === 0 ? t.vacio : t.sinCoincidencias}
+              </FilaVacia>
             ) : null}
           </TableBody>
         </Table>
@@ -278,13 +216,13 @@ export function SeriesTable({ series }: { series: Serie[] }) {
           desde={desde}
           hasta={hasta}
           total={total}
-          unidad="series"
+          unidad={t.unidad}
           porPagina={porPagina}
           onPorPagina={(n) => {
             setPorPagina(n);
             setPagina(1);
           }}
-          nota="Los correlativos se asignan de forma atómica y secuencial por cada emisión"
+          nota={t.nota}
           pagina={paginaActual}
           ultimaPagina={ultimaPagina}
           onPagina={setPagina}

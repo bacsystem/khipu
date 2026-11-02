@@ -74,7 +74,7 @@ Todo lo que las auditorías dejaron abierto a propósito, en un solo lugar. Cada
 |---|---|---|
 | Paridad del mock (4, el del padrón ya corregido): acepta cualquier «certificado» sin parsearlo, acepta SOL en blanco, solo valida el ubigeo, y deja registrar dos empresas con el mismo RUC | `src/mocks/handlers.ts` | |
 | Cobertura: OU↔RUC y SOL en blanco sin test; `empresa.spec.ts` no toca el formulario de certificado ni el de SOL; el test de cifrado solo cubre `sol_clave_enc` | tests | |
-| Menores: cookie `factura_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga); fault SOAP de credenciales clasificado como transitorio y sin señal en pantalla; `cert_vigencia_hasta` nullable se muestra «Sin certificado»; RUC sin dígito verificador en cliente; cita equivocada de la regla 3034. *(El 401 de `CREDENCIALES_INVALIDAS` y las claves de mensaje faltantes: corregidos en #162.)* | varios | |
+| Menores: cookie `khipu_empresa` sin comprobar pertenencia (el backend corta con 403, no hay fuga); fault SOAP de credenciales clasificado como transitorio y sin señal en pantalla; `cert_vigencia_hasta` nullable se muestra «Sin certificado»; RUC sin dígito verificador en cliente; cita equivocada de la regla 3034. *(El 401 de `CREDENCIALES_INVALIDAS` y las claves de mensaje faltantes: corregidos en #162.)* | varios | |
 
 ## Series (aud. #1, ficha [series.md](series.md))
 

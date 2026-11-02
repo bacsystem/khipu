@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RecuperarForm } from "@/components/auth/recuperar-form";
-import { messages } from "@/lib/messages";
+import type { Metadata } from "next";
+import { useMessages } from "next-intl";
+import { getMessages } from "next-intl/server";
 
-export const metadata = { title: `${messages.auth.recuperar.titulo} · ${messages.app.nombre}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const messages = await getMessages();
+  return { title: `${messages.auth.recuperar.titulo} · ${messages.app.nombre}` };
+}
 
 export default function RecuperarPage() {
+  const messages = useMessages();
   return (
     <AuthShell
       title={messages.auth.recuperar.titulo}

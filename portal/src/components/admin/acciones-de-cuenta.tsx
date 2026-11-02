@@ -1,0 +1,155 @@
+"use client";
+
+import { PauseCircleIcon, PlayCircleIcon, WarningIcon } from "@phosphor-icons/react";
+import { useMessages } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
+import { apiRequest } from "@/lib/api/browser";
+import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { interpolar, type Mensajes } from "@/i18n/mensajes";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { cn } from "@/lib/utils";
+import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+
+function empresasAfectadas(n: number, t: Mensajes["admin"]["suspension"]): string {
+  if (n === 0) return t.sinEmpresasAfectadas;
+  return n === 1 ? t.unaEmpresaAfectada : t.empresasAfectadas.replace("{n}", String(n));
+}
+
+/**
+ * Suspender o reactivar una cuenta (#182). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón
+ * que la baja de comprobantes). Suspender corta el servicio de inmediato, así que el modal lo dice sin rodeos y a cuántas empresas alcanza; lo que
+ * NO hace (borrar nada, cortar los envíos a SUNAT de lo ya emitido) también. Según `suspendida` se ofrece una sola acción. Va por la fecha de suspensión y no
+ * por el estado: una cuenta de baja puede estar suspendida o no, y la baja no corta el acceso, así que suspenderla es justo lo que corta el servicio (H16).
+ */
+export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: string; nombre: string; suspendida: boolean; empresas: number }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const t = messages.admin.suspension;
+  const router = useRouter();
+  const textos = suspendida ? t.reactivar : t.suspender;
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const alertaRef = useRef<HTMLParagraphElement>(null);
+  // Un ref, no el estado: dos clics en el mismo tick leen el `enviando` viejo del closure.
+  const enviandoRef = useRef(false);
+  useEffect(() => {
+    if (error) alertaRef.current?.focus();
+  }, [error]);
+
+  function cambiarAbierto(valor: boolean) {
+    if (enviando) return; // no se cierra mientras se envía: el usuario debe ver el resultado
+    setAbierto(valor);
+    if (!valor) {
+      setMotivo("");
+      setError(null);
+    }
+  }
+
+  async function confirmar() {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    setEnviando(true);
+    setError(null);
+    const res = await apiRequest<EstadoDeCuentaAdmin>(`/api/admin/cuentas/${id}/${suspendida ? "reactivar" : "suspender"}`, {
+      method: "POST",
+      body: suspendida ? undefined : { motivo: motivo.trim() },
+    });
+    enviandoRef.current = false;
+    setEnviando(false);
+    if (noSeSabeSiLlego(res)) {
+      // No se sabe si el cambio llegó: se dice, y no se reintenta a ciegas (el backend responde 409 si ya estaba hecho).
+      setError(interpolar(messages.admin.recargar.estadoDeLaCuenta, { error: res.mensaje ?? mensajeError(res.codigo) }));
+      return;
+    }
+    if (res.estado !== "exito") {
+      setError(res.mensaje ?? mensajeError(res.codigo));
+      // El estado cambió por otro lado (otro administrador): la página muestra el real, y el botón se ajusta solo.
+      if (res.codigo === "CUENTA_YA_SUSPENDIDA" || res.codigo === "CUENTA_NO_SUSPENDIDA") router.refresh();
+      return;
+    }
+    setAbierto(false);
+    setMotivo("");
+    router.refresh();
+  }
+
+  const Icono = suspendida ? PlayCircleIcon : PauseCircleIcon;
+
+  return (
+    <Dialog open={abierto} onOpenChange={cambiarAbierto}>
+      <DialogTrigger
+        className={cn(suspendida ? ACCION_PRINCIPAL : ACCION_SECUNDARIA, !suspendida && "text-destructive hover:text-destructive")}
+        data-testid={suspendida ? "reactivar-cuenta" : "suspender-cuenta"}
+      >
+        <Icono className="size-4" />
+        {textos.boton}
+      </DialogTrigger>
+      <DialogContent className="gap-0 p-0" data-testid="suspension-confirmacion" showCloseButton={!enviando}>
+        <CabeceraDialogo icon={Icono} tono={suspendida ? "ok" : "peligro"} titulo={textos.titulo} descripcion={textos.descripcion.replace("{nombre}", nombre)} />
+
+        <div className="grid gap-4 px-5 py-4">
+          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", suspendida ? "border-border bg-muted/50" : "border-destructive/40 bg-destructive/5")}>
+            {suspendida ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
+            <div className="grid gap-1.5">
+              <p className="font-medium" data-testid="suspension-alcance">
+                {empresasAfectadas(empresas, t)}
+              </p>
+              <ul className="grid list-disc gap-1 pl-4">
+                {textos.efectos.map((efecto) => (
+                  <li key={efecto}>{efecto}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {suspendida ? null : (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="suspension-motivo" className={ETIQUETA_CAMPO}>
+                {t.suspender.motivo}
+              </label>
+              <input
+                id="suspension-motivo"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                maxLength={MOTIVO_MAX}
+                placeholder={t.suspender.motivoEjemplo}
+                className={CAMPO}
+                autoFocus
+              />
+              <span className={AYUDA_CAMPO}>
+                {t.suspender.motivoAyuda}
+                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
+              </span>
+            </div>
+          )}
+          {error ? (
+            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <PieDialogo>
+          <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
+            {textos.cancelar}
+          </button>
+          <button
+            type="button"
+            disabled={enviando}
+            onClick={confirmar}
+            data-testid="suspension-confirmar"
+            className={suspendida ? BOTON_PRIMARIO : BOTON_DESTRUCTIVO}
+          >
+            <Icono className="size-4" />
+            {enviando ? textos.enviando : textos.confirmar}
+          </button>
+        </PieDialogo>
+      </DialogContent>
+    </Dialog>
+  );
+}

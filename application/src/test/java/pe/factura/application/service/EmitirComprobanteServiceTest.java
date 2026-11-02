@@ -2,6 +2,7 @@ package pe.factura.application.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.EmitirComprobanteUseCase;
 import pe.factura.application.port.in.EmitirFacturaCommand;
 import pe.factura.application.port.out.*;
 import pe.factura.domain.DomainException;
@@ -10,8 +11,11 @@ import pe.factura.domain.tenant.Serie;
 import pe.factura.domain.tenant.Tenant;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -30,12 +34,13 @@ class EmitirComprobanteServiceTest {
     Tenant[] emisor = new Tenant[1];
     UblGenerator ubl = new UblGenerator() {
         public String generar(Comprobante c, pe.factura.domain.tenant.Tenant t) { emisor[0] = t; return "<Invoice>" + c.nombreArchivo() + "</Invoice>"; }
-        public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, pe.factura.domain.tenant.Tenant t) { return ""; }
+        public String generarBaja(pe.factura.domain.documento.ComunicacionBaja b, Comprobante c, pe.factura.domain.tenant.Tenant t) { return ""; }
+        public String generarResumen(java.util.List<pe.factura.domain.documento.ComunicacionBaja> filas, java.util.List<Comprobante> comprobantes, pe.factura.domain.tenant.Tenant t) { return ""; }
     };
     String[] recibido = new String[1];
     XsdValidator xsd = new XsdValidator() {
         public void validar(String xml, TipoDocumento tipo) { recibido[0] = xml; }
-        public void validarBaja(String xml) { recibido[0] = xml; }
+        public void validarBaja(String xml, ComunicacionBaja baja) { recibido[0] = xml; }
     };
     XmlSigner signer = (xml, cert) -> new FirmaResultado(xml.replace("<Invoice>", "<Invoice><ds:Signature/>"), "HASH" + xml.length());
     EmitirComprobanteService service;
@@ -44,11 +49,15 @@ class EmitirComprobanteServiceTest {
         tenants.guardar(Fakes.tenantListo(tenantId));
         series.crear(new Serie(tenantId, TipoDocumento.FACTURA, "F001", 0, true));
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
+        service = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
     }
 
     private EmitirFacturaCommand cmd(Long correlativo, boolean enviar) {
-        return new EmitirFacturaCommand("F001", correlativo, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+        return cmd(correlativo, enviar, LocalDate.of(2026, 9, 13));
+    }
+
+    private EmitirFacturaCommand cmd(Long correlativo, boolean enviar, LocalDate fecha) {
+        return new EmitirFacturaCommand("F001", correlativo, fecha, null, "PEN", "0101",
                 new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
                 List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, enviar);
     }
@@ -64,6 +73,250 @@ class EmitirComprobanteServiceTest {
         assertThat(outbox.filas).isEmpty();
         // El validador XSD debe recibir el XML ya firmado, no el XML sin firmar generado por ubl.generar(...).
         assertThat(recibido[0]).contains("<ds:Signature/>");
+    }
+
+    // --- #378: el RUC del comprador contra el padrón de SUNAT -------------------------------------------------------------------
+
+    private EmitirComprobanteService conPadron(ConsultarPadronRucServiceTest.PadronEnMemoria padron) {
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
+        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(),
+                new ValidarCompradorEnPadron(padron, Fakes.CLOCK, Duration.ofDays(3)));
+    }
+
+    private static ConsultarPadronRucServiceTest.PadronEnMemoria padronAlDiaCon(String... rucs) {
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+        padron.cargada = Fakes.CLOCK.instant().minus(Duration.ofHours(6));
+        for (String ruc : rucs) padron.contribuyentes.add(new PadronRucRepository.Contribuyente(ruc, "CLIENTE SAC", "ACTIVO", "HABIDO", "150101", "AV 1"));
+        return padron;
+    }
+
+    @Test void unCompradorConRucQueElPadronNoTieneSeRechazaAntesDeNumerar() {
+        EmitirComprobanteService s = conPadron(padronAlDiaCon("20100070970"));
+
+        assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true)))
+                .isInstanceOf(DomainException.class).hasMessageContaining("1083").extracting("codigo").isEqualTo("RECEPTOR_INVALIDO");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(gateway.enviados).isZero();
+        assertThat(conPadron(padronAlDiaCon("20601234565")).emitirFactura(tenantId, cmd(null, false)).numero()).as("el rechazo no consumió el número 1").isEqualTo(1L);
+    }
+
+    @Test void unaBoletaConRucDelCompradorSeValidaComoUnaFactura() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        EmitirFacturaCommand boleta = new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO)), FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false);
+
+        assertThatThrownBy(() -> conPadron(padronAlDiaCon()).emitirFactura(tenantId, boleta)).hasMessageContaining("1083");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(conPadron(padronAlDiaCon("20601234565")).emitirFactura(tenantId, boleta).tipo()).isEqualTo(TipoDocumento.BOLETA);
+    }
+
+    @Test void unRucDeBajaSeEmiteIgualPorqueSunatSoloLoObserva() {
+        var padron = padronAlDiaCon();
+        padron.contribuyentes.add(new PadronRucRepository.Contribuyente("20601234565", "CLIENTE SAC", "BAJA DEFINITIVA", "NO HABIDO", "150101", "AV 1"));
+
+        assertThat(conPadron(padron).emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(1L);
+    }
+
+    @Test void sinPadronCargadoSeEmiteComoAntes() {
+        var padron = new ConsultarPadronRucServiceTest.PadronEnMemoria();
+
+        assertThat(conPadron(padron).emitirFactura(tenantId, cmd(null, false)).numero()).isEqualTo(1L);
+        assertThat(padron.busquedas).isZero();
+    }
+
+    // --- #18: tope de documentos del plan ---------------------------------------------------------------------------------------
+
+    private EmitirComprobanteService conTope(Fakes.Tope tope, Fakes.Idempotencias claves) {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        tope.uow = uow;
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, Fakes.CLOCK);
+        return new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, Fakes.CLOCK, establecimientos, bajas, claves, tope, Fakes.SIN_COMPRADOR);
+    }
+
+    @Test void enElTopeDelPlanNoEmiteNiGastaNumero() {
+        Fakes.Tope tope = new Fakes.Tope();
+        tope.lleno = true;
+        EmitirComprobanteService s = conTope(tope, new Fakes.Idempotencias());
+
+        assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("LIMITE_PLAN");
+
+        assertThat(comprobantes.datos).isEmpty();
+        assertThat(gateway.enviados).isZero();
+        assertThat(tope.controladoDentro).as("dentro de la transacción: el bloqueo de la cuenta dura hasta que se guarda el comprobante").containsExactly(true);
+        tope.lleno = false;
+        assertThat(s.emitirFactura(tenantId, cmd(null, false)).numero()).as("el rechazo no consumió el número 1").isEqualTo(1L);
+    }
+
+    /** Un reintento con la misma clave devuelve lo ya emitido aunque después la cuenta llegara al tope: no es un documento nuevo. */
+    @Test void elReintentoConLaMismaClavePasaAunqueLaCuentaYaEsteEnElTope() {
+        Fakes.Tope tope = new Fakes.Tope();
+        EmitirComprobanteService s = conTope(tope, new Fakes.Idempotencias());
+        Comprobante primero = s.emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        tope.lleno = true;
+
+        var otraVez = s.emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primero.id());
+    }
+
+    // --- #115: idempotencia ------------------------------------------------------------------------------------------------------
+
+    /** Servicio con una transacción que se puede observar y las claves a la vista. */
+    private record ConClaves(EmitirComprobanteService service, Fakes.Idempotencias claves) {}
+
+    private ConClaves conClaves() {
+        return conClaves(new Fakes.Idempotencias(), Fakes.CLOCK);
+    }
+
+    /** Otro servicio sobre las mismas claves y datos, con otro reloj: el mismo sistema, más tarde. */
+    private ConClaves conClaves(Fakes.Idempotencias claves, Clock reloj) {
+        Fakes.UowTransaccional uow = new Fakes.UowTransaccional();
+        claves.uow = uow;
+        EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, uow, reloj);
+        return new ConClaves(new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, xsd, signer, enviar, uow, reloj, establecimientos, bajas, claves, new Fakes.Tope(), Fakes.SIN_COMPRADOR), claves);
+    }
+
+    private static final pe.factura.application.port.in.Idempotencia CLAVE = new pe.factura.application.port.in.Idempotencia("c1a7e5b0-0000-4000-8000-000000000001", "huella-1");
+
+    @Test void conUnaClaveNuevaEmiteYAnotaElComprobanteBajoLaClave() {
+        ConClaves s = conClaves();
+
+        var e = s.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(e.repetida()).isFalse();
+        assertThat(e.comprobante().numero()).isEqualTo(1L);
+        assertThat(s.claves().filas.get("factura:" + tenantId + "|" + CLAVE.clave()))
+                .extracting(IdempotenciaRepository.Registro::huella, IdempotenciaRepository.Registro::recursoId)
+                .containsExactly("huella-1", e.comprobante().id());
+        assertThat(s.claves().reservadoDentro).as("la reserva va en la transacción de la emisión: si esta se revierte, la clave queda libre").containsExactly(true);
+    }
+
+    /** El reintento tras un corte de red: el mismo comprobante, sin consumir otro número ni enviarlo otra vez a SUNAT. */
+    @Test void laMismaClaveConElMismoPedidoDevuelveElMismoComprobanteSinEmitirOtro() {
+        ConClaves s = conClaves();
+        Comprobante primero = s.service().emitirFactura(tenantId, cmd(null, true), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+
+        var otraVez = s.service().emitirFactura(tenantId, cmd(null, true), CLAVE);
+
+        assertThat(otraVez.repetida()).isTrue();
+        assertThat(otraVez.comprobante().id()).isEqualTo(primero.id());
+        assertThat(otraVez.comprobante().numero()).isEqualTo(1L);
+        assertThat(otraVez.comprobante().estado()).as("el estado actual, no uno de antes del envío").isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(comprobantes.datos).hasSize(1);
+        assertThat(gateway.enviados).as("no se reenvía a SUNAT").isEqualTo(enviosAntes);
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).as("el número 2 sigue libre").isEqualTo(2L);
+    }
+
+    @Test void laMismaClaveConOtroPedidoSeRechazaSinEmitir() {
+        ConClaves s = conClaves();
+        s.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThatThrownBy(() -> s.service().emitirFactura(tenantId, cmd(null, false), new pe.factura.application.port.in.Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+        assertThat(comprobantes.datos).hasSize(1);
+    }
+
+    @Test void laClaveEsPorEmpresa() {
+        ConClaves s = conClaves();
+        UUID otra = UUID.randomUUID();
+        tenants.guardar(Fakes.tenantListo(otra));
+        series.crear(new Serie(otra, TipoDocumento.FACTURA, "F001", 0, true));
+
+        Comprobante mio = s.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        var deOtra = s.service().emitirFactura(otra, cmd(null, false), CLAVE);
+
+        assertThat(deOtra.repetida()).isFalse();
+        assertThat(deOtra.comprobante().id()).isNotEqualTo(mio.id());
+        assertThat(deOtra.comprobante().tenantId()).isEqualTo(otra);
+    }
+
+    /** Fecha de la factura con la que el reintento de abajo llega ya fuera del plazo de envío (3 días calendario, 2108). */
+    private static final LocalDate FECHA_AL_LIMITE = LocalDate.of(2026, 9, 10);
+
+    private EmitirFacturaCommand cmdConFecha(LocalDate fecha) {
+        return cmd(null, false, fecha);
+    }
+
+    /** El reintento llega al día siguiente: la factura ya emitida se devuelve aunque su fecha ya no se pueda emitir (H1 de la revisión). */
+    @Test void elReintentoTrasVencerElPlazoDeEnvioDevuelveLaFacturaYaEmitida() {
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE).comprobante();
+        ConClaves alDiaSiguiente = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        var reintento = alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.datos).hasSize(1);
+    }
+
+    /** Lo mismo si lo que venció es el certificado: tener la factura no exige poder emitir otra. */
+    @Test void elReintentoConElCertificadoYaVencidoDevuelveLaFacturaYaEmitida() {
+        ConClaves hoy = conClaves();
+        Comprobante emitida = hoy.service().emitirFactura(tenantId, cmd(null, false), CLAVE).comprobante();
+        ConClaves muchoDespues = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(2000)));
+
+        var reintento = muchoDespues.service().emitirFactura(tenantId, cmd(null, false), CLAVE);
+
+        assertThat(reintento.repetida()).isTrue();
+        assertThat(reintento.comprobante().id()).isEqualTo(emitida.id());
+    }
+
+    /** Devolver lo ya emitido no abre la puerta a otro contenido: la huella distinta se sigue rechazando fuera de plazo. */
+    @Test void fueraDePlazoLaMismaClaveConOtroPedidoSigueRechazada() {
+        ConClaves hoy = conClaves();
+        hoy.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE);
+        ConClaves alDiaSiguiente = conClaves(hoy.claves(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        assertThatThrownBy(() -> alDiaSiguiente.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), new pe.factura.application.port.in.Idempotencia(CLAVE.clave(), "otra-huella")))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("IDEMPOTENCIA_INVALIDA");
+    }
+
+    /** Una clave que no se usó antes no sirve de pase: fuera de plazo se rechaza como siempre y no deja la clave reservada. */
+    @Test void unaClaveNuevaFueraDePlazoSeRechazaYNoQuedaReservada() {
+        ConClaves tarde = conClaves(new Fakes.Idempotencias(), Clock.offset(Fakes.CLOCK, Duration.ofDays(1)));
+
+        assertThatThrownBy(() -> tarde.service().emitirFactura(tenantId, cmdConFecha(FECHA_AL_LIMITE), CLAVE))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("FECHA_INVALIDA");
+        assertThat(tarde.claves().filas).isEmpty();
+        assertThat(comprobantes.datos).isEmpty();
+    }
+
+    /**
+     * Dos pedidos simultáneos con la misma clave: los dos pasan la consulta previa (el otro aún no confirmó) y la reserva del segundo
+     * espera al primero. Esa reserva es la que tiene que ver la factura y devolverla, sin tomar la serie: es lo que impide la factura doble.
+     */
+    @Test void siLaReservaEncuentraLaFacturaQueLaConsultaPreviaNoVioLaDevuelveSinEmitirOtra() {
+        ConClaves primero = conClaves();
+        Comprobante emitida = primero.service().emitirFactura(tenantId, cmd(null, true), CLAVE).comprobante();
+        int enviosAntes = gateway.enviados;
+        Fakes.Idempotencias ciegaAlBuscar = new Fakes.Idempotencias() {
+            @Override public Optional<IdempotenciaRepository.Registro> buscar(String alcance, String clave) { return Optional.empty(); }
+        };
+        ciegaAlBuscar.filas.putAll(primero.claves().filas);
+
+        var simultaneo = conClaves(ciegaAlBuscar, Fakes.CLOCK).service().emitirFactura(tenantId, cmd(null, true), CLAVE);
+
+        assertThat(simultaneo.repetida()).isTrue();
+        assertThat(simultaneo.comprobante().id()).isEqualTo(emitida.id());
+        assertThat(comprobantes.datos).as("no se emitió otra factura").hasSize(1);
+        assertThat(gateway.enviados).as("tampoco se reenvía a SUNAT").isEqualTo(enviosAntes);
+        assertThat(service.emitirFactura(tenantId, cmd(null, false)).numero()).as("el número 2 sigue libre").isEqualTo(2L);
+    }
+
+    @Test void sinClaveCadaPedidoEsUnaFacturaNueva() {
+        ConClaves s = conClaves();
+        s.service().emitirFactura(tenantId, cmd(null, false), null);
+        s.service().emitirFactura(tenantId, cmd(null, false), null);
+
+        assertThat(comprobantes.datos).hasSize(2);
+        assertThat(s.claves().filas).isEmpty();
     }
 
     @Test void numeracionCorrelativa() {
@@ -136,10 +389,10 @@ class EmitirComprobanteServiceTest {
     @Test void xsdInvalidoNoConsumeNumeroNiGuarda() {
         XsdValidator malo = new XsdValidator() {
             public void validar(String xml, TipoDocumento tipo) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
-            public void validarBaja(String xml) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
+            public void validarBaja(String xml, ComunicacionBaja baja) { throw new DomainException("XSD_INVALIDO", "línea 3"); }
         };
         EnviarDocumentoService enviar = new EnviarDocumentoService(comprobantes, tenants, storage, gateway, cdrs, outbox, Fakes.UOW, Fakes.CLOCK);
-        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas);
+        EmitirComprobanteService s = new EmitirComprobanteService(comprobantes, series, tenants, storage, ubl, malo, signer, enviar, Fakes.UOW, Fakes.CLOCK, establecimientos, bajas, new Fakes.Idempotencias(), new Fakes.Tope(), Fakes.SIN_COMPRADOR);
         assertThatThrownBy(() -> s.emitirFactura(tenantId, cmd(null, true))).extracting("codigo").isEqualTo("XSD_INVALIDO");
         assertThat(comprobantes.datos).isEmpty();
     }
@@ -167,6 +420,32 @@ class EmitirComprobanteServiceTest {
 
         tenants.guardar(Fakes.tenantListo(tenantId).conDatosFiscales(null, "00-000-987654"));
         assertThat(service.emitirFactura(tenantId, cmd).detraccion().cuentaBancoNacion()).isEqualTo("00-000-987654");
+    }
+
+    /** #405: calcular devuelve los mismos importes que la emisión y no deja rastro: no numera, no guarda ni envía. */
+    @Test void calcularDaLosMismosImportesQueEmitirSinDejarRastro() {
+        EmitirFacturaCommand conTodo = new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"),
+                List.of(new Item("P1", "Cerveza", "NIU", new BigDecimal("3"), new BigDecimal("159.30"), TipoAfectacionIgv.GRAVADO, null, new Isc("01", new BigDecimal("35"), null), false),
+                        new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO)),
+                FormaPago.contado(), pe.factura.domain.documento.Descuento.porcentaje(new BigDecimal("5"), true), List.of(), null, null, null, List.of(), null, new BigDecimal("0.10"), false);
+        int enviadosAntes = gateway.enviados;
+
+        Comprobante calculado = service.calcularFactura(tenantId, conTodo);
+
+        assertThat(calculado.numero()).as("no se numeró").isNull();
+        assertThat(calculado.estado()).isEqualTo(EstadoDocumento.RECIBIDO);
+        assertThat(gateway.enviados).isEqualTo(enviadosAntes);
+        // La emisión posterior arranca el correlativo en 1: calcular no consumió ninguno.
+        Comprobante emitido = service.emitirFactura(tenantId, conTodo);
+        assertThat(emitido.numero()).isEqualTo(1L);
+        assertThat(calculado.totales().total()).isEqualByComparingTo(emitido.totales().total());
+        assertThat(calculado.totales().igv()).isEqualByComparingTo(emitido.totales().igv());
+        assertThat(calculado.totales().isc()).isEqualByComparingTo(emitido.totales().isc());
+        assertThat(calculado.totales().redondeo()).isEqualByComparingTo("0.10");
+        // Y los mismos errores de dominio: lo que la emisión rechazaría, calcular también.
+        assertThatThrownBy(() -> service.calcularFactura(tenantId, new EmitirFacturaCommand("F001", null, LocalDate.of(2026, 9, 13), null, "XXX", "0101",
+                new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(new Item("P", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false))).isInstanceOf(DomainException.class).hasMessageContaining("3088");
     }
 
     private EmitirFacturaCommand conAnticipo(Anticipo a) {
@@ -219,6 +498,51 @@ class EmitirComprobanteServiceTest {
                 .hasMessageContaining("otro cliente");
     }
 
+    private EmitirFacturaCommand boleta(String precio, Receptor comprador, boolean enviar, Anticipo... anticipos) {
+        return new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101", comprador,
+                List.of(new Item("P1", "Obra", "NIU", BigDecimal.ONE, new BigDecimal(precio), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(anticipos), null, null, enviar);
+    }
+
+    /** #295: la boleta regulariza el anticipo de otra boleta (serie B, tipo 03) o de una factura (serie F, tipo 02) aceptada, del mismo comprador. */
+    @Test void unaBoletaDescuentaElAnticipoDeUnaBoletaAceptadaDelMismoComprador() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Receptor juan = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        Comprobante anticipo = service.emitirFactura(tenantId, boleta("118.00", juan, true));   // B001-1: 100.00 gravado, ACEPTADO por el gateway fake
+        assertThat(anticipo.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+
+        Comprobante fin = service.emitirFactura(tenantId, boleta("1180.00", juan, true, new Anticipo("B001", anticipo.numero(), new BigDecimal("100.00"), null, null)));
+        assertThat(fin.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(fin.totales().totalAnticipos()).isEqualByComparingTo("118.00");
+        assertThat(fin.totales().total()).isEqualByComparingTo("1062.00");
+        assertThat(fin.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        // El mismo anticipo no se regulariza dos veces en boletas: lo ya regularizado cuenta.
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, true, new Anticipo("B001", anticipo.numero(), new BigDecimal("0.01"), null, null))))
+                .hasMessageContaining("ya se regularizaron 100.00");
+    }
+
+    @Test void unaBoletaDescuentaElAnticipoDeUnaFacturaAceptada() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante anticipo = service.emitirFactura(tenantId, cmd(null, true));   // F001-1 al RUC 20601234565 por 100.00 gravado
+        Receptor mismoRuc = new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1");
+        Comprobante fin = service.emitirFactura(tenantId, boleta("1180.00", mismoRuc, true, new Anticipo("F001", anticipo.numero(), new BigDecimal("100.00"), null, null)));
+        assertThat(fin.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(fin.totales().totalAnticipos()).isEqualByComparingTo("118.00");
+    }
+
+    @Test void elAnticipoDeBoletaSeRechazaSiNoExisteNoEstaAceptadoOEsDeOtroComprador() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Receptor juan = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, false, new Anticipo("B001", 99, new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("3218").hasMessageContaining("La boleta de anticipo B001-99").hasMessageContaining("no existe");
+        Comprobante firmada = service.emitirFactura(tenantId, boleta("118.00", juan, false));   // queda FIRMADO
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", juan, false, new Anticipo("B001", firmada.numero(), new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("3218").hasMessageContaining("FIRMADO");
+        Comprobante aceptada = service.emitirFactura(tenantId, boleta("118.00", juan, true));
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, boleta("1180.00", new Receptor("1", "87654321", "OTRO", null), false, new Anticipo("B001", aceptada.numero(), new BigDecimal("50.00"), null, null))))
+                .hasMessageContaining("otro cliente");
+    }
+
     /** La serie de un anexo emite con el domicilio del anexo (RegistrationAddress del XML); la del 0000, con el fiscal (#80). */
     @Test void laSerieDeUnEstablecimientoAnexoEmiteConSuDomicilio() {
         pe.factura.domain.tenant.Domicilio fiscal = pe.factura.domain.tenant.Domicilio.de("150101", "Av. Lima 123");
@@ -239,6 +563,47 @@ class EmitirComprobanteServiceTest {
         establecimientos.guardar(new pe.factura.domain.tenant.Establecimiento(tenantId, "0002", "Tienda", tienda, false));
         assertThatThrownBy(() -> service.emitirFactura(tenantId, comando("F002"))).extracting("codigo").isEqualTo("ESTABLECIMIENTO_INVALIDO");
         assertThat(comprobantes.listar(tenantId, null, 1, 10)).hasSize(2);
+    }
+
+    /** #20: una serie B### emite una boleta con la numeración de su propia serie y se envía sola con sendBill, como una factura. */
+    @Test void unaSerieBEmiteUnaBoletaYLaEnviaComoUnaFactura() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 41, true));
+        Comprobante c = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true));
+
+        assertThat(c.tipo()).isEqualTo(TipoDocumento.BOLETA);
+        assertThat(c.numero()).isEqualTo(42L);
+        assertThat(c.nombreArchivo()).isEqualTo("20100066603-03-B001-42");
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(gateway.enviados).isEqualTo(1);
+        assertThat(gateway.ultimoNombre).isEqualTo("20100066603-03-B001-42");
+        // La factura sigue en su serie: la boleta no le consumió número.
+        assertThat(service.emitirFactura(tenantId, comando("F001")).numero()).isEqualTo(1L);
+    }
+
+    @Test void unaBoletaSinSerieDeBoletaConfiguradaNoSeEmite() {
+        assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("-", "-", "CLIENTES VARIOS", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true))).extracting("codigo").isEqualTo("SERIE_NO_CONFIGURADA");
+        assertThat(gateway.enviados).isZero();
+    }
+
+    /** #362 B9: una boleta con un documento relacionado 06 o 07 (4009) se rechaza antes de numerar y de enviar; la factura sí los lleva. */
+    @Test void unaBoletaConDocumentoRelacionado06o07SeRechazaSinConsumirNumero() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 41, true));
+        for (String tipo : List.of("06", "07"))
+            assertThatThrownBy(() -> service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                    new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                    FormaPago.contado(), null, List.of(), null, null, null, List.of(), new pe.factura.domain.documento.Referencias(null, List.of(),
+                            List.of(new pe.factura.domain.documento.DocumentoRelacionado(tipo, "F001-123"))), null, true)))
+                    .as(tipo).extracting("codigo").isEqualTo("DOCUMENTO_RELACIONADO_INVALIDO");
+        assertThat(gateway.enviados).isZero();
+        assertThat(comprobantes.listar(tenantId, null, 1, 10)).isEmpty();
+        // Nada consumió número: la siguiente boleta es la 42.
+        assertThat(service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, true)).numero()).isEqualTo(42L);
     }
 
     private EmitirFacturaCommand comando(String serie) {
@@ -280,5 +645,21 @@ class EmitirComprobanteServiceTest {
         java.time.Clock dia16 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-16T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
         assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia16).marcarVencidos()).isEmpty();
         assertThat(comprobantes.buscar(tenantId, otra.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
+
+    /**
+     * #331: el barrido ya no cierra una boleta pasado el 7.º día. SUNAT recibe el alta tardía en un resumen diario (puede observarla con 4443), así que sigue
+     * enviable y se informa al enviarla; FUERA_DE_PLAZO queda para la factura y sus notas.
+     */
+    @Test void elBarridoNoCierraUnaBoletaPasadoElSeptimoDia() {
+        series.crear(new Serie(tenantId, TipoDocumento.BOLETA, "B001", 0, true));
+        Comprobante boleta = service.emitirFactura(tenantId, new EmitirFacturaCommand("B001", null, LocalDate.of(2026, 9, 13), null, "PEN", "0101",
+                new Receptor("1", "12345678", "JUAN PEREZ", null), List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO)),
+                FormaPago.contado(), null, List.of(), null, null, null, List.of(), null, null, false));
+        Comprobante factura = service.emitirFactura(tenantId, cmd(null, false));
+        java.time.Clock dia30 = java.time.Clock.fixed(java.time.Instant.parse("2026-09-30T15:00:00Z"), java.time.ZoneId.of("America/Lima"));
+
+        assertThat(new ControlarPlazoEnvioService(comprobantes, Fakes.UOW, dia30).marcarVencidos()).extracting(Comprobante::id).containsExactly(factura.id());
+        assertThat(comprobantes.buscar(tenantId, boleta.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
     }
 }

@@ -11,4 +11,6 @@ public interface OutboxRepository {
     List<OutboxItem> tomarVencidas(int limite, Duration lock); // FOR UPDATE SKIP LOCKED + marca locked_until
     void reprogramar(UUID id, Instant cuando, String error);
     void completar(UUID id);
+    /** Saca de la cola la tarea {@code accion} de ese agregado, si la hay (p. ej. cuando un administrador descarta un envío, #196). No hace nada si no existe. */
+    void completarPorAgregado(UUID agregadoId, String accion);
 }

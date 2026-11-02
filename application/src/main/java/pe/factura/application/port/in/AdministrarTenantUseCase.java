@@ -1,6 +1,7 @@
 package pe.factura.application.port.in;
 
 import pe.factura.domain.documento.TipoDocumento;
+import pe.factura.domain.plataforma.ActorAdmin;
 import pe.factura.domain.tenant.ApiKey;
 import pe.factura.domain.tenant.Domicilio;
 import pe.factura.domain.tenant.Entorno;
@@ -13,12 +14,19 @@ import java.util.UUID;
 
 public interface AdministrarTenantUseCase {
     record TenantCreado(Tenant tenant, String apiKeyEnClaro) {}
-    TenantCreado crearTenant(String ruc, String razonSocial, Entorno entorno);
+    /** Alta administrativa; queda en la bitácora de auditoría a nombre de {@code actor}, en la misma transacción que el alta. */
+    TenantCreado crearTenant(ActorAdmin actor, String ruc, String razonSocial, Entorno entorno);
     Tenant obtener(UUID tenantId);
+    /** #107: si SUNAT rechazó las credenciales SOL de la empresa, cuándo y por qué; vacío si no. */
+    java.util.Optional<pe.factura.application.port.out.RechazoDeSolRepository.Rechazo> rechazoDeSol(UUID tenantId);
     /** Domicilio fiscal (RegistrationAddress del XML) y cuenta de detracciones por defecto; cualquiera puede ir en null para borrarlo. */
     Tenant actualizarDatosFiscales(UUID tenantId, Domicilio domicilio, String cuentaDetracciones, String nombreComercial, boolean padronTasaEspecialIgv);
     void cargarCertificado(UUID tenantId, byte[] pkcs12, String clave);   // valida abriendo el KeyStore (RUC en OU y vigencia)
     void cargarCredencialesSol(UUID tenantId, String usuario, String clave);
+    /** #318: client_id y client_secret de «Credenciales de API SUNAT» (SOL); reemplazan las anteriores. Se guardan cifrados y nunca vuelven por la API. */
+    void cargarCredencialesApiSunat(UUID tenantId, String clientId, String clientSecret);
+    /** #318: idempotente; sin ellas la validez vuelve a consultarse solo con la clave SOL. */
+    void borrarCredencialesApiSunat(UUID tenantId);
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial);
     /** {@code establecimiento}: código del anexo desde el que emite la serie (nulo o 0000 = domicilio fiscal); debe existir y estar activo. */
     void crearSerie(UUID tenantId, TipoDocumento tipo, String codigo, long correlativoInicial, String establecimiento);

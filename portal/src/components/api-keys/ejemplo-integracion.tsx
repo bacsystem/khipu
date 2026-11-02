@@ -1,14 +1,19 @@
 "use client";
 
-import { BookOpenIcon, TerminalSquareIcon } from "lucide-react";
+import { BookOpenIcon, TerminalWindowIcon } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { TARJETA } from "@/lib/estilos";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
+import { ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO, TARJETA } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Lenguaje = "curl" | "node" | "python";
+
+/* eslint-disable khipu/no-literal-de-ui -- nombres de lenguajes y código de ejemplo de la API (cuerpo, respuesta y snippets): no es texto de UI que se traduzca */
 
 const TABS: Array<{ id: Lenguaje; etiqueta: string }> = [
   { id: "curl", etiqueta: "cURL" },
@@ -88,101 +93,88 @@ datos = res.json()["datos"]
 print(datos["serie"], datos["numero"], datos["estado_documento"])  # F001 126 ACEPTADO`;
   }
 }
+/* eslint-enable khipu/no-literal-de-ui */
 
 /** Ejemplo de emisión por API en varios lenguajes con la respuesta real del endpoint, como referencia en un modal. */
 export function EjemploIntegracionDialog({ baseUrl, className }: { baseUrl: string; className?: string }) {
+  const soloLectura = useSinPermisoDeConfigurar();
+  const t = useMessages().apiKeys.ejemplo;
+  const tr = useTranslations("apiKeys.ejemplo");
   const [abierto, setAbierto] = useState(false);
   const [lenguaje, setLenguaje] = useState<Lenguaje>("curl");
   const codigo = snippet(lenguaje, baseUrl, "fk_TU_API_KEY");
 
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
-      <DialogTrigger
+      <DialogTrigger disabled={soloLectura !== null} title={soloLectura ?? undefined}
         className={
           className ??
-          "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground"
+          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
         }
       >
-        <TerminalSquareIcon className="size-4" />
-        Prueba de emisión
+        <TerminalWindowIcon className="size-4" />
+        {t.boton}
       </DialogTrigger>
 
       <DialogContent className="gap-0 p-0" style={{ maxWidth: "min(1200px, calc(100vw - 3rem))" }}>
-        <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <TerminalSquareIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-base font-semibold tracking-tight">Prueba de emisión por API</DialogTitle>
-              <DialogDescription className="text-[13px]">Firma XML-DSig, validación XSD y envío a SUNAT en una sola llamada</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+        <CabeceraDialogo icon={TerminalWindowIcon} titulo={t.titulo} descripcion={t.descripcion} />
 
         <div className="@container bg-muted/40 px-5 py-4">
           <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-12">
             <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-7")}>
               <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted px-4 py-2">
-                <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary-foreground uppercase">POST</span>
-                <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">{baseUrl}/v1/facturas</code>
-                <div className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-lg border border-border/60 bg-secondary/80 p-0.5">
+                <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-etiqueta font-bold text-primary-foreground">{"POST"}</span>
+                <code className="min-w-0 flex-1 truncate font-mono text-control text-foreground">{`${baseUrl}/v1/facturas`}</code>
+                <div className={cn(SEGMENTADO, "shrink-0")}>
                   {TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setLenguaje(t.id)}
-                      className={cn(
-                        "h-6 rounded-md px-2 text-[11px] font-medium transition-colors",
-                        lenguaje === t.id ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
+                    <button key={t.id} type="button" onClick={() => setLenguaje(t.id)} data-active={lenguaje === t.id ? "" : undefined} className={SEGMENTO}>
                       {t.etiqueta}
                     </button>
                   ))}
                 </div>
-                <BotonCopiar texto={codigo} etiqueta className="h-7 px-2 text-[11px] font-medium" />
+                <BotonCopiar texto={codigo} etiqueta className={ACCION_SECUNDARIA} />
               </div>
 
-              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-[12px] leading-relaxed text-code-foreground">
+              <pre className="max-h-[52vh] overflow-auto bg-code p-4 font-mono text-control leading-relaxed text-code-foreground">
                 <code>{codigo}</code>
               </pre>
 
-              <div className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-                Reemplaza <code className="font-mono text-foreground">fk_TU_API_KEY</code> por una llave activa. Si omites{" "}
-                <code className="font-mono text-foreground">correlativo</code>, el número lo asigna la serie de forma secuencial.
+              <div className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
+                {tr.rich("notaCodigo", { code: (texto) => <code className="font-mono text-foreground">{texto}</code> })}
               </div>
             </div>
 
             <div className={cn(TARJETA, "min-w-0 overflow-hidden @3xl:col-span-5")}>
               <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
-                <h4 className="text-[13px] font-semibold text-foreground">Respuesta</h4>
-                <span className="rounded border border-success-border bg-success px-2 py-0.5 font-mono text-[11px] font-semibold text-success-foreground">
-                  201 Created
+                <h4 className="text-cuerpo font-semibold text-foreground">{t.respuesta}</h4>
+                <span className="rounded border border-success-border bg-success px-2 py-0.5 font-mono text-etiqueta font-semibold text-success-foreground">
+                  {"201 Created"}
                 </span>
               </div>
-              <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-[11.5px] leading-relaxed text-foreground">
+              <pre className="max-h-[52vh] overflow-auto bg-muted/40 p-4 font-mono text-etiqueta leading-relaxed text-foreground">
                 <code>{RESPUESTA}</code>
               </pre>
-              <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-                <code className="font-mono text-foreground">estado_documento</code> queda en <code className="font-mono">ENVIADO</code> si SUNAT demora; el
-                CDR llega por reintentos automáticos y lo ves en Comprobantes.
+              <p className="border-t border-border/60 px-4 py-2 text-etiqueta text-muted-foreground">
+                {tr.rich("notaRespuesta", {
+                  code: (texto) => <code className="font-mono text-foreground">{texto}</code>,
+                  estado: (texto) => <code className="font-mono">{texto}</code>,
+                })}
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
-          <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
+          <Link href="/developers" target="_blank" className="inline-flex items-center gap-1 text-control font-medium text-primary hover:underline">
             <BookOpenIcon className="size-3.5" />
-            Referencia completa de la API
+            {t.referencia}
           </Link>
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="inline-flex h-9 items-center rounded-lg bg-foreground px-3.5 text-[13px] font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
+            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
           >
-            Entendido
+            {t.entendido}
           </button>
         </div>
       </DialogContent>

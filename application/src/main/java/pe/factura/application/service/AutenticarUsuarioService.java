@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
+import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.application.port.out.*;
 import pe.factura.application.port.out.SesionRepository.Sesion;
@@ -18,6 +19,15 @@ import java.util.UUID;
 public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     static final Duration VIDA_REFRESH = Duration.ofDays(30);
     static final Duration VIDA_RECUPERACION = Duration.ofHours(1);
+    /**
+     * S6: cuánto sigue sirviendo un refresh recién rotado. Cada instancia del portal evita refrescar dos veces a la vez, pero no ve a las
+     * demás: si dos peticiones del mismo navegador caen en instancias distintas, ambas mandan el mismo refresh y la segunda cerraba la sesión.
+     */
+    static final Duration GRACIA_ROTACION = Duration.ofSeconds(30);
+    /** Un día: quien se registra puede no abrir el correo enseguida; pasado eso pide otro desde el portal. */
+    static final Duration VIDA_VERIFICACION = Duration.ofHours(24);
+    /** Enlaces de verificación por usuario dentro de {@link #VIDA_VERIFICACION}, contando el del registro. */
+    static final int MAX_ENLACES_POR_DIA = 5;
 
     private final CuentaRepository cuentas;
     private final UsuarioRepository usuarios;
@@ -27,44 +37,126 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final CorreoSender correo;
     private final UnitOfWork uow;
     private final Clock clock;
+    private final VerificacionCorreoRepository verificaciones;
+    private final SuspensionRepository suspensiones;
+    private final PlantillasDeCorreo plantillas;
+    private final LimiteDeIntentos limite;
+    private final AceptarTerminosUseCase terminos;
 
     @Override
-    public Tokens registrar(String nombreCuenta, String email, String password, String telefono) {
+    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String urlBase) {
+        // Antes que nada (#342): sin la aceptación no hay registro, aunque el resto venga bien.
+        if (!aceptaTerminos)
+            throw new DomainException("TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad");
         Usuario.validarPassword(password);
         Cuenta cuenta = new Cuenta(UUID.randomUUID(), nombreCuenta, email, telefono);
         if (cuentas.buscarPorEmail(cuenta.email()).isPresent() || usuarios.buscarPorEmail(cuenta.email()).isPresent())
             throw new DomainException("DUPLICADO", "Ya existe una cuenta con ese correo");
         Usuario usuario = new Usuario(UUID.randomUUID(), cuenta.id(), email, hasher.hash(password), Rol.ADMIN, true);
-        return uow.ejecutar(() -> {
+        String verificacion = TokenOpaco.generar();
+        Tokens t = uow.ejecutar(() -> {
             cuentas.guardar(cuenta);
             usuarios.guardar(usuario);
+            verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), usuario.id(), clock.instant().plus(VIDA_VERIFICACION), false));
+            // En la misma transacción que el usuario: no queda una cuenta creada sin la constancia de lo que aceptó.
+            terminos.aceptar(usuario.id());
             return emitirTokens(usuario);
+        });
+        enviarVerificacion(usuario.email(), urlBase, verificacion);
+        return t;
+    }
+
+    @Override
+    public void verificarCorreo(String token) {
+        String hash = TokenOpaco.hash(token == null ? "" : token);
+        VerificacionCorreoRepository.Token t = verificaciones.buscar(hash)
+                .filter(x -> !x.usado() && x.expiraEn().isAfter(clock.instant()))
+                .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "El enlace de verificación es inválido o venció. Pide otro desde el portal"));
+        uow.ejecutar(() -> {
+            // Marcarlo usado es la condición: si dos clics llegan a la vez, solo uno verifica, y el otro ve el enlace ya usado.
+            if (!verificaciones.usar(hash))
+                throw new DomainException("TOKEN_INVALIDO", "El enlace de verificación ya se usó");
+            // Solo la marca, sin reescribir el usuario leído: un restablecer que entre a la vez no pierde la contraseña nueva.
+            usuarios.marcarCorreoVerificado(t.usuarioId(), clock.instant());
         });
     }
 
     @Override
-    public Tokens login(String email, String password) {
-        Usuario u = usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase())
+    public void reenviarVerificacion(UUID usuarioId, String urlBase) {
+        Usuario u = usuarios.buscar(usuarioId).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
+        if (u.correoVerificado()) throw new DomainException("CORREO_YA_VERIFICADO", "Tu correo ya está verificado");
+        // Sin verificar, el correo puede no ser suyo: sin tope, el reenvío serviría para llenar el buzón de otro desde nuestro dominio.
+        if (verificaciones.contarSinVencer(u.id(), clock.instant()) >= MAX_ENLACES_POR_DIA)
+            throw new DomainException("DEMASIADOS_ENLACES", "Ya te enviamos varios enlaces hoy. Revisa tu correo, también la carpeta de spam, o vuelve a pedirlo mañana");
+        String verificacion = TokenOpaco.generar();
+        uow.ejecutar(() -> verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), u.id(), clock.instant().plus(VIDA_VERIFICACION), false)));
+        enviarVerificacion(u.email(), urlBase, verificacion);
+    }
+
+    /**
+     * Fuera de la transacción y sin propagar el error: un SMTP caído no debe impedir registrarse, y el usuario pide otro enlace desde
+     * el portal. La causa la registra el adaptador de correo, que es quien la conoce.
+     */
+    private void enviarVerificacion(String email, String urlBase, String token) {
+        try {
+            var texto = CorreosDeAcceso.verificacion(plantillas, urlBase, token);
+            correo.enviar(email, texto.asunto(), texto.cuerpo());
+        } catch (RuntimeException e) {
+            // el portal muestra «revisa tu correo» con un botón para pedir otro enlace
+        }
+    }
+
+    @Override
+    public Tokens login(String email, String password, String ip) {
+        // Antes de mirar la contraseña y fuera de la transacción (#261): N peticiones simultáneas no prueban N contraseñas.
+        var intento = limite.reservarLogin(LimiteDeIntentos.Ambito.CLIENTE, email, ip);
+        // El mismo correo que contó el límite: si se buscara otra variante, cada una tendría su propio contador.
+        Usuario u = usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email))
                 .filter(Usuario::activo)
                 .filter(x -> hasher.coincide(password == null ? "" : password, x.passwordHash()))
                 .orElseThrow(() -> new DomainException("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos"));
+        intento.acerto();
+        // Después de comprobar la contraseña: quien no se identificó no debe enterarse de si la cuenta existe ni de si está suspendida (#182).
+        exigirCuentaActiva(u);
         return uow.ejecutar(() -> emitirTokens(u));
     }
 
     @Override
     public Tokens refrescar(String refresh) {
         Sesion s = sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh == null ? "" : refresh))
-                .filter(x -> !x.revocada() && x.expiraEn().isAfter(clock.instant()))
+                .filter(x -> x.expiraEn().isAfter(clock.instant()) && (!x.revocada() || enGracia(x)))
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Sesión expirada o inválida"));
         Usuario u = usuarios.buscar(s.usuarioId()).filter(Usuario::activo)
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
-        return uow.ejecutar(() -> { sesiones.revocar(s.id()); return emitirTokens(u); });   // rotación
+        // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
+        exigirCuentaActiva(u);
+        return uow.ejecutar(() -> {   // rotación: la sesión nueva es de la misma familia (271-H1), también si entró en gracia
+            SesionEmitida t = emitirSesion(u, s.familia());
+            sesiones.rotar(s.id(), t.sesionId(), clock.instant());
+            return t.tokens();
+        });
+    }
+
+    /**
+     * S6: la sesión la cerró un refresh hace menos de {@link #GRACIA_ROTACION} y la que la reemplazó sigue abierta (o también la reemplazó
+     * otro refresh). Si al reemplazo lo cerró un logout, o restablecer la contraseña revocó todo, no hay gracia.
+     */
+    private boolean enGracia(Sesion s) {
+        if (s.rotadaEn() == null || s.reemplazadaPor() == null || !clock.instant().isBefore(s.rotadaEn().plus(GRACIA_ROTACION))) return false;
+        return sesiones.buscar(s.reemplazadaPor()).filter(r -> !r.revocada() || r.rotadaEn() != null).isPresent();
+    }
+
+    private void exigirCuentaActiva(Usuario u) {
+        if (suspensiones.cuentaSuspendida(u.cuentaId()))
+            throw new DomainException("CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     }
 
     @Override
     public void logout(String refresh) {
         if (refresh == null || refresh.isBlank()) return;
-        sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh)).ifPresent(s -> uow.ejecutar(() -> sesiones.revocar(s.id())));
+        // Toda la familia, no solo esta sesión (271-H1): con dos rotaciones, o con dos instancias que rotaron el mismo refresh, quedaban vivas la otra
+        // rama (30 días) y la gracia del refresh original, y un logout no las cerraba.
+        sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh)).ifPresent(s -> uow.ejecutar(() -> sesiones.revocarFamilia(s.familia())));
     }
 
     @Override
@@ -74,11 +166,13 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
 
     @Override
     public void solicitarRecuperacion(String email, String urlBase) {
-        usuarios.buscarPorEmail(email == null ? "" : email.trim().toLowerCase()).filter(Usuario::activo).ifPresent(u -> {
+        // Sin tope, esto llenaría el buzón de un cliente desde nuestro dominio (#261). Se cuenta exista o no la cuenta, y en silencio.
+        if (!limite.admiteRecuperacion(email)) return;
+        usuarios.buscarPorEmail(LimiteDeIntentos.normalizar(email)).filter(Usuario::activo).ifPresent(u -> {
             String token = TokenOpaco.generar();
             uow.ejecutar(() -> sesiones.crearRecuperacion(new TokenRecuperacion(TokenOpaco.hash(token), u.id(), clock.instant().plus(VIDA_RECUPERACION), false)));
-            correo.enviar(u.email(), "Restablecer contraseña",
-                    "Para restablecer tu contraseña abre este enlace (válido 1 hora):\n" + urlBase + "/restablecer/" + token);
+            var texto = CorreosDeAcceso.recuperacion(plantillas, urlBase, token);
+            correo.enviar(u.email(), texto.asunto(), texto.cuerpo());
         });
     }
 
@@ -90,17 +184,29 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .filter(x -> !x.usado() && x.expiraEn().isAfter(clock.instant()))
                 .orElseThrow(() -> new DomainException("TOKEN_INVALIDO", "Enlace de recuperación inválido o vencido"));
         Usuario u = usuarios.buscar(t.usuarioId()).orElseThrow(() -> new DomainException("NO_ENCONTRADO", "Usuario no encontrado"));
+        String nuevoHash = hasher.hash(nuevaPassword);
         uow.ejecutar(() -> {
-            usuarios.guardar(u.conPasswordHash(hasher.hash(nuevaPassword)));
+            // El enlace llegó a su correo: abrirlo también lo verifica (#22). Así quien entra por la invitación del alta asistida queda verificado.
+            // Solo esas columnas (#21, H2): reescribir el usuario leído arriba deshacía un «desactivar» o un cambio de rol que un administrador hizo en el medio.
+            usuarios.cambiarPassword(u.id(), nuevoHash, clock.instant());
             sesiones.marcarRecuperacionUsada(hash);
             sesiones.revocarTodas(u.id());
         });
     }
 
+    /** Un login (o un registro): una familia nueva. */
     private Tokens emitirTokens(Usuario u) {
+        return emitirSesion(u, null).tokens();
+    }
+
+    private record SesionEmitida(UUID sesionId, Tokens tokens) {}
+
+    /** {@code familia}: la de la sesión que se rota, o {@code null} para empezar una nueva (la propia sesión). */
+    private SesionEmitida emitirSesion(Usuario u, UUID familia) {
         String refresh = TokenOpaco.generar();
-        sesiones.crear(new Sesion(UUID.randomUUID(), u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), false));
+        UUID id = UUID.randomUUID();
+        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), familia == null ? id : familia));
         String access = tokens.emitir(new TokenEmisor.Claims(u.id(), u.cuentaId(), u.rol()));
-        return new Tokens(access, refresh, u);
+        return new SesionEmitida(id, new Tokens(access, refresh, u, terminos.pendiente(u.id())));
     }
 }

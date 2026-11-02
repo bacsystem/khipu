@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, postJson } from "./browser";
+import en from "@/messages/en.json";
+import es from "@/messages/es.json";
+import { apiRequest, noSeSabeSiLlego, postJson, seVencioLaEspera } from "./browser";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -60,7 +62,8 @@ describe("apiRequest / postJson", () => {
 
       expect(res.estado).toBe("error");
       expect(res.codigo).toBe("RED");
-      expect(res.mensaje).toBeTruthy();
+      // Un error de transporte viaja sin texto: el formulario lo toma del catálogo, en el idioma de la sesión (#25).
+      expect(res.mensaje).toBeNull();
     });
 
     it("corte de red al leer el cuerpo de la respuesta", async () => {
@@ -71,7 +74,8 @@ describe("apiRequest / postJson", () => {
       const res = await postJson("/api/auth/login", { email: "a@b.com", password: "x" });
 
       expect(res.estado).toBe("error");
-      expect(res.codigo).toBe("RED");
+      expect(res.codigo).toBe("RED_CORTADA");
+      expect(noSeSabeSiLlego(res)).toBe(true);
     });
 
     it("respuesta que no es JSON (el HTML de un 502 de proxy)", async () => {
@@ -85,5 +89,64 @@ describe("apiRequest / postJson", () => {
       expect(res.estado).toBe("error");
       expect(res.codigo).toBe("RESPUESTA_INVALIDA");
     });
+  });
+});
+
+describe("tope de espera (#117)", () => {
+  it("cada pedido lleva una señal que vence: 30 s la lectura y 2 min lo que escribe", async () => {
+    const espera = vi.spyOn(AbortSignal, "timeout");
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await apiRequest("/api/proxy/series", { method: "GET" });
+    await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+    await apiRequest("/api/proxy/series/F001", { method: "DELETE" });
+
+    expect(espera.mock.calls.map(([ms]) => ms)).toEqual([30_000, 120_000, 120_000]);
+    for (const [, init] of fetch.mock.calls) expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
+    espera.mockRestore();
+  });
+
+  it("un pedido que vence cae en el corte de red, con su propio código, y no cuelga al llamador", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")));
+
+    const res = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+
+    expect(res.estado).toBe("error");
+    expect(res.codigo).toBe("ESPERA_VENCIDA");
+    expect(noSeSabeSiLlego(res)).toBe(true);
+    expect(res.mensaje).toBeNull();
+  });
+
+  it("un corte de red que no es de tiempo se queda en el código de conexión", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    const res = await apiRequest("/api/proxy/series", { method: "GET" });
+
+    expect(res.codigo).toBe("RED");
+    expect(res.mensaje).toBeNull();
+    expect(seVencioLaEspera(res)).toBe(false);
+  });
+
+  it("cada código de transporte tiene su texto en español y en inglés, y ninguno viaja como literal", () => {
+    for (const codigo of ["RED", "RED_CORTADA", "ESPERA_VENCIDA", "RESPUESTA_INVALIDA", "ERROR_DE_COMUNICACION", "ERROR_INESPERADO"]) {
+      expect((es.errores as Record<string, string>)[codigo], `es: ${codigo}`).toBeTruthy();
+      expect((en.errores as Record<string, string>)[codigo], `en: ${codigo}`).toBeTruthy();
+    }
+  });
+
+  it("una llamada puede pedir su propia espera (el barrido de integridad), y un tiempo vencido se distingue de un corte", async () => {
+    const espera = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    await apiRequest("/api/admin/integridad", { method: "POST", body: {}, esperaMaximaMs: 300_000 });
+    expect(espera).toHaveBeenLastCalledWith(300_000);
+    espera.mockRestore();
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")));
+    const vencido = await apiRequest("/api/proxy/facturas", { method: "POST", body: {} });
+    expect(seVencioLaEspera(vencido)).toBe(true);
+    expect(vencido.codigo).toBe("ESPERA_VENCIDA");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    expect(seVencioLaEspera(await apiRequest("/api/proxy/facturas", { method: "POST", body: {} }))).toBe(false);
   });
 });

@@ -2,6 +2,22 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.0.0] - 2026-11-01
+
+Primera versión para vender: 166 PRs desde la 0.2.1 (detalle en la PR de release #493 y en cada PR). Trae **47 migraciones de base (V25 → V71)**: respaldar la base antes de desplegar.
+
+### Added
+- Comprobantes: boleta (envío individual y resumen diario de hasta 500 para anularlas), notas de crédito y débito con todo el catálogo 07, comunicación de baja, liquidación de compra (04), retención (20) y percepción (40) para agentes designados (API), guías de remisión 09/31 (se emiten y firman; el envío a SUNAT queda apagado hasta una corrida controlada).
+- Formulario de emisión: crédito con cuotas, detracción (SPOT), percepción, retención del IGV, anticipos, descuentos y cargos, exportación, 17 monedas, ISC e ICBPER, orden de compra y documentos relacionados, clientes y productos guardados, duplicar.
+- Operación: envío del comprobante aceptado al cliente por correo, webhooks, exportar a CSV/XLSX, descarga en ZIP, consulta de validez (REST de SUNAT con respaldo SOAP), SIRE RVIE (experimental), alertas al operador, límites del plan (API keys, usuarios, RUC), equipo con roles e invitaciones, términos y privacidad aceptados y versionados.
+- Portal: textos en español e inglés (next-intl), panel de inicio, design system de khipu (v0.5.6) en el esqueleto, tablas, formularios y filtros.
+
+### Fixed
+- Auditoría 2026-10-22: el envío se reserva antes de llamar a SUNAT y cada guardado exige su estado de origen (sin doble envío ni aceptación perdida); cantidad y precio con los 10 decimales firmados en base, XML y PDF; la empresa se edita por sección sin reescribir secretos.
+
+### Changed
+- Spring Boot 4.1.2. CI: un tag de versión construye las imágenes, las publica en Docker Hub y redespliega Railway; las pruebas se corren en local.
+
 ## [0.2.1] - 2026-09-22
 
 ### Added

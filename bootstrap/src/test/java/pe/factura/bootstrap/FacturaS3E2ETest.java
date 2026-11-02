@@ -30,7 +30,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * (#38): los tests heredados corren sobre el storage S3, y además se verifica la integridad del periodo por la API de administración.
  */
 class FacturaS3E2ETest extends FacturaE2ETest {
-    @Container static MinIOContainer minio = new MinIOContainer(DockerImageName.parse("quay.io/minio/minio:latest").asCompatibleSubstituteFor("minio/minio"));
+    // MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025): se usa la de Chainguard. Corre como el usuario
+    // 65532, que no puede escribir en /data, así que en pruebas se arranca como root.
+    @Container static MinIOContainer minio = new MinIOContainer(DockerImageName.parse("cgr.dev/chainguard/minio:latest").asCompatibleSubstituteFor("minio/minio"))
+            .withCreateContainerCmdModifier(cmd -> cmd.withUser("0:0"));
 
     @DynamicPropertySource static void storage(DynamicPropertyRegistry r) {
         r.add("app.storage.type", () -> "s3");

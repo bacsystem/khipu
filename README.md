@@ -4,7 +4,7 @@ Plataforma multi-tenant de facturación electrónica para Perú: **API** Java/Sp
 
 Estado: fase 1A (factura electrónica 01 extremo a extremo con SUNAT beta) + etapa 1 del portal. Design system: [bacsystem/khipu-design-system](https://github.com/bacsystem/khipu-design-system).
 
-> Nomenclatura: el proyecto se llama **khipu**; por historia, el paquete Java es `pe.factura`, el `rootProject` de Gradle y la base de datos se llaman `factura`, y las cookies del portal son `factura_*`. Son identificadores técnicos; renombrarlos implica migración de datos/sesiones y queda como tarea aparte.
+> Nomenclatura: el proyecto se llama **khipu**; por historia, el paquete Java es `pe.factura` y el `rootProject` de Gradle y la base de datos se llaman `factura`. Qué se renombró y qué no, y por qué, está en [Naming y modelo de envío](#naming-y-modelo-de-envío-decisiones).
 
 ## Requisitos
 Java 21, Docker.
@@ -33,9 +33,68 @@ set -a; source .env; set +a
 ./gradlew :bootstrap:bootRun
 ```
 
-**No rotes `MASTER_KEY`.** Cifra los certificados PKCS#12 y las claves SOL almacenados en la base de datos;
-si cambia, esos secretos dejan de poder descifrarse y cada tenant tendría que volver a cargarlos.
-Respáldala junto con la base de datos. Lo mismo aplica a `API_KEY_PEPPER`: rotarlo invalida todas las API keys emitidas.
+**No cambies `MASTER_KEY` ni `API_KEY_PEPPER` a secas.** `MASTER_KEY` cifra los certificados PKCS#12, las claves SOL y los secretos del segundo
+factor guardados en la base: si se reemplaza sin más, dejan de poder descifrarse. `API_KEY_PEPPER` es parte del hash de cada API key: reemplazarlo
+sin más invalida todas las emitidas. **Para rotarlas** (una filtración, una política de rotación) hay un procedimiento con `MASTER_KEY_ANTERIOR` y
+`API_KEY_PEPPER_ANTERIOR` que no pierde nada: ver `deploy/README.md` §9. Guarda las dos fuera de la plataforma, junto con el respaldo de la base.
+
+### Soporte
+Los tickets viven en un servicio externo (#200); khipu solo enlaza a él. En el **portal** (`portal/.env.example`), dos variables
+opcionales y vacías por defecto (#250):
+
+- `SUPPORT_URL`: página o portal de ayuda, tiene que ser `https`.
+- `SUPPORT_EMAIL`: correo de soporte.
+
+Con alguna de las dos, el portal muestra «¿Necesitas ayuda?» en el pie del panel, en las pantallas de error, login y cuenta
+suspendida, y en `/cuenta/plan`. Con el correo, la ficha de cada cuenta del backoffice ofrece «Escribir a soporte», con el nombre
+y el id de la cuenta en el asunto. Sin ninguna no se muestra nada. Un valor mal formado no pasa en silencio: el log del portal
+nombra la variable y el portal no muestra ninguna ayuda hasta corregirla (el resto funciona igual).
+
+### Probar `develop` en Docker (`make`)
+Para probar lo ya mergeado sin depender de la rama que tengas abierta, `develop` se despliega en Docker con backend, portal y
+su propio Postgres. `make` sin argumentos lista todos los objetivos.
+```bash
+make env              # una sola vez: crea ../khipu-develop.env con secretos nuevos (nunca pisa uno existente)
+make deploy-develop   # fija un worktree en origin/develop, construye backend y portal y los levanta
+make develop-logs     # logs del backend y del portal
+make develop-datos    # cuántas cuentas, empresas y administradores tiene su base (también lo dice al final de cada deploy)
+make develop-version  # qué commit de develop está fijado
+make deploy-develop   # tras cada merge: vuelve a fijar origin/develop y reconstruye
+```
+- **Puertos**: portal `:13000`, backend `:18001`, Postgres `:5433` y correos (Mailpit) `:8026` (`DEVELOP_PORTAL_PORT`, `DEVELOP_BACKEND_PORT`,
+  `DEVELOP_POSTGRES_PORT`, `DEVELOP_MAILPIT_PORT`). **Ninguno coincide con desarrollo** (`make api` `:8001`, `make dev` `:3000`): con los
+  mismos puertos, lo que respondía dependía de cuál de los dos estuviera levantado y cambiar de uno a otro parecía borrar los datos (eran
+  dos bases distintas). Ahora pueden correr a la vez. Las cookies del navegador no distinguen puertos: si usas los dos portales en el mismo
+  navegador, uno puede cerrar la sesión del otro; usa una ventana privada para uno de ellos.
+- **Abrirlo desde el celular u otro equipo de la red**: `make deploy-develop DEVELOP_HOST=192.168.x.x` (la IP de tu PC en la red; `ipconfig`).
+  Con `localhost`, el otro dispositivo apuntaría a sí mismo. `DEVELOP_HOST` fija `PORTAL_URL` —el único origen que el backend admite en
+  CORS y la base de los enlaces de los correos— y la URL pública de la API, así que CORS admite justo ese origen y no un comodín. Dos
+  cosas más: (1) el despliegue apaga la cookie `Secure` (`COOKIE_SECURE=false`), porque por HTTP desde otro dispositivo el navegador la
+  descarta y el login no deja sesión; en producción sigue siendo `Secure`; (2) la IP de la red cambia con DHCP y, si el firewall de Windows
+  lo bloquea, hay que permitir los puertos `13000` y `18001` en la red privada. Solo para este entorno local, nunca para un HTTPS real.
+- **Correo**: el backend desplegado envía a Mailpit (`MAIL_SMTP_AUTH=false`, sin credenciales); la recuperación de contraseña y el envío de
+  comprobantes se ven en su interfaz web.
+- **Padrón de RUC** (#390): la búsqueda por RUC del formulario de comprobantes lee el padrón de SUNAT, que **viene apagado** y por eso dice «La consulta de RUC no está disponible por
+  ahora». Para cargarlo (~400 MB de descarga; el padrón ocupa 2 a 3 GB en la base del despliegue), agrega a `../khipu-develop.env` `PADRON_RUC_HABILITADO=true` y, para no esperar a las
+  04:30, `PADRON_RUC_CRON=0 <minuto> <hora> * * *` con la hora de Lima de unos 5 minutos más adelante (p. ej. `0 38 21 * * *` para las 21:38): un solo disparo, no `*/5`, porque la carga
+  tarda ~8 minutos y un cron cada 5 la repetiría apenas termine. Si ya tienes el archivo (`.txt` o `.zip`) en disco, en vez de descargarlo agrega `PADRON_RUC_DIR=<carpeta del host>` (se monta de solo lectura en `/padron`) y
+  `PADRON_RUC_ORIGEN=/padron/<archivo>`. Corre `make deploy-develop`, espera a que `make develop-logs` diga `Padrón de RUC cargado desde …` (medido: 8 min 24 s la primera carga, de 18,5 millones de filas desde el archivo local; una actualización diaria con la descarga de SUNAT, 4 min 30 s), **quita la línea del cron** y
+  vuelve a correr `make deploy-develop` (si no, la carga se repetiría cada día a esa hora). `make develop-datos` dice cuántas filas tiene y cuándo se cargó. Los datos quedan en el volumen: mientras
+  `PADRON_RUC_HABILITADO=true` siga en el archivo, a las 04:30 se vuelve a cargar; sin esa línea, un deploy deja la carga apagada pero el padrón ya cargado se conserva. **El archivo local sirve para la primera
+  carga:** con `PADRON_RUC_ORIGEN` apuntando a él, la carga diaria releería ese mismo archivo sin traer cambios. Después de la primera, quita `PADRON_RUC_DIR` y `PADRON_RUC_ORIGEN` para que use la
+  descarga diaria de SUNAT (~394 MB).
+- **Datos aparte**: usa el proyecto `khipu-develop` (volúmenes propios), así que no toca el Postgres ni los datos de tu desarrollo local.
+  Un `deploy-develop` **nunca** borra la base: reconstruye y reemplaza contenedores, pero el volumen sigue. `make develop-stop` conserva los
+  datos; `make develop-reset CONFIRMAR=si` los borra y el siguiente deploy parte de cero. Sin `CONFIRMAR=si` **en la línea de comandos**
+  se niega (una variable de entorno exportada no cuenta), para que no se pierdan por un comando suelto.
+- **Las claves** están en un único archivo, `../khipu-develop.env` (`DEVELOP_ENV`), y no en el `.env` de cada checkout: así dan igual el
+  worktree y la rama desde los que corras `make`. No lo borres ni lo regeneres mientras exista el despliegue: los datos persisten y
+  `MASTER_KEY`/`API_KEY_PEPPER` no se rotan (si lo pierdes, `make develop-reset CONFIRMAR=si`, que no necesita el archivo, borra el despliegue y sus datos; después `make env` y
+  `make deploy-develop` parten de cero. No corras `make env` y `deploy-develop` sin resetear antes: las claves nuevas no descifran los
+  datos viejos). `make develop-stop`, `develop-logs` y `develop-reset` tampoco lo necesitan. Es independiente del `.env` de `make api`.
+- **El worktree** (`../khipu-wt-develop`) solo se usa como contexto de build y nunca recibe commits.
+- Para probar un PR sin mergear, usa `make api` y `make dev` desde el worktree de ese PR.
+- Los objetivos de backend por Gradle necesitan `JAVA_HOME_21=/ruta/al/jdk-21` fuera de macOS.
 
 ## Storage de XML y CDR (conservación)
 
@@ -61,7 +120,8 @@ los pida. `STORAGE_TYPE` elige dónde viven:
 emitió; cada falta sale en el log como `ERROR Integridad del storage: XML_FALTANTE|XML_CORRUPTO|CDR_FALTANTE|STORAGE_INACCESIBLE …`.
 Para un periodo cualquiera: `POST /v1/admin/integridad?desde=2026-01-01&hasta=2026-01-31` con `X-Platform-Key` devuelve el
 informe. Solo lee: reparar es restaurar la versión/backup del objeto, o `POST /v1/facturas/{id}/cdr/recuperar` si lo que falta es
-el CDR y la empresa está en producción.
+el CDR de una factura o de sus notas (serie F) y la empresa está en producción; SUNAT no consulta boletas ni notas B por
+`getStatusCdr` (`409 CDR_NO_CONSULTABLE`): su constancia es la del envío individual o la del resumen diario.
 
 **Migrar de disco local a S3.** Las claves son las mismas en ambos backends, así que basta copiar el árbol:
 ```bash
@@ -73,8 +133,10 @@ STORAGE_TYPE=s3 STORAGE_S3_BUCKET=mi-bucket STORAGE_S3_ENDPOINT=https://… STOR
 # 3. Verifica el periodo migrado antes de retirar el disco:
 curl -X POST -H "X-Platform-Key: $PLATFORM_ADMIN_KEY" "http://localhost:8001/v1/admin/integridad?desde=2024-01-01&hasta=$(date +%F)"
 ```
-Para probar en local, `docker compose --profile s3 up -d minio` levanta MinIO en `http://localhost:9000` (consola en `:9001`,
-usuario/clave `khipu`/`khipu-minio`) con el bucket `khipu` creado; `.env.example` trae las variables comentadas.
+Para probar en local, `docker compose --profile s3 up -d minio minio-init` levanta MinIO en `http://localhost:9000` (consola en
+`:9001`, usuario/clave `khipu`/`khipu-minio`) y `minio-init` crea el bucket `khipu` con versionado; `.env.example` trae las
+variables comentadas. MinIO dejó de publicar sus imágenes en Docker Hub y Quay (oct. 2025), así que el compose y los tests de S3
+usan las de Chainguard (`cgr.dev/chainguard/minio`), que solo ofrecen `latest`.
 
 ## Flujo mínimo
 1. `POST /v1/admin/tenants` con header `X-Platform-Key` → devuelve `api_key`.
@@ -95,11 +157,36 @@ Documentación de diseño: `docs/superpowers/specs/README.md`. Plan: `docs/super
 `./gradlew :bootstrap:homologacion` emite los escenarios de factura (`bootstrap/src/test/.../homologacion/EscenariosFactura.java`)
 contra `e-beta.sunat.gob.pe` con el flujo completo y exige CDR `0` sin observaciones. Deja XML y CDR por escenario en
 `bootstrap/build/homologacion/` más un `RESUMEN.md` (evidencia para el trámite de SUNAT). Necesita Docker y salida a Internet;
-`test` la excluye. El workflow `homologacion.yml` la corre cada noche (y bajo demanda) y publica la evidencia como artifact.
+`test` la excluye. El workflow `homologacion.yml` la corre bajo demanda (Actions → Run workflow) y publica la evidencia como artifact.
 Cubre facturas, notas de crédito/débito y la comunicación de baja (RA).
 Variables opcionales: `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT` / `HOMOLOGACION_CERT_CLAVE` (PKCS#12 con `OU` = RUC; van juntas con
 el RUC), `HOMOLOGACION_SERIE`. En Actions se toman de los secretos `HOMOLOGACION_RUC`, `HOMOLOGACION_CERT_B64` y `HOMOLOGACION_CERT_CLAVE`;
 sin ellos usa el certificado de prueba del repo.
+
+## Despliegue
+Producción corre en Railway las imágenes que CI publica en Docker Hub (`cbaciliod/khipu-backend`, `khipu-portal`, `khipu-respaldo`).
+Solo un release las publica: el tag `vX.Y.Z` sobre `main` hace que `.github/workflows/imagenes.yml` construya y publique las
+imágenes y redespliegue producción. CI no corre la suite: las pruebas se corren en local antes del release. Un merge a `develop` o
+`main` no publica ni despliega. El diagrama del flujo, los
+secretos que necesita y cómo volver a una versión anterior están en
+[`deploy/README.md`, «Cómo llega un cambio a producción»](deploy/README.md#cómo-llega-un-cambio-a-producción).
+
+## Naming y modelo de envío (decisiones)
+
+**Nombre (#10, 2026-10-31).** La marca es **khipu**: el repo (`bacsystem/khipu`), el portal, el remitente de los correos y la cookie de idioma ya se llaman así.
+
+Los identificadores técnicos que todavía dicen «factura» se decidieron uno por uno:
+
+| Identificador | Decisión | Motivo |
+|---|---|---|
+| Paquete Java `pe.factura`, proyecto raíz de Gradle y base de datos Postgres `factura` | **Se mantienen** | Ningún cliente ni documento los ve. Renombrarlos toca cada archivo del backend y, en producción, obliga a mover la base viva sin aportar nada a la venta. Si algún día se hace, el paquete y el proyecto son un refactor mecánico sin riesgo de datos; la base se renombra con una ventana de mantenimiento. |
+| Cookies de sesión `factura_access`, `factura_refresh`, `factura_empresa` | **Se renombran a** `khipu_access`, `khipu_refresh`, `khipu_empresa` | Es lo único que se ve (en las herramientas del navegador) y lo único que cuesta más después. Impacto: las sesiones abiertas al desplegar se cierran una vez y el usuario vuelve a iniciar sesión. Hoy producción no tiene clientes, así que se hace antes del primer piloto. |
+
+**Modelo de envío a SUNAT (#41, 2026-10-31).** khipu sigue enviando **directo a SUNAT como SEE-Del Contribuyente**, con el certificado y la clave SOL de cada cliente, y no a través de un OSE.
+
+- Por qué ahora: ya está construido y homologado en e-beta con escenarios automáticos (`:bootstrap:homologacion`), no añade un proveedor externo en el camino de cada comprobante ni un costo por documento.
+- Qué costaría un OSE: un proveedor más en la ruta crítica, un costo por comprobante (hay que cotizarlo con cada proveedor; no es un dato del repo) y un `BillingGateway` alternativo por tenant. A cambio, el OSE valida antes de SUNAT y evita la homologación por contribuyente.
+- Cuándo se revisa: si un cliente del piloto exige un OSE por contrato, o si la homologación ante SUNAT se vuelve un obstáculo para incorporar clientes. Hasta entonces no se construye el segundo gateway.
 
 ## Convenciones de código
 

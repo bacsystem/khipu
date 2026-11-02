@@ -18,7 +18,21 @@ import java.util.List;
 public record EmitirFacturaCommand(String serie, Long correlativo, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
                                    Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencionIgv, Percepcion percepcion,
                                    List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, boolean enviarAutomatico, String observaciones, List<String> leyendas,
-                                   Exportacion exportacion) {
+                                   Exportacion exportacion, BigDecimal tipoCambio, String correoCliente) {
+    /** Sin correo del cliente (#325): no se le envía nada automáticamente al aceptarse. */
+    public EmitirFacturaCommand(String serie, Long correlativo, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
+                                Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencionIgv, Percepcion percepcion,
+                                List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, boolean enviarAutomatico, String observaciones, List<String> leyendas,
+                                Exportacion exportacion, BigDecimal tipoCambio) {
+        this(serie, correlativo, fechaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencionIgv, percepcion, anticipos, referencias, redondeo, enviarAutomatico, observaciones, leyendas, exportacion, tipoCambio, null);
+    }
+    /** Sin tipo de cambio (#316): soles por unidad de la moneda del comprobante, opcional y solo fuera de PEN. */
+    public EmitirFacturaCommand(String serie, Long correlativo, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
+                                Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencionIgv, Percepcion percepcion,
+                                List<Anticipo> anticipos, Referencias referencias, BigDecimal redondeo, boolean enviarAutomatico, String observaciones, List<String> leyendas,
+                                Exportacion exportacion) {
+        this(serie, correlativo, fechaEmision, fechaVencimiento, moneda, tipoOperacion, receptor, items, formaPago, descuentoGlobal, cargos, detraccion, retencionIgv, percepcion, anticipos, referencias, redondeo, enviarAutomatico, observaciones, leyendas, exportacion, null);
+    }
     /** Sin datos de exportación (Incoterm, país de uso). */
     public EmitirFacturaCommand(String serie, Long correlativo, LocalDate fechaEmision, LocalDate fechaVencimiento, String moneda, String tipoOperacion,
                                 Receptor receptor, List<Item> items, FormaPago formaPago, Descuento descuentoGlobal, List<Cargo> cargos, Detraccion detraccion, RetencionIgv retencionIgv, Percepcion percepcion,

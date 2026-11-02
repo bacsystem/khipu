@@ -3,7 +3,7 @@
  * redirección tras el login: evita que un enlace con `?next=https://evil.com` (o
  * `//evil.com`, `/\evil.com`) mande al usuario ya autenticado a un sitio externo.
  */
-export function rutaSegura(next: string | null, porDefecto = "/comprobantes"): string {
+export function rutaSegura(next: string | null, porDefecto = "/inicio"): string {
   if (!next) return porDefecto;
   // El parser de URL de los navegadores descarta tabs y saltos de línea *antes* de resolver el
   // destino, así que "/\n/evil.com" pasa cualquier chequeo de prefijo y llega a navegar a

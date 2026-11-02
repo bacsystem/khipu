@@ -1,6 +1,8 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# khipu-design-system es una dependencia de GitHub por tag: npm baja su tarball por HTTPS (sin `git`, que esta imagen no
+# trae), instala sus devDependencies y corre su `prepare`, que compila `dist/`. Probado con `docker build` (#16).
 RUN npm ci
 
 FROM node:22-alpine AS build

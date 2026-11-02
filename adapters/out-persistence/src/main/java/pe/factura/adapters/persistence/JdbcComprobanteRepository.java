@@ -7,9 +7,11 @@ import pe.factura.application.port.in.ConsultarComprobanteUseCase;
 import pe.factura.application.port.out.ComprobanteRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.documento.*;
+import pe.factura.domain.webhook.EventoWebhook;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,22 +21,32 @@ import java.util.*;
 public class JdbcComprobanteRepository implements ComprobanteRepository {
     private final JdbcTemplate jdbc;
 
-    /** Estados desde los que un envío en curso puede escribir ERROR_ENVIO o ENVIADO sin pisar un estado terminal. */
-    private static final String ESTADOS_DE_ENVIO = "('FIRMADO','ERROR_ENVIO','ENVIADO')";
+    /**
+     * LOG-01: lo que otro proceso tiene reservado para enviar ({@link #reservarEnvio}) no lo toman el barrido de plazo ni la agrupación en un resumen diario: su resultado
+     * llega en segundos y pisarlo dejaría FUERA_DE_PLAZO o «en resumen» lo que SUNAT acaba de aceptar. La caducidad es {@link ComprobanteRepository#ENVIO_SIN_RESPUESTA}.
+     */
+    private static final String SIN_ENVIO_EN_CURSO = " AND (d.enviando_desde IS NULL OR d.enviando_desde < now() - interval '" + ENVIO_SIN_RESPUESTA.toMinutes() + " minutes')";
 
     @Override public void guardar(Comprobante c) {
-        // Un envío tardío (p. ej. el worker y una llamada manual en paralelo) no debe sobreescribir un
-        // ACEPTADO/RECHAZADO ya persistido: al guardar ERROR_ENVIO o ENVIADO la actualización es condicional.
-        boolean condicional = c.estado() == EstadoDocumento.ERROR_ENVIO || c.estado() == EstadoDocumento.ENVIADO;
-        int filas = jdbc.update("""
-            UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
-              cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, updated_at = now() WHERE id = ? AND tenant_id = ?
-            """ + (condicional ? " AND estado IN " + ESTADOS_DE_ENVIO : ""),
-                c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
-                c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
-                c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId());
-        if (filas > 0) { registrarEventos(c); return; }
-        if (condicional) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción");
+        // LOG-01: toda actualización es condicional al estado desde el que salió la transición en memoria (el primer evento pendiente), o al estado actual si no hay
+        // transición (restaurar un CDR). Antes solo ERROR_ENVIO, ENVIADO y DESCARTADO llevaban guardia: un resultado tardío (el 1033 del segundo envío sobre el ACEPTADO
+        // del primero, el FUERA_DE_PLAZO del barrido sobre lo recién recuperado) pisaba lo que otra transacción ya había persistido. También pasa si la fila ya está en el
+        // estado destino: dos réplicas que resolvieron el mismo CDR escriben el mismo resultado (#325-H2) y la segunda no falla. Cero filas con la fila presente es
+        // ESTADO_CONFLICTO; con la fila ausente es un comprobante nuevo y se inserta. El guardado también libera la reserva del envío: el intento terminó.
+        List<EventoDocumento> pendientes = c.eventosPendientes();
+        EstadoDocumento origen = pendientes.isEmpty() ? c.estado() : pendientes.get(0).estadoAnterior();
+        if (origen != null) {
+            int filas = jdbc.update("""
+                UPDATE documento SET estado = ?, hash = ?, ticket = NULL, intentos = ?, ultimo_error = ?, cdr_codigo = ?, cdr_descripcion = ?,
+                  cdr_observaciones = ?::jsonb, xml_key = ?, cdr_key = ?, enviando_desde = NULL, updated_at = now() WHERE id = ? AND tenant_id = ? AND estado IN (?, ?)
+                """,
+                    c.estado().name(), c.hash(), c.intentos(), c.ultimoError(),
+                    c.cdr() == null ? null : c.cdr().codigo(), c.cdr() == null ? null : c.cdr().descripcion(),
+                    c.cdr() == null ? null : aJson(c.cdr().observaciones()), c.xmlKey(), c.cdrKey(), c.id(), c.tenantId(), origen.name(), c.estado().name());
+            if (filas > 0) { registrarEventos(c); return; }
+            String enBase = jdbc.queryForList("SELECT estado FROM documento WHERE id = ? AND tenant_id = ?", String.class, c.id(), c.tenantId()).stream().findFirst().orElse(null);
+            if (enBase != null) throw new DomainException("ESTADO_CONFLICTO", "El comprobante cambió de estado en otra transacción: está " + enBase + " y se esperaba " + origen);
+        }
         jdbc.update("""
             INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, hora_emision, estado, hash, nombre_archivo, intentos, ultimo_error, xml_key, cdr_key)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -45,6 +57,8 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         RetencionIgv r = c.retencion();
         Percepcion pc = c.percepcion();
         Nota n = c.nota();
+        LiquidacionCompra lc = c.liquidacion();
+        ComprobanteDeAgente ag = c.agente();
         jdbc.update("""
             INSERT INTO comprobante (documento_id, tipo_operacion, moneda, receptor_tipo_doc, receptor_num_doc, receptor_nombre, receptor_direccion,
               total_gravado, total_exonerado, total_inafecto, total_igv, total, forma_pago, monto_pendiente,
@@ -52,8 +66,9 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
               detraccion_codigo, detraccion_porcentaje, detraccion_monto, detraccion_cuenta, detraccion_medio_pago,
               retencion_porcentaje, retencion_monto, percepcion_regimen, percepcion_porcentaje, percepcion_base, percepcion_monto, orden_compra,
               fecha_vencimiento, redondeo, nota_tipo_afectado, nota_serie_afectada, nota_numero_afectado, nota_motivo, nota_descripcion, observaciones, tasa_igv, leyendas,
-              receptor_pais, incoterm, pais_uso)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              receptor_pais, incoterm, pais_uso, tipo_cambio, vendedor_ubigeo, vendedor_condicion, lugar_direccion, lugar_ubigeo, lugar_condicion, retencion_renta_tasa,
+              receptor_email, agente_regimen, agente_tasa)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, c.id(), c.tipoOperacion(), c.moneda(), c.receptor().tipoDoc(), c.receptor().numDoc(), c.receptor().razonSocial(),
                 c.receptor().direccion(), t.gravado(), t.exonerado(), t.inafecto(), t.igv(), t.total(),
                 c.formaPago().tipo().name(), c.formaPago().montoPendiente(),
@@ -65,7 +80,19 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 c.referencias().ordenCompra(), c.fechaVencimiento() == null ? null : Date.valueOf(c.fechaVencimiento()), t.tieneRedondeo() ? t.redondeo() : null,
                 n == null ? null : n.tipoAfectado().codigo(), n == null ? null : n.serieAfectada(), n == null ? null : n.numeroAfectado(), n == null ? null : n.motivo(), n == null ? null : n.descripcion(),
                 c.observaciones(), c.tasaIgv(), c.leyendas().isEmpty() ? null : String.join(",", c.leyendas()),
-                c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso());
+                c.receptor().pais(), c.exportacion() == null ? null : c.exportacion().incoterm(), c.exportacion() == null ? null : c.exportacion().paisUso(), c.tipoCambio(),
+                lc == null ? null : lc.ubigeoVendedor(), lc == null ? null : lc.condicionVendedor(), lc == null ? null : lc.lugarOperacion().direccion(),
+                lc == null ? null : lc.lugarOperacion().ubigeo(), lc == null ? null : lc.lugarOperacion().condicion(), lc == null ? null : lc.tasaRetencionRenta(),
+                c.correoCliente(), ag == null ? null : ag.regimen(), ag == null ? null : ag.tasa());
+        if (ag != null) {
+            int nPago = 1;
+            for (ComprobanteDeAgente.Documento p : ag.documentos()) {
+                jdbc.update("INSERT INTO comprobante_documento_agente (comprobante_id, orden, tipo, numero, fecha_emision, importe_total, moneda, numero_pago, fecha_pago, importe_pago, "
+                        + "tipo_cambio, fecha_tipo_cambio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        c.id(), nPago++, p.tipo(), p.numero(), Date.valueOf(p.fechaEmision()), p.importeTotal(), p.moneda(), p.numeroPago(), Date.valueOf(p.fechaPago()), p.importePago(),
+                        p.tipoCambio(), p.tipoCambio() == null || p.fechaTipoCambio() == null ? null : Date.valueOf(p.fechaTipoCambio()));
+            }
+        }
         int nDoc = 1;
         for (GuiaRelacionada g : c.referencias().guias()) {
             jdbc.update("INSERT INTO comprobante_documento_relacionado (comprobante_id, orden, clase, tipo, numero) VALUES (?, ?, 'GUIA', ?, ?)", c.id(), nDoc++, g.tipo(), g.numero());
@@ -94,12 +121,13 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 jdbc.update("INSERT INTO comprobante_cargo (comprobante_id, item_orden, orden, codigo, tipo, valor) VALUES (?, ?, ?, ?, ?, ?)",
                         c.id(), orden, nCargo++, cg.codigo(), cg.tipo().name(), cg.valor());
             }
-            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper, codigo_sunat, gtin_tipo, gtin, isc_base_pvp, hidrobiologico, transporte) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)",
+            jdbc.update("INSERT INTO comprobante_item (comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, icbper, codigo_sunat, gtin_tipo, gtin, isc_base_pvp, hidrobiologico, transporte, otros_tributos_tasa, placa) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?)",
                     c.id(), orden++, i.codigo(), i.descripcion(), i.unidad(), i.cantidad(), i.precioUnitario(), i.afectacion().codigo(),
                     tipo(i.descuento()), valor(i.descuento()), afectaBase(i.descuento()),
                     i.isc() == null ? null : i.isc().sistema(), i.isc() == null ? null : i.isc().tasa(), i.isc() == null ? null : i.isc().montoUnitario(), i.icbper(),
                     i.tieneCodigoSunat() ? i.codigoSunat().codigo() : null, i.gtin() == null ? null : i.gtin().tipo(), i.gtin() == null ? null : i.gtin().codigo(),
-                    i.isc() == null ? null : i.isc().basePvp(), DatosSectorialesJson.aJson(i.hidrobiologico()), DatosSectorialesJson.aJson(i.transporte()));
+                    i.isc() == null ? null : i.isc().basePvp(), DatosSectorialesJson.aJson(i.hidrobiologico()), DatosSectorialesJson.aJson(i.transporte()),
+                    i.tieneOtrosTributos() ? i.otrosTributos().tasa() : null, i.placa());
         }
         registrarEventos(c);
     }
@@ -109,8 +137,38 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         for (EventoDocumento e : c.eventosPendientes()) {
             jdbc.update("INSERT INTO evento_documento (documento_id, estado_anterior, estado_nuevo, detalle, ocurrido_en) VALUES (?, ?, ?, ?, clock_timestamp())",
                     c.id(), e.estadoAnterior() == null ? null : e.estadoAnterior().name(), e.estadoNuevo().name(), e.detalle());
+            encolarWebhooks(c, e);
+            anotarEnvioAlCliente(c, e);
         }
         c.eventosGuardados();
+    }
+
+    /**
+     * #325: en la misma transacción que el paso a aceptado, el envío del comprobante a su cliente, si trae correo y la empresa tiene activado el envío automático (outbox
+     * transaccional: si el estado no se guarda, tampoco el envío). Uno por comprobante: la clave primaria y el {@code ON CONFLICT DO NOTHING} hacen que un segundo paso a aceptado,
+     * o una segunda réplica, no anote otro.
+     */
+    private void anotarEnvioAlCliente(Comprobante c, EventoDocumento e) {
+        if (c.correoCliente() == null || !EnvioAlCliente.correspondeA(e)) return;
+        jdbc.update("""
+                INSERT INTO envio_al_cliente (documento_id, tenant_id, destinatario)
+                SELECT ?, t.id, ? FROM tenant t WHERE t.id = ? AND t.envio_automatico_al_cliente
+                ON CONFLICT (documento_id) DO NOTHING
+                """, c.id(), c.correoCliente(), c.tenantId());
+    }
+
+    /**
+     * Webhooks (#19): en la misma transacción que el cambio de estado, una entrega por cada endpoint de la empresa suscrito al evento, activo o pausado por khipu (el pausado
+     * guarda en cola lo nuevo y lo manda al reactivarse; el que apagó una persona no recibe nada) (outbox transaccional: si el estado
+     * no se guarda, tampoco el aviso). Un reintento que deja el mismo estado (ERROR_ENVIO tras ERROR_ENVIO) no es un cambio y no avisa. Sin endpoints es una consulta indexada por empresa.
+     */
+    private void encolarWebhooks(Comprobante c, EventoDocumento e) {
+        if (e.estadoAnterior() == e.estadoNuevo()) return;
+        EventoWebhook.deEstado(e.estadoNuevo()).ifPresent(evento -> jdbc.update("""
+                INSERT INTO webhook_entrega (id, endpoint_id, tenant_id, evento, documento_id, payload)
+                SELECT gen_random_uuid(), w.id, w.tenant_id, ?, ?, ? FROM webhook_endpoint w
+                WHERE w.tenant_id = ? AND (w.activo OR w.pausado_motivo IS NOT NULL) AND position(',' || ? || ',' IN ',' || w.eventos || ',') > 0
+                """, evento, c.id(), PayloadDeWebhook.de(evento, c, e, Instant.now()), c.tenantId(), evento));
     }
 
     @Override public List<EventoDocumento> eventosDe(UUID tenantId, UUID comprobanteId) {
@@ -127,6 +185,34 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
     @Override public Optional<Comprobante> bloquear(UUID tenantId, UUID id) {
         return jdbc.query(SELECT + " WHERE d.id = ? AND d.tenant_id = ? FOR UPDATE OF d", this::mapear, id, tenantId).stream().findFirst();
     }
+    /** LOG-01, ver el puerto. La caducidad va en la condición: una reserva huérfana (proceso caído entre el sendBill y el guardado) no bloquea el comprobante para siempre. */
+    @Override public boolean reservarEnvio(UUID tenantId, UUID id, java.time.Instant ahora, java.time.Instant reservaVencidaAntesDe) {
+        return jdbc.update("""
+            UPDATE documento SET enviando_desde = ?, updated_at = now()
+            WHERE id = ? AND tenant_id = ? AND estado IN ('FIRMADO', 'ERROR_ENVIO') AND (enviando_desde IS NULL OR enviando_desde < ?)
+            """, java.sql.Timestamp.from(ahora), id, tenantId, java.sql.Timestamp.from(reservaVencidaAntesDe)) == 1;
+    }
+    @Override public List<Comprobante> bloquearPorInformarDeLaFecha(UUID tenantId, java.time.LocalDate fechaEmision, UUID excluido, int limite) {
+        if (limite < 1) return List.of();
+        // Primero las filas libres, bloqueadas y sin esperar a las que otro ya tiene (SKIP LOCKED); luego se cargan completas (con sus hijos, de a lote) por id.
+        List<UUID> ids = jdbc.queryForList("SELECT d.id " + DESDE + " WHERE d.tenant_id = ? AND d.id <> ? AND " + BoletasPorInformar.paraAgruparEnResumen("c") + SIN_ENVIO_EN_CURSO
+                + " ORDER BY d.serie, d.numero LIMIT ? FOR UPDATE OF d SKIP LOCKED", UUID.class, tenantId, excluido, java.sql.Date.valueOf(fechaEmision), limite);
+        if (ids.isEmpty()) return List.of();
+        String marcas = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = tenantId;
+        for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
+        return consultar(" WHERE d.tenant_id = ? AND d.id IN (" + marcas + ")", " ORDER BY d.serie, d.numero", args);
+    }
+    /** #322: los comprobantes de la empresa con esos ids, completos (con sus hijos), en el orden {@code orden}. Para quien ya eligió los ids con su propia consulta. */
+    List<Comprobante> porIds(UUID tenantId, List<UUID> ids, String orden) {
+        if (ids.isEmpty()) return List.of();
+        String marcas = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = tenantId;
+        for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
+        return consultar(" WHERE d.tenant_id = ? AND d.id IN (" + marcas + ")", orden, args);
+    }
     @Override public BigDecimal montoRegularizado(UUID tenantId, String serieAnticipo, long numeroAnticipo) {
         // Un final RECHAZADO o INVALIDO no regularizó nada: su anticipo vuelve a estar disponible.
         BigDecimal suma = jdbc.queryForObject("""
@@ -142,31 +228,88 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND d.tipo = ? AND d.serie = ? AND d.numero = ? FOR UPDATE OF d", this::mapear, tenantId, tipo.codigo(), serie, numero).stream().findFirst();
     }
     @Override public List<Comprobante> notasDe(UUID tenantId, String serie, long numero) {
-        return jdbc.query(SELECT + " WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ? ORDER BY d.created_at", this::mapear, tenantId, serie, numero);
+        return consultar(" WHERE d.tenant_id = ? AND c.nota_serie_afectada = ? AND c.nota_numero_afectado = ?", " ORDER BY d.created_at", tenantId, serie, numero);
     }
-    @Override public List<Comprobante> pendientesDeEnvioEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
-        return jdbc.query(SELECT + " WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ? ORDER BY d.fecha_emision", this::mapear, Date.valueOf(fechaEmisionMaxima));
+    /**
+     * Fuera queda lo que va en el resumen diario ({@code Nota.vaEnResumenDiario}): la boleta y la nota B, salvo la NC 10 y la ND 03 (#331). Nunca vence, y sin este
+     * filtro una boleta firmada que nadie envía entraría en cada barrido para siempre.
+     */
+    @Override public List<Comprobante> pendientesQueVencenEmitidosHasta(java.time.LocalDate fechaEmisionMaxima) {
+        return consultar(" WHERE d.estado IN ('FIRMADO', 'ERROR_ENVIO') AND d.fecha_emision <= ?"
+                + " AND d.tipo <> '03' AND (c.nota_tipo_afectado IS DISTINCT FROM '03' OR (d.tipo = '07' AND c.nota_motivo = '10') OR (d.tipo = '08' AND c.nota_motivo = '03'))"
+                + SIN_ENVIO_EN_CURSO, " ORDER BY d.fecha_emision", Date.valueOf(fechaEmisionMaxima));
     }
+    /**
+     * Lo que SUNAT consulta por getStatusCdr: la factura y sus notas (#357). Fuera quedan la boleta y las notas B ({@code Comprobante.esDeBoleta}: tipo 03 o nota que
+     * modifica una boleta), cuya constancia no se pide por serie y número, y la liquidación de compra (04, #327), la retención y la percepción (20 y 40, #40), que el servicio tampoco cubre.
+     */
     @Override public List<Comprobante> pendientesDeCdr() {
-        return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO') ORDER BY d.fecha_emision", this::mapear);
+        return consultar(" WHERE d.xml_key IS NOT NULL AND d.cdr_key IS NULL AND d.estado IN ('ENVIADO', 'ERROR_ENVIO', 'ACEPTADO', 'ACEPTADO_CON_OBS', 'RECHAZADO')"
+                + " AND d.tipo NOT IN ('03', '04', '20', '40') AND c.nota_tipo_afectado IS DISTINCT FROM '03'", " ORDER BY d.fecha_emision");
     }
     @Override public List<Comprobante> firmadosEmitidosEntre(LocalDate desde, LocalDate hasta) {
-        return jdbc.query(SELECT + " WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ? ORDER BY d.fecha_emision, d.created_at", this::mapear, Date.valueOf(desde), Date.valueOf(hasta));
+        return consultar(" WHERE d.xml_key IS NOT NULL AND d.fecha_emision BETWEEN ? AND ?", " ORDER BY d.fecha_emision, d.created_at", Date.valueOf(desde), Date.valueOf(hasta));
     }
     @Override public List<Comprobante> listar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, int pagina, int porPagina) {
         List<Object> args = new ArrayList<>();
         String where = where(tenantId, filtro, args);
         args.add(porPagina); args.add((pagina - 1) * porPagina);
-        return jdbc.query(SELECT + where + " ORDER BY d.created_at DESC LIMIT ? OFFSET ?", this::mapear, args.toArray());
+        // #321: con desempate por id, dos comprobantes creados en el mismo instante no cambian de lugar entre una página y la siguiente.
+        return consultar(where, " ORDER BY d.created_at DESC, d.id DESC LIMIT ? OFFSET ?", args.toArray());
+    }
+
+    /**
+     * #321: por llave ({@code (created_at, id) < (?, ?)}) en vez de {@code OFFSET}: que entren o salgan filas antes de la llave (un comprobante nuevo, otro que cambió de estado y
+     * dejó de cumplir el filtro) no corre las páginas, así que lo que no cambia mientras se recorre sale exactamente una vez.
+     */
+    @Override public ConsultarComprobanteUseCase.PaginaPorLlave listarPorLlave(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos,
+                                                                         Set<TipoDocumento> tipos, ConsultarComprobanteUseCase.Llave despues, int limite) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(where(tenantId, filtro, args)).append(sinEstados(excluidos, args)).append(soloTipos(tipos, args));
+        if (despues != null) {
+            where.append(" AND (d.created_at, d.id) < (?, ?)");
+            args.add(java.sql.Timestamp.from(despues.creadoEn()));
+            args.add(despues.id());
+        }
+        args.add(limite);
+        List<Comprobante> filas = consultar(where.toString(), " ORDER BY d.created_at DESC, d.id DESC LIMIT ?", args.toArray());
+        if (filas.isEmpty()) return new ConsultarComprobanteUseCase.PaginaPorLlave(filas, null);
+        UUID ultimo = filas.get(filas.size() - 1).id();
+        Instant creado = jdbc.queryForObject("SELECT created_at FROM documento WHERE id = ?", java.sql.Timestamp.class, ultimo).toInstant();
+        return new ConsultarComprobanteUseCase.PaginaPorLlave(filas, new ConsultarComprobanteUseCase.Llave(creado, ultimo));
+    }
+
+    @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro, Set<EstadoDocumento> excluidos, Set<TipoDocumento> tipos) {
+        List<Object> args = new ArrayList<>();
+        String where = where(tenantId, filtro, args) + sinEstados(excluidos, args) + soloTipos(tipos, args);
+        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d JOIN comprobante c ON c.documento_id = d.id" + where, Long.class, args.toArray());
+        return total == null ? 0 : total;
+    }
+
+    private static String sinEstados(Set<EstadoDocumento> excluidos, List<Object> args) {
+        if (excluidos == null || excluidos.isEmpty()) return "";
+        excluidos.forEach(e -> args.add(e.name()));
+        return " AND d.estado NOT IN (" + String.join(", ", java.util.Collections.nCopies(excluidos.size(), "?")) + ")";
+    }
+
+    /** #321: solo los de esos tipos (la exportación sin filtro de tipo pide las ventas); vacío, de cualquier tipo. Contar y listar usan la misma condición, así el tope cuadra con el archivo. */
+    private static String soloTipos(Set<TipoDocumento> tipos, List<Object> args) {
+        if (tipos == null || tipos.isEmpty()) return "";
+        tipos.stream().map(TipoDocumento::codigo).sorted().forEach(args::add);
+        return " AND d.tipo IN (" + String.join(", ", java.util.Collections.nCopies(tipos.size(), "?")) + ")";
     }
 
     @Override public long contar(UUID tenantId, ConsultarComprobanteUseCase.Filtro filtro) {
         List<Object> args = new ArrayList<>();
-        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d" + where(tenantId, filtro, args), Long.class, args.toArray());
+        Long total = jdbc.queryForObject("SELECT count(*) FROM documento d JOIN comprobante c ON c.documento_id = d.id" + where(tenantId, filtro, args), Long.class, args.toArray());
         return total == null ? 0 : total;
     }
 
-    /** Filtros del listado (#2, #3): estado, rango de fecha de emisión (inclusive) y serie; el WHERE y sus argumentos se comparten con el conteo. */
+    /**
+     * Filtros del listado (#2, #3, #326): estado, rango de fecha de emisión (inclusive), serie, tipo, número y cliente; el WHERE y sus argumentos se comparten con el conteo.
+     * El cliente se busca por documento (empieza por lo escrito) cuando son dígitos y por nombre (contiene, sin distinguir mayúsculas) en cualquier caso: un DNI de 8 dígitos
+     * puede ser también parte de un nombre, así que las dos formas van con OR.
+     */
     private static String where(UUID tenantId, ConsultarComprobanteUseCase.Filtro f, List<Object> args) {
         StringBuilder w = new StringBuilder(" WHERE d.tenant_id = ?");
         args.add(tenantId);
@@ -174,6 +317,17 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         if (f.desde() != null) { w.append(" AND d.fecha_emision >= ?"); args.add(Date.valueOf(f.desde())); }
         if (f.hasta() != null) { w.append(" AND d.fecha_emision <= ?"); args.add(Date.valueOf(f.hasta())); }
         if (f.serie() != null) { w.append(" AND d.serie = ?"); args.add(f.serie()); }
+        if (f.tipo() != null) { w.append(" AND d.tipo = ?"); args.add(f.tipo()); }
+        if (f.numero() != null) { w.append(" AND d.numero = ?"); args.add(f.numero()); }
+        if (f.cliente() != null) {
+            // Como la búsqueda del backoffice: sin distinguir mayúsculas ni tildes con `translate` (del núcleo de Postgres, sin la extensión `unaccent`) aplicado a la columna y al texto,
+            // lo que además no depende del LC_CTYPE de la base (con «C», `lower('PACÍFICO')` deja la Í), y con los comodines de LIKE tomados literalmente.
+            String literal = JdbcCuentasAdminRepository.escaparComodines(java.text.Normalizer.normalize(f.cliente(), java.text.Normalizer.Form.NFC));
+            w.append(" AND (" + JdbcCuentasAdminRepository.SIN_TILDES.formatted("c.receptor_nombre") + " ILIKE " + JdbcCuentasAdminRepository.SIN_TILDES.formatted("?") + " ESCAPE '\\'");
+            args.add("%" + literal + "%");
+            if (f.cliente().chars().allMatch(Character::isDigit)) { w.append(" OR c.receptor_num_doc LIKE ? ESCAPE '\\'"); args.add(literal + "%"); }
+            w.append(")");
+        }
         return w.toString();
     }
 
@@ -185,47 +339,156 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                c.detraccion_codigo, c.detraccion_porcentaje, c.detraccion_monto, c.detraccion_cuenta, c.detraccion_medio_pago,
                c.retencion_porcentaje, c.retencion_monto, c.percepcion_regimen, c.percepcion_porcentaje, c.percepcion_base, c.percepcion_monto, c.orden_compra, c.fecha_vencimiento, c.redondeo,
                c.nota_tipo_afectado, c.nota_serie_afectada, c.nota_numero_afectado, c.nota_motivo, c.nota_descripcion, c.observaciones, c.tasa_igv, c.leyendas,
-               c.receptor_pais, c.incoterm, c.pais_uso
+               c.receptor_pais, c.incoterm, c.pais_uso, c.tipo_cambio,
+               c.vendedor_ubigeo, c.vendedor_condicion, c.lugar_direccion, c.lugar_ubigeo, c.lugar_condicion, c.retencion_renta_tasa, c.receptor_email, c.agente_regimen, c.agente_tasa
         FROM documento d JOIN comprobante c ON c.documento_id = d.id
         """;
 
-    private Comprobante mapear(ResultSet rs, int i) throws SQLException {
-        UUID id = rs.getObject("id", UUID.class);
-        // Cargos por nivel: clave null = globales, n = línea n (orden del ítem).
-        Map<Integer, List<Cargo>> cargos = new HashMap<>();
-        jdbc.query("SELECT item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id = ? ORDER BY orden",
-                (RowCallbackHandler) r -> { cargos.computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
-                        .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))); }, id);
-        List<Item> items = jdbc.query("SELECT orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin, hidrobiologico::text AS hidrobiologico, transporte::text AS transporte FROM comprobante_item WHERE comprobante_id = ? ORDER BY orden",
-                (r, k) -> new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), r.getBigDecimal("cantidad"),
-                        r.getBigDecimal("precio_unitario"), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
+    /**
+     * Las consultas de varias filas: primero los ids (una consulta), luego los hijos de todos juntos (una consulta por tabla y tanda) y por último las filas. Antes eran cinco
+     * consultas por comprobante. {@code filtro} es el WHERE; {@code orden}, el ORDER BY (con LIMIT y OFFSET si los hay): la consulta de ids solo lo repite cuando lleva LIMIT,
+     * porque ahí decide qué filas entran; sin LIMIT ordenar los ids sería trabajo perdido.
+     */
+    private List<Comprobante> consultar(String filtro, String orden, Object... args) {
+        boolean acotada = orden.contains("LIMIT");
+        List<IdFila> ids = jdbc.query("SELECT d.id, c.forma_pago, c.agente_regimen IS NOT NULL AS de_agente " + DESDE + filtro + (acotada ? orden : ""),
+                (rs, i) -> new IdFila(rs.getObject("id", UUID.class), "CREDITO".equals(rs.getString("forma_pago")), rs.getBoolean("de_agente")), args);
+        Hijos hijos = new Hijos();
+        hijos.cargar(ids.stream().map(IdFila::id).toList());
+        hijos.cargarCuotas(ids.stream().filter(IdFila::alCredito).map(IdFila::id).toList());
+        hijos.cargarDocumentosDeAgente(ids.stream().filter(IdFila::deAgente).map(IdFila::id).toList());
+        return jdbc.query(SELECT + filtro + orden, (rs, i) -> mapear(rs, hijos), args);
+    }
+
+    private record IdFila(UUID id, boolean alCredito, boolean deAgente) {}
+
+    /**
+     * Cargos, ítems, anticipos y documentos relacionados de un conjunto de comprobantes, y por separado las cuotas de los que son al crédito, leídos con {@code = ANY(?)} (un solo
+     * texto de SQL para cualquier tamaño) de a {@value #LOTE_DE_HIJOS}. Un comprobante que no se cargó de antemano (nació entre la consulta de ids y la de filas, o es la fila única de
+     * {@code buscar}) se lee por demanda.
+     */
+    private final class Hijos {
+        private final Set<UUID> cargados = new HashSet<>();
+        private final Set<UUID> conCuotas = new HashSet<>();
+        private final Map<UUID, Map<Integer, List<Cargo>>> cargos = new HashMap<>();
+        private final Map<UUID, List<Item>> items = new HashMap<>();
+        private final Map<UUID, List<Anticipo>> anticipos = new HashMap<>();
+        private final Map<UUID, List<GuiaRelacionada>> guias = new HashMap<>();
+        private final Map<UUID, List<DocumentoRelacionado>> otros = new HashMap<>();
+        private final Map<UUID, List<FormaPago.Cuota>> cuotas = new HashMap<>();
+        private final Map<UUID, List<ComprobanteDeAgente.Documento>> documentosDeAgente = new HashMap<>();
+        private final Set<UUID> conDocumentosDeAgente = new HashSet<>();
+
+        Map<Integer, List<Cargo>> cargos(UUID id) { asegurar(id); return cargos.getOrDefault(id, Collections.emptyMap()); }
+        List<Item> items(UUID id) { asegurar(id); return items.getOrDefault(id, List.of()); }
+        List<Anticipo> anticipos(UUID id) { asegurar(id); return anticipos.getOrDefault(id, List.of()); }
+        List<GuiaRelacionada> guias(UUID id) { asegurar(id); return guias.getOrDefault(id, List.of()); }
+        List<DocumentoRelacionado> otros(UUID id) { asegurar(id); return otros.getOrDefault(id, List.of()); }
+        /** Solo se pide para una retención o una percepción (#40), como las cuotas para lo que es al crédito: una página sin ellas no cuesta la consulta. */
+        List<ComprobanteDeAgente.Documento> documentosDeAgente(UUID id) {
+            if (!conDocumentosDeAgente.contains(id)) cargarDocumentosDeAgente(List.of(id));
+            return documentosDeAgente.getOrDefault(id, List.of());
+        }
+        /** Solo se pide para un comprobante al crédito: uno al contado no cuesta la consulta. */
+        List<FormaPago.Cuota> cuotas(UUID id) { if (!conCuotas.contains(id)) cargarCuotas(List.of(id)); return cuotas.getOrDefault(id, List.of()); }
+
+        private void asegurar(UUID id) { if (!cargados.contains(id)) cargar(List.of(id)); }
+
+        void cargar(Collection<UUID> ids) {
+            List<UUID> pendientes = ids.stream().filter(i -> !cargados.contains(i)).distinct().toList();
+            for (int desde = 0; desde < pendientes.size(); desde += LOTE_DE_HIJOS)
+                cargarLote(pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS)));
+        }
+
+        void cargarCuotas(Collection<UUID> ids) {
+            List<UUID> pendientes = ids.stream().filter(i -> !conCuotas.contains(i)).distinct().toList();
+            for (int desde = 0; desde < pendientes.size(); desde += LOTE_DE_HIJOS) {
+                List<UUID> lote = pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS));
+                consultarHijos("SELECT comprobante_id, monto, vencimiento FROM comprobante_cuota WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                        r -> cuotas.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+                                .add(new FormaPago.Cuota(r.getBigDecimal("monto"), r.getDate("vencimiento").toLocalDate())));
+                conCuotas.addAll(lote);
+            }
+        }
+
+        private void cargarLote(List<UUID> lote) {
+            consultarHijos("SELECT comprobante_id, item_orden, codigo, tipo, valor FROM comprobante_cargo WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                    r -> cargos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new HashMap<>()).computeIfAbsent(r.getObject("item_orden", Integer.class), k -> new ArrayList<>())
+                            .add(new Cargo(r.getString("codigo"), Cargo.Tipo.valueOf(r.getString("tipo")), sinCeros(r.getBigDecimal("valor")))));
+            consultarHijos(ITEMS_SQL, lote, r -> {
+                UUID cid = r.getObject("comprobante_id", UUID.class);
+                Map<Integer, List<Cargo>> cargosDe = cargos.getOrDefault(cid, Collections.emptyMap());
+                // LOG-03: NUMERIC(22,10) devuelve la escala de la columna (2.0000000000); se normaliza como los demás valores, y así la API y el PDF muestran lo que se emitió.
+                items.computeIfAbsent(cid, k -> new ArrayList<>()).add(new Item(r.getString("codigo"), r.getString("descripcion"), r.getString("unidad"), sinCeros(r.getBigDecimal("cantidad")),
+                        sinCeros(r.getBigDecimal("precio_unitario")), TipoAfectacionIgv.porCodigo(r.getString("tipo_afectacion_igv")),
                         descuento(r.getString("descuento_tipo"), r.getBigDecimal("descuento_valor"), r.getObject("descuento_afecta_base", Boolean.class)),
                         r.getString("isc_sistema") == null ? null : new Isc(r.getString("isc_sistema"), r.getBigDecimal("isc_tasa") == null ? null : sinCeros(r.getBigDecimal("isc_tasa")),
                                 r.getBigDecimal("isc_monto_unitario") == null ? null : sinCeros(r.getBigDecimal("isc_monto_unitario")),
                                 r.getBigDecimal("isc_base_pvp") == null ? null : sinCeros(r.getBigDecimal("isc_base_pvp"))),
-                        r.getBoolean("icbper"), cargos.getOrDefault(r.getInt("orden"), List.of()),
+                        r.getBoolean("icbper"), cargosDe.getOrDefault(r.getInt("orden"), List.of()),
                         CodigoProductoSunat.de(r.getString("codigo_sunat")), r.getString("gtin_tipo") == null ? null : new Gtin(r.getString("gtin_tipo"), r.getString("gtin")),
-                        DatosSectorialesJson.deJson(r.getString("hidrobiologico"), Hidrobiologico.class), DatosSectorialesJson.deJson(r.getString("transporte"), TransporteCarga.class)), id);
-        List<Anticipo> anticipos = jdbc.query("SELECT serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ? ORDER BY orden",
-                (r, k) -> new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
-                        r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate()), id);
-        List<GuiaRelacionada> guias = new ArrayList<>();
-        List<DocumentoRelacionado> otros = new ArrayList<>();
-        jdbc.query("SELECT clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id = ? ORDER BY orden", (RowCallbackHandler) r -> {
-            switch (r.getString("clase")) {
-                case "GUIA" -> guias.add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
-                case "OTRO" -> otros.add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
-                default -> throw new IllegalStateException("Clase de documento relacionado desconocida en comprobante " + id + ": " + r.getString("clase"));
+                        DatosSectorialesJson.deJson(r.getString("hidrobiologico"), Hidrobiologico.class), DatosSectorialesJson.deJson(r.getString("transporte"), TransporteCarga.class),
+                        r.getBigDecimal("otros_tributos_tasa") == null ? null : new OtrosTributos(sinCeros(r.getBigDecimal("otros_tributos_tasa"))), r.getString("placa")));
+            });
+            consultarHijos("SELECT comprobante_id, serie, numero, monto, afectacion, fecha_pago FROM comprobante_anticipo WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                    r -> anticipos.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+                            .add(new Anticipo(r.getString("serie"), r.getLong("numero"), r.getBigDecimal("monto"), Anticipo.Afectacion.valueOf(r.getString("afectacion")),
+                                    r.getDate("fecha_pago") == null ? null : r.getDate("fecha_pago").toLocalDate())));
+            consultarHijos("SELECT comprobante_id, clase, tipo, numero FROM comprobante_documento_relacionado WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote, r -> {
+                UUID cid = r.getObject("comprobante_id", UUID.class);
+                switch (r.getString("clase")) {
+                    case "GUIA" -> guias.computeIfAbsent(cid, k -> new ArrayList<>()).add(new GuiaRelacionada(r.getString("tipo"), r.getString("numero")));
+                    case "OTRO" -> otros.computeIfAbsent(cid, k -> new ArrayList<>()).add(new DocumentoRelacionado(r.getString("tipo"), r.getString("numero")));
+                    default -> throw new IllegalStateException("Clase de documento relacionado desconocida en comprobante " + cid + ": " + r.getString("clase"));
+                }
+            });
+            cargados.addAll(lote);
+        }
+
+        void cargarDocumentosDeAgente(Collection<UUID> ids) {
+            List<UUID> pendientes = ids.stream().filter(i -> !conDocumentosDeAgente.contains(i)).distinct().toList();
+            for (int desde = 0; desde < pendientes.size(); desde += LOTE_DE_HIJOS) {
+                List<UUID> lote = pendientes.subList(desde, Math.min(pendientes.size(), desde + LOTE_DE_HIJOS));
+                consultarHijos("SELECT comprobante_id, tipo, numero, fecha_emision, importe_total, moneda, numero_pago, fecha_pago, importe_pago, tipo_cambio, fecha_tipo_cambio "
+                        + "FROM comprobante_documento_agente WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden", lote,
+                        r -> documentosDeAgente.computeIfAbsent(r.getObject("comprobante_id", UUID.class), k -> new ArrayList<>())
+                                .add(new ComprobanteDeAgente.Documento(r.getString("tipo"), r.getString("numero"), r.getDate("fecha_emision").toLocalDate(), r.getBigDecimal("importe_total"),
+                                        r.getString("moneda"), r.getLong("numero_pago"), r.getDate("fecha_pago").toLocalDate(), r.getBigDecimal("importe_pago"),
+                                        r.getBigDecimal("tipo_cambio") == null ? null : sinCeros(r.getBigDecimal("tipo_cambio")),
+                                        r.getDate("fecha_tipo_cambio") == null ? null : r.getDate("fecha_tipo_cambio").toLocalDate())));
+                conDocumentosDeAgente.addAll(lote);
             }
-        }, id);
+        }
+
+        private void consultarHijos(String sql, List<UUID> lote, RowCallbackHandler fila) {
+            jdbc.query(sql, ps -> ps.setArray(1, ps.getConnection().createArrayOf("uuid", lote.toArray())), fila);
+        }
+    }
+
+    private static final int LOTE_DE_HIJOS = 500;
+    private static final String DESDE = "FROM documento d JOIN comprobante c ON c.documento_id = d.id";
+    private static final String ITEMS_SQL = "SELECT comprobante_id, orden, codigo, descripcion, unidad, cantidad, precio_unitario, tipo_afectacion_igv, descuento_tipo, descuento_valor, descuento_afecta_base, isc_sistema, isc_tasa, isc_monto_unitario, isc_base_pvp, icbper, codigo_sunat, gtin_tipo, gtin, hidrobiologico::text AS hidrobiologico, transporte::text AS transporte, otros_tributos_tasa, placa FROM comprobante_item WHERE comprobante_id = ANY(?) ORDER BY comprobante_id, orden";
+
+    /** Una sola fila (buscar, bloquear): sus hijos se leen aquí mismo, por demanda. */
+    private Comprobante mapear(ResultSet rs, int i) throws SQLException { return mapear(rs, new Hijos()); }
+
+    private Comprobante mapear(ResultSet rs, Hijos hijos) throws SQLException {
+        UUID id = rs.getObject("id", UUID.class);
+        // Cargos por nivel: clave null = globales, n = línea n (orden del ítem).
+        Map<Integer, List<Cargo>> cargos = hijos.cargos(id);
+        List<Item> items = hijos.items(id);
+        List<Anticipo> anticipos = hijos.anticipos(id);
+        List<GuiaRelacionada> guias = hijos.guias(id);
+        List<DocumentoRelacionado> otros = hijos.otros(id);
         Referencias referencias = new Referencias(rs.getString("orden_compra"), guias, otros);
         Cdr cdr = rs.getString("cdr_codigo") == null ? null : new Cdr(rs.getString("cdr_codigo"), rs.getString("cdr_descripcion"), deJson(rs.getString("cdr_obs")));
-        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), TipoDocumento.porCodigo(rs.getString("tipo")), rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion"), rs.getString("receptor_pais")), items)
+        TipoDocumento tipo = TipoDocumento.porCodigo(rs.getString("tipo"));
+        Comprobante c = Comprobante.persistido(id, rs.getObject("tenant_id", UUID.class), tipo, rs.getString("serie"), rs.getLong("numero"), rs.getDate("fecha_emision").toLocalDate(), EstadoDocumento.valueOf(rs.getString("estado")), new Receptor(rs.getString("receptor_tipo_doc"), rs.getString("receptor_num_doc"), rs.getString("receptor_nombre"), rs.getString("receptor_direccion"), rs.getString("receptor_pais")), items)
                 .horaEmision(rs.getTime("hora_emision") == null ? null : rs.getTime("hora_emision").toLocalTime())
                 .fechaVencimiento(rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate())
                 .moneda(rs.getString("moneda"))
                 .tipoOperacion(rs.getString("tipo_operacion"))
-                .formaPago(formaPago(rs, id))
+                .formaPago(formaPago(rs, () -> hijos.cuotas(id)))
                 .descuentoGlobal(descuento(rs.getString("descuento_global_tipo"), rs.getBigDecimal("descuento_global_valor"), rs.getObject("descuento_global_afecta_base", Boolean.class)))
                 .cargos(cargos.getOrDefault(null, List.of()))
                 .detraccion(detraccion(rs))
@@ -235,12 +498,16 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 .referencias(referencias)
                 .redondeo(rs.getBigDecimal("redondeo"))
                 .nota(nota(rs))
+                .liquidacion(liquidacion(rs))
+                .agente(agente(rs, tipo, () -> hijos.documentosDeAgente(id)))
                 .tasaIgv(rs.getBigDecimal("tasa_igv"))
+                .tipoCambio(rs.getBigDecimal("tipo_cambio"))
                 .leyendas(rs.getString("leyendas") == null ? List.of() : List.of(rs.getString("leyendas").split(",")))
                 .exportacion(rs.getString("incoterm") == null && rs.getString("pais_uso") == null ? null : new Exportacion(rs.getString("incoterm"), rs.getString("pais_uso")))
                 .firma(rs.getString("hash"), rs.getString("nombre_archivo"), rs.getString("xml_key"))
                 .cdr(cdr, rs.getString("cdr_key"))
                 .envio(rs.getInt("intentos"), rs.getString("ultimo_error"))
+                .correoCliente(rs.getString("receptor_email"))
                 .rehidratar();
         c.anotar(rs.getString("observaciones"));
         return c;
@@ -250,6 +517,19 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
         return rs.getString("nota_motivo") == null ? null
                 : new Nota(TipoDocumento.porCodigo(rs.getString("nota_tipo_afectado")), rs.getString("nota_serie_afectada"), rs.getLong("nota_numero_afectado"),
                         rs.getString("nota_motivo"), rs.getString("nota_descripcion"));
+    }
+
+    /** #327: la columna de la tasa marca la liquidación de compra (la restricción comprobante_liquidacion_completa asegura que vienen los seis datos juntos). */
+    private static LiquidacionCompra liquidacion(ResultSet rs) throws SQLException {
+        return rs.getBigDecimal("retencion_renta_tasa") == null ? null
+                : new LiquidacionCompra(rs.getString("vendedor_ubigeo"), rs.getString("vendedor_condicion"),
+                        new LiquidacionCompra.Ubicacion(rs.getString("lugar_direccion"), rs.getString("lugar_ubigeo"), rs.getString("lugar_condicion")), sinCeros(rs.getBigDecimal("retencion_renta_tasa")));
+    }
+
+    /** #40: el régimen marca la retención o la percepción (comprobante_agente_completo asegura que viene con su tasa); los documentos pagados o cobrados, de su tabla. */
+    private static ComprobanteDeAgente agente(ResultSet rs, TipoDocumento tipo, java.util.function.Supplier<List<ComprobanteDeAgente.Documento>> documentos) throws SQLException {
+        return rs.getString("agente_regimen") == null ? null
+                : new ComprobanteDeAgente(tipo, rs.getString("agente_regimen").strip(), sinCeros(rs.getBigDecimal("agente_tasa")), documentos.get());
     }
 
     private static String tipo(Descuento d) { return d == null ? null : d.tipo().name(); }
@@ -281,12 +561,10 @@ public class JdbcComprobanteRepository implements ComprobanteRepository {
                 rs.getBigDecimal("detraccion_monto"), rs.getString("detraccion_cuenta"), rs.getString("detraccion_medio_pago"));
     }
 
-    private FormaPago formaPago(ResultSet rs, UUID id) throws SQLException {
+    private static FormaPago formaPago(ResultSet rs, java.util.function.Supplier<List<FormaPago.Cuota>> cuotas) throws SQLException {
         FormaPago.Tipo tipo = FormaPago.Tipo.valueOf(rs.getString("forma_pago"));
         if (tipo == FormaPago.Tipo.CONTADO) return FormaPago.contado();
-        List<FormaPago.Cuota> cuotas = jdbc.query("SELECT monto, vencimiento FROM comprobante_cuota WHERE comprobante_id = ? ORDER BY orden",
-                (r, k) -> new FormaPago.Cuota(r.getBigDecimal("monto"), r.getDate("vencimiento").toLocalDate()), id);
-        return FormaPago.credito(rs.getBigDecimal("monto_pendiente"), cuotas);
+        return FormaPago.credito(rs.getBigDecimal("monto_pendiente"), cuotas.get());
     }
 
     /** JSON mínimo para una lista de strings (sin dependencia de Jackson en este módulo). */

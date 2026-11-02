@@ -13,6 +13,9 @@ public record DocumentoRelacionado(String tipo, String numero) {
 
     public static final Set<String> TIPOS = Set.of("04", "05", "06", "07", "08", "09", "99");
 
+    /** Los tipos que la factura admite y la boleta no: 06 (factura del remitente) y 07 (guía del remitente), observados con la 4009 en Boleta2_0 (#362 B9). */
+    public static final Set<String> TIPOS_SOLO_FACTURA = Set.of("06", "07");
+
     public DocumentoRelacionado {
         if (tipo == null || !TIPOS.contains(tipo))
             throw new DomainException("DOCUMENTO_RELACIONADO_INVALIDO", "4009 - El tipo de documento relacionado debe ser 04–09 o 99 (catálogo 12); los anticipos van en `anticipos`");

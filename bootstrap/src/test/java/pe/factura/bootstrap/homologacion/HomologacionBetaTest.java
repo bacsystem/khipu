@@ -10,14 +10,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import pe.factura.adapters.sunat.ZipUtil;
 
 import java.io.IOException;
@@ -50,20 +51,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.MethodName.class)
+@AutoConfigureTestRestTemplate
 class HomologacionBetaTest {
     // Con PER_CLASS la instancia (y el contexto de Spring) se crea antes de los callbacks de @Testcontainers, así que el
     // contenedor se arranca en el inicializador estático; Ryuk lo elimina al terminar la JVM.
-    @ServiceConnection static final PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @ServiceConnection static final PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
     static { pg.start(); }
 
     static final String RUC = env("HOMOLOGACION_RUC", "20100066603");
     static final String SERIE = env("HOMOLOGACION_SERIE", serieUnica());
     /** Serie del anexo 0002 (escenario 24): misma base que SERIE con la segunda letra cambiada, única por ejecución. */
-    static final String SERIE_ANEXO = "FA" + SERIE.substring(2);
+    static final String SERIE_ANEXO = (SERIE.charAt(1) == 'A' ? "FB" : "FA") + SERIE.substring(2);
     static final Path SALIDA = Path.of(System.getProperty("homologacion.salida", "build/homologacion"));
 
     @Autowired TestRestTemplate http;
     HttpHeaders api;
+    /** Para guardar el XML y el CDR de una baja, RC o RR, que la API no descarga: se leen del storage por su clave. */
+    @Autowired pe.factura.application.port.out.BajaRepository bajasGuardadas;
+    @Autowired pe.factura.application.port.out.DocumentStorage storage;
+    java.util.UUID tenantId;
     final List<String[]> resumen = new ArrayList<>();
     /** Números aceptados por SUNAT que reutilizan escenarios posteriores (anticipo → final, facturas → notas). */
     final Map<String, Long> numeros = new HashMap<>();
@@ -89,6 +95,10 @@ class HomologacionBetaTest {
                 new HttpEntity<>("{\"ruc\":\"" + RUC + "\",\"razon_social\":\"EMPRESA DE PRUEBA S.A.C.\",\"entorno\":\"BETA\"}", admin), Map.class);
         assertThat(creado.getStatusCode()).as("alta del tenant").isEqualTo(HttpStatus.CREATED);
         String apiKey = (String) ((Map<?, ?>) creado.getBody().get("datos")).get("api_key");
+        tenantId = java.util.UUID.fromString(String.valueOf(((Map<?, ?>) creado.getBody().get("datos")).get("tenant_id")));
+        // #40: la empresa de prueba se designa agente de retención y de percepción (e-beta no lo cruza: aceptó retenciones de un RUC que no es agente, 2026-10-20).
+        assertThat(http.postForEntity("/v1/admin/empresas/" + ((Map<?, ?>) creado.getBody().get("datos")).get("tenant_id") + "/agente",
+                new HttpEntity<>("{\"retencion\":true,\"percepcion\":true}", admin), Map.class).getStatusCode()).as("designación de agente").isEqualTo(HttpStatus.OK);
         api = new HttpHeaders(); api.set("X-Api-Key", apiKey); api.setContentType(MediaType.APPLICATION_JSON);
 
         assertThat(http.exchange("/v1/empresa/credenciales-sol", HttpMethod.PUT, new HttpEntity<>("{\"usuario\":\"MODDATOS\",\"clave\":\"moddatos\"}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
@@ -96,6 +106,13 @@ class HomologacionBetaTest {
                 "{\"domicilio\":{\"ubigeo\":\"150101\",\"direccion\":\"AV. LIMA 123\"},\"cuenta_detracciones\":\"00-000-123456\",\"nombre_comercial\":\"KHIPU PRUEBAS\"}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
         for (String tipo : List.of("01", "07", "08"))   // la misma serie F### vale para factura, NC y ND (regla 1001); cada tipo numera aparte
             assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + SERIE + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        for (String tipo : List.of("03", "07", "08"))   // la misma serie B### vale para la boleta y sus notas de crédito y débito (la letra B: reglas 2399, 2400)
+            assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"" + tipo + "\",\"serie\":\"" + EscenariosFactura.serieBoleta(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // #327: la serie L### de la liquidación de compra.
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"04\",\"serie\":\"" + EscenariosFactura.serieLiquidacion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // #40: las series R### y P### de la retención y la percepción.
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"20\",\"serie\":\"" + EscenariosFactura.serieRetencion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(http.postForEntity("/v1/series", new HttpEntity<>("{\"tipo\":\"40\",\"serie\":\"" + EscenariosFactura.seriePercepcion(SERIE) + "\",\"correlativo_inicial\":0}", api), Void.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
         // Establecimiento anexo 0002 con su propia serie de factura (#80).
         assertThat(http.postForEntity("/v1/empresa/establecimientos", new HttpEntity<>(
                 "{\"codigo\":\"0002\",\"nombre\":\"Tienda Miraflores\",\"domicilio\":{\"ubigeo\":\"150122\",\"direccion\":\"AV. LARCO 345\"}}", api), Map.class).getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -111,8 +128,11 @@ class HomologacionBetaTest {
         assertThat(http.postForEntity("/v1/empresa/certificado", new HttpEntity<>(form, mh), Void.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 
+    /** {@code HOMOLOGACION_ESCENARIOS}: expresión regular sobre el id del escenario para correr solo esos (p. ej. {@code 9[5-8]-.*}); vacía, todos. */
+    static final java.util.regex.Pattern SOLO = java.util.regex.Pattern.compile(env("HOMOLOGACION_ESCENARIOS", ".*"));
+
     Stream<EscenariosFactura.Escenario> escenarios() {
-        return EscenariosFactura.todos(SERIE, SERIE_ANEXO, LocalDate.now(ZoneId.of("America/Lima"))).stream();
+        return EscenariosFactura.todos(SERIE, SERIE_ANEXO, LocalDate.now(ZoneId.of("America/Lima"))).stream().filter(e -> SOLO.matcher(e.id()).matches());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -140,8 +160,26 @@ class HomologacionBetaTest {
             if (e.id().startsWith("01-")) numeros.put("GRAVADA", num.longValue());
             if (e.id().startsWith("02-")) ids.put("EXONERADA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("04-")) numeros.put("MIXTA", num.longValue());
+            if (e.id().startsWith("44-")) numeros.put("DESC_MIXTO", num.longValue());
+            if (e.id().startsWith("45-")) numeros.put("BOLETA_DESC", num.longValue());
+            if (e.id().startsWith("80-")) numeros.put("BOLETA_ICBPER", num.longValue());
+            if (e.id().startsWith("83-")) numeros.put("BOLETA_CARGOS", num.longValue());
+            if (e.id().startsWith("49-")) numeros.put("BOLETA_EXPORTACION", num.longValue());
+            if (e.id().startsWith("50-")) ids.put("BOLETA_EXPORTACION_SERVICIO", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("54-")) numeros.put("BOLETA_ANTICIPO", num.longValue());
+            if (e.id().startsWith("55-")) ids.put("BOLETA_CON_ANTICIPO", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("56-")) numeros.put("ANTICIPO_PARA_BOLETA", num.longValue());
+            if (e.id().startsWith("59-")) numeros.put("OTROS_TRIBUTOS", num.longValue());
+            if (e.id().startsWith("77-")) numeros.put("OTROS_TRIBUTOS_PARCIAL", num.longValue());
+            if (e.id().startsWith("60-")) ids.put("BOLETA_OTROS_TRIBUTOS", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("26-")) numeros.put("EXPORTACION", num.longValue());
+            if (e.id().startsWith("40-")) numeros.put("DESC_ITEM", num.longValue());
+            if (e.id().startsWith("41-")) numeros.put("DESC_GLOBAL", num.longValue());
+            if (e.id().startsWith("32-")) ids.put("BOLETA_GRATUITA", String.valueOf(datos.get("id")));
             if (e.id().startsWith("09-")) numeros.put("CREDITO", num.longValue());
             if (e.id().startsWith("16-")) numeros.put("ANTICIPO", num.longValue());
+            if (e.id().startsWith("100-")) ids.put("RETENCION", String.valueOf(datos.get("id")));
+            if (e.id().startsWith("103-")) ids.put("PERCEPCION", String.valueOf(datos.get("id")));
         }
 
         assertThat(r.getStatusCode()).as(e.id() + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
@@ -173,34 +211,188 @@ class HomologacionBetaTest {
      * porque necesita la factura ya aceptada; si SUNAT sigue procesando (98), se reconsulta unas veces antes de dar por fallido.
      */
     @org.junit.jupiter.api.Test void zzComunicacionDeBaja() throws Exception {
-        String id = ids.get("EXONERADA");
-        assertThat(id).as("la factura exonerada (02) debe haberse emitido").isNotNull();
+        darDeBaja("22-baja", "Comunicación de baja (RA) de la factura exonerada", ids.get("EXONERADA"), "la factura exonerada (02)");
+    }
+
+    /**
+     * Baja de la boleta del escenario 32 (con bonificación gratuita): sendSummary de un resumen diario (RC) en estado 3 (#387). La boleta ya está
+     * aceptada; el RC no informa la gratuita porque e-beta rechaza el 05 y el 06 (2256) y acepta el resumen sin ellas.
+     */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConGratuita() throws Exception {
+        darDeBaja("33-baja-boleta", "Baja (RC, estado 3) de la boleta con bonificación gratuita", ids.get("BOLETA_GRATUITA"), "la boleta con gratuita (32)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta de exportación de servicios del escenario 50 (#296): la línea lleva el valor de venta de exportación (cat. 11, 04). */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaDeExportacion() throws Exception {
+        darDeBaja("53-baja-boleta-exportacion", "Baja (RC, estado 3) de la boleta de exportación de servicios", ids.get("BOLETA_EXPORTACION_SERVICIO"), "la boleta de exportación (50)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta con otros tributos del escenario 60 (#317): la línea del RC lleva el TaxTotal «Otros tributos» (9999, campo 23). */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConOtrosTributos() throws Exception {
+        darDeBaja("62-baja-boleta-otros-tributos", "Baja (RC, estado 3) de la boleta con otros tributos", ids.get("BOLETA_OTROS_TRIBUTOS"), "la boleta con otros tributos (60)");
+    }
+
+    /** Baja (RC, estado 3) de la boleta final que regulariza un anticipo (escenario 55, #295): el RC informa el importe de la boleta, no el de sus anticipos. */
+    @org.junit.jupiter.api.Test void zzBajaDeBoletaConAnticipo() throws Exception {
+        darDeBaja("58-baja-boleta-anticipo", "Baja (RC, estado 3) de la boleta que regulariza un anticipo", ids.get("BOLETA_CON_ANTICIPO"), "la boleta con anticipo (55)");
+    }
+
+    /**
+     * Alta de una boleta con bonificación gratuita (#387): emitida con fecha de hace {@value EscenariosFactura#DIAS_BOLETA_TARDIA} días, khipu la informa en un resumen
+     * diario en estado 1 sin pasar por sendBill. Es la misma plantilla que la baja del escenario 33 con otro estado; e-beta la acepta si no lleva las gratuitas.
+     * El resumen queda ENVIADO hasta que SUNAT responde el ticket, y esa respuesta acepta la boleta.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeBoletaConGratuita() throws Exception {
+        altaTardia("34-alta-boleta-tardia", "bonificación gratuita", EscenariosFactura.boletaTardiaConGratuita(SERIE, LocalDate.now(ZoneId.of("America/Lima"))));
+    }
+
+    /**
+     * Alta de una boleta con percepción 2001 (#289): la percepción solo va en el estado 1 del resumen (en la baja SUNAT rechaza todo el resumen con 2986), con el
+     * régimen, la tasa, el monto y el total cobrado (2608, 2685, 2690). Es la otra mitad de la plantilla que el escenario 34 no ejercita.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeBoletaConPercepcion() throws Exception {
+        altaTardia("35-alta-boleta-percepcion", "percepción 2001", EscenariosFactura.boletaTardiaConPercepcion(SERIE, LocalDate.now(ZoneId.of("America/Lima"))));
+    }
+
+    /**
+     * #301: tres boletas de la misma fecha, firmadas sin enviar, se informan en <b>un</b> resumen diario de tres líneas. Se envía una sola; las otras dos viajan con ella (mismo
+     * identificador, ticket y CDR) y SUNAT acepta el resumen entero: las tres quedan ACEPTADO. Es la prueba de que el XML de varias líneas pasa las reglas de SUNAT, no solo el XSD.
+     */
+    @org.junit.jupiter.api.Test void zzAltaTardiaDeVariasBoletasEnUnSoloResumen() throws Exception {
+        soloConTodosLosEscenarios();
+        String escenario = "36-alta-tres-boletas-un-resumen";
+        List<String> boletas = new ArrayList<>();
+        for (String cuerpo : EscenariosFactura.boletasTardiasSinEnviar(SERIE, LocalDate.now(ZoneId.of("America/Lima")))) {
+            ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
+            assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+            Map<?, ?> datos = (Map<?, ?>) r.getBody().get("datos");
+            assertThat(datos.get("estado_documento")).as(escenario + ": firmada, sin enviar").isEqualTo("FIRMADO");
+            boletas.add(String.valueOf(datos.get("id")));
+        }
+
+        ResponseEntity<Map> enviada = http.postForEntity("/v1/facturas/" + boletas.get(0) + "/enviar", new HttpEntity<>(api), Map.class);
+        assertThat(enviada.getStatusCode().is2xxSuccessful()).as(escenario + ": " + enviada.getBody()).isTrue();
+
+        List<Map<?, ?>> filas = new ArrayList<>();
+        for (String id : boletas) {
+            ResponseEntity<Map> lista = http.exchange("/v1/facturas/" + id + "/bajas", HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            List<?> bajas = lista.getBody() == null ? List.of() : (List<?>) lista.getBody().getOrDefault("datos", List.of());
+            assertThat(bajas).as(escenario + ": cada boleta tiene su línea en el resumen").hasSize(1);
+            filas.add((Map<?, ?>) bajas.get(0));
+        }
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("identificador"))).distinct().toList()).as(escenario + ": un solo identificador").hasSize(1);
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("lineas"))).toList()).as(escenario + ": un resumen de tres líneas").containsOnly("3");
+        assertThat(filas.stream().map(f -> String.valueOf(f.get("linea"))).toList()).containsExactly("1", "2", "3");
+
+        Map<?, ?> datos = esperarResumen(filas.get(0));
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"));
+        List<String> estados = new ArrayList<>();
+        for (String id : boletas) {
+            ResponseEntity<Map> f = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+            estados.add(String.valueOf(((Map<?, ?>) f.getBody().get("datos")).get("estado_documento")));
+        }
+        resumen.add(new String[]{escenario, "Tres boletas de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días en un solo resumen diario (" + filas.get(0).get("identificador") + ")",
+                estados.stream().distinct().count() == 1 ? estados.get(0) : String.join("/", estados), detalle});
+        Path dir = SALIDA.resolve(escenario);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), String.join("/", estados) + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).as(escenario + ": código CDR").isEqualTo("0");
+        assertThat(estados).as(escenario + ": el CDR del resumen acepta las tres").containsOnly("ACEPTADO");
+    }
+
+    private void altaTardia(String escenario, String con, String cuerpo) throws Exception {
+        soloConTodosLosEscenarios();
+        ResponseEntity<Map> r = http.postForEntity("/v1/facturas", new HttpEntity<>(cuerpo, api), Map.class);
+        Map<?, ?> boleta = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
+        assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+        String id = String.valueOf(boleta.get("id"));
+
+        ResponseEntity<Map> lista = http.exchange("/v1/facturas/" + id + "/bajas", HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        List<?> resumenes = lista.getBody() == null ? List.of() : (List<?>) lista.getBody().getOrDefault("datos", List.of());
+        assertThat(resumenes).as(escenario + ": la boleta tardía debe ir en un resumen diario (alta)").hasSize(1);
+        Map<?, ?> datos = esperarResumen((Map<?, ?>) resumenes.get(0));
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"));
+        ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        String estadoBoleta = String.valueOf(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento"));
+        resumen.add(new String[]{escenario, "Boleta de hace " + EscenariosFactura.DIAS_BOLETA_TARDIA + " días con " + con + ": va en el resumen diario como alta",
+                estadoBoleta, detalle});
+        Path dir = SALIDA.resolve(escenario);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), estadoBoleta + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).as(escenario + ": código CDR").isEqualTo("0");
+        assertThat(estadoBoleta).as(escenario + ": el CDR del resumen acepta la boleta").isEqualTo("ACEPTADO");
+    }
+
+    /**
+     * #40: la retención (100) y la percepción (103) se revierten en un resumen de reversiones (RR-…) por sendSummary + getStatus del servicio de otros CPE. Dependen solo de su
+     * escenario: corren también con {@code HOMOLOGACION_ESCENARIOS} si ese escenario está incluido.
+     */
+    @org.junit.jupiter.api.Test void zzReversionDeRetencionYPercepcion() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(ids.containsKey("RETENCION") && ids.containsKey("PERCEPCION"), "la reversión necesita los escenarios 100 y 103");
+        darDeBajaSiempre("106-reversion-retencion", "Resumen de reversiones (RR) de la retención en soles", ids.get("RETENCION"), "la retención (100)");
+        darDeBajaSiempre("107-reversion-percepcion", "Resumen de reversiones (RR) de la percepción", ids.get("PERCEPCION"), "la percepción (103)");
+    }
+
+    private void darDeBaja(String escenario, String descripcion, String id, String origen) throws Exception {
+        soloConTodosLosEscenarios();
+        darDeBajaSiempre(escenario, descripcion, id, origen);
+    }
+
+    private void darDeBajaSiempre(String escenario, String descripcion, String id, String origen) throws Exception {
+        assertThat(id).as(origen + " debe haberse emitido").isNotNull();
         ResponseEntity<Map> r = http.postForEntity("/v1/facturas/" + id + "/baja", new HttpEntity<>("{\"motivo\":\"Homologación: baja de prueba\"}", api), Map.class);
-        Map<?, ?> datos = r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of());
+        Map<?, ?> datos = esperarResumen(r.getBody() == null ? Map.of() : (Map<?, ?>) r.getBody().getOrDefault("datos", Map.of()));
+        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
+        String detalle = r.getStatusCode().is2xxSuccessful() ? cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"))
+                : "HTTP " + r.getStatusCode().value() + " " + r.getBody();
+        resumen.add(new String[]{escenario, descripcion, String.valueOf(datos.get("estado")), detalle});
+        Path dir = SALIDA.resolve(escenario);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("resultado.txt"), datos.get("estado") + "\n" + detalle + "\n", StandardCharsets.UTF_8);
+        guardarEvidenciaDeBaja(dir, datos.get("id"));
+
+        assertThat(r.getStatusCode()).as(escenario + ": " + r.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(datos.get("estado")).as(escenario + ": " + detalle).isEqualTo("ACEPTADA");
+        assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
+        ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
+        assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("el comprobante queda ANULADO").isEqualTo("ANULADO");
+    }
+
+    /** El XML firmado de la baja (RA, RC o RR) y el CDR de SUNAT, tal como quedaron en el storage. */
+    private void guardarEvidenciaDeBaja(Path dir, Object bajaId) throws IOException {
+        if (bajaId == null) return;
+        var b = bajasGuardadas.buscar(tenantId, java.util.UUID.fromString(String.valueOf(bajaId))).orElse(null);
+        if (b == null) return;
+        String nombre = b.nombreArchivo(RUC);
+        if (b.xmlKey() != null) Files.write(dir.resolve(nombre + ".xml"), storage.leer(b.xmlKey()));
+        if (b.cdrKey() != null) Files.write(dir.resolve("R-" + nombre + ".xml"), ZipUtil.extraerPrimero(storage.leer(b.cdrKey()), ".xml"));
+    }
+
+    /** Las bajas y altas tardías dependen de escenarios anteriores: con {@code HOMOLOGACION_ESCENARIOS} se saltan. */
+    private static void soloConTodosLosEscenarios() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(".*".equals(SOLO.pattern()), "HOMOLOGACION_ESCENARIOS=" + SOLO.pattern() + ": solo esos escenarios");
+    }
+
+    /** Si SUNAT sigue procesando el ticket (la comunicación queda ENVIADA), lo reconsulta cada 5 s hasta 6 veces: es lo que hace el outbox. */
+    private Map<?, ?> esperarResumen(Map<?, ?> datos) throws InterruptedException {
         String bajaId = String.valueOf(datos.get("id"));
         for (int i = 0; i < 6 && "ENVIADA".equals(datos.get("estado")); i++) {
             Thread.sleep(5_000);
             ResponseEntity<Map> again = http.exchange("/v1/bajas/" + bajaId, HttpMethod.GET, new HttpEntity<>(api), Map.class);
             datos = again.getBody() == null ? Map.of() : (Map<?, ?>) again.getBody().getOrDefault("datos", Map.of());
         }
-        Map<?, ?> cdr = datos.get("cdr") instanceof Map<?, ?> m ? m : Map.of();
-        String detalle = r.getStatusCode().is2xxSuccessful() ? cdr.get("codigo") + " - " + cdr.get("descripcion") + (datos.get("ultimo_error") == null ? "" : " | " + datos.get("ultimo_error"))
-                : "HTTP " + r.getStatusCode().value() + " " + r.getBody();
-        resumen.add(new String[]{"22-baja", "Comunicación de baja (RA) de la factura exonerada", String.valueOf(datos.get("estado")), detalle});
-        Path dir = SALIDA.resolve("22-baja");
-        Files.createDirectories(dir);
-        Files.writeString(dir.resolve("resultado.txt"), datos.get("estado") + "\n" + detalle + "\n", StandardCharsets.UTF_8);
-
-        assertThat(r.getStatusCode()).as("22-baja: " + r.getBody()).isEqualTo(HttpStatus.CREATED);
-        assertThat(datos.get("estado")).as("22-baja: " + detalle).isEqualTo("ACEPTADA");
-        assertThat(String.valueOf(cdr.get("codigo"))).isEqualTo("0");
-        ResponseEntity<Map> factura = http.exchange("/v1/facturas/" + id, HttpMethod.GET, new HttpEntity<>(api), Map.class);
-        assertThat(((Map<?, ?>) factura.getBody().get("datos")).get("estado_documento")).as("la factura queda ANULADA").isEqualTo("ANULADO");
+        return datos;
     }
 
     @AfterAll void escribirResumen() throws IOException {
-        StringBuilder md = new StringBuilder("# Homologación e-beta — factura y notas\n\n")
-                .append("RUC emisor `").append(RUC).append("`, serie `").append(SERIE).append("`, ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
+        StringBuilder md = new StringBuilder("# Homologación e-beta\n\n")
+                .append("RUC emisor `").append(RUC).append("`, base de las series `").append(SERIE.substring(1)).append("` (F/B/L/R/P según el tipo), ").append(LocalDate.now(ZoneId.of("America/Lima"))).append("\n\n")
                 .append("| Escenario | Caso | Estado | CDR |\n|---|---|---|---|\n");
         for (String[] f : resumen) md.append("| ").append(f[0]).append(" | ").append(f[1]).append(" | ").append(f[2]).append(" | ").append(f[3].replace("|", "\\|")).append(" |\n");
         long ok = resumen.stream().filter(f -> ("ACEPTADO".equals(f[2]) || "ACEPTADA".equals(f[2])) && f[3].startsWith("0 -") && !f[3].contains("obs:")).count();

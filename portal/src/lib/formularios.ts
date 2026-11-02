@@ -17,5 +17,15 @@ export function sinEnvioImplicito(e: KeyboardEvent<HTMLFormElement>) {
   // Botones y enlaces conservan su Enter: un `<Link>` («Cancelar», «Cree una») dentro del form navega con Enter
   // por su propia acción por defecto, no por el envío implícito. La primera versión solo exceptuaba BUTTON y un
   // usuario de teclado no podía cancelar — regresión que la recertificación de notas reprodujo.
-  if (tag !== "BUTTON" && tag !== "A") e.preventDefault();
+  // Un `<textarea>` también: su Enter es un salto de línea (las observaciones los admiten) y nunca envía el formulario.
+  if (tag === "BUTTON" || tag === "A" || tag === "TEXTAREA") return;
+  e.preventDefault();
+  // #117: sin esto, Enter sobre un campo incompleto ya no hacía nada (antes el envío implícito al menos disparaba la burbuja nativa «Completa este campo»). Si el
+  // formulario no vale se muestra qué falta; si vale, no se emite (eso es del botón) y el foco pasa a él para que el siguiente Enter sea una decisión.
+  const form = e.currentTarget;
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+  form.querySelector<HTMLButtonElement>('button[type="submit"]')?.focus();
 }

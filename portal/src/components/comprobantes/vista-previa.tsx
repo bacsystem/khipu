@@ -1,17 +1,18 @@
 "use client";
 
-import { BadgeCheckIcon, DownloadIcon, FileCodeIcon, Loader2Icon } from "lucide-react";
+import { CircleNotchIcon, DownloadSimpleIcon, FileCodeIcon, SealCheckIcon } from "@phosphor-icons/react";
+import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "khipu-design-system/ui/sheet";
+import { interpolar } from "@/i18n/mensajes";
 import { formatearXml } from "@/lib/xml";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
 type Documento = "xml" | "cdr";
 
 type Estado = { estado: "cargando" } | { estado: "ok"; texto: string } | { estado: "error"; mensaje: string };
 
-const BOTON = "inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground/80 shadow-2xs transition-colors hover:bg-muted hover:text-foreground";
 
 function urlDe(id: string, doc: Documento, descarga: boolean): string {
   if (doc === "xml") return `/api/proxy/facturas/${id}/xml`;
@@ -29,6 +30,7 @@ export function VistaPrevia({
   nombreArchivo: string | null;
   tieneCdr: boolean;
 }) {
+  const t = useMessages().comprobantes.vistaPrevia;
   const [abierto, setAbierto] = useState<Documento | null>(null);
   const [cache, setCache] = useState<Partial<Record<Documento, Estado>>>({});
   const pedidos = useRef<Set<Documento>>(new Set());
@@ -41,7 +43,7 @@ export function VistaPrevia({
     setCache((c) => ({ ...c, [activo]: { estado: "cargando" } }));
     fetch(urlDe(id, activo, false))
       .then(async (res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "El documento todavía no existe." : `Error ${res.status} al obtener el documento.`);
+        if (!res.ok) throw new Error(res.status === 404 ? t.noExiste : interpolar(t.errorHttp, { estado: res.status }));
         return res.text();
       })
       .then((texto) => setCache((c) => ({ ...c, [activo]: { estado: "ok", texto: formatearXml(texto) } })))
@@ -49,34 +51,34 @@ export function VistaPrevia({
         pedidos.current.delete(activo);
         setCache((c) => ({ ...c, [activo]: { estado: "error", mensaje: e.message } }));
       });
-  }, [activo, id]);
+  }, [activo, id, t]);
 
   const contenido = activo ? cache[activo] : undefined;
-  const titulo = activo === "cdr" ? "Constancia de recepción (CDR)" : "XML firmado";
+  const titulo = activo === "cdr" ? t.tituloCdr : t.tituloXml;
   const archivo = activo === "cdr" ? `R-${nombreArchivo ?? numero}.zip` : `${nombreArchivo ?? numero}.xml`;
 
   return (
     <>
-      <button type="button" onClick={() => setAbierto("xml")} className={BOTON}>
+      <button type="button" onClick={() => setAbierto("xml")} className={ACCION_SECUNDARIA}>
         <FileCodeIcon className="size-4 text-muted-foreground" />
-        Ver XML
+        {t.verXml}
       </button>
       {tieneCdr ? (
-        <button type="button" onClick={() => setAbierto("cdr")} className={BOTON}>
-          <BadgeCheckIcon className="size-4 text-success-foreground" />
-          Ver CDR
+        <button type="button" onClick={() => setAbierto("cdr")} className={ACCION_SECUNDARIA}>
+          <SealCheckIcon className="size-4 text-success-foreground" />
+          {t.verCdr}
         </button>
       ) : null}
 
       <Sheet open={abierto !== null} onOpenChange={(open) => !open && setAbierto(null)}>
         <SheetContent side="right" className="w-full gap-0 p-0 data-[side=right]:sm:max-w-4xl">
           <SheetHeader className="border-b border-border/60 px-5 py-4 pr-14">
-            <SheetTitle className="text-sm font-semibold">{titulo}</SheetTitle>
-            <SheetDescription className="font-mono text-xs">{archivo}</SheetDescription>
+            <SheetTitle className="text-cuerpo font-semibold">{titulo}</SheetTitle>
+            <SheetDescription className="font-mono text-etiqueta">{archivo}</SheetDescription>
           </SheetHeader>
 
           <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/60 px-5 py-2">
-            <div className="inline-flex h-8 items-center gap-1 rounded-lg border border-border/60 bg-secondary/80 p-1">
+            <div className={SEGMENTADO}>
               {(["xml", "cdr"] as Documento[])
                 .filter((d) => d === "xml" || tieneCdr)
                 .map((d) => (
@@ -84,21 +86,19 @@ export function VistaPrevia({
                     key={d}
                     type="button"
                     onClick={() => setAbierto(d)}
-                    className={cn(
-                      "inline-flex h-6 items-center rounded-md px-3 text-[12px] font-medium transition-colors",
-                      activo === d ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
-                    )}
+                    data-active={activo === d ? "" : undefined}
+                    className={SEGMENTO}
                   >
                     {d === "xml" ? "XML" : "CDR"}
                   </button>
                 ))}
             </div>
             <div className="flex items-center gap-2">
-              {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={BOTON} /> : null}
+              {contenido?.estado === "ok" ? <BotonCopiar texto={contenido.texto} etiqueta className={ACCION_SECUNDARIA} /> : null}
               {activo ? (
-                <a href={urlDe(id, activo, true)} className={cn(BOTON, "bg-foreground text-background hover:bg-foreground/90 hover:text-background")}>
-                  <DownloadIcon className="size-3.5" />
-                  Descargar {activo === "cdr" ? "ZIP" : "XML"}
+                <a href={urlDe(id, activo, true)} className={ACCION_PRINCIPAL}>
+                  <DownloadSimpleIcon className="size-3.5" />
+                  {interpolar(t.descargar, { formato: activo === "cdr" ? "ZIP" : "XML" })}
                 </a>
               ) : null}
             </div>
@@ -106,14 +106,14 @@ export function VistaPrevia({
 
           <div className="min-h-0 flex-1 overflow-auto bg-card">
             {!contenido || contenido.estado === "cargando" ? (
-              <div className="flex h-40 items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin" />
-                Cargando documento…
+              <div className="flex h-40 items-center justify-center gap-2 text-etiqueta text-muted-foreground">
+                <CircleNotchIcon weight="bold" className="size-4 animate-spin" />
+                {t.cargando}
               </div>
             ) : contenido.estado === "error" ? (
-              <div className="m-5 rounded-lg border border-destructive-border bg-destructive/10 p-3 text-xs text-destructive">{contenido.mensaje}</div>
+              <div className="m-5 rounded-lg border border-destructive-border bg-destructive-suave p-3 text-etiqueta text-destructive-texto">{contenido.mensaje}</div>
             ) : (
-              <pre className="px-5 py-4 font-mono text-[11.5px] leading-relaxed break-all whitespace-pre-wrap text-foreground/90 tabular-nums">
+              <pre className="px-5 py-4 font-mono text-etiqueta leading-relaxed break-all whitespace-pre-wrap text-foreground/90 tabular-nums">
                 {contenido.texto}
               </pre>
             )}

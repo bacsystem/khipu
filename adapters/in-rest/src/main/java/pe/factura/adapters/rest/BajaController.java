@@ -19,20 +19,28 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Comunicación de baja", description = """
-        Anulación ante SUNAT de una factura o nota ya **aceptada**, dentro de los 7 días calendario siguientes a su emisión
-        (regla 2957). khipu genera el `VoidedDocuments` (`RA-yyyymmdd-N`), lo firma y lo envía con `sendSummary`; SUNAT devuelve
-        un ticket y el resultado (CDR) se recoge con `getStatus` — normalmente en la misma llamada. Si SUNAT sigue procesando,
-        la baja queda `ENVIADA` y khipu la consulta cada 30 s; al aceptarse, el comprobante pasa a `ANULADO` y su número no
-        se reutiliza. Las boletas se anulan en el resumen diario, no aquí.""")
+        Anulación ante SUNAT de una factura, boleta o nota ya **aceptada**, dentro de los 7 días calendario siguientes a su emisión
+        (regla 2957). khipu genera la comunicación de baja (`VoidedDocuments`, `RA-yyyymmdd-N`) o, para una boleta, el resumen
+        diario con la boleta en estado 3 (`SummaryDocuments`, `RC-yyyymmdd-N`), la firma y la envía con `sendSummary`; SUNAT
+        devuelve un ticket y el resultado (CDR) se recoge con `getStatus` — normalmente en la misma llamada. Si SUNAT sigue
+        procesando, la baja queda `ENVIADA` y khipu la consulta cada 30 s; al aceptarse, el comprobante pasa a `ANULADO` y su
+        número no se reutiliza.""")
 public class BajaController {
     private final DarDeBajaUseCase bajas;
 
     @PostMapping("/v1/facturas/{id}/baja")
     @Operation(summary = "Dar de baja un comprobante", description = """
-            Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS` (facturas y notas) emitidos hace 7 días o menos. Una baja en
-            curso bloquea otra sobre el mismo comprobante.
+            Solo comprobantes `ACEPTADO` o `ACEPTADO_CON_OBS` (facturas, boletas y notas) emitidos hace 7 días calendario o menos,
+            contados en hora de Lima desde la fecha de emisión y no desde la aceptación de SUNAT (la regla que SUNAT aplica a las
+            boletas y a sus notas desde 2027-01-01, RS 000048-2026; hasta entonces las cuenta desde la CDR, que nunca es anterior a
+            la emisión, así que khipu cumple las dos): el día 7 se admite, el 8 no. SUNAT mide el plazo con el día en que recibe la
+            comunicación: si el envío falla (`ERROR_ENVIO`) y el reintento le llega después del día 7, la rechaza con 2957 aunque
+            khipu la haya admitido (el reintento reenvía el mismo `RA`/`RC`, con su fecha de generación original). Una baja
+            en curso bloquea otra sobre el mismo comprobante. El motivo es obligatorio; en una boleta queda en khipu (el resumen
+            diario no lo lleva). Una boleta solo se anula si no se entregó al adquirente (RS 097-2012, art. 14): si ya se entregó
+            no corresponde la baja sino una nota de crédito. khipu no puede saberlo, así que no lo valida.
 
-            **Errores**: `422 BAJA_INVALIDA` (no aceptado, fuera de plazo —2957—, boleta, motivo inválido, baja ya en curso),
+            **Errores**: `422 BAJA_INVALIDA` (no aceptado, fuera de plazo —2957—, motivo inválido, baja ya en curso),
             `404 NO_ENCONTRADO`.""")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Comunicación creada; `estado` indica si SUNAT ya la aceptó (`ACEPTADA`) o sigue en proceso (`ENVIADA`)"),

@@ -1,12 +1,14 @@
 "use client";
 
-import { MapPinIcon, SaveIcon } from "lucide-react";
+import { FloppyDiskIcon, MapPinIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { apiRequest } from "@/lib/api/browser";
 import type { Domicilio, EmpresaDetalle } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { mensajeError } from "@/lib/messages";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { UbigeoSelector } from "./ubigeo-selector";
 
@@ -36,6 +38,10 @@ export function DatosFiscalesForm({
   padronTasaEspecialIgv: boolean;
 }) {
   const router = useRouter();
+  const messages = useMessages();
+  const t = messages.empresa.datosFiscales;
+  const opcional = messages.empresa.comun.opcional;
+  const mensajeError = useMensajeError();
   const [ubigeo, setUbigeo] = useState(domicilio?.ubigeo ?? "");
   const [direccion, setDireccion] = useState(domicilio?.direccion ?? "");
   const [urbanizacion, setUrbanizacion] = useState(domicilio?.urbanizacion ?? "");
@@ -52,7 +58,7 @@ export function DatosFiscalesForm({
     setError(null);
     setOk(false);
     if (faltaElDistrito(ubigeo, direccion, urbanizacion)) {
-      setError("Elige el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.");
+      setError(t.faltaDistrito);
       return;
     }
     setEnviando(true);
@@ -83,7 +89,7 @@ export function DatosFiscalesForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
         <div className="flex flex-col gap-1.5 sm:col-span-4">
           <label htmlFor="dom-direccion" className={ETIQUETA_CAMPO}>
-            Dirección
+            {t.direccion}
           </label>
           <div className="relative">
             <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
@@ -91,18 +97,18 @@ export function DatosFiscalesForm({
               id="dom-direccion"
               value={direccion}
               onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Javier Prado Este 123 Of. 501"
+              placeholder={t.direccionPlaceholder}
               required={Boolean(ubigeo)}
               minLength={3}
               maxLength={200}
               className={cn(CAMPO, "pl-9")}
             />
           </div>
-          <span className={AYUDA_CAMPO}>Tal como figura en la ficha RUC, en una sola línea (3 a 200 caracteres)</span>
+          <span className={AYUDA_CAMPO}>{t.direccionAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="dom-urbanizacion" className={ETIQUETA_CAMPO}>
-            Urbanización <span className="font-normal text-muted-foreground">(opcional)</span>
+            {t.urbanizacion} <span className="font-normal text-muted-foreground">{opcional}</span>
           </label>
           <input id="dom-urbanizacion" value={urbanizacion} onChange={(e) => setUrbanizacion(e.target.value)} maxLength={25} className={CAMPO} />
         </div>
@@ -111,7 +117,7 @@ export function DatosFiscalesForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="dom-establecimiento" className={ETIQUETA_CAMPO}>
-            Código de establecimiento anexo
+            {t.establecimiento}
           </label>
           <input
             id="dom-establecimiento"
@@ -121,11 +127,11 @@ export function DatosFiscalesForm({
             pattern="\d{4}"
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA_CAMPO}>0000 = domicilio fiscal; otro código debe existir en la ficha RUC</span>
+          <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="cuenta-detracciones" className={ETIQUETA_CAMPO}>
-            Cuenta de detracciones (Banco de la Nación) <span className="font-normal text-muted-foreground">(opcional)</span>
+            {t.cuentaDetracciones} <span className="font-normal text-muted-foreground">{opcional}</span>
           </label>
           <input
             id="cuenta-detracciones"
@@ -135,40 +141,27 @@ export function DatosFiscalesForm({
             pattern="[0-9-]{8,20}"
             className={cn(CAMPO, "font-mono")}
           />
-          <span className={AYUDA_CAMPO}>Se usa cuando una factura con detracción no indica la cuenta</span>
+          <span className={AYUDA_CAMPO}>{t.cuentaDetraccionesAyuda}</span>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="nombre-comercial" className={ETIQUETA_CAMPO}>
-            Nombre comercial <span className="font-normal text-muted-foreground">(opcional)</span>
+            {t.nombreComercial} <span className="font-normal text-muted-foreground">{opcional}</span>
           </label>
-          <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Andina Store" maxLength={1500} className={CAMPO} />
-          <span className={AYUDA_CAMPO}>Va en el XML junto a la razón social (regla 4092); déjelo vacío si no usa uno</span>
+          <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombreComercialPlaceholder} maxLength={1500} className={CAMPO} />
+          <span className={AYUDA_CAMPO}>{t.nombreComercialAyuda}</span>
         </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="padron-tasa-especial" className="inline-flex cursor-pointer items-center gap-2 self-start select-none">
-            <input
-              id="padron-tasa-especial"
-              type="checkbox"
-              checked={tasaEspecial}
-              onChange={(e) => setTasaEspecial(e.target.checked)}
-              className="size-4 rounded border-input"
-              data-testid="padron-tasa-especial"
-            />
-            <span className={ETIQUETA_CAMPO}>Inscrita en el Padrón de Tasa Especial del IGV (restaurantes y hoteles)</span>
-          </label>
-          <span className={AYUDA_CAMPO}>
-            Ley 31556: los comprobantes gravados salen con la tasa reducida vigente (10.5 %) en vez del 18 %. Márcalo solo si SUNAT lo incluyó en el padrón; si no, observará cada comprobante (4439)
-          </span>
+        <div className="sm:col-span-2">
+          <Casilla id="padron-tasa-especial" etiqueta={t.padron} descripcion={t.padronAyuda} checked={tasaEspecial} onCheckedChange={setTasaEspecial} className="select-none" />
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {ok ? <p className="text-sm text-success-foreground">Datos fiscales actualizados: el domicilio irá en el XML de las próximas facturas.</p> : null}
+      {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
+      {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizados}</p> : null}
 
       <div className="flex justify-end border-t border-border/60 pt-4">
-        <button type="submit" disabled={enviando} className={cn(BOTON_PRIMARIO, "h-9 text-[12px]")}>
-          <SaveIcon className="size-4" />
-          {enviando ? "Guardando…" : "Guardar datos fiscales"}
+        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
+          <FloppyDiskIcon className="size-4" />
+          {enviando ? messages.empresa.comun.guardando : t.guardar}
         </button>
       </div>
     </form>

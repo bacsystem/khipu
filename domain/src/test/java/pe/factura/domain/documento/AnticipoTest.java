@@ -98,7 +98,7 @@ class AnticipoTest {
     }
 
     @Test void validaFormatoYRechazaLaMismaFacturaDosVeces() {
-        assertThatThrownBy(() -> new Anticipo("B001", 1, BigDecimal.TEN, null, null)).hasMessageContaining("2521");
+        assertThatThrownBy(() -> new Anticipo("X001", 1, BigDecimal.TEN, null, null)).hasMessageContaining("2521");   // la B es de una boleta de anticipo (AnticipoEnBoletaTest)
         assertThatThrownBy(() -> new Anticipo("F001", 0, BigDecimal.TEN, null, null)).hasMessageContaining("2521");
         assertThatThrownBy(() -> new Anticipo("F001", 1, BigDecimal.ZERO, null, null)).hasMessageContaining("2503");
         assertThatThrownBy(() -> new Anticipo("F001", 1, new BigDecimal("1.005"), null, null)).hasMessageContaining("2503");

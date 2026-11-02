@@ -18,7 +18,9 @@ final class RutaRequest {
 
     /** Rutas de autenticación que no exigen ni API key ni JWT (el cliente aún no tiene ninguno). */
     private static final java.util.Set<String> AUTH_PUBLICA = java.util.Set.of(
-            "/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer");
+            "/v1/auth/registro", "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/recuperar", "/v1/auth/restablecer", "/v1/auth/verificar",
+            // #21: quien abre una invitación todavía no tiene usuario.
+            "/v1/auth/invitacion", "/v1/auth/invitacion/aceptar");
 
     static String rutaNormalizada(HttpServletRequest req) {
         String ruta = UrlPathHelper.defaultInstance.getPathWithinApplication(req);
@@ -27,8 +29,23 @@ final class RutaRequest {
 
     static boolean esAdmin(String ruta) { return ruta.equals("/v1/admin") || ruta.startsWith("/v1/admin/"); }
 
+    /**
+     * Dentro de /v1/admin/**, el login del backoffice y sus pasos del segundo factor (#177): el administrador aún no tiene JWT ni
+     * X-Platform-Key. Los pasos del segundo factor exigen el desafío que solo da la contraseña.
+     */
+    private static final java.util.Set<String> ADMIN_AUTH_PUBLICA = java.util.Set.of(
+            "/v1/admin/auth/login", "/v1/admin/auth/segundo-factor/configurar", "/v1/admin/auth/segundo-factor/confirmar",
+            "/v1/admin/auth/segundo-factor/verificar");
+
+    static boolean esAdminAuthPublica(String ruta) { return ADMIN_AUTH_PUBLICA.contains(ruta); }
+
     static boolean esApiV1(String ruta) { return ruta.equals("/v1") || ruta.startsWith("/v1/"); }
 
-    /** Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna) y los catálogos SUNAT (información pública de referencia). */
-    static boolean esPublica(String ruta) { return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/"); }
+    /**
+     * Sin credenciales: rutas de autenticación (el cliente aún no tiene ninguna), los catálogos SUNAT (información pública de referencia), el aviso de mantenimiento (#199), que el
+     * portal muestra también antes de iniciar sesión, y los planes publicados (H20), que lee la página de precios.
+     */
+    static boolean esPublica(String ruta) {
+        return AUTH_PUBLICA.contains(ruta) || ruta.equals("/v1/catalogos") || ruta.startsWith("/v1/catalogos/") || ruta.equals("/v1/banner") || ruta.equals("/v1/planes");
+    }
 }

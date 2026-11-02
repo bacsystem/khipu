@@ -2,20 +2,30 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
-import { Button } from "@/components/ui/button";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { postJson } from "@/lib/api/browser";
-import { mensajeError, messages } from "@/lib/messages";
-import { passwordSchema } from "@/lib/validacion";
+import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { useMessages } from "next-intl";
+import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { cn } from "@/lib/utils";
+import { esquemas } from "@/lib/validacion";
 
-const schema = z.object({ password: passwordSchema });
+type FormValues = { password: string };
 
-type FormValues = z.infer<typeof schema>;
-
-export function RestablecerForm({ token }: { token: string }) {
+/**
+ * `invitacion`: el enlace viene del alta asistida (#188), que reutiliza este mismo flujo con `?invitacion=1`. El endpoint es el mismo;
+ * cambia el texto, porque el cliente no restablece nada: crea la contraseña con la que entra por primera vez.
+ */
+export function RestablecerForm({ token, invitacion = false }: { token: string; invitacion?: boolean }) {
+  const messages = useMessages();
+  const mensajeError = useMensajeError();
+  const schema = useMemo(() => z.object({ password: esquemas(messages).password }), [messages]);
+  const t = invitacion ? messages.auth.invitacion : messages.auth.restablecer;
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
   const {
@@ -31,16 +41,16 @@ export function RestablecerForm({ token }: { token: string }) {
       setListo(true);
       return;
     }
-    setError(mensajeError(res.codigo));
+    setError(invitacion && res.codigo === "TOKEN_INVALIDO" ? messages.auth.invitacion.enlaceInvalido : mensajeError(res.codigo));
   }
 
   if (listo) {
     return (
       <div className="grid gap-4">
-        <p className="text-sm text-muted-foreground">{messages.auth.restablecer.exito}</p>
-        <Button render={<Link href="/login" />} nativeButton={false} className="w-full">
-          {messages.auth.restablecer.irALogin}
-        </Button>
+        <Alerta tono="ok">{t.exito}</Alerta>
+        <Link href="/login" className={cn(BOTON_PRIMARIO, "w-full")}>
+          {t.irALogin}
+        </Link>
       </div>
     );
   }
@@ -49,17 +59,17 @@ export function RestablecerForm({ token }: { token: string }) {
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
       <FormField
         id="password"
-        label={messages.auth.restablecer.password}
+        label={t.password}
         type="password"
         autoComplete="new-password"
         register={register("password")}
         error={errors.password?.message}
-        hint={messages.auth.restablecer.ayudaPassword}
+        hint={t.ayudaPassword}
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? messages.auth.restablecer.enviando : messages.auth.restablecer.enviar}
-      </Button>
+      {error ? <Alerta tono="error">{error}</Alerta> : null}
+      <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={t.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
+        {t.enviar}
+      </BotonAsync>
     </form>
   );
 }

@@ -127,6 +127,37 @@ class ComprobanteTest {
         assertThat(c.estado()).isEqualTo(EstadoDocumento.ENVIADO);
     }
 
+    @Test void unErrorDeEnvioSeDescartaYQuedaTerminalConSuMotivoEnLaHistoria() {
+        Comprobante c = firmado();
+        c.marcarErrorEnvio("0000 - SUNAT respondió HTTP 503");
+        c.eventosGuardados();
+
+        c.descartar("el cliente lo reemitió");
+
+        assertThat(c.estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(c.estado().esEnviable()).isFalse();
+        assertThat(c.intentos()).as("los intentos que hubo no se borran").isEqualTo(1);
+        assertThat(c.ultimoError()).as("el último fallo de SUNAT sigue a la vista").isEqualTo("0000 - SUNAT respondió HTTP 503");
+        assertThat(c.eventosPendientes()).extracting(EventoDocumento::estadoAnterior, EventoDocumento::estadoNuevo, EventoDocumento::detalle)
+                .containsExactly(tuple(EstadoDocumento.ERROR_ENVIO, EstadoDocumento.DESCARTADO, "Descartado por un administrador: el cliente lo reemitió"));
+        assertThatThrownBy(c::marcarEnviado).extracting("codigo").isEqualTo("TRANSICION_INVALIDA");
+    }
+
+    @Test void soloSeDescartaLoQueEstaEnErrorDeEnvio() {
+        Comprobante firmado = firmado();
+        assertThatThrownBy(() -> firmado.descartar("x")).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(firmado.estado()).isEqualTo(EstadoDocumento.FIRMADO);
+
+        Comprobante enviado = firmado();
+        enviado.marcarEnviado();
+        assertThatThrownBy(() -> enviado.descartar("x")).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+
+        Comprobante rechazado = firmado();
+        rechazado.rechazarPorFault("1033", "ya registrado");
+        assertThatThrownBy(() -> rechazado.descartar("x")).extracting("codigo").isEqualTo("ESTADO_NO_DESCARTABLE");
+        assertThat(rechazado.estado()).isEqualTo(EstadoDocumento.RECHAZADO);
+    }
+
     @Test void faultDefinitivoRechaza() {
         Comprobante c = firmado();
         c.rechazarPorFault("2324", "registrado previamente");
@@ -158,7 +189,8 @@ class ComprobanteTest {
     @Test void laLineaSeValidaAntesDeNumerar() {
         assertThatThrownBy(() -> new Item("P", " ", "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2026");
         assertThatThrownBy(() -> new Item("P", "x".repeat(501), "NIU", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2027");
-        assertThatThrownBy(() -> new Item("P", "Prod", "unidad", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2883");
+        assertThatThrownBy(() -> new Item("P", "Prod", null, BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2883");
+        assertThatThrownBy(() -> new Item("P", "Prod", "unidad", BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2936");
         assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ZERO, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2024");
         assertThatThrownBy(() -> new Item("P", "Prod", "NIU", new BigDecimal("1.00000000001"), BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("2025");
         assertThatThrownBy(() -> new Item("P", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("-1"), TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura()).hasMessageContaining("negativo");
@@ -166,9 +198,65 @@ class ComprobanteTest {
         Item bien = new Item("SKU-1", "  Menú del día  ", "NIU", new BigDecimal("2.5"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO);
         bien.exigirValidoParaFactura();
         assertThat(bien.descripcion()).isEqualTo("Menú del día");
-        Item gratis = new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION);
+        // #354: una gratuita lleva su valor referencial en el precio y no puede ser 0 (2367); el Price/PriceAmount sale en 0 por construcción (2640).
+        assertThatThrownBy(() -> new Item(null, "Gratis", "ZZ", BigDecimal.ONE, BigDecimal.ZERO, TipoAfectacionIgv.GRAVADO_BONIFICACION).exigirValidoParaFactura()).hasMessageContaining("2367");
+        Item gratis = new Item(null, "Gratis", "ZZ", BigDecimal.ONE, new BigDecimal("10.00"), TipoAfectacionIgv.GRAVADO_BONIFICACION);
         gratis.exigirValidoParaFactura();
-        assertThat(gratis.precioUnitario()).isEqualByComparingTo("0");
+        assertThat(gratis.precioUnitario()).isEqualByComparingTo("10");
+    }
+
+    /**
+     * #308: la unidad debe existir en el catálogo 03 (regla 2936), no solo parecer un código: «XYZ» o «ROL» pasaban el formato,
+     * consumían número y volvían rechazados. Los dados de baja en la UN/ECE que SUNAT sigue aceptando (BX, PK, CS) pasan.
+     */
+    @Test void laUnidadDebeExistirEnElCatalogo03() {
+        for (String inexistente : List.of("XYZ", "ROL", "niu", "UND")) {
+            Item item = new Item("P", "Prod", inexistente, BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO);
+            assertThatThrownBy(item::exigirValidoParaFactura).as(inexistente).isInstanceOf(DomainException.class)
+                    .extracting("codigo").isEqualTo("ITEM_INVALIDO");
+            assertThatThrownBy(item::exigirValidoParaFactura).as(inexistente).hasMessageStartingWith("2936 - ").hasMessageContaining(inexistente).hasMessageContaining("catálogo 03");
+        }
+        for (String valida : List.of("NIU", "ZZ", "KGM", "BX", "PK", "CS", "RO", "4A", "E48", "C62"))
+            new Item("P", "Prod", valida, BigDecimal.ONE, BigDecimal.TEN, TipoAfectacionIgv.GRAVADO).exigirValidoParaFactura();
+    }
+
+    /** #308: la factura, la boleta y la nota con ítems propios rechazan la unidad inexistente antes de numerar. */
+    @Test void facturaBoletaYNotaRechazanUnaUnidadFueraDelCatalogo() {
+        List<Item> conUnidadRara = List.of(new Item("P1", "Prod", "XYZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> Comprobante.factura(tenant, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", empresa, conUnidadRara).crear(clock)).hasMessageStartingWith("2936");
+        assertThatThrownBy(() -> Comprobante.boleta(tenant, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "12345678", "JUAN PEREZ", null), conUnidadRara).crear(clock))
+                .hasMessageStartingWith("2936");
+        Nota devolucion = new Nota(TipoDocumento.FACTURA, "F001", 1L, "07", "Devolución parcial");
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), devolucion, empresa, conUnidadRara).crear(clock))
+                .hasMessageStartingWith("2936");
+        Nota intereses = new Nota(TipoDocumento.FACTURA, "F001", 1L, "01", "Intereses por mora");
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_DEBITO, "FD01", LocalDate.of(2026, 9, 13), intereses, empresa, conUnidadRara).crear(clock))
+                .hasMessageStartingWith("2936");
+    }
+
+    /**
+     * #348-H1: SUNAT cruza con el catálogo 03 la unidad de la nota igual que la del documento (2936 en NotaCredito2_0 fila 164 y NotaDebito2_0
+     * fila 141), y la nota sale sola por sendBill. Una boleta informada en un resumen diario (que no lleva líneas) pudo quedar aceptada con
+     * una unidad inexistente: copiarla sin validar emitía una nota que SUNAT rechaza después de consumir número, el defecto de #308. Se
+     * rechaza antes, diciendo cómo emitirla; y la línea copiada pasa por las mismas reglas que una propia.
+     */
+    @Test void laNotaTotalNoCopiaUnaUnidadFueraDelCatalogo() {
+        Receptor comprador = new Receptor("1", "12345678", "JUAN PEREZ", null);
+        Nota anulacion = new Nota(TipoDocumento.BOLETA, "B001", 7L, "01", "Anulación de la operación");
+        List<Item> conUnidadRara = List.of(new Item("P1", "Cable", "ROL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, conUnidadRara).copiaDelDocumento().crear(clock))
+                .isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("ITEM_INVALIDO");
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, conUnidadRara).copiaDelDocumento().crear(clock))
+                .hasMessage("2936 - La boleta B001-7 lleva la unidad ROL, que no existe en el catálogo 03, y SUNAT rechazaría la nota que la copia: "
+                        + "indique los items de la nota con una unidad del catálogo (GET /v1/catalogos/03)");
+
+        List<Item> sinCantidad = List.of(new Item("P1", "Cable", "RO", BigDecimal.ZERO, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        assertThatThrownBy(() -> Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, sinCantidad).copiaDelDocumento().crear(clock))
+                .as("el resto de la línea copiada se valida igual").hasMessageStartingWith("2024");
+
+        List<Item> valida = List.of(new Item("P1", "Cable", "RO", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        Comprobante nc = Comprobante.nota(tenant, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), anulacion, comprador, valida).copiaDelDocumento().crear(clock);
+        assertThat(nc.totales().items()).extracting(i -> i.item().unidad()).containsExactly("RO");
     }
 
     /** Como con el receptor: un ítem ya emitido con un valor que una regla añadida después rechazaría se sigue leyendo tal cual. */

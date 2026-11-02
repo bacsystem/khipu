@@ -29,7 +29,7 @@ import java.util.function.Function;
  * {@code igv} son netos de anticipos mientras {@code totalValorVenta} y {@code totalPrecioVenta} son brutos.
  */
 public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafecto, BigDecimal gratuito, BigDecimal igv, BigDecimal igvGratuitas,
-                      BigDecimal ivap, BigDecimal exportacion, BigDecimal isc, BigDecimal icbper,
+                      BigDecimal ivap, BigDecimal exportacion, BigDecimal isc, BigDecimal icbper, BigDecimal otrosTributos,
                       BigDecimal totalValorVenta, BigDecimal totalPrecioVenta, BigDecimal totalDescuentos, BigDecimal totalCargos, BigDecimal totalAnticipos, BigDecimal redondeo, BigDecimal total,
                       List<ItemCalculado> items, List<SubtotalTributo> subtotales, DescuentoGlobalCalculado descuentoGlobal, List<CargoCalculado> cargosGlobales,
                       List<AnticipoCalculado> anticipos, BigDecimal tasaIgv) {
@@ -75,7 +75,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         if (redondeo != null && (redondeo.scale() > 2 || redondeo.abs().compareTo(BigDecimal.ONE) > 0))
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo del importe total admite 2 decimales y no puede superar 1.00 en valor absoluto");
         BigDecimal ajuste = redondeo == null ? z() : redondeo.setScale(2, RoundingMode.HALF_UP);
-        List<ItemCalculado> calculados = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv)).toList();
+        List<ItemCalculado> calculados = calcularItems(items, tasaIcbper, tasaIgv);
         // IVAP (Ley 28211): el comprobante entero tributa IVAP; SUNAT calcula su total precio de venta sin IGV (campo 55, 3279 IVAP),
         // así que no se mezcla con líneas gravadas/exoneradas/inafectas ni gratuitas.
         boolean hayIvap = calculados.stream().anyMatch(i -> i.item().afectacion().ivap());
@@ -96,6 +96,8 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
                 case IGV -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
                 case ISC -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::iscBase), sumaSi(calculados, ItemCalculado::tieneIsc, ItemCalculado::isc));
                 case ICBPER -> new SubtotalTributo(tr, z(), sumaSi(calculados, ItemCalculado::tieneIcbper, ItemCalculado::icbper));
+                // #317: la base de los otros tributos es el valor de venta de las líneas que los llevan (3297) y el impuesto su suma (3299).
+                case OTROS -> new SubtotalTributo(tr, sumaSi(calculados, ItemCalculado::tieneOtrosTributos, ItemCalculado::valorVenta), sumaSi(calculados, ItemCalculado::tieneOtrosTributos, ItemCalculado::otrosTributos));
                 default -> new SubtotalTributo(tr, suma(calculados, tr, ItemCalculado::valorVenta), suma(calculados, tr, ItemCalculado::igv));
             };
             if (st.base().signum() > 0 || st.impuesto().signum() > 0) brutos.add(st);
@@ -103,6 +105,7 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
 
         BigDecimal isc = impuesto(brutos, Tributo.ISC);
         BigDecimal icbper = impuesto(brutos, Tributo.ICBPER);
+        BigDecimal otrosTributos = impuesto(brutos, Tributo.OTROS);
         DescuentoGlobalCalculado global = null;
         List<SubtotalTributo> subtotales = new ArrayList<>(brutos);
         BigDecimal baseGravada = base(brutos, gravadoCon);
@@ -130,13 +133,17 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
             cargos.add(calculado);
         }
         if (ajusteBaseGravada.signum() != 0) {
+            // Un descuento 02 o un cargo 49 mueve la base del IGV pero el valor de venta de cada línea sigue igual: no se sabe sobre qué base SUNAT esperaría la tasa de los
+            // otros tributos (3109), y una nota que repartiera ese ajuste entre las líneas dejaría de cuadrar. Hasta tener esa respuesta, no se combinan.
+            if (otrosTributos.signum() > 0)
+                throw new DomainException("OTROS_TRIBUTOS_INVALIDO", "Los otros tributos (9999) todavía no se combinan con un descuento global (02) ni un cargo global (49) que afecta la base: use descuentos o cargos por línea");
             BigDecimal baseNeta = baseGravada.add(ajusteBaseGravada);
             subtotales.replaceAll(st -> st.tributo() == gravadoCon ? new SubtotalTributo(st.tributo(), baseNeta, igvSobre(baseNeta, isc, factorIgv)) : st);
         }
 
         // Totales brutos (reglas 3278, 3279): los anticipos no los reducen, solo a las bases por tributo y al importe a pagar.
         BigDecimal totalValorVenta = base(subtotales, gravadoCon).add(base(subtotales, Tributo.EXO)).add(base(subtotales, Tributo.INA)).add(base(subtotales, Tributo.EXP));
-        BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(impuesto(subtotales, gravadoCon));   // regla 55 (IGV o IVAP)
+        BigDecimal totalPrecioVenta = totalValorVenta.add(isc).add(icbper).add(otrosTributos).add(impuesto(subtotales, gravadoCon));   // regla 55 (IGV o IVAP) y 3279 (otros tributos)
 
         List<AnticipoCalculado> aplicados = aplicarAnticipos(subtotales, anticipos == null ? List.of() : anticipos, isc, tasaGravado, factorIgv, gravadoCon);
 
@@ -156,8 +163,87 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         BigDecimal total = totalPrecioVenta.add(totalCargos).subtract(totalDescuentos).subtract(totalAnticipos).add(ajuste);
         if (total.signum() < 0)
             throw new DomainException("REDONDEO_INVALIDO", "3303 - El redondeo deja el importe total en negativo (" + total + ")");
-        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, ajuste, total,
                 calculados, List.copyOf(subtotales), global, List.copyOf(cargos), aplicados, tasaIgv);
+    }
+
+    /**
+     * #388: los totales como los expresa una nota. SUNAT no admite {@code AllowanceCharge} en una nota (ni por línea ni global) y exige que el valor de cada línea sea
+     * valor unitario × cantidad (3271) y que la base del IGV sea la suma de las líneas (3277). Por eso el descuento 00 y el cargo 47 de línea pasan al valor de la línea
+     * ({@link ItemCalculado#paraNota}), y el descuento 02 y el cargo 49 globales se reparten entre las líneas gravadas en proporción a su valor, con el redondeo exacto
+     * al centavo: la base, el IGV y el total quedan iguales a los de la factura, que es lo que una nota total de anulación debe sumar. Lo que no afecta la base (01, 03,
+     * 46, 48, 50) queda como está.
+     */
+    public Totales paraNota() {
+        boolean descuentoDeBase = descuentoGlobal != null && descuentoGlobal.afectaBase();
+        List<CargoCalculado> cargosDeBase = cargosGlobales.stream().filter(CargoCalculado::afectaBase).toList();
+        List<ItemCalculado> netos = new ArrayList<>(items.stream().map(ItemCalculado::paraNota).toList());
+        BigDecimal ajuste = cargosDeBase.stream().map(CargoCalculado::monto).reduce(z(), BigDecimal::add).subtract(descuentoDeBase ? descuentoGlobal.monto() : z());
+        if (ajuste.signum() != 0) repartirEnLasGravadas(netos, ajuste);
+        boolean cambio = descuentoDeBase || !cargosDeBase.isEmpty() || items.stream().anyMatch(ItemCalculado::ajustaLaBase);
+        if (!cambio) return this;
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, redondeo,
+                total, List.copyOf(netos), subtotales, descuentoDeBase ? null : descuentoGlobal, cargosGlobales.stream().filter(cg -> !cg.afectaBase()).toList(), anticipos, tasaIgv);
+    }
+
+    /**
+     * #40: los totales de una retención o una percepción, que no tienen líneas de venta ni tributos: {@code total} es el importe total retenido o percibido (cbc:TotalInvoiceAmount,
+     * en soles) y {@code redondeo}, el del importe total pagado o cobrado (PayableRoundingAmount, que no lo toca: va sobre los netos). Todo lo demás en cero.
+     */
+    public static Totales deAgente(BigDecimal importeTotal, BigDecimal redondeo) {
+        BigDecimal cero = z();
+        return new Totales(cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero, cero,
+                redondeo == null ? cero : redondeo.setScale(2, RoundingMode.HALF_UP), importeTotal.setScale(2, RoundingMode.HALF_UP), List.of(), List.of(), null, List.of(), List.of(), TasaIgv.GENERAL);
+    }
+
+    /**
+     * #327: los totales como los expresa una liquidación de compra. Todo es igual salvo el importe a pagar: el comprador retiene al vendedor el IGV y el Impuesto a la Renta,
+     * así que lo que le paga (PayableAmount, «importe total neto») es el subtotal (TaxInclusiveAmount) menos el IGV, la retención de renta y los otros tributos de las líneas,
+     * más el redondeo (regla 4312 de LiquidacionCompra2_0). El IGV sigue en {@code igv}: el comprador lo declara y lo paga en lugar del vendedor.
+     */
+    public Totales paraLiquidacion(BigDecimal retencionRenta) {
+        BigDecimal neto = total.subtract(igv).subtract(otrosTributos).subtract(retencionRenta);
+        if (neto.signum() <= 0)
+            throw new DomainException("REDONDEO_INVALIDO", "2062 - El importe neto de la liquidación de compra (subtotal − IGV − retención de renta + redondeo) debe ser mayor que cero; queda en " + neto);
+        return new Totales(gravado, exonerado, inafecto, gratuito, igv, igvGratuitas, ivap, exportacion, isc, icbper, otrosTributos, totalValorVenta, totalPrecioVenta, totalDescuentos, totalCargos, totalAnticipos, redondeo,
+                neto, items, subtotales, descuentoGlobal, cargosGlobales, anticipos, tasaIgv);
+    }
+
+    /**
+     * Reparte {@code ajuste} (cargos 49 menos descuento 02: lo que movió la base gravada) entre las líneas gravadas, en proporción a su valor, y el IGV del subtotal entre
+     * las mismas. Cada reparto suma exactamente su total: los centavos que sobran van a las líneas con mayor resto, y nunca se pierden ni se duplican.
+     */
+    private void repartirEnLasGravadas(List<ItemCalculado> netos, BigDecimal ajuste) {
+        Tributo gravadoCon = tieneIvap() ? Tributo.IVAP : Tributo.IGV;
+        List<Integer> gravadas = new ArrayList<>();
+        for (int k = 0; k < netos.size(); k++) if (netos.get(k).tributo() == gravadoCon && !netos.get(k).gratuita()) gravadas.add(k);
+        if (gravadas.isEmpty())
+            throw new DomainException("DESCUENTO_INVALIDO", "Un descuento o cargo global que afecta la base del IGV requiere ítems gravados");
+        List<BigDecimal> valores = repartir(ajuste, gravadas.stream().map(k -> netos.get(k).valorVenta()).toList());
+        List<BigDecimal> nuevos = new ArrayList<>();
+        for (int j = 0; j < gravadas.size(); j++) {
+            BigDecimal valor = netos.get(gravadas.get(j)).valorVenta().add(valores.get(j));
+            if (valor.signum() <= 0)
+                throw new DomainException("DESCUENTO_INVALIDO", "2370 - El descuento global deja en cero el valor de venta de la línea «" + netos.get(gravadas.get(j)).item().descripcion() + "»");
+            nuevos.add(valor);
+        }
+        BigDecimal igvDelSubtotal = impuesto(subtotales, gravadoCon);
+        List<BigDecimal> igvs = repartir(igvDelSubtotal, java.util.stream.IntStream.range(0, gravadas.size()).mapToObj(j -> nuevos.get(j).add(netos.get(gravadas.get(j)).isc())).toList());
+        for (int j = 0; j < gravadas.size(); j++) netos.set(gravadas.get(j), netos.get(gravadas.get(j)).conImportes(nuevos.get(j), igvs.get(j)));
+    }
+
+    /** Reparte {@code total} en centavos exactos en proporción a {@code pesos} (positivos): lo que sobra al truncar va a los mayores restos. El signo de {@code total} se conserva. */
+    static List<BigDecimal> repartir(BigDecimal total, List<BigDecimal> pesos) {
+        BigDecimal abs = total.abs();
+        BigDecimal suma = pesos.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<BigDecimal> exactos = pesos.stream().map(p -> abs.multiply(p).divide(suma, 10, RoundingMode.DOWN)).toList();
+        List<BigDecimal> partes = new ArrayList<>(exactos.stream().map(e -> e.setScale(2, RoundingMode.DOWN)).toList());
+        int centavos = abs.subtract(partes.stream().reduce(BigDecimal.ZERO, BigDecimal::add)).movePointRight(2).intValueExact();
+        List<Integer> porResto = new ArrayList<>();
+        for (int k = 0; k < partes.size(); k++) porResto.add(k);
+        porResto.sort((a, b) -> exactos.get(b).subtract(partes.get(b)).compareTo(exactos.get(a).subtract(partes.get(a))));
+        for (int k = 0; k < centavos; k++) partes.set(porResto.get(k), partes.get(porResto.get(k)).add(new BigDecimal("0.01")));
+        return total.signum() < 0 ? partes.stream().map(BigDecimal::negate).toList() : partes;
     }
 
     /**
@@ -181,6 +267,22 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
         return List.copyOf(aplicados);
     }
 
+    /** Lo más que la suma del IGV a precio exacto puede alejarse de bases × tasa: la mitad de la tolerancia de SUNAT (±1, regla 3291). */
+    static final BigDecimal DESVIO_MAXIMO = new BigDecimal("0.50");
+
+    /**
+     * H9: cada línea a precio exacto se aleja de base × tasa unos milésimos, y con el mismo precio siempre hacia el mismo lado. En un comprobante de muchas líneas
+     * eso se acumula; si la suma pasa de {@link #DESVIO_MAXIMO}, el comprobante entero vuelve a base × tasa en vez de arriesgar el rechazo 3291.
+     */
+    private static List<ItemCalculado> calcularItems(List<Item> items, BigDecimal tasaIcbper, BigDecimal tasaIgv) {
+        List<ItemCalculado> exactos = items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv, true)).toList();
+        BigDecimal desvio = exactos.stream().filter(i -> i.tributo() == Tributo.IGV || i.tributo() == Tributo.IVAP)
+                .map(i -> i.igv().subtract(i.baseIgv().multiply(i.porcentajeIgv()).movePointLeft(2)))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (desvio.abs().compareTo(DESVIO_MAXIMO) <= 0) return exactos;
+        return items.stream().map(i -> ItemCalculado.de(i, tasaIcbper, tasaIgv, false)).toList();
+    }
+
     public boolean tieneAnticipos() { return !anticipos.isEmpty(); }
 
     public boolean tieneCargosGlobales() { return !cargosGlobales.isEmpty(); }
@@ -188,6 +290,9 @@ public record Totales(BigDecimal gravado, BigDecimal exonerado, BigDecimal inafe
     public boolean tieneRedondeo() { return redondeo.signum() != 0; }
 
     public boolean tieneGratuitas() { return gratuito.signum() > 0; }
+
+    /** Si la operación es íntegramente gratuita: la leyenda 1002 va solo entonces (guía XML UBL 2.1, p. 32; #291), no con una línea gratuita entre otras vendidas. */
+    public boolean todasGratuitas() { return !items.isEmpty() && items.stream().allMatch(ItemCalculado::gratuita); }
 
     public boolean esExportacion() { return exportacion.signum() > 0; }
 

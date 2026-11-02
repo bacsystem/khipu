@@ -1,8 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fechaElegida } from "@/test/fecha-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
+/** Una empresa que puede emitir: con certificado y credenciales SOL (C2). */
+const LISTA_PARA_EMITIR = { tiene_certificado: true, certificado_vigencia_hasta: null, tiene_credenciales_sol: true };
 
 const SERIES = [{ tipo: "01", serie: "F001", ultimo_numero: 2, activa: true, establecimiento: "0000" }];
 
@@ -38,7 +43,7 @@ describe("NuevoComprobanteDialog", () => {
     let fallar = true;
     stubFetch((url) => {
       if (url.includes("/series")) return fallar ? sobre(null, 502) : sobre(SERIES);
-      return sobre({ id: "e-1", entorno: "BETA" });
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
     });
 
     render(<NuevoComprobanteDialog />);
@@ -57,7 +62,7 @@ describe("NuevoComprobanteDialog", () => {
   });
 
   it("una lista vacía sí es 'no tienes series': son dos situaciones distintas", async () => {
-    stubFetch((url) => (url.includes("/series") ? sobre([]) : sobre({ id: "e-1", entorno: "BETA" })));
+    stubFetch((url) => (url.includes("/series") ? sobre([]) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 
     render(<NuevoComprobanteDialog />);
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
@@ -85,7 +90,7 @@ describe("NuevoComprobanteDialog", () => {
     let fallarEmpresa = true;
     const fetch = stubFetch((url) => {
       if (url.includes("/series")) return sobre(SERIES);
-      return fallarEmpresa ? sobre(null, 500) : sobre({ id: "e-1", entorno: "PRODUCCION", padron_tasa_especial_igv: true });
+      return fallarEmpresa ? sobre(null, 500) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "PRODUCCION", padron_tasa_especial_igv: true });
     });
 
     render(<NuevoComprobanteDialog />);
@@ -104,7 +109,7 @@ describe("NuevoComprobanteDialog", () => {
   });
 
   it("al reabrir recarga las series: cachearlas anunciaría el correlativo que ya consumió la emisión anterior", async () => {
-    const fetch = stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ id: "e-1", entorno: "BETA" })));
+    const fetch = stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
 
     render(<NuevoComprobanteDialog />);
     await abrir();
@@ -117,5 +122,478 @@ describe("NuevoComprobanteDialog", () => {
     // olvidara al cerrar, `ultimo_numero` seguiría siendo el de antes de la emisión.
     await abrir();
     expect(llamadasA(fetch, "/series")).toBe(primeraApertura + 1);
+  });
+
+  /**
+   * 264-H1: las series y la empresa se piden a la vez. Si las series llegaban primero, el formulario se montaba, el usuario empezaba a llenarlo, y al
+   * llegar una empresa sin certificado se desmontaba con lo escrito. Hasta saber si la empresa puede emitir, no hay formulario.
+   */
+  it("no muestra el formulario hasta saber si la empresa puede emitir", async () => {
+    let soltarEmpresa: (r: Response) => void = () => {};
+    const empresaPendiente = new Promise<Response>((r) => (soltarEmpresa = r));
+    vi.stubGlobal("fetch", vi.fn((url: string) => (String(url).includes("/series") ? Promise.resolve(sobre(SERIES)) : empresaPendiente)));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+    await waitFor(() => expect(screen.getByText("Cargando…")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+
+    soltarEmpresa(sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }));
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+  });
+
+  /** C2: el backend rechazaría la emisión; el diálogo lo dice antes de que se llene nada y no muestra el formulario. */
+  it("sin certificado vigente ni credenciales SOL dice qué falta en vez de mostrar el formulario", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : sobre({ id: "e-1", entorno: "BETA", tiene_certificado: true, certificado_vigencia_hasta: "2020-01-01", tiene_credenciales_sol: false }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Esta empresa todavía no puede emitir")).toBeInTheDocument());
+    expect(screen.getByText("Renovar el certificado digital: el cargado ya venció.")).toBeInTheDocument();
+    expect(screen.getByText("Guardar el usuario SOL secundario y su clave.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    // #276: abre la pestaña de lo primero que falta (el certificado), no la página en la pestaña que sea.
+    expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa?seccion=certificado");
+  });
+
+  it("si solo faltan las credenciales SOL, el enlace abre esa pestaña", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA", tiene_credenciales_sol: false })));
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa?seccion=sol"));
+  });
+
+  /** #18: en el tope del plan el backend rechaza la emisión (429 LIMITE_PLAN); el diálogo lo dice antes de que se llene nada. */
+  it("con la cuenta en el tope de documentos del mes no muestra el formulario y lleva a Plan y consumo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Gratis" }, estado: "VIGENTE" }, consumo: { mes: "2026-10", documentos: 30, maximo: 30 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Llegaste al tope de documentos del mes")).toBeInTheDocument());
+    expect(screen.getByText(/Tu plan Gratis permite 30 documentos al mes y ya los usaste/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
+  /** #285: con el plan vencido (pasada la gracia) el backend rechaza la emisión (402 PLAN_VENCIDO); el diálogo lo dice antes, aunque quede lugar en el tope. */
+  it("con el plan vencido no muestra el formulario y lleva a Plan y consumo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Emprende" }, estado: "VENCIDA" }, consumo: { mes: "2026-10", documentos: 3, maximo: 300 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Tu plan venció")).toBeInTheDocument());
+    expect(screen.getByText(/Tu plan Emprende venció y terminaron sus días de gracia/)).toBeInTheDocument();
+    expect(screen.queryByText("Llegaste al tope de documentos del mes")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
+  /** 345-H2: vencido y en el tope a la vez, manda el vencimiento: el aviso del tope diría que vuelve a emitir el mes que viene, y no es así. */
+  it("vencido y en el tope dice que el plan venció, no que llegó al tope", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Emprende" }, estado: "VENCIDA" }, consumo: { mes: "2026-10", documentos: 300, maximo: 300 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Tu plan venció")).toBeInTheDocument());
+    expect(screen.queryByText("Llegaste al tope de documentos del mes")).not.toBeInTheDocument();
+  });
+
+  /** #285: en gracia se sigue emitiendo. */
+  it("con el plan en gracia deja emitir", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Emprende" }, estado: "EN_GRACIA" }, consumo: { mes: "2026-10", documentos: 3, maximo: 300 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.queryByText("Tu plan venció")).not.toBeInTheDocument();
+  });
+
+  it("con lugar en el plan, o sin poder leer la cuenta, deja emitir: el backend tiene la última palabra", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre(null, 502)
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.queryByText("Llegaste al tope de documentos del mes")).not.toBeInTheDocument();
+  });
+
+  /** #107: con las credenciales rechazadas se puede emitir, pero el envío espera; se dice antes de emitir, no después. */
+  it("con las credenciales SOL rechazadas deja emitir y avisa que el envío espera a corregirlas", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA", credenciales_sol_rechazadas: { desde: "2026-10-09T15:00:00Z", motivo: "0102 - Usuario o contrasena incorrectos" } }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    await waitFor(() => expect(screen.getByText("SUNAT rechazó las credenciales SOL de esta empresa")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Corregirlas" })).toHaveAttribute("href", "/empresa?seccion=sol");
+    expect(screen.getByLabelText("Serie")).toBeInTheDocument();
+  });
+
+  /** #20: la boleta se elige arriba, usa solo series B### y pide el documento del comprador, no un RUC. */
+  it("eligiendo Boleta muestra sus series y pide el documento del comprador", async () => {
+    const conBoleta = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(conBoleta) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    expect(screen.getByRole("option", { name: /F001/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("RUC")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+
+    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument());
+    expect(screen.queryByRole("option", { name: /F001/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Documento del comprador")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
+  /** #286: una empresa que solo emite boletas no tiene que pasar por «No tienes series de factura» cada vez que abre el diálogo. */
+  it("con solo series de boleta abre en Boleta", async () => {
+    const soloBoleta = [{ tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(soloBoleta) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+    expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
+    // La factura sigue a un clic: abrir en Boleta no esconde la otra opción.
+    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    await waitFor(() => expect(screen.getByText("No tienes series de factura")).toBeInTheDocument());
+  });
+
+  /** Una serie de factura dada de baja no cuenta: la factura no se puede emitir con ella. */
+  it("con la serie de factura inactiva y una de boleta activa abre en Boleta", async () => {
+    const series = [{ ...SERIES[0], activa: false }, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(series) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
+  it("con series de los dos tipos sigue abriendo en Factura", async () => {
+    const ambas = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(ambas) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.getByRole("button", { name: "Factura" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Emitir factura" })).toBeInTheDocument();
+  });
+
+  /** La elección dura lo que el diálogo: al reabrir vuelve al tipo que la empresa puede emitir, con las series recién leídas (pudo cambiar de empresa). */
+  it("al reabrir vuelve al tipo por defecto de las series recién leídas", async () => {
+    let series: unknown[] = [...SERIES, { tipo: "03", serie: "B001", ultimo_numero: 9, activa: true, establecimiento: "0000" }];
+    stubFetch((url) => (url.includes("/series") ? sobre(series) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument());
+
+    await abrir();
+    expect(screen.getByRole("button", { name: "Emitir factura" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument());
+
+    // Otra empresa, solo con boletas: lo elegido antes (Factura) no la deja en «No tienes series de factura».
+    series = [{ tipo: "03", serie: "B002", ultimo_numero: 0, activa: true, establecimiento: "0000" }];
+    await abrir();
+    expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
+  });
+
+  it("sin series de boleta lo dice con su tipo, sin esconder la opción", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+
+    await waitFor(() => expect(screen.getByText("No tienes series de boleta")).toBeInTheDocument());
+    expect(screen.getByText(/serie de tipo 03 activa/)).toBeInTheDocument();
+  });
+
+  it("sin rechazo no hay aviso de credenciales", async () => {
+    stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    await waitFor(() => expect(screen.getByText(/Homologación/)).toBeInTheDocument());
+
+    expect(screen.queryByText("SUNAT rechazó las credenciales SOL de esta empresa")).not.toBeInTheDocument();
+  });
+});
+
+describe("NuevoComprobanteDialog — duplicar (#323)", () => {
+  const FACTURA = {
+    id: "f-1", tipo: "01", serie: "F001", numero: 7, fecha_emision: "2026-09-02", moneda: "USD", tipo_operacion: "0101",
+    receptor: { tipo_doc: "6", num_doc: "20554198211", razon_social: "CLIENTE SAC", direccion: "Av. Prueba 123" },
+    items: [{ codigo: null, descripcion: "Soporte mensual", unidad: "ZZ", cantidad: 3, precio_unitario: 59, tipo_afectacion_igv: "10" }],
+    estado_documento: "ACEPTADO",
+  };
+  const SERIES_FB = [
+    { tipo: "01", serie: "F001", ultimo_numero: 7, activa: true, establecimiento: "0000" },
+    { tipo: "03", serie: "B001", ultimo_numero: 2, activa: true, establecimiento: "0000" },
+  ];
+
+  it("el pedido de duplicar abre el diálogo con el cliente, la moneda y las líneas de la copia", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return sobre(FACTURA);
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20554198211"));
+    expect(screen.getByLabelText("Razón social")).toHaveValue("CLIENTE SAC");
+    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
+    expect(await fechaElegida("Fecha de emisión")).toBe(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
+  });
+
+  it("duplicar una boleta abre la pestaña Boleta, y abrir a mano después empieza de cero", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-1")) return sobre({ ...FACTURA, id: "b-1", tipo: "03", serie: "B001", receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-1");
+    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+
+    // Cerrar y abrir con el botón es un comprobante nuevo, no la copia. La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
+    expect(screen.getByLabelText("RUC")).toHaveValue("");
+  });
+
+  /** #319: Escape en la lista del buscador de clientes cierra la lista, no el diálogo que la contiene. */
+  it("Escape en la lista de clientes guardados la cierra y deja abierto «Nuevo comprobante»", async () => {
+    const cliente = { id: "c-1", tipo_doc: "6", num_doc: "20601234565", razon_social: "PESQUERA PACÍFICO S.A.C.", creado_en: "2026-09-02T15:00:00Z", actualizado_en: "2026-09-02T15:00:00Z" };
+    stubFetch((url) => {
+      if (url.includes("/api/proxy/clientes?")) return sobre([cliente]);
+      if (url.includes("/series")) return sobre(SERIES);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    const buscador = screen.getByLabelText("Buscar un cliente guardado");
+    fireEvent.change(buscador, { target: { value: "pacif" } });
+    await screen.findByRole("option", { name: /PESQUERA/ });
+    fireEvent.keyDown(buscador, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("option", { name: /PESQUERA/ })).toBeNull());
+    expect(screen.getByLabelText("Serie")).toBeInTheDocument();
+  });
+
+  it("una boleta sin documento se copia sin documento y con el nombre habitual del comprador", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-2")) return sobre({ ...FACTURA, id: "b-2", tipo: "03", serie: "B001", moneda: "PEN", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-2");
+    await waitFor(() => expect(screen.getByLabelText("Documento del comprador")).toHaveValue("-"));
+    expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
+  });
+
+  /** Revisión de #323 (H1): dos pedidos seguidos o un diálogo abierto a mano mientras tanto no se pisan con una copia que llega tarde. */
+  it("solo vale la respuesta del último pedido, aunque la anterior llegue después", async () => {
+    let resolverA: (r: Response) => void = () => {};
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-a")) return new Promise<Response>((r) => (resolverA = r)) as never;
+      if (url.includes("/facturas/f-b")) return sobre({ ...FACTURA, id: "f-b", receptor: { ...FACTURA.receptor, num_doc: "20100066603", razon_social: "OTRO SAC" } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-a");
+    pedirDuplicado("f-b");
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20100066603"));
+    resolverA(sobre(FACTURA));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByLabelText("RUC")).toHaveValue("20100066603");
+  });
+
+  it("abrir «Nuevo comprobante» a mano mientras la copia viaja la anula: lo escrito no se pierde", async () => {
+    let resolver: (r: Response) => void = () => {};
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return new Promise<Response>((r) => (resolver = r)) as never;
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20131312955" } });
+    resolver(sobre(FACTURA));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByLabelText("RUC")).toHaveValue("20131312955");
+  });
+
+  it("avisa lo que no se copió del comprobante original", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-1")) return sobre({ ...FACTURA, observaciones: "Entrega en almacén", detraccion: { codigo_bien_servicio: "022" } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-1");
+    expect(await screen.findByTestId("copia-omitidos")).toHaveTextContent("No se copió: la detracción; las observaciones.");
+  });
+
+  it("una copia que falla tras duplicar una boleta abre en la pestaña inicial, no en Boleta", async () => {
+    let fallar = false;
+    stubFetch((url) => {
+      if (url.includes("/facturas/b-1")) return fallar ? (Promise.reject(new TypeError("Failed to fetch")) as never) : sobre({ ...FACTURA, id: "b-1", tipo: "03", serie: "B001", receptor: { tipo_doc: "1", num_doc: "44781209", razon_social: "MIGUEL", direccion: null } });
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("b-1");
+    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
+    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    fallar = true;
+    pedirDuplicado("b-1");
+    expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Factura" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("si no se puede leer el comprobante a copiar, abre el diálogo con un aviso y sin copia", async () => {
+    stubFetch((url) => {
+      if (url.includes("/facturas/f-9")) return sobre(null, 404);
+      if (url.includes("/series")) return sobre(SERIES_FB);
+      return sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" });
+    });
+    render(<NuevoComprobanteDialog />);
+    pedirDuplicado("f-9");
+    expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue(""));
+  });
+});
+
+describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
+  const preparar = () => stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+  const esc = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+  it("Esc con datos pide confirmación: seguir editando conserva todo, descartar cierra", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+
+    esc();
+    expect(await screen.findByTestId("confirmar-cierre")).toHaveTextContent("¿Descartar lo que escribiste?");
+    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+
+    esc();
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+
+    // Al volver a abrir es un comprobante nuevo.
+    await abrir();
+    expect(screen.getByLabelText("RUC")).toHaveValue("");
+  });
+
+  it("«Seguir editando» devuelve el foco al campo donde estaba el usuario", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    const ruc = screen.getByLabelText("RUC");
+    fireEvent.change(ruc, { target: { value: "20554198211" } });
+    ruc.focus();
+    esc();
+    fireEvent.click(await screen.findByRole("button", { name: "Seguir editando" }));
+    expect(ruc).toHaveFocus();
+  });
+
+  it("sin nada escrito Esc cierra directo, y una línea con descripción ya cuenta como escrito", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    esc();
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
+
+    await abrir();
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Servicio" } });
+    esc();
+    expect(await screen.findByTestId("confirmar-cierre")).toBeInTheDocument();
+  });
+
+  it("«Cancelar» es explícito: cierra sin preguntar aunque haya datos", async () => {
+    preparar();
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
   });
 });

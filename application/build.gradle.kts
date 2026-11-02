@@ -1,2 +1,5 @@
 plugins { `java-library` }
-dependencies { api(project(":domain")) }
+dependencies {
+    api(project(":domain"))
+    implementation(libs.slf4j.api)
+}

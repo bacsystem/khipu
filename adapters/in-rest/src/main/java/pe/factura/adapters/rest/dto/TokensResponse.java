@@ -8,6 +8,6 @@ public record TokensResponse(
         @Schema(example = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIuLi4ifQ...") String refresh,
         UsuarioResponse usuario) {
     public static TokensResponse de(Tokens t) {
-        return new TokensResponse(t.access(), t.refresh(), UsuarioResponse.de(t.usuario()));
+        return new TokensResponse(t.access(), t.refresh(), UsuarioResponse.de(t.usuario(), t.terminosPendientes(), null));
     }
 }

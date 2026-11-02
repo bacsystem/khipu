@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ItemComprobante } from "@/lib/api/facturas";
-import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, topePorTributo } from "./notas";
+import type { Comprobante } from "@/lib/api/facturas";
+import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "./notas";
 
 // 10 mesas a 118 con IGV, cargo 47 del 10 % (flete, paga IGV): valor 1000 + 100, IGV 198, paga 1298.
 const conCargoPorcentaje: ItemComprobante = {
@@ -21,6 +22,12 @@ describe("itemParaNota", () => {
   it("un cargo en porcentaje acompaña a la cantidad parcial; uno de monto fijo solo va con la cantidad facturada", () => {
     expect(itemParaNota(conCargoPorcentaje, 3).cargos).toEqual([{ porcentaje: 10, afecta_base_igv: true }]);
     expect(itemParaNota(conCargoMonto, 3).cargos).toBeUndefined();
+  });
+
+  it("reenvía los otros tributos (9999, solo la tasa) y la placa de la línea (#314)", () => {
+    const grifo: ItemComprobante = { ...conCargoPorcentaje, cargos: null, otros_tributos: { tasa: 3.5, monto: 6.2 }, placa: "ABC-123" };
+    expect(itemParaNota(grifo, 2)).toMatchObject({ otros_tributos: { tasa: 3.5 }, placa: "ABC-123" });
+    expect(itemParaNota(conCargoPorcentaje, 2)).toMatchObject({ otros_tributos: undefined, placa: undefined });
   });
 
   it("aplica la misma regla al descuento de línea", () => {
@@ -51,6 +58,53 @@ describe("itemParaNota", () => {
   it("sin ajustes no manda claves vacías", () => {
     const simple: ItemComprobante = { codigo: null, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10" };
     expect(itemParaNota(simple, 1)).toEqual({ codigo: undefined, descripcion: "Servicio", unidad: "ZZ", cantidad: 1, precio_unitario: 118, tipo_afectacion_igv: "10", descuento: undefined, cargos: undefined, isc: undefined, icbper: undefined, codigo_sunat: undefined, gtin: undefined });
+  });
+});
+
+// #393: un descuento 01 (línea) o 03 (global) no cabe en una nota (3280); la línea viaja por su importe neto, sin descuento.
+describe("descuentos que no afectan la base en una nota", () => {
+  // 2 monitores a 118: valor 200, IGV 36, descuento 01 de 20 que no toca el IGV: el cliente pagó 216.
+  const conDescuento01: ItemComprobante = {
+    codigo: "MON", descripcion: "Monitor", unidad: "NIU", cantidad: 2, precio_unitario: 118, tipo_afectacion_igv: "10",
+    valor_venta: 200, igv: 36, precio_venta: 216,
+    descuento: { tipo: "MONTO", valor: 20, monto: 20, afecta_base_igv: false, codigo: "01" },
+  };
+
+  it("la línea con descuento 01 viaja por su importe neto y sin descuento", () => {
+    const linea = itemParaNota(conDescuento01, 2);
+    expect(linea.descuento).toBeUndefined();
+    expect(linea.precio_unitario).toBe(108);   // 216 / 2: lo que se pagó por unidad
+    expect(importeLineaNota(conDescuento01, 2)).toBe(216);
+  });
+
+  it("con menos cantidad, un descuento en porcentaje se prorratea y uno de monto fijo no viaja (la misma regla que en las notas con descuento 00)", () => {
+    const porcentaje = { ...conDescuento01, descuento: { tipo: "PORCENTAJE" as const, valor: 10, monto: 20, afecta_base_igv: false, codigo: "01" } };
+    expect(itemParaNota(porcentaje, 1).precio_unitario).toBe(108);       // 216 / 2 por unidad
+    expect(itemParaNota(porcentaje, 1).descuento).toBeUndefined();
+    expect(itemParaNota(conDescuento01, 1).precio_unitario).toBe(118);   // monto fijo: no se sabe a cuántas unidades alcanzaba, se acredita a precio completo
+    expect(itemParaNota(conDescuento01, 1).descuento).toBeUndefined();
+  });
+
+  it("un descuento que sí afecta la base (00) sigue viajando como descuento", () => {
+    const con00 = { ...conDescuento01, descuento: { tipo: "PORCENTAJE" as const, valor: 10, monto: 20, afecta_base_igv: true, codigo: "00" } };
+    expect(itemParaNota(con00, 2).descuento).toEqual({ porcentaje: 10, afecta_base_igv: true });
+    expect(itemParaNota(con00, 2).precio_unitario).toBe(118);
+  });
+
+  it("la línea neta no arrastra cargos, ISC ni ICBPER: ya van dentro del importe", () => {
+    const conTodo: ItemComprobante = { ...conDescuento01, cargos: [{ tipo: "MONTO", valor: 10, monto: 10, afecta_base_igv: false, codigo: "48" }], isc: { sistema: "01", tasa: 10, monto: 20 }, icbper: 1 };
+    const linea = itemParaNota(conTodo, 2);
+    expect(linea.cargos).toBeUndefined();
+    expect(linea.isc).toBeUndefined();
+    expect(linea.icbper).toBeUndefined();
+  });
+
+  it("tieneDescuentoQueNoAfectaLaBase mira las líneas y el descuento global", () => {
+    const factura = (items: ItemComprobante[], global?: Comprobante["totales"]["descuento_global"]) => ({ items, totales: { descuento_global: global } }) as unknown as Comprobante;
+    expect(tieneDescuentoQueNoAfectaLaBase(factura([conDescuento01]))).toBe(true);
+    expect(tieneDescuentoQueNoAfectaLaBase(factura([{ ...conDescuento01, descuento: null }], { tipo: "MONTO", valor: 5, monto: 5, afecta_base_igv: false, codigo: "03" }))).toBe(true);
+    expect(tieneDescuentoQueNoAfectaLaBase(factura([{ ...conDescuento01, descuento: null }], { tipo: "MONTO", valor: 5, monto: 5, afecta_base_igv: true, codigo: "02" }))).toBe(false);
+    expect(tieneDescuentoQueNoAfectaLaBase(factura([conCargoPorcentaje]))).toBe(false);
   });
 });
 

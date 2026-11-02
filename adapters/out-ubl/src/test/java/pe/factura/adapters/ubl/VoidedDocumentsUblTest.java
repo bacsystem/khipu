@@ -26,14 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class VoidedDocumentsUblTest {
     static final Clock HOY = Clock.fixed(Instant.parse("2026-09-18T15:00:00Z"), ZoneId.of("America/Lima"));
 
-    static ComunicacionBaja baja() {
+    static Comprobante factura() {
         Comprobante c = Comprobante.factura(UUID.randomUUID(), "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE S.A.C.", null), List.of(new Item("A", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(FreemarkerUblGeneratorTest.CLOCK);
         c.asignarNumero(45, "20100066603"); c.firmar("H", "k"); c.marcarEnviado(); c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr");
-        return ComunicacionBaja.crear(c, 3, "Error en el RUC del cliente", HOY);
+        return c;
     }
 
     @Test void voidedDocuments() throws Exception {
-        String xml = new FreemarkerUblGenerator().generarBaja(baja(), FreemarkerUblGeneratorTest.tenant());
+        Comprobante c = factura();
+        String xml = new FreemarkerUblGenerator().generarBaja(ComunicacionBaja.crear(c, 3, "Error en el RUC del cliente", HOY), c, FreemarkerUblGeneratorTest.tenant());
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
         f.setNamespaceAware(true);
         Document d = f.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
@@ -66,6 +67,6 @@ class VoidedDocumentsUblTest {
         assertThat(xp.evaluate(linea + "/sac:DocumentSerialID", d)).isEqualTo("F001");
         assertThat(xp.evaluate(linea + "/sac:DocumentNumberID", d)).isEqualTo("45");
         assertThat(xp.evaluate(linea + "/sac:VoidReasonDescription", d)).isEqualTo("Error en el RUC del cliente");
-        new JaxpXsdValidator().validarBaja(xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"));
+        new JaxpXsdValidator().validarBaja(xml.replace("<ext:ExtensionContent/>", "<ext:ExtensionContent><x:firma xmlns:x=\"urn:test:placeholder\"/></ext:ExtensionContent>"), ComunicacionBaja.crear(c, 3, "Error en el RUC del cliente", HOY));
     }
 }

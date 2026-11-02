@@ -55,7 +55,7 @@ describe("middleware", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
@@ -69,7 +69,7 @@ describe("middleware", () => {
     vi.mocked(refrescar).mockResolvedValue({
       access: "a2",
       refresh: "r2",
-      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin" },
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true },
     });
 
     const res = await middleware(requestCon({ [COOKIE_REFRESH]: "r1" }));
@@ -88,6 +88,35 @@ describe("middleware", () => {
     expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
   });
 
+  // --- #182: una cuenta suspendida no es una sesión muerta -----------------------------------------------------------------------
+
+  it("si la cuenta está suspendida, explica en /cuenta-suspendida y NO limpia la sesión", async () => {
+    const access = jwtCon(Math.floor(Date.now() / 1000) - 60);
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida"));
+
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/cuenta-suspendida");
+    // El backend no revoca la sesión al suspender: al reactivar, la misma sesión vuelve a servir.
+    expect(res.cookies.get(COOKIE_REFRESH)).toBeUndefined();
+    expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
+  });
+
+  it("un 403 por otra causa sigue yendo al login y limpiando la sesión", async () => {
+    const access = jwtCon(Math.floor(Date.now() / 1000) - 60);
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "EMPRESA_AJENA", "No es tu empresa"));
+
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: access, [COOKIE_REFRESH]: "r1" }));
+
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("");
+  });
+
+  it("la página de cuenta suspendida no es privada: no está en el matcher, o redirigiría a sí misma sin fin", () => {
+    expect(config.matcher.join(" ")).not.toContain("cuenta-suspendida");
+  });
+
   // El matcher tiene que ser un literal para que Next lo analice en build, así que no se puede
   // derivar del árbol de rutas. Esta comparación es lo que impide que una página privada nueva se
   // quede sin refresco proactivo del access token (el síntoma es una expulsión al login a los 15
@@ -102,5 +131,41 @@ describe("middleware", () => {
     for (const pagina of paginas) {
       expect(config.matcher).toContain(`/${pagina}/:path*`);
     }
+  });
+
+  // --- #184: una sesión de soporte no tiene refresh -----------------------------------------------------------------------------------
+
+  function jwtDeSoporte(exp: number): string {
+    const payload = btoa(JSON.stringify({ exp, imp: "0b1f1c3e-0f1c-4b53-9a1e-2f6f6d0c7a11" })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return `header.${payload}.firma`;
+  }
+
+  it("deja pasar una sesión de soporte sin refresh mientras el access no venza, sin intentar refrescar", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) + 600) }));
+
+    expect(res.status).toBe(200);
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+
+  it("una sesión de soporte vencida no se renueva: va al login, sin llamar a refrescar", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) - 60) }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+
+  /** Sin refresh y sin la marca de soporte sigue siendo lo de siempre: una sesión normal sin refresh no es una sesión. */
+  it("un access normal sin refresh sigue yendo al login", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtCon(Math.floor(Date.now() / 1000) + 600) }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("un token de soporte que ya está a punto de vencer tampoco pasa", async () => {
+    const res = await middleware(requestCon({ [COOKIE_ACCESS]: jwtDeSoporte(Math.floor(Date.now() / 1000) + 2) }));
+
+    expect(res.status).toBe(307);
   });
 });

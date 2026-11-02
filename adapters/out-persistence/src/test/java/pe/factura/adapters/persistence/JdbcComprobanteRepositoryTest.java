@@ -215,13 +215,33 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Comprobante ajena = factura(otra, 1); ajena.firmar("H", "k4.xml"); repo.guardar(ajena);
         Comprobante recibida = factura(t, 4); repo.guardar(recibida);   // RECIBIDO: sin firmar, no entra
 
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
                 .containsExactlyInAnyOrder(firmada.id(), enError.id(), ajena.id());
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 12))).isEmpty();
         firmada.marcarFueraDePlazo(LocalDate.of(2026, 9, 17));
         repo.guardar(firmada);
         assertThat(repo.buscar(t, firmada.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FUERA_DE_PLAZO);
-        assertThat(repo.pendientesDeEnvioEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactlyInAnyOrder(enError.id(), ajena.id());
+    }
+
+    /**
+     * #331: lo que va en el resumen diario (la boleta y la nota B, salvo la NC 10 y la ND 03) nunca vence, así que el barrido del plazo no lo trae. Si lo trajera,
+     * una boleta firmada que nadie envía entraría en cada barrido para siempre, con sus consultas de ítems, cargos y anticipos, solo para descartarla.
+     */
+    @Test void elControlDelPlazoNoTraeLoQueVaEnElResumenDiario() {
+        UUID t = tenantDePrueba();
+        Receptor varios = new Receptor("-", "-", "CLIENTES VARIOS", null);
+        List<Item> items = List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+        Comprobante factura = factura(t, 1); factura.firmar("H", "f.xml"); repo.guardar(factura);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boleta.asignarNumero(9, "20100066603"); boleta.firmar("H", "b.xml"); repo.guardar(boleta);
+        Comprobante notaB = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución"), varios, items).crear(clock);
+        notaB.asignarNumero(1, "20100066603"); notaB.firmar("H", "nb.xml"); repo.guardar(notaB);
+        Comprobante nc10 = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "10", "Otros conceptos"), varios, items).crear(clock);
+        nc10.asignarNumero(2, "20100066603"); nc10.firmar("H", "nc10.xml"); repo.guardar(nc10);
+
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id)
+                .as("la factura (2108) y la NC 10 de boleta (1079) vencen; la boleta y la NC 07 de boleta van en el resumen").containsExactlyInAnyOrder(factura.id(), nc10.id());
     }
 
     /** Recuperación de CDR (#36): firmados sin cdr_key en estados donde SUNAT pudo haberlo recibido. */
@@ -234,6 +254,30 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Comprobante conCdr = factura(t, 4); conCdr.firmar("H", "k4.xml"); repo.guardar(conCdr);
         conCdr.marcarEnviado(); conCdr.aplicarCdr(new pe.factura.domain.documento.Cdr("0", "ok", List.of()), "R-4.zip"); repo.guardar(conCdr);
         assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(enviada.id(), aceptadaSinCdr.id());
+    }
+
+    /**
+     * #357: getStatusCdr solo existe para 01/07/08 de serie F. La boleta y las notas B no entran, en ningún estado: un CDR que SUNAT no entrega por ahí se pediría cada
+     * hora para siempre, y su fault cortaba el barrido.
+     */
+    @Test void losPendientesDeCdrNoIncluyenLaBoletaNiLasNotasDeBoleta() {
+        UUID t = tenantDePrueba();
+        Receptor varios = new Receptor("-", "-", "CLIENTES VARIOS", null);
+        List<Item> items = List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO));
+        Comprobante factura = factura(t, 1); factura.firmar("H", "f.xml"); repo.guardar(factura); factura.marcarEnviado(); repo.guardar(factura);
+        Comprobante notaF = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "FC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.FACTURA, "F001", 1, "01", "Anulación"),
+                new Receptor("6", "20601234565", "CLIENTE SAC", null), items).crear(clock);
+        notaF.asignarNumero(1, "20100066603"); notaF.firmar("H", "nf.xml"); repo.guardar(notaF); notaF.marcarEnviado(); repo.guardar(notaF);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boleta.asignarNumero(9, "20100066603"); boleta.firmar("H", "b.xml"); repo.guardar(boleta); boleta.marcarEnviado(); repo.guardar(boleta);
+        Comprobante boletaError = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", varios, items).crear(clock);
+        boletaError.asignarNumero(10, "20100066603"); boletaError.firmar("H", "b2.xml"); repo.guardar(boletaError); boletaError.marcarErrorEnvio("0109 - x"); repo.guardar(boletaError);
+        Comprobante notaB = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución"), varios, items).crear(clock);
+        notaB.asignarNumero(1, "20100066603"); notaB.firmar("H", "nb.xml"); repo.guardar(notaB); notaB.marcarEnviado(); repo.guardar(notaB);
+        Comprobante nc10B = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), new Nota(TipoDocumento.BOLETA, "B001", 9, "10", "Otros conceptos"), varios, items).crear(clock);
+        nc10B.asignarNumero(2, "20100066603"); nc10B.firmar("H", "nc10.xml"); repo.guardar(nc10B); nc10B.marcarEnviado(); repo.guardar(nc10B);
+
+        assertThat(repo.pendientesDeCdr()).extracting(Comprobante::id).containsExactlyInAnyOrder(factura.id(), notaF.id());
     }
 
     /** Integridad del storage (#38): solo los firmados (con xml_key) del rango, de cualquier empresa. */
@@ -275,6 +319,54 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(t, new Filtro(null, null, null, "F002"), 1, 10)).extracting(Comprobante::id).containsExactly(otraSerie.id());
         assertThat(repo.contar(t, new Filtro(null, LocalDate.of(2026, 9, 13), LocalDate.of(2026, 9, 13), "F001"))).isEqualTo(1);
         assertThat(repo.contar(t, new Filtro(null, null, null, "F999"))).isZero();
+    }
+
+    /**
+     * Filtros del listado por tipo, número y cliente (#326): el cliente se busca por documento (prefijo) o por nombre (contiene, sin distinguir mayúsculas), los comodines de LIKE
+     * son texto, el conteo usa el mismo filtro y nada cruza de una empresa a otra.
+     */
+    @Test void listaYCuentaPorTipoNumeroYCliente() {
+        UUID t = tenantDePrueba(), otro = tenantDePrueba();
+        var items = List.of(new Item("P1", "Prod", "NIU", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO));
+        java.time.Clock reloj = clock;
+        Comprobante andina = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CORPORACION ANDINA 100% SAC", null), items).crear(reloj);
+        andina.asignarNumero(1, "20100066603"); repo.guardar(andina);
+        Comprobante otraFactura = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20100066603", "DISTRIBUIDORA PACÍFICO EIRL", null), items).crear(reloj);
+        otraFactura.asignarNumero(2, "20100066603"); repo.guardar(otraFactura);
+        Comprobante boleta = Comprobante.boleta(t, "B001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("1", "44781209", "JUAN PEREZ", null), items).crear(reloj);
+        boleta.asignarNumero(1, "20100066603"); repo.guardar(boleta);
+        Comprobante deOtraEmpresa = Comprobante.factura(otro, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CORPORACION ANDINA 100% SAC", null), items).crear(reloj);
+        deOtraEmpresa.asignarNumero(1, "20100066603"); repo.guardar(deOtraEmpresa);
+
+        // Tipo
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "03", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(boleta.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, "01", null, null))).isEqualTo(2);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, "07", null, null))).isZero();
+        // Número (sin la serie): hay un F001-1 y un B001-1
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, null, 2L), 1, 10)).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, null, 1L))).isEqualTo(2);
+        // Cliente por nombre: contiene, sin distinguir mayúsculas ni tildes de caja
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "andina", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
+        // Razón social en mayúsculas con tilde (como la manda SUNAT): se encuentra con minúsculas, mayúsculas y sin tilde, sin depender del LC_CTYPE de la base.
+        for (String buscado : List.of("pacífico", "PACÍFICO", "pacifico", "Pacífico", "distribuidora pac")) {
+            assertThat(repo.listar(t, new Filtro(null, null, null, null, null, buscado, null), 1, 10)).as(buscado).extracting(Comprobante::id).containsExactly(otraFactura.id());
+        }
+        // También con la tilde descompuesta («i» + acento combinado), como la pega un teclado o una página.
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "pacífico", null))).isEqualTo(1);
+        // Cliente por documento: prefijo, no contiene
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "20601", null), 1, 10)).extracting(Comprobante::id).containsExactly(andina.id());
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "601234", null))).isZero();
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, null, "44781209", null), 1, 10)).extracting(Comprobante::id).containsExactly(boleta.id());
+        // Los comodines de LIKE son texto: «100%» solo encuentra el nombre que lo contiene, y «%» o «_» solos no encuentran todo.
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "100%", null))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "%", null))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, null, null, "_", null))).isZero();
+        // Combinados con los de siempre
+        assertThat(repo.contar(t, new Filtro(null, null, null, "F001", "01", "andina", 1L))).isEqualTo(1);
+        assertThat(repo.contar(t, new Filtro(null, null, null, "B001", "01", null, null))).isZero();
+        // Aislamiento: la otra empresa solo ve lo suyo, con el mismo nombre y documento
+        assertThat(repo.listar(otro, new Filtro(null, null, null, null, null, "andina", null), 1, 10)).extracting(Comprobante::id).containsExactly(deOtraEmpresa.id());
+        assertThat(repo.contar(otro, new Filtro(null, null, null, null, "03", null, null))).isZero();
     }
 
     /** Historial de intentos (#4): los eventos se persisten en cada guardar con hora del servidor y vuelven en orden; sin eventos, lista vacía. */
@@ -323,6 +415,66 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.notasDe(t, "F001", 21)).isEmpty();
         assertThat(repo.buscarPorNumero(t, TipoDocumento.NOTA_CREDITO, "FC01", 1)).isPresent();
         assertThat(repo.buscarPorNumero(t, TipoDocumento.FACTURA, "FC01", 1)).isEmpty();
+    }
+
+    /** #293: una nota B sobre una boleta se rehidrata (antes `Nota` rechazaba la boleta) y su baja vuelve de la base como resumen diario (RC), no como RA. */
+    @Test void notaDeBoleta_seRehidrataYSuBajaVuelveComoResumenDiario() {
+        UUID t = tenantDePrueba();
+        Nota nota = new Nota(TipoDocumento.BOLETA, "B001", 9, "07", "Devolución de un libro");
+        Comprobante nc = Comprobante.nota(t, TipoDocumento.NOTA_CREDITO, "BC01", LocalDate.of(2026, 9, 13), nota, new Receptor("-", "-", "CLIENTES VARIOS", null),
+                List.of(new Item("P2", "Libro", "NIU", BigDecimal.ONE, new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO))).crear(clock);
+        nc.asignarNumero(1, "20100066603");
+        nc.firmar("H", "nc.xml"); nc.marcarEnviado(); nc.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr.zip");
+        repo.guardar(nc);
+
+        Comprobante leida = repo.buscar(t, nc.id()).orElseThrow();
+        assertThat(leida.nota()).isEqualTo(nota);
+        assertThat(leida.esDeBoleta()).isTrue();
+        assertThat(repo.notasDe(t, "B001", 9)).extracting(Comprobante::id).containsExactly(nc.id());
+
+        JdbcBajaRepository bajas = new JdbcBajaRepository(jdbc);
+        ComunicacionBaja b = ComunicacionBaja.crear(leida, 1, "Error en el monto", Clock.fixed(Instant.parse("2026-09-15T15:00:00Z"), ZoneId.of("America/Lima")));
+        b.firmar("rc.xml");
+        bajas.guardar(b);
+        ComunicacionBaja releida = bajas.buscar(t, b.id()).orElseThrow();
+        assertThat(releida.resumenDiario()).isTrue();
+        assertThat(releida.identificador()).isEqualTo("RC-20260915-1");
+        assertThat(releida.tipoComprobante()).isEqualTo(TipoDocumento.NOTA_CREDITO);
+    }
+
+    private Instant enviadaEn(ComunicacionBaja b) {
+        java.sql.Timestamp ts = jdbc.queryForObject("SELECT enviada_en FROM comunicacion_baja WHERE id = ?", java.sql.Timestamp.class, b.id());
+        return ts == null ? null : ts.toInstant();
+    }
+
+    /**
+     * H1 de #370: la alerta de resúmenes sin respuesta cuenta desde que SUNAT dio el ticket. `enviada_en` se fija al pasar a ENVIADA, no antes (un error de envío no es un
+     * envío) y no se mueve cuando el worker reconsulta el ticket y guarda la fila otra vez.
+     */
+    @Test void laBajaRecuerdaCuandoSunatDioElTicketYUnaReconsultaNoLoMueve() {
+        UUID t = tenantDePrueba();
+        Comprobante f = factura(t, 31);
+        f.firmar("H", "k.xml"); f.marcarEnviado(); f.aplicarCdr(new Cdr("0", "aceptada", List.of()), "cdr.zip");
+        repo.guardar(f);
+        JdbcBajaRepository bajas = new JdbcBajaRepository(jdbc);
+        ComunicacionBaja b = ComunicacionBaja.crear(f, 1, "Error en el RUC del cliente", clock);
+        b.firmar("ra.xml");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("recién generada").isNull();
+
+        b.marcarErrorEnvio("SUNAT respondió HTTP 503");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("un error de envío no es un envío").isNull();
+
+        b.marcarEnviada("1789768174685");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("SUNAT dio el ticket").isNotNull();
+
+        Instant fijada = Instant.parse("2026-09-15T10:00:00Z");
+        jdbc.update("UPDATE comunicacion_baja SET enviada_en = ? WHERE id = ?", java.sql.Timestamp.from(fijada), b.id());
+        b.registrarConsultaPendiente("98 - SUNAT sigue procesando");
+        bajas.guardar(b);
+        assertThat(enviadaEn(b)).as("reconsultar el ticket no cambia desde cuándo se espera").isEqualTo(fijada);
     }
 
     @Test void comunicacionDeBaja_guardaRehidrataYNumeraPorDia() {
@@ -395,6 +547,172 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
     }
 
+    /** #317: la tasa de los otros tributos (9999) y la placa se guardan y vuelven iguales; una línea sin ellos vuelve con nulos. */
+    @Test void guardaYRehidrataOtrosTributosYPlaca() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("COMB", "Diésel B5", "GLL", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), null, null, null, null,
+                                new OtrosTributos(new BigDecimal("3.5")), "ABC-123"),
+                        new Item("P", "Lubricante", "NIU", BigDecimal.ONE, new BigDecimal("59.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        c.asignarNumero(10, "20100066603");
+        c.firmar("H", "k.xml");
+        repo.guardar(c);
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.items().get(0).otrosTributos()).isEqualTo(new OtrosTributos(new BigDecimal("3.5")));
+        assertThat(leido.items().get(0).placa()).isEqualTo("ABC-123");
+        assertThat(leido.items().get(1).otrosTributos()).isNull();
+        assertThat(leido.items().get(1).placa()).isNull();
+        assertThat(leido.totales().otrosTributos()).isEqualByComparingTo("3.50");
+        assertThat(leido.totales().total()).isEqualByComparingTo(c.totales().total());
+    }
+
+    /** #316: el tipo de cambio se guarda con el comprobante y vuelve igual; en soles o sin informar vuelve nulo. */
+    @Test void guardaYRehidrataElTipoDeCambio() {
+        UUID t = tenantDePrueba();
+        Comprobante usd = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "USD", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).tipoCambio(new BigDecimal("3.756")).crear(clock);
+        usd.asignarNumero(11, "20100066603");
+        usd.firmar("H", "k.xml");
+        repo.guardar(usd);
+        Comprobante leido = repo.buscar(t, usd.id()).orElseThrow();
+        assertThat(leido.tipoCambio()).isEqualByComparingTo("3.756");
+        assertThat(leido.totalEnSoles()).hasValueSatisfying(s -> assertThat(s).isEqualByComparingTo("443.21"));
+
+        Comprobante soles = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null),
+                List.of(new Item("S", "Servicio", "ZZ", BigDecimal.ONE, new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        soles.asignarNumero(12, "20100066603");
+        soles.firmar("H", "k.xml");
+        repo.guardar(soles);
+        assertThat(repo.buscar(t, soles.id()).orElseThrow().tipoCambio()).isNull();
+    }
+
+    private Comprobante liquidacion(UUID t, long numero) {
+        Comprobante c = Comprobante.liquidacionCompra(t, "L001", LocalDate.of(2026, 9, 13), "PEN", "0502", new Receptor("1", "45678912", "JUAN QUISPE MAMANI", "Caserío Santa Rosa s/n"),
+                        new LiquidacionCompra("060101", "02", new LiquidacionCompra.Ubicacion("Fundo Santa Rosa, km 12 carretera a Bambamarca", "060801", "03"), null),
+                        List.of(new Item("CAF-01", "Café pergamino", "KGM", new BigDecimal("10"), new BigDecimal("118.00"), TipoAfectacionIgv.GRAVADO, null, null, false, List.of(), CodigoProductoSunat.de("50201706"), null),
+                                new Item("PAP-01", "Papa", "KGM", new BigDecimal("3"), new BigDecimal("50.00"), TipoAfectacionIgv.EXONERADO, null, null, false, List.of(), CodigoProductoSunat.de("50405700"), null)))
+                .referencias(new Referencias(null, List.of(new GuiaRelacionada("31", "V001-45")), List.of(new DocumentoRelacionado("99", "ACTA-7"))))
+                .redondeo(new BigDecimal("0.25"))
+                .crear(clock);
+        c.asignarNumero(numero, "20100066603");
+        return c;
+    }
+
+    private Comprobante retencion(UUID t, long numero) {
+        Comprobante c = Comprobante.deAgente(t, "R001", LocalDate.of(2026, 9, 13), new Receptor("6", "20131312955", "PROVEEDOR DEL NORTE SAC", "Av. Grau 123"),
+                        new ComprobanteDeAgente(TipoDocumento.RETENCION, "01", null, List.of(
+                                new ComprobanteDeAgente.Documento("01", "F001-123", LocalDate.of(2026, 9, 1), new BigDecimal("1180.00"), "PEN", 1, LocalDate.of(2026, 9, 10), new BigDecimal("1180.00"), null, null),
+                                new ComprobanteDeAgente.Documento("01", "E001-45", LocalDate.of(2026, 8, 20), new BigDecimal("1000.00"), "USD", 2, LocalDate.of(2026, 9, 12), new BigDecimal("500.00"),
+                                        new BigDecimal("3.756"), LocalDate.of(2026, 9, 11)))))
+                .crear("20100066603", clock);
+        c.asignarNumero(numero, "20100066603");
+        return c;
+    }
+
+    /** #40: la retención vuelve con su proveedor, su régimen y tasa, cada documento con su pago y tipo de cambio, y los mismos totales; sin tipo de operación. */
+    @Test void guardaYRehidrataLaRetencion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = retencion(t, 1);
+        c.firmar("H", "r.xml");
+        repo.guardar(c);
+        Comprobante leida = repo.buscarPorNumero(t, TipoDocumento.RETENCION, "R001", 1).orElseThrow();
+        assertThat(leida.tipo()).isEqualTo(TipoDocumento.RETENCION);
+        assertThat(leida.esDeAgente()).isTrue();
+        assertThat(leida.tipoOperacion()).isNull();
+        assertThat(leida.items()).isEmpty();
+        assertThat(leida.receptor()).isEqualTo(c.receptor());
+        assertThat(leida.agente()).isEqualTo(c.agente());
+        assertThat(leida.agente().documentos().get(1).fechaTipoCambio()).isEqualTo(LocalDate.of(2026, 9, 11));
+        assertThat(leida.totales().total()).as("35.40 + 3 % de 1878.00").isEqualByComparingTo("91.74").isEqualByComparingTo(c.totales().total());
+        assertThat(leida.importeNetoDeAgente()).isEqualByComparingTo(c.importeNetoDeAgente());
+        assertThat(leida.totales().tieneRedondeo()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).as("lo retenido").isEqualByComparingTo("91.74");
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "20", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(c.id());
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "40", null, null), 1, 10)).isEmpty();
+        // Por lotes (el listado) y de a uno leen lo mismo.
+        assertThat(repo.listar(t, Filtro.NINGUNO, 1, 10).get(0).agente()).isEqualTo(c.agente());
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThat(repo.buscar(t, f.id()).orElseThrow().agente()).isNull();
+    }
+
+    /** La base: el régimen va con su tasa, y solo un 20 o un 40 puede no tener tipo de operación. */
+    @Test void laBaseNoAdmiteUnAgenteAMediasNiUnaFacturaSinTipoDeOperacion() {
+        UUID t = tenantDePrueba();
+        Comprobante c = retencion(t, 1);
+        repo.guardar(c);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET agente_tasa = NULL WHERE documento_id = ?", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET tipo_operacion = NULL WHERE documento_id = ?", f.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante_documento_agente SET fecha_tipo_cambio = NULL WHERE comprobante_id = ? AND orden = 2", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    /** #40: getStatusCdr no cubre la retención ni la percepción; el control del plazo sí las ve. */
+    @Test void laRetencionNoEsPendienteDeCdrPeroSiDelControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante enviada = retencion(t, 1);
+        enviada.firmar("H", "r1.xml"); repo.guardar(enviada); enviada.marcarEnviado(); repo.guardar(enviada);
+        Comprobante firmada = retencion(t, 2);
+        firmada.firmar("H", "r2.xml"); repo.guardar(firmada);
+        assertThat(repo.pendientesDeCdr()).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactly(firmada.id());
+    }
+
+    /** #327: la liquidación de compra vuelve con su vendedor, el resto de su domicilio, el lugar de la operación, la tasa de la retención y el mismo neto. */
+    @Test void guardaYRehidrataLaLiquidacionDeCompra() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        c.firmar("H", "k.xml");
+        repo.guardar(c);
+        Comprobante leida = repo.buscarPorNumero(t, TipoDocumento.LIQUIDACION_COMPRA, "L001", 1).orElseThrow();
+        assertThat(leida.tipo()).isEqualTo(TipoDocumento.LIQUIDACION_COMPRA);
+        assertThat(leida.esLiquidacionCompra()).isTrue();
+        assertThat(leida.tipoOperacion()).isEqualTo("0502");
+        assertThat(leida.receptor()).isEqualTo(new Receptor("1", "45678912", "JUAN QUISPE MAMANI", "Caserío Santa Rosa s/n"));
+        assertThat(leida.liquidacion()).isEqualTo(c.liquidacion());
+        assertThat(leida.liquidacion().tasaRetencionRenta()).isEqualByComparingTo("1.5");
+        assertThat(leida.items()).extracting(i -> i.codigoSunat().codigo()).containsExactly("50201706", "50405700");
+        assertThat(leida.referencias()).isEqualTo(c.referencias());
+        assertThat(leida.retencionRenta()).isEqualByComparingTo("17.25");
+        assertThat(leida.totales().total()).isEqualByComparingTo(c.totales().total()).isEqualByComparingTo("1133.00");
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).as("el neto que se paga").isEqualByComparingTo("1133.00");
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "04", null, null), 1, 10)).extracting(Comprobante::id).containsExactly(c.id());
+        assertThat(repo.listar(t, new Filtro(null, null, null, null, "01", null, null), 1, 10)).isEmpty();
+
+        // Una factura sigue sin datos de liquidación.
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThat(repo.buscar(t, f.id()).orElseThrow().liquidacion()).isNull();
+    }
+
+    /** La restricción de la base: los seis datos de la liquidación van juntos o ninguno. */
+    @Test void laBaseNoAdmiteUnaLiquidacionAMedias() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        repo.guardar(c);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET lugar_ubigeo = NULL WHERE documento_id = ?", c.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        Comprobante f = factura(t, 1);
+        repo.guardar(f);
+        assertThatThrownBy(() -> jdbc.update("UPDATE comprobante SET retencion_renta_tasa = 1.5 WHERE documento_id = ?", f.id()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    /** #327: getStatusCdr tampoco cubre la liquidación de compra; el control del plazo sí la ve (vence al día siguiente y queda sin canal). */
+    @Test void laLiquidacionNoEsPendienteDeCdrPeroSiDelControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = liquidacion(t, 1);
+        c.firmar("H", "l.xml"); repo.guardar(c); c.marcarEnviado(); repo.guardar(c);
+        Comprobante firmada = liquidacion(t, 2);
+        firmada.firmar("H", "l2.xml"); repo.guardar(firmada);
+        assertThat(repo.pendientesDeCdr()).isEmpty();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).containsExactly(firmada.id());
+    }
+
     @Test void guardaYRehidrataAnticiposYBuscaPorNumero() {
         UUID t = tenantDePrueba();
         Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", null), List.of(new Item("O", "Obra", "NIU", BigDecimal.ONE, new BigDecimal("1180.00"), TipoAfectacionIgv.GRAVADO),
@@ -441,6 +759,41 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         assertThat(r.cdr().observaciones()).containsExactly("4252 - obs");
         assertThat(r.cdrKey()).isEqualTo("k/cdr.zip");
         assertThat(r.receptor().razonSocial()).isEqualTo("CLIENTE SAC");
+    }
+
+    /**
+     * LOG-03: la cantidad y el precio admiten 12 enteros y 10 decimales (an..12,10, como SUNAT) y el XML se firma con ellos, pero las columnas eran NUMERIC(14,4): Postgres
+     * redondeaba en silencio (0.8474576271 → 0.8475) y el comprobante rehidratado recalculaba otros totales que los firmados (847.46 firmado, 847.50 al releer: la nota
+     * total copiaba ítems que ya no sumaban lo de la factura, 3286), y con 11 o 12 enteros el INSERT desbordaba después de firmar. El round-trip devuelve los ítems y los
+     * totales exactamente como se firmaron.
+     */
+    @Test void guardaYRehidrataLaCantidadYElPrecioConDiezDecimalesYDoceEnterosSinAlterarLosTotales() {
+        UUID t = tenantDePrueba();
+        Comprobante c = Comprobante.factura(t, "F001", LocalDate.of(2026, 9, 13), "PEN", "0101", new Receptor("6", "20601234565", "CLIENTE SAC", "AV 1"), List.of(
+                new Item("P1", "Servicio por hora", "ZZ", new BigDecimal("1000"), new BigDecimal("0.8474576271"), TipoAfectacionIgv.GRAVADO),
+                new Item("P2", "Microgramo", "GRM", new BigDecimal("10000000"), new BigDecimal("0.000001"), TipoAfectacionIgv.GRAVADO),
+                new Item("P3", "Lote", "NIU", new BigDecimal("123456789012"), new BigDecimal("0.01"), TipoAfectacionIgv.EXONERADO),
+                new Item("P4", "Oro", "GRM", new BigDecimal("0.0000400000"), new BigDecimal("100000"), TipoAfectacionIgv.GRAVADO))).crear(clock);
+        c.asignarNumero(40, "20100066603");
+        c.firmar("h", "k");
+        repo.guardar(c);
+
+        Comprobante r = repo.buscar(t, c.id()).orElseThrow();
+
+        assertThat(r.items()).extracting(Item::cantidad).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("1000"), new BigDecimal("10000000"), new BigDecimal("123456789012"), new BigDecimal("0.00004"));
+        assertThat(r.items()).extracting(Item::precioUnitario).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("0.8474576271"), new BigDecimal("0.000001"), new BigDecimal("0.01"), new BigDecimal("100000"));
+        // Los totales rehidratados son los firmados, al céntimo (la escala del BigDecimal puede diferir; el valor no)
+        assertThat(r.totales().total()).isEqualByComparingTo(c.totales().total());
+        assertThat(r.totales().gravado()).isEqualByComparingTo(c.totales().gravado());
+        assertThat(r.totales().igv()).isEqualByComparingTo(c.totales().igv());
+        assertThat(r.totales().items()).extracting(ItemCalculado::valorVenta).usingElementComparator(BigDecimal::compareTo)
+                .containsExactlyElementsOf(c.totales().items().stream().map(ItemCalculado::valorVenta).toList());
+        // 1000 × 0.8474576271 (precio con IGV) = 847.46 de precio de venta y 718.18 de valor de venta; con la columna en 4 decimales (0.8475) salían 847.50 y 718.22
+        assertThat(r.totales().items().get(0).precioVenta()).as("847.46 y no 847.50").isEqualByComparingTo("847.46");
+        assertThat(r.totales().items().get(0).valorVenta()).isEqualByComparingTo("718.18");
+        assertThat(jdbc.queryForObject("SELECT total FROM comprobante WHERE documento_id = ?", BigDecimal.class, c.id())).isEqualByComparingTo(c.totales().total());
     }
 
     @Test void existeYUnicidad() {
@@ -492,6 +845,150 @@ class JdbcComprobanteRepositoryTest extends PersistenciaTestBase {
         Comprobante enviadoTardio = Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", 9L, LocalDate.of(2026, 9, 13), EstadoDocumento.ENVIADO, c.receptor(), c.items()).horaEmision(c.horaEmision()).firma("h", c.nombreArchivo(), "k").envio(1, null).rehidratar();
         assertThatThrownBy(() -> repo.guardar(enviadoTardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
         assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+    }
+
+    /** LOG-01: la reserva del envío es exclusiva, caduca, la libera el guardado del resultado y solo toma lo que sigue por enviar. */
+    @Test void laReservaDelEnvioEsExclusivaCaducaYSeLiberaAlGuardar() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 30);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        Instant ahora = clock.instant();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora, ahora.minusSeconds(300))).isTrue();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora.plusSeconds(1), ahora.minusSeconds(299))).as("otro la tiene").isFalse();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora.plusSeconds(301), ahora.plusSeconds(1))).as("caducó: el proceso murió y otro la retoma").isTrue();
+
+        c.marcarErrorEnvio("0109 - timeout");
+        repo.guardar(c);
+        assertThat(jdbc.queryForObject("SELECT enviando_desde FROM documento WHERE id = ?", java.sql.Timestamp.class, c.id())).as("el guardado libera").isNull();
+        assertThat(repo.reservarEnvio(t, c.id(), ahora, ahora.minusSeconds(300))).isTrue();
+
+        Comprobante aceptado = factura(t, 31);
+        aceptado.firmar("h", "k");
+        repo.guardar(aceptado);
+        aceptado.marcarEnviado();
+        aceptado.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(aceptado);
+        assertThat(repo.reservarEnvio(t, aceptado.id(), ahora, ahora.minusSeconds(300))).as("lo que ya no se envía no se reserva").isFalse();
+        assertThat(repo.reservarEnvio(UUID.randomUUID(), c.id(), ahora, ahora.minusSeconds(300))).as("otro tenant").isFalse();
+    }
+
+    /**
+     * LOG-01: un resultado tardío de envío (el 1033 del segundo envío sobre el ACEPTADO del primero, el FUERA_DE_PLAZO del barrido sobre lo recién recuperado) no pisa el
+     * estado que otra transacción ya persistió: la actualización exige el estado desde el que salió la transición. Sin transición (restaurar el CDR) la misma fila se actualiza.
+     */
+    @Test void unResultadoTardioNoPisaUnEstadoTerminalYSinTransicionLaFilaSeActualiza() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 32);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        Comprobante leidaPorElSegundoEnvio = copia(c, t, EstadoDocumento.FIRMADO);
+        Comprobante leidaPorElBarrido = copia(c, t, EstadoDocumento.FIRMADO);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(c);
+
+        leidaPorElSegundoEnvio.rechazarPorFault("1033", "registrado previamente");   // FIRMADO → ENVIADO → RECHAZADO, desde FIRMADO
+        assertThatThrownBy(() -> repo.guardar(leidaPorElSegundoEnvio)).isInstanceOf(pe.factura.domain.DomainException.class)
+                .hasMessageContaining("ACEPTADO").extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        leidaPorElBarrido.marcarFueraDePlazo(LocalDate.of(2026, 10, 13));
+        assertThatThrownBy(() -> repo.guardar(leidaPorElBarrido)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(repo.eventosDe(t, c.id())).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ENVIADO, EstadoDocumento.ACEPTADO);
+
+        Comprobante aceptado = repo.buscar(t, c.id()).orElseThrow();
+        aceptado.restaurarCdr(new Cdr("0", "aceptada", List.of("4252 - obs")), "k/cdr-2.zip");
+        repo.guardar(aceptado);
+        assertThat(repo.buscar(t, c.id()).orElseThrow().cdrKey()).isEqualTo("k/cdr-2.zip");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM documento WHERE id = ?", Integer.class, c.id())).isEqualTo(1);
+    }
+
+    /** LOG-01: lo que otro proceso tiene reservado para enviar no entra al barrido de plazo (su resultado llega en segundos); una reserva caducada ya no lo protege. */
+    @Test void loReservadoParaEnviarNoEntraAlControlDePlazo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 33);
+        c.firmar("h", "k");
+        repo.guardar(c);
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).contains(c.id());
+        assertThat(repo.reservarEnvio(t, c.id(), Instant.now(), Instant.now().minusSeconds(300))).isTrue();
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).doesNotContain(c.id());
+        jdbc.update("UPDATE documento SET enviando_desde = now() - interval '6 minutes' WHERE id = ?", c.id());
+        assertThat(repo.pendientesQueVencenEmitidosHasta(LocalDate.of(2026, 9, 13))).extracting(Comprobante::id).contains(c.id());
+    }
+
+    /** Una copia rehidratada con el estado y el fallo que se le diga, como la leería otra transacción. */
+    private Comprobante copia(Comprobante c, UUID t, EstadoDocumento estado) {
+        return Comprobante.persistido(c.id(), t, TipoDocumento.FACTURA, "F001", c.numero(), LocalDate.of(2026, 9, 13), estado, c.receptor(), c.items()).horaEmision(c.horaEmision())
+                .firma("h", c.nombreArchivo(), "k").envio(2, "0109 - timeout").rehidratar();
+    }
+
+    private Comprobante enErrorDeEnvio(UUID t, long numero) {
+        Comprobante c = factura(t, numero);
+        c.firmar("h", "k");
+        repo.guardar(c);                                   // el primer guardado inserta; los condicionales (error de envío) solo actualizan
+        c.marcarErrorEnvio("0109 - timeout");
+        repo.guardar(c);
+        return c;
+    }
+
+    @Test void descartarGuardaElEstadoTerminalConSuHistoriaYConservaElFallo() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 20);
+
+        c.descartar("el cliente lo reemitió");
+        repo.guardar(c);
+
+        Comprobante leido = repo.buscar(t, c.id()).orElseThrow();
+        assertThat(leido.estado()).isEqualTo(EstadoDocumento.DESCARTADO);
+        assertThat(leido.ultimoError()).isEqualTo("0109 - timeout");
+        assertThat(leido.intentos()).isEqualTo(1);
+        List<EventoDocumento> eventos = repo.eventosDe(t, c.id());
+        assertThat(eventos).extracting(EventoDocumento::estadoNuevo).containsExactly(EstadoDocumento.FIRMADO, EstadoDocumento.ERROR_ENVIO, EstadoDocumento.DESCARTADO);
+        assertThat(eventos.get(2).detalle()).isEqualTo("Descartado por un administrador: el cliente lo reemitió");
+    }
+
+    /** El descarte lo decide un administrador sobre lo que vio: si en el medio el envío se resolvió, no se pisa. */
+    @Test void descartarNoPisaLoQueUnEnvioEnParaleloResolvio() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 21);
+        Comprobante vista = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        c.marcarEnviado();
+        c.aplicarCdr(new Cdr("0", "aceptada", List.of()), "k/cdr.zip");
+        repo.guardar(c);
+
+        vista.descartar("ya no se envía");
+
+        assertThatThrownBy(() -> repo.guardar(vista)).isInstanceOf(pe.factura.domain.DomainException.class).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.ACEPTADO);
+        assertThat(repo.eventosDe(t, c.id())).extracting(EventoDocumento::estadoNuevo).doesNotContain(EstadoDocumento.DESCARTADO);
+    }
+
+    @Test void descartarSoloEsPosibleDesdeErrorDeEnvioEnLaBase() {
+        UUID t = tenantDePrueba();
+        Comprobante c = factura(t, 22);
+        c.firmar("h", "k");
+        repo.guardar(c);                                   // en la base sigue FIRMADO
+        Comprobante vista = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        vista.descartar("x");
+
+        assertThatThrownBy(() -> repo.guardar(vista)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.FIRMADO);
+    }
+
+    @Test void unEnvioTardioNoPisaUnDescarte() {
+        UUID t = tenantDePrueba();
+        Comprobante c = enErrorDeEnvio(t, 23);
+        Comprobante tardio = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        c.descartar("x");
+        repo.guardar(c);
+
+        tardio.marcarEnviado();
+        assertThatThrownBy(() -> repo.guardar(tardio)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+        Comprobante otro = copia(c, t, EstadoDocumento.ERROR_ENVIO);
+        otro.marcarErrorEnvio("0109 - otra vez");
+        assertThatThrownBy(() -> repo.guardar(otro)).extracting("codigo").isEqualTo("ESTADO_CONFLICTO");
+
+        assertThat(repo.buscar(t, c.id()).orElseThrow().estado()).isEqualTo(EstadoDocumento.DESCARTADO);
     }
 
     @Test void errorEnvioSobreFirmadoOErrorEnvioSiSeGuarda() {

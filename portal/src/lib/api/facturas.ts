@@ -1,14 +1,46 @@
+import type { Mensajes } from "@/i18n/mensajes";
 import { diasEntre, hoyLima } from "@/lib/formato";
 import { backendFetch, backendFetchConHeaders } from "./client";
 import { tenantHeaders } from "./tenant";
 
 export const ESTADOS_FINALES = ["ACEPTADO", "ACEPTADO_CON_OBS", "RECHAZADO", "ANULADO", "INVALIDO"] as const;
 
-export const ETIQUETAS_TIPO: Record<string, string> = {
-  "01": "Factura",
-  "03": "Boleta",
-  "07": "Nota de crédito",
-  "08": "Nota de débito",
+/** Un catálogo de SUNAT con sus etiquetas: código → texto. Los textos están en `messages.documentos` (#25). */
+export type Catalogo = Record<string, string>;
+
+/**
+ * Tipos de comprobante (catálogo 01). #39: las guías de remisión se emiten por la API (/v1/guias-remision); el portal solo las nombra donde muestra tipos (series).
+ * Con el locale de la sesión: `etiquetasTipo(messages)` y las demás funciones de abajo reciben los textos (sin valor por defecto, #25).
+ */
+export const etiquetasTipo = (messages: Mensajes): Catalogo => messages.documentos.tipos;
+
+/** #40: comprobante de retención (20) o de percepción (40), que solo emite una empresa designada agente por SUNAT. */
+export function esDeAgente(c: { tipo: string }): boolean {
+  return c.tipo === "20" || c.tipo === "40";
+}
+
+/**
+ * #40: lo propio de una retención o una percepción (`agente` de la respuesta): régimen y tasa, cada documento pagado o cobrado con lo retenido o percibido y el neto (en
+ * soles), y los totales. `totales.total` del comprobante es lo retenido o percibido.
+ */
+export type ComprobanteDeAgente = {
+  regimen: string;
+  descripcion_regimen: string;
+  tasa: number;
+  importe_total: number;
+  redondeo: number;
+  importe_neto: number;
+  documentos: Array<{
+    tipo: string;
+    numero: string;
+    fecha_emision: string;
+    importe_total: number;
+    moneda: string;
+    pago: { numero: number; fecha: string; importe: number };
+    tipo_cambio?: { factor: number; fecha: string } | null;
+    importe_agente: number;
+    neto: number;
+  }>;
 };
 
 export const ESTADOS_DOCUMENTO = [
@@ -23,6 +55,7 @@ export const ESTADOS_DOCUMENTO = [
   "RECHAZADO",
   "ANULADO",
   "FUERA_DE_PLAZO",
+  "DESCARTADO",
 ] as const;
 
 export type EstadoDocumento = (typeof ESTADOS_DOCUMENTO)[number];
@@ -34,6 +67,21 @@ export type Receptor = {
   direccion: string | null;
   /** País (ISO 3166-1, catálogo 04): obligatorio en exportaciones, ausente en el resto. */
   pais?: string | null;
+  /** #325: correo del cliente indicado al emitir (una nota hereda el de su comprobante); no va al XML. */
+  email?: string | null;
+};
+
+/**
+ * #325: el envío automático del comprobante a su cliente, si se anotó (la empresa lo tenía activado y el comprobante traía correo cuando SUNAT lo aceptó). `PENDIENTE` en cola o
+ * esperando un reintento; `FALLIDO` agotó los reintentos o los adjuntos pesan demasiado; `OMITIDO` no correspondía mandarlo (sin correo en el servidor, comprobante anulado).
+ */
+export type EnvioAlCliente = {
+  destinatario: string;
+  estado: "PENDIENTE" | "ENVIADO" | "FALLIDO" | "OMITIDO";
+  intentos: number;
+  ultimo_error?: string | null;
+  siguiente_intento?: string | null;
+  enviado_en?: string | null;
 };
 
 /** Datos de una factura de exportación (0200–0208): Incoterm y, en servicios 0201/0208, país de uso. */
@@ -72,6 +120,10 @@ export type ItemComprobante = {
   hidrobiologico?: Hidrobiologico | null;
   /** Detracción 1004: origen, destino, detalle del viaje y valores referenciales del transporte de carga. */
   transporte?: TransporteCarga | null;
+  /** Otros tributos (9999): la tasa pedida y el monto calculado sobre el valor de venta. Suman al precio de la línea y no a la base del IGV. */
+  otros_tributos?: { tasa: number; monto: number } | null;
+  /** Placa del vehículo (propiedad 7000 del catálogo 55). */
+  placa?: string | null;
 };
 
 export type Hidrobiologico = { matricula: string; nombre_embarcacion: string; especie: string; lugar_descarga: string; fecha_descarga: string; cantidad: number };
@@ -91,18 +143,11 @@ export type TransporteCarga = {
   }>;
 };
 
-export const ETIQUETAS_GUIA: Record<string, string> = { "09": "Guía de remisión remitente", "31": "Guía de remisión transportista" };
+/** Guías de remisión (catálogo 01: 09 y 31). */
+export const etiquetasGuia = (messages: Mensajes): Catalogo => ({ "09": messages.documentos.tipos["09"], "31": messages.documentos.tipos["31"] });
 
 /** Catálogo 12 (tipos admitidos como "otro documento relacionado"). */
-export const ETIQUETAS_DOC_RELACIONADO: Record<string, string> = {
-  "04": "Ticket de salida ENAPU",
-  "05": "Código SCOP",
-  "06": "Factura electrónica remitente",
-  "07": "Guía de remisión remitente",
-  "08": "Declaración de salida del depósito franco",
-  "09": "Declaración simplificada de importación",
-  "99": "Otros",
-};
+export const etiquetasDocRelacionado = (messages: Mensajes): Catalogo => messages.documentos.relacionados;
 
 export type NotaResumen = {
   id: string;
@@ -127,24 +172,40 @@ export type Baja = {
   /** Fecha de emisión del comprobante tal como se comunicó a SUNAT (cbc:ReferenceDate). */
   fecha_referencia?: string | null;
   motivo: string;
+  /** `BAJA` anula el comprobante; `ALTA` informa en el resumen diario una boleta que pasó el envío individual (274-H1). Ausente en respuestas viejas: baja. */
+  condicion?: "ALTA" | "BAJA";
+  /**
+   * #331: un `ALTA` generada pasado el 7.º día desde la emisión. SUNAT no la rechaza: la norma prevé que la observe con la 4443 (entonces la boleta queda `ACEPTADO_CON_OBS`); e-beta no lo hizo.
+   * Es la previsión de khipu: si el envío del resumen se reintentó otro día, SUNAT puede observarla aunque diga `false` (manda el CDR). Ausente en respuestas
+   * viejas: en plazo.
+   */
+  fuera_de_plazo?: boolean;
   estado: EstadoBaja;
+  /** #301: posición de este comprobante en su resumen diario y cuántas líneas tiene. Las boletas de una misma fecha que se informan juntas comparten identificador, ticket y CDR. Ausentes en respuestas viejas: 1 de 1. */
+  linea?: number;
+  lineas?: number;
   ticket: string | null;
   cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
   intentos: number;
   ultimo_error: string | null;
 };
 
-/** Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957). */
+/**
+ * Plazo legal para la comunicación de baja: 7 días calendario desde la emisión (regla 2957), también para la boleta y sus notas. Es la regla de SUNAT
+ * desde 2027-01-01 (RS 000048-2026); hasta 2026-12-31 la boleta lo cuenta desde la CDR, que nunca es anterior: contar desde la emisión cumple las dos (#302).
+ */
 export const PLAZO_BAJA_DIAS = 7;
 
 /**
- * Un comprobante aceptado (factura o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja.
- * `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957), no la del servidor del portal.
+ * Un comprobante aceptado (factura, boleta o nota), emitido hace 7 días o menos y sin baja en curso, puede darse de baja: la boleta en el resumen
+ * diario (RC, #20), los demás en una comunicación de baja (RA). `hoy` es la fecha de Lima (la misma zona con la que el backend aplica la regla 2957),
+ * no la del servidor del portal.
  */
 export function admiteBaja(c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_emision" | "baja">, hoy: string = hoyLima()): boolean {
-  if (c.tipo === "03") return false;
   if (c.estado_documento !== "ACEPTADO" && c.estado_documento !== "ACEPTADO_CON_OBS") return false;
   if (bajaEnCurso(c)) return false;
+  // #40: una retención o una percepción se revierte en un resumen de reversiones (RR); SUNAT no lo valida contra la emisión; la norma exige presentarlo dentro de 7 días calendario desde que se comunicó la reversión (khipu no conoce esa fecha).
+  if (esDeAgente(c)) return true;
   return diasEntre(c.fecha_emision, hoy) <= PLAZO_BAJA_DIAS;
 }
 
@@ -159,49 +220,42 @@ export function admiteCorreo(c: Pick<Comprobante, "estado_documento">): boolean 
 }
 
 /**
- * Una factura aceptada por SUNAT (con o sin observaciones) admite notas de crédito/débito, salvo que tenga una baja en
- * curso: si SUNAT la acepta, la factura queda anulada y la nota, sobre un documento anulado (2120).
+ * Una factura o una boleta aceptada por SUNAT (con o sin observaciones; la boleta, también la informada en el resumen diario)
+ * admite notas de crédito/débito (#293), salvo que tenga una baja en curso: si SUNAT la acepta, el documento queda anulado y
+ * la nota, sobre un documento anulado (2120).
  */
 export function admiteNotas(c: Pick<Comprobante, "tipo" | "estado_documento" | "baja">): boolean {
-  return c.tipo === "01" && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS") && !bajaEnCurso(c);
+  return (c.tipo === "01" || c.tipo === "03") && (c.estado_documento === "ACEPTADO" || c.estado_documento === "ACEPTADO_CON_OBS") && !bajaEnCurso(c);
 }
 
-export const ETIQUETAS_TIPO_DOC: Record<string, string> = {
-  "1": "DNI",
-  "4": "Carné de extranjería",
-  "6": "RUC",
-  "7": "Pasaporte",
-  "0": "Doc. tributario no domiciliado",
-  A: "Cédula diplomática",
-  B: "Doc. identidad país de residencia",
-  C: "TIN (persona natural)",
-  D: "IN (persona jurídica)",
-  E: "Tarjeta Andina de Migración",
-  G: "Salvoconducto",
-};
+/**
+ * Una boleta o una nota sobre boleta (#293): sigue el régimen de la boleta, así que su baja va en el resumen diario (RC), nunca en
+ * una comunicación de baja (RA, 2310). Es el `Comprobante.esDeBoleta()` del backend.
+ */
+export function esDeBoleta(c: { tipo: string; nota?: { tipo_afectado: string } | null }): boolean {
+  return c.tipo === "03" || c.nota?.tipo_afectado === "03";
+}
+
+/**
+ * #331: una boleta, o una nota sobre boleta que va en el resumen diario, todavía sin llegar a SUNAT y pasado su plazo (el 7.º día). No vence: al enviarla
+ * khipu la informa en un resumen diario fuera de plazo; SUNAT no la rechaza y puede observarla con la 4443. La NC 10 y la ND 03 de boleta no van en el resumen (guía,
+ * p. 19): esas sí vencen. Es el `Comprobante.informaFueraDePlazo` del backend; `hoy` es la fecha de Lima.
+ */
+export function seInformaFueraDePlazo(
+  c: Pick<Comprobante, "tipo" | "estado_documento" | "fecha_limite_envio"> & { nota?: { tipo_afectado: string; motivo: string } | null },
+  hoy: string = hoyLima(),
+): boolean {
+  if (c.estado_documento !== "FIRMADO" && c.estado_documento !== "ERROR_ENVIO") return false;
+  if (!esDeBoleta(c) || !c.fecha_limite_envio) return false;
+  const sinResumen = (c.tipo === "07" && c.nota?.motivo === "10") || (c.tipo === "08" && c.nota?.motivo === "03");
+  return !sinResumen && diasEntre(c.fecha_limite_envio, hoy) > 0;
+}
+
+/** Documentos de identidad (catálogo 06) con su nombre corto. «-» es una boleta de hasta S/ 700 sin comprador identificado (#20): no es del catálogo 06. */
+export const etiquetasTipoDoc = (messages: Mensajes): Catalogo => messages.documentos.identidad;
 
 /** Catálogo 07 (afectación del IGV) con las etiquetas cortas que muestra el portal; los códigos gratuitos no se cobran. */
-export const ETIQUETAS_AFECTACION: Record<string, string> = {
-  "10": "Gravado · Op. onerosa",
-  "17": "Gravado · IVAP",
-  "11": "Gravado · Retiro por premio (gratuita)",
-  "12": "Gravado · Retiro por donación (gratuita)",
-  "13": "Gravado · Retiro (gratuita)",
-  "14": "Gravado · Retiro por publicidad (gratuita)",
-  "15": "Gravado · Bonificación (gratuita)",
-  "16": "Gravado · Retiro a trabajadores (gratuita)",
-  "20": "Exonerado · Op. onerosa",
-  "21": "Exonerado · Transferencia gratuita",
-  "30": "Inafecto · Op. onerosa",
-  "31": "Inafecto · Retiro por bonificación (gratuita)",
-  "32": "Inafecto · Retiro (gratuita)",
-  "33": "Inafecto · Muestras médicas (gratuita)",
-  "34": "Inafecto · Convenio colectivo (gratuita)",
-  "35": "Inafecto · Retiro por premio (gratuita)",
-  "36": "Inafecto · Retiro por publicidad (gratuita)",
-  "37": "Inafecto · Transferencia gratuita",
-  "40": "Exportación",
-};
+export const etiquetasAfectacion = (messages: Mensajes): Catalogo => messages.documentos.afectacion;
 
 /** Forma de pago (RS 193-2020): al contado, o al crédito con el neto pendiente y sus cuotas (`id` = Cuota001…). */
 export type FormaPago = {
@@ -255,6 +309,10 @@ export type Comprobante = {
   fecha_limite_envio?: string;
   moneda: string;
   tipo_operacion: string | null;
+  /** Soles por unidad de `moneda` si el emisor lo informó (nulo en soles); SUNAT no lo recibe. */
+  tipo_cambio?: number | null;
+  /** Importe total en soles al `tipo_cambio`; nulo si no hay tipo de cambio. */
+  total_en_soles?: number | null;
   receptor: Receptor | null;
   items: ItemComprobante[];
   estado_documento: EstadoDocumento;
@@ -262,7 +320,11 @@ export type Comprobante = {
   nombre_archivo: string | null;
   intentos: number;
   ultimo_error: string | null;
-  cdr: { codigo: string; descripcion: string; observaciones: string[] } | null;
+  /**
+   * `resumen` (#362 B10): solo en una boleta (o nota de boleta) informada por resumen diario. SUNAT no emite un CDR por boleta en el resumen: el del comprobante es el
+   * del resumen, y esto dice cuál (`RC-aaaammdd-n`). El nombre del archivo descargado no cambia.
+   */
+  cdr: { codigo: string; descripcion: string; observaciones: string[]; resumen?: string } | null;
   totales: {
     gravado: number;
     exonerado: number;
@@ -283,10 +345,12 @@ export type Comprobante = {
     igv_gratuitas?: number;
     /** IVAP (tributo 1016, 4 % en vez del IGV): solo en comprobantes con afectación 17. */
     ivap?: number;
-    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en facturas 0200–0208. */
+    /** Valor de venta de exportación (tributo 9995, sin IGV): solo en comprobantes 0200–0208 (factura o boleta). */
     exportacion?: number;
     isc?: number;
     icbper?: number;
+    /** Total de otros tributos (9999): suma al precio de venta y no entra en la base del IGV. */
+    otros_tributos?: number;
     descuento_global?: DescuentoAplicado | null;
     /** Cargos globales aplicados (49 afecta la base del IGV; 46/50 no). */
     cargos?: CargoAplicado[] | null;
@@ -294,6 +358,8 @@ export type Comprobante = {
   forma_pago: FormaPago;
   detraccion?: Detraccion | null;
   retencion_igv?: RetencionIgv | null;
+  /** Solo en una retención (20) o una percepción (40), #40. */
+  agente?: ComprobanteDeAgente | null;
   percepcion?: Percepcion | null;
   anticipos?: Anticipo[] | null;
   /** Orden de compra, guías de remisión (catálogo 01: 09/31) y otros documentos (catálogo 12); ausente si no hay ninguno. */
@@ -312,6 +378,8 @@ export type Comprobante = {
   baja?: Baja | null;
   /** Observaciones propias del comprobante, impresas en el PDF (no van al XML). */
   observaciones?: string | null;
+  /** Solo al consultar (#325): si el comprobante salió por correo a su cliente al aceptarse; ausente si no se anotó. */
+  envio_al_cliente?: EnvioAlCliente | null;
   /** `cdr` solo cuando SUNAT emitió la constancia; un rechazo por fault tiene `cdr.codigo` pero no archivo. */
   enlaces: { xml: string; pdf?: string; cdr?: string };
 };
@@ -350,14 +418,20 @@ export function totalDesdeHeaders(headers: Headers, fallback: number): number {
   return Number.isFinite(total) && headers.has(TOTAL_HEADER) ? total : fallback;
 }
 
-/** Filtros del listado (#6): estado SUNAT, rango de fecha de emisión (inclusive) y serie exacta; todos opcionales y viajan en la URL. */
-export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string };
+/**
+ * Filtros del listado (#6, #326): estado SUNAT, rango de fecha de emisión (inclusive), serie exacta, tipo (01 factura, 03 boleta, 07 y 08 notas, 20 retención y 40 percepción), número y cliente (documento o
+ * parte del nombre); todos opcionales y viajan en la URL.
+ */
+export type FiltrosComprobantes = { estado?: EstadoDocumento; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: number };
+
+export const TIPOS_FILTRABLES = ["01", "03", "04", "07", "08", "20", "40"] as const;
+const MAX_CLIENTE = 100;
 
 const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const SERIE = /^[A-Z][A-Z0-9]{3}$/;
 
 /** Sanea los filtros que llegan por query string: descarta lo que el backend rechazaría (400) y normaliza la serie. */
-export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string }): FiltrosComprobantes {
+export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?: string; serie?: string; tipo?: string; cliente?: string; numero?: string }): FiltrosComprobantes {
   const f: FiltrosComprobantes = {};
   if (p.estado && (ESTADOS_DOCUMENTO as readonly string[]).includes(p.estado)) f.estado = p.estado as EstadoDocumento;
   if (p.desde && FECHA_ISO.test(p.desde)) f.desde = p.desde;
@@ -365,6 +439,10 @@ export function filtrosDesdeParams(p: { estado?: string; desde?: string; hasta?:
   if (f.desde && f.hasta && f.desde > f.hasta) delete f.hasta;
   const serie = p.serie?.trim().toUpperCase();
   if (serie && SERIE.test(serie)) f.serie = serie;
+  if (p.tipo && (TIPOS_FILTRABLES as readonly string[]).includes(p.tipo)) f.tipo = p.tipo;
+  const cliente = p.cliente?.trim();
+  if (cliente && cliente.length <= MAX_CLIENTE) f.cliente = cliente;
+  if (p.numero && /^\d{1,12}$/.test(p.numero.trim()) && Number(p.numero) >= 1) f.numero = Number(p.numero);
   return f;
 }
 
@@ -374,6 +452,9 @@ export function paramsDeFiltros(f: FiltrosComprobantes, qs = new URLSearchParams
   if (f.desde) qs.set("desde", f.desde);
   if (f.hasta) qs.set("hasta", f.hasta);
   if (f.serie) qs.set("serie", f.serie);
+  if (f.tipo) qs.set("tipo", f.tipo);
+  if (f.cliente) qs.set("cliente", f.cliente);
+  if (f.numero) qs.set("numero", String(f.numero));
   return qs;
 }
 
@@ -389,6 +470,70 @@ export async function listarFacturas(
     headers: tenantHeaders(access, empresaId),
   });
   return { datos: datos.map(normalizarComprobante), total: totalDesdeHeaders(headers, datos.length) };
+}
+
+/**
+ * El resumen de los comprobantes de la empresa en un período (#15), con la forma real del JSON. `desde`/`hasta` faltan si ese lado del rango estaba abierto. `facturado`
+ * va por moneda y vacío si no hay nada; es el neto: las notas de crédito restan.
+ */
+export type ResumenDeFacturas = {
+  desde?: string;
+  hasta?: string;
+  /** Comprobantes firmados del período, en cualquier estado. */
+  emitidos: number;
+  /** Aceptados por SUNAT, con o sin observaciones: los que ya tienen su CDR. */
+  aceptados_con_cdr: number;
+  /**
+   * #24: en camino a SUNAT sin nada que corregir (firmados sin enviar, enviados esperando su CDR, boletas esperando su resumen). Una boleta sin enviar desde el 5.º día
+   * cuenta acá y también en `atencion_requerida.boletas_sin_enviar`.
+   */
+  en_camino: number;
+  /**
+   * Lo que pide que el emisor haga algo. `boletas_sin_enviar` (#356): boletas, o notas que van en el resumen diario, que quedaron FIRMADAS porque se emitieron sin enviarlas y
+   * ya están en el 5.º día o más.
+   */
+  atencion_requerida: { total: number; rechazados: number; errores_de_envio: number; fuera_de_plazo: number; boletas_sin_enviar: number };
+  facturado: Array<{ moneda: string; total: number }>;
+};
+
+/** El período que resumen las métricas: el rango de fechas que se está mirando o, si no hay ninguno, el mes en curso en Lima hasta hoy. */
+export type PeriodoDelResumen = { desde?: string; hasta?: string; esElMesEnCurso: boolean };
+
+/**
+ * Qué período resume la franja de métricas de la página de comprobantes: el de los filtros de fecha, y sin ellos el mes en curso (de su día 1 a hoy, en Lima) y no todo el
+ * historial: es «una foto del mes». Solo importan `desde` y `hasta`; los demás filtros (estado, serie) no acotan el resumen.
+ */
+export function periodoDelResumen(filtros: Pick<FiltrosComprobantes, "desde" | "hasta">, hoy: string): PeriodoDelResumen {
+  if (filtros.desde || filtros.hasta) return { desde: filtros.desde, hasta: filtros.hasta, esElMesEnCurso: false };
+  return { desde: `${hoy.slice(0, 7)}-01`, hasta: hoy, esElMesEnCurso: true };
+}
+
+/** Solo desde el servidor: usa el JWT del usuario y la empresa activa, que el navegador no manda a mano. */
+export function resumirFacturas(access: string, empresaId: string, periodo: Pick<PeriodoDelResumen, "desde" | "hasta">) {
+  const qs = new URLSearchParams();
+  if (periodo.desde) qs.set("desde", periodo.desde);
+  if (periodo.hasta) qs.set("hasta", periodo.hasta);
+  const consulta = qs.toString();
+  return backendFetch<ResumenDeFacturas>(`/v1/facturas/resumen${consulta ? `?${consulta}` : ""}`, { headers: tenantHeaders(access, empresaId) });
+}
+
+/**
+ * La emisión día por día de un rango (#24), con la forma real del JSON: solo los días con algo emitido o facturado, ordenados por fecha (los vacíos no vienen). Cada día
+ * cuenta y factura con las reglas del resumen.
+ */
+export type EmisionPorDia = {
+  desde: string;
+  hasta: string;
+  dias: Array<{ fecha: string; emitidos: number; facturado: Array<{ moneda: string; total: number }> }>;
+};
+
+/** El rango más largo que admite `GET /v1/facturas/resumen/por-dia` (`ResumirComprobantesUseCase.MAXIMO_DIAS_POR_DIA`). */
+export const MAXIMO_DIAS_POR_DIA = 62;
+
+/** Solo desde el servidor, como `resumirFacturas`. Los dos extremos son obligatorios. */
+export function emisionPorDia(access: string, empresaId: string, rango: { desde: string; hasta: string }) {
+  const qs = new URLSearchParams({ desde: rango.desde, hasta: rango.hasta });
+  return backendFetch<EmisionPorDia>(`/v1/facturas/resumen/por-dia?${qs}`, { headers: tenantHeaders(access, empresaId) });
 }
 
 export async function obtenerFactura(access: string, empresaId: string, id: string) {

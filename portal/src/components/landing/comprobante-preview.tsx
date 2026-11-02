@@ -1,14 +1,16 @@
 "use client";
 
+import { useMessages } from "next-intl";
 import { type CSSProperties, useEffect, useState } from "react";
 
+/** Los pasos del recorrido; título y detalle están en `landing.preview.pasos.<clave>`. El destacado es el que no tiene detalle: su lugar lo ocupa el «Aceptado». */
 const PASOS = [
-  { titulo: "Valida los datos", detalle: "reglas de negocio" },
-  { titulo: "Genera el XML UBL", detalle: "UBL 2.1" },
-  { titulo: "Envía a SUNAT", detalle: ".zip" },
-  { titulo: "Recibe respuesta", detalle: null },
-  { titulo: "Entrega los archivos", detalle: "XML · CDR · PDF" },
-];
+  { clave: "valida", destacado: false },
+  { clave: "genera", destacado: false },
+  { clave: "envia", destacado: false },
+  { clave: "recibe", destacado: true },
+  { clave: "entrega", destacado: false },
+] as const;
 
 const BOX_H = 56;
 const GAP = 18;
@@ -62,7 +64,8 @@ const ICON_PATHS: Record<number, string[]> = {
  * - Sin librería de animación: un índice en el estado y transiciones CSS.
  */
 export function ComprobantePreview() {
-  const [paso, setPaso] = useState(PASOS.length);
+  const t = useMessages().landing.preview;
+  const [paso, setPaso] = useState<number>(PASOS.length);
   const [animando, setAnimando] = useState(false);
 
   useEffect(() => {
@@ -77,7 +80,7 @@ export function ComprobantePreview() {
     };
   }, []);
 
-  const trans = animando ? "transition-[opacity,fill,stroke-dashoffset] duration-500 ease-out" : "";
+  const trans = animando ? "transition-[opacity,fill,stroke-dashoffset] duration-500 ease-salida" : "";
   const completado = paso >= PASOS.length;
 
   return (
@@ -86,12 +89,12 @@ export function ComprobantePreview() {
         aria-hidden
         className="h-3 w-full rounded-t-xl bg-[radial-gradient(circle_at_center,var(--sidebar)_2.5px,transparent_2.6px)] [background-size:14px_14px] [background-position:7px_0]"
       />
-      <div className="rounded-b-xl bg-sidebar px-6 py-6 text-sidebar-foreground shadow-xl">
-        <p className="text-xs text-sidebar-foreground/60">Procesamiento automático con la API</p>
+      <div className="rounded-b-xl bg-sidebar px-6 py-6 text-sidebar-foreground shadow-lg">
+        <p className="text-xs text-sidebar-foreground/60">{t.titulo}</p>
 
         <svg
           role="img"
-          aria-label="Flujo: valida los datos, genera el XML UBL, envía a SUNAT, recibe respuesta, entrega los archivos"
+          aria-label={t.flujo}
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           className="mt-5 w-full"
         >
@@ -127,14 +130,16 @@ export function ComprobantePreview() {
           {PASOS.map((paso_, i) => {
             const boxY = i * UNIT;
             const cy = boxY + BOX_H / 2;
-            const destacado = paso_.detalle === null;
+            const destacado = paso_.destacado;
+            const textos = t.pasos[paso_.clave];
+            const detalle = "detalle" in textos ? textos.detalle : null;
             const activo = i === paso;
             const hecho = i < paso;
             // Cumplido = verde con check. El paso 4 («Recibe respuesta») ya es verde cuando le toca, porque su
             // resultado *es* la aceptación: ahí el verde no anuncia que terminó, anuncia qué contestó SUNAT.
             const verde = hecho || (destacado && activo);
             return (
-              <g key={paso_.titulo} opacity={activo || hecho ? 1 : 0.38} className={trans}>
+              <g key={paso_.clave} opacity={activo || hecho ? 1 : 0.38} className={trans}>
                 <rect
                   x={0}
                   y={boxY}
@@ -192,8 +197,8 @@ export function ComprobantePreview() {
                     )}
                   </svg>
                 </g>
-                <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-[13px]" fill="var(--sidebar-foreground)">
-                  {paso_.titulo}
+                <text x={56} y={cy} dominantBaseline="middle" className="font-sans text-control" fill="var(--sidebar-foreground)">
+                  {textos.titulo}
                 </text>
                 {destacado ? (
                   <g opacity={hecho || activo ? 1 : 0} className={trans}>
@@ -203,10 +208,10 @@ export function ComprobantePreview() {
                       y={cy}
                       dominantBaseline="middle"
                       textAnchor="middle"
-                      className="font-sans text-[11px] font-medium"
+                      className="font-sans text-etiqueta font-medium"
                       fill="var(--success-foreground)"
                     >
-                      Aceptado
+                      {t.aceptado}
                     </text>
                   </g>
                 ) : (
@@ -219,7 +224,7 @@ export function ComprobantePreview() {
                     fill="var(--sidebar-foreground)"
                     opacity={0.5}
                   >
-                    {paso_.detalle}
+                    {detalle}
                   </text>
                 )}
               </g>
@@ -229,10 +234,12 @@ export function ComprobantePreview() {
 
         {/* El comprobante emitido: aparece cuando el recorrido terminó, que es lo que el panel viene a contar. */}
         <div
-          className={`mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm ${animando ? "transition-opacity duration-500 ease-out" : ""}`}
+          className={`mt-5 flex items-center justify-between border-t border-sidebar-border pt-4 font-mono text-sm ${animando ? "transition-opacity duration-500 ease-salida" : ""}`}
           style={{ opacity: completado ? 1 : 0.25 }}
         >
+          {/* eslint-disable-next-line khipu/no-literal-de-ui -- número de ejemplo del panel: un identificador, igual en todos los idiomas */}
           <span>F001-00001024</span>
+          {/* eslint-disable-next-line khipu/no-literal-de-ui -- importe de ejemplo en soles: dato del panel, no texto a traducir */}
           <span className="text-sidebar-foreground/60">S/ 2,360.00</span>
         </div>
       </div>

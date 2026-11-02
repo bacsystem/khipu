@@ -60,4 +60,54 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
         sesiones.marcarRecuperacionUsada("t1");
         assertThat(sesiones.buscarRecuperacion("t1").orElseThrow().usado()).isTrue();
     }
+
+    /** S6: rotar guarda cuándo y por cuál (la primera vez); revocar por cualquier otro motivo borra esa marca y con ella la gracia. */
+    @Test void rotarMarcaLaGraciaYRevocarLaBorra() {
+        jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
+        Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
+        Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
+        Sesion vieja = new Sesion(UUID.randomUUID(), u.id(), "vieja", Instant.parse("2030-01-01T00:00:00Z"), false);
+        Sesion nueva = new Sesion(UUID.randomUUID(), u.id(), "nueva", Instant.parse("2030-01-01T00:00:00Z"), false);
+        sesiones.crear(vieja);
+        sesiones.crear(nueva);
+        Instant en = Instant.parse("2026-10-09T12:00:00Z");
+
+        sesiones.rotar(vieja.id(), nueva.id(), en);
+        sesiones.rotar(vieja.id(), UUID.randomUUID(), en.plusSeconds(10));   // otra instancia, con el mismo refresh
+
+        Sesion rotada = sesiones.buscar(vieja.id()).orElseThrow();
+        assertThat(rotada.revocada()).isTrue();
+        assertThat(rotada.rotadaEn()).isEqualTo(en);
+        assertThat(rotada.reemplazadaPor()).isEqualTo(nueva.id());
+        assertThat(sesiones.buscar(nueva.id()).orElseThrow().rotadaEn()).isNull();
+
+        sesiones.revocar(vieja.id());
+        assertThat(sesiones.buscar(vieja.id()).orElseThrow()).extracting(Sesion::rotadaEn, Sesion::reemplazadaPor).containsOnlyNulls();
+
+        sesiones.rotar(nueva.id(), UUID.randomUUID(), en);
+        sesiones.revocarTodas(u.id());
+        assertThat(sesiones.buscar(nueva.id()).orElseThrow()).extracting(Sesion::rotadaEn, Sesion::reemplazadaPor).containsOnlyNulls();
+        assertThat(sesiones.buscar(UUID.randomUUID())).isEmpty();
+    }
+
+    /** 271-H1: el logout revoca toda la familia (la sesión del login, sus rotaciones y las ramas de la gracia) y nada de otro login. */
+    @Test void revocarFamiliaCierraTodoLoDeEseLoginYNadaMas() {
+        jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
+        Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
+        Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
+        Instant vence = Instant.parse("2030-01-01T00:00:00Z");
+        Sesion login = new Sesion(UUID.randomUUID(), u.id(), "login", vence, false);
+        Sesion rotada = new Sesion(UUID.randomUUID(), u.id(), "rotada", vence, login.familia());
+        Sesion rama = new Sesion(UUID.randomUUID(), u.id(), "rama", vence, login.familia());
+        Sesion otroLogin = new Sesion(UUID.randomUUID(), u.id(), "otro", vence, false);
+        for (Sesion s : new Sesion[]{login, rotada, rama, otroLogin}) sesiones.crear(s);
+        sesiones.rotar(login.id(), rotada.id(), Instant.parse("2026-10-09T12:00:00Z"));
+
+        sesiones.revocarFamilia(login.familia());
+
+        for (Sesion s : new Sesion[]{login, rotada, rama})
+            assertThat(sesiones.buscar(s.id()).orElseThrow()).extracting(Sesion::revocada, Sesion::rotadaEn).containsExactly(true, null);
+        assertThat(sesiones.buscar(otroLogin.id()).orElseThrow().revocada()).as("otro login, otra familia").isFalse();
+        assertThat(sesiones.buscar(rama.id()).orElseThrow().familia()).isEqualTo(login.id());
+    }
 }

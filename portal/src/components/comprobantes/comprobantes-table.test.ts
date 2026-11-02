@@ -24,6 +24,9 @@ describe("claveComprobantes", () => {
       claveComprobantes("e-uno", { ...SIN_FILTROS, desde: "2026-09-01" }, 1, 10),
       claveComprobantes("e-uno", { ...SIN_FILTROS, hasta: "2026-09-30" }, 1, 10),
       claveComprobantes("e-uno", { ...SIN_FILTROS, serie: "F001" }, 1, 10),
+      claveComprobantes("e-uno", { ...SIN_FILTROS, tipo: "03" }, 1, 10),
+      claveComprobantes("e-uno", { ...SIN_FILTROS, cliente: "andina" }, 1, 10),
+      claveComprobantes("e-uno", { ...SIN_FILTROS, numero: 4 }, 1, 10),
       claveComprobantes("e-uno", SIN_FILTROS, 2, 10),
       claveComprobantes("e-uno", SIN_FILTROS, 1, 20),
     ];

@@ -3,14 +3,23 @@ package pe.factura.bootstrap;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,8 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
+@AutoConfigureTestRestTemplate
 class DeveloperPortalE2ETest {
-    @Container @ServiceConnection static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container @ServiceConnection static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired TestRestTemplate http;
 
@@ -42,9 +52,54 @@ class DeveloperPortalE2ETest {
         assertThat(tieneSecurityEnGet(paths, "/v1/facturas")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/series")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/empresa")).isTrue();
+        // #322: el SIRE acepta X-Api-Key (lo usa así su e2e) y el OpenAPI lo declara.
+        assertThat(tieneSecurityEnGet(paths, "/v1/sire/rvie")).isTrue();
+        assertThat(tieneSecurityEnPost(paths, "/v1/sire/rvie/conciliacion")).isTrue();
         assertThat(tieneSecurityEnGet(paths, "/v1/empresas")).isFalse();
         assertThat(paths.containsKey("/v1/auth/login")).isTrue();
         assertThat(tieneSecurityEnPost(paths, "/v1/auth/login")).isFalse();
+    }
+
+    /**
+     * #5: el portal compara sus tipos a mano con {@code portal/src/lib/api/openapi.json} (el d.ts sale de él) para que {@code tsc} avise si la API cambia el contrato. Eso solo sirve
+     * si el archivo es el de la API de verdad: esta prueba falla cuando el backend cambió y el archivo no se regeneró. {@code servers} no cuenta (es el host desde el que se pidió).
+     */
+    @Test void elOpenApiCommiteadoDelPortalEsElDeLaApi() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        ObjectNode enVivo = (ObjectNode) json.readTree(http.getForObject("/openapi.json", String.class));
+        enVivo.remove("servers");
+        Path archivo = Path.of("..", "portal", "src", "lib", "api", "openapi.json");
+        assertThat(archivo).as("el portal commitea su copia del OpenAPI").exists();
+        JsonNode commiteado = json.readTree(Files.readString(archivo));
+
+        List<String> diferencias = new ArrayList<>();
+        diferencias(enVivo, commiteado, "", diferencias);
+        assertThat(diferencias)
+                .as("portal/src/lib/api/openapi.json no es el OpenAPI de la API. Con un backend en marcha: `API_BASE_URL=http://localhost:8001 npm --prefix portal run generate:api`, "
+                        + "corrija lo que rompa `npm --prefix portal run typecheck` (contrato-openapi.ts) y commitee los dos archivos. Primeras diferencias (API en vivo vs archivo)")
+                .isEmpty();
+    }
+
+    /** Hasta diez caminos en los que los dos documentos difieren, para que el fallo diga dónde sin volcar medio megabyte. */
+    private static void diferencias(JsonNode a, JsonNode b, String ruta, List<String> salida) {
+        if (salida.size() >= 10 || a.equals(b)) return;
+        // 1000.0 de Jackson y 1000 de JSON.stringify son el mismo número.
+        if (a.isNumber() && b.isNumber() && a.decimalValue().compareTo(b.decimalValue()) == 0) return;
+        if (a.isObject() && b.isObject()) {
+            java.util.Set<String> claves = new java.util.TreeSet<>();
+            a.fieldNames().forEachRemaining(claves::add);
+            b.fieldNames().forEachRemaining(claves::add);
+            for (String k : claves) {
+                if (!a.has(k)) salida.add(ruta + "/" + k + " solo está en el archivo");
+                else if (!b.has(k)) salida.add(ruta + "/" + k + " solo está en la API");
+                else diferencias(a.get(k), b.get(k), ruta + "/" + k, salida);
+            }
+        } else if (a.isArray() && b.isArray() && a.size() == b.size()) {
+            for (int i = 0; i < a.size(); i++) diferencias(a.get(i), b.get(i), ruta + "/" + i, salida);
+        } else {
+            String x = a.toString(), y = b.toString();
+            salida.add(ruta + ": API " + (x.length() > 80 ? x.substring(0, 80) + "…" : x) + " / archivo " + (y.length() > 80 ? y.substring(0, 80) + "…" : y));
+        }
     }
 
     @Test void preflightCorsRespondeConLosHeadersDelOrigenDelPortal() {

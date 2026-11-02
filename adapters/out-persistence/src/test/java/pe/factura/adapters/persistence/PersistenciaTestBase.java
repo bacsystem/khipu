@@ -6,7 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Testcontainers
 abstract class PersistenciaTestBase {
-    @Container static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine");
+    @Container static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine");
     static DataSource ds; static JdbcTemplate jdbc; static JdbcUnitOfWork uow;
     private static final AtomicLong RUC_SEQ = new AtomicLong(1);
 
@@ -27,7 +27,7 @@ abstract class PersistenciaTestBase {
     }
 
     @BeforeEach void limpiar() {
-        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, establecimiento, api_key, tenant, token_recuperacion, sesion, usuario, cuenta CASCADE");
+        jdbc.update("TRUNCATE outbox, evento_documento, comprobante_item, comprobante, documento, serie, establecimiento, api_key, tenant, token_recuperacion, sesion, usuario, cuenta, administrador, auditoria_admin, remitente_correo, plantilla_correo, banner_mantenimiento CASCADE");
     }
 
     static UUID tenantDePrueba() {
