@@ -5701,7 +5701,7 @@
     },
     "revelada": {
       "etiqueta": "Tu API key",
-      "aviso": "Guárdala ahora en un lugar seguro: <b>no volverá a mostrarse</b>. Solo se conserva un hash, así que si la pierdes tendrás que revocarla y crear otra.",
+      "aviso": "Guárdala ahora en un lugar seguro: <b>no volverá a mostrarse</b>. Solo se conserva un hash, así que si la pierdes tendrás que revocarla y crear otra.",
       "copiar": "Copiar"
     },
     "nueva": {
