@@ -32,7 +32,7 @@ describe("RegistroForm: términos y privacidad (#342)", () => {
   it("la casilla empieza sin marcar y enlaza los dos textos en otra pestaña", () => {
     render(<RegistroForm />);
 
-    expect((casilla() as HTMLInputElement).checked).toBe(false);
+    expect(casilla()).not.toBeChecked();
     expect(screen.getByRole("link", { name: "términos del servicio" }).getAttribute("href")).toBe("/terminos");
     expect(screen.getByRole("link", { name: "política de privacidad" }).getAttribute("href")).toBe("/privacidad");
     expect(screen.getByRole("link", { name: "términos del servicio" }).getAttribute("target")).toBe("_blank");

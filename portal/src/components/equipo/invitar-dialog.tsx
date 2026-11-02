@@ -1,13 +1,13 @@
 "use client";
 
-import { CaretDownIcon, EnvelopeSimpleIcon, PaperPlaneTiltIcon, UserPlusIcon } from "@phosphor-icons/react";
+import { EnvelopeSimpleIcon, PaperPlaneTiltIcon, UserPlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { apiRequest } from "@/lib/api/browser";
 import { ROLES, type InvitacionEnviada, type Rol } from "@/lib/api/equipo";
-import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
 import { cn } from "@/lib/utils";
@@ -91,16 +91,13 @@ export function InvitarDialog({ className }: { className?: string }) {
             <label htmlFor="invitar-rol" className={ETIQUETA_CAMPO}>
               {t.rol}
             </label>
-            <div className="relative">
-              <select id="invitar-rol" value={rol} onChange={(e) => setRol(e.target.value as Rol)} className={cn(CAMPO, "appearance-none pr-8")}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {roles.etiquetas[r]}
-                  </option>
-                ))}
-              </select>
-              <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
-            </div>
+            <select id="invitar-rol" value={rol} onChange={(e) => setRol(e.target.value as Rol)} className={cn(SELECT_NATIVO, "w-full")}>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {roles.etiquetas[r]}
+                </option>
+              ))}
+            </select>
             <span className={AYUDA_CAMPO}>{roles.descripciones[rol]}</span>
           </div>
 

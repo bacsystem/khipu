@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { elegirFecha, fechaEsElegible } from "./fecha";
 
 // El mock (src/mocks/handlers.ts) guarda los pagos y el plan de cada cuenta en memoria, y las specs de la corrida lo comparten en paralelo. Por eso:
 //   · Los tests que solo miran usan cuentas sembradas que nadie anota: «Cliente 03» (12 pagos) y «Cuenta Nueva» (sin pagos, plan Gratis).
@@ -30,6 +31,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 const fila = (page: Page, texto: string) => page.getByTestId("pago-fila").filter({ hasText: texto });
+/** La casilla de extender el vencimiento: la `Casilla` del design system, un `role="checkbox"`. */
+const extender = (page: Page) => page.getByRole("checkbox", { name: "Extender el vencimiento del plan hasta el final del periodo" });
 
 async function abrir(page: Page, n: number) {
   await page.goto(`/admin/cuentas/${cuenta(n)}`);
@@ -38,11 +41,11 @@ async function abrir(page: Page, n: number) {
 }
 
 async function llenar(page: Page, v: { hasta: string; monto?: string; medio?: string; referencia?: string; nota?: string; fecha?: string; desde?: string }) {
-  if (v.desde) await page.getByLabel("Periodo desde").fill(v.desde);
-  await page.getByLabel("Periodo hasta (inclusive)").fill(v.hasta);
+  if (v.desde) await elegirFecha(page.getByLabel("Periodo desde"), v.desde);
+  await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), v.hasta);
   await page.getByLabel("Monto (S/)").fill(v.monto ?? "29.00");
   await page.getByLabel("Medio de pago").selectOption(v.medio ?? "YAPE");
-  if (v.fecha) await page.getByLabel("Fecha de pago").fill(v.fecha);
+  if (v.fecha) await elegirFecha(page.getByLabel("Fecha de pago"), v.fecha);
   if (v.referencia) await page.getByLabel("Referencia").fill(v.referencia);
   if (v.nota) await page.getByLabel("Nota").fill(v.nota);
 }
@@ -121,7 +124,7 @@ test("registrar un pago con extensión mueve el vencimiento del plan y el histor
   const ultimo = enDias(90);
   await abrir(page, PANADERIA);
   await llenar(page, { hasta: ultimo, referencia: ref });
-  await expect(page.getByTestId("registrar-pago-extender")).toBeChecked();
+  await expect(extender(page)).toBeChecked();
   await expect(page.getByTestId("registrar-pago-extender-nota")).toContainText(`pasaría al ${enPalabras(ultimo)}`);
 
   await page.getByTestId("registrar-pago-confirmar").click();
@@ -193,22 +196,17 @@ test("un monto en cero, con tres decimales o con letras se rechaza antes de envi
   await expect(page.getByText("El monto debe ser mayor que cero, con hasta dos decimales.")).toHaveCount(0);
 });
 
-test("una fecha de pago futura y un periodo al revés se rechazan antes de enviar", async ({ page }) => {
+test("un periodo al revés se rechaza antes de enviar y una fecha de pago futura no se puede elegir", async ({ page }) => {
   await abrir(page, FERRETERIA);
   await llenar(page, { desde: "2026-10-31", hasta: "2026-10-01", fecha: HOY });
   await page.getByTestId("registrar-pago-confirmar").click();
   await expect(page.getByText("El periodo no puede terminar antes de empezar.")).toBeVisible();
 
-  await page.getByLabel("Periodo hasta (inclusive)").fill("2026-11-30");
-  await page.getByLabel("Fecha de pago").evaluate((el: HTMLInputElement, f) => {
-    // El campo ya trae `max=hoy`: se salta para probar la validación del formulario.
-    el.removeAttribute("max");
-    const asignar = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
-    asignar.call(el, f);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  }, enDias(3));
-  await page.getByTestId("registrar-pago-confirmar").click();
-  await expect(page.getByText("La fecha de pago no puede ser futura.")).toBeVisible();
+  await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), "2026-11-30");
+  await expect(page.getByText("El periodo no puede terminar antes de empezar.")).toHaveCount(0);
+  // El calendario no ofrece un día futuro (`max=hoy`): la regla «no puede ser futura» la prueba `pago-formulario.test.ts`.
+  expect(await fechaEsElegible(page.getByLabel("Fecha de pago"), enDias(3))).toBe(false);
+  expect(await fechaEsElegible(page.getByLabel("Fecha de pago"), HOY)).toBe(true);
 });
 
 test("cancelar cierra el modal y lo escrito no sobrevive", async ({ page }) => {
@@ -228,29 +226,29 @@ test("cancelar cierra el modal y lo escrito no sobrevive", async ({ page }) => {
 
 test("en un plan que no vence la casilla no se puede marcar y lo explica", async ({ page }) => {
   await abrir(page, NUEVA);
-  await page.getByLabel("Periodo hasta (inclusive)").fill(enDias(30));
+  await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), enDias(30));
 
-  await expect(page.getByTestId("registrar-pago-extender")).toBeDisabled();
-  await expect(page.getByTestId("registrar-pago-extender")).not.toBeChecked();
+  await expect(extender(page)).toBeDisabled();
+  await expect(extender(page)).not.toBeChecked();
   await expect(page.getByTestId("registrar-pago-extender-nota")).toHaveText("El plan de esta cuenta no vence: no hay vencimiento que extender.");
 });
 
 test("un periodo que no adelanta el vencimiento deshabilita la casilla", async ({ page }) => {
   await abrir(page, FERRETERIA);
-  await page.getByLabel("Periodo hasta (inclusive)").fill("2026-01-31");
+  await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), "2026-01-31");
 
-  await expect(page.getByTestId("registrar-pago-extender")).toBeDisabled();
+  await expect(extender(page)).toBeDisabled();
   await expect(page.getByTestId("registrar-pago-extender-nota")).toContainText("este periodo no adelanta el vencimiento");
 });
 
 test("la casilla viene marcada si el periodo adelanta el vencimiento y se puede desmarcar", async ({ page }) => {
   await abrir(page, FERRETERIA);
-  await page.getByLabel("Periodo hasta (inclusive)").fill(enDias(60));
+  await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), enDias(60));
 
-  await expect(page.getByTestId("registrar-pago-extender")).toBeEnabled();
-  await expect(page.getByTestId("registrar-pago-extender")).toBeChecked();
-  await page.getByTestId("registrar-pago-extender").uncheck();
-  await expect(page.getByTestId("registrar-pago-extender")).not.toBeChecked();
+  await expect(extender(page)).toBeEnabled();
+  await expect(extender(page)).toBeChecked();
+  await extender(page).uncheck();
+  await expect(extender(page)).not.toBeChecked();
 });
 
 // --- el BFF ---------------------------------------------------------------------------------------------------------------------------------

@@ -91,7 +91,7 @@ describe("ExportarComprobantes (#321)", () => {
     const fetch = stub(() => Promise.resolve(new Response("﻿tipo\r\n", { status: 200 })));
     render(<ExportarComprobantes filtros={{}} total={1} />);
     abrir();
-    fireEvent.click(screen.getByLabelText(/CSV/));
+    fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
     fireEvent.change(screen.getByLabelText("Separador"), { target: { value: "punto_y_coma" } });
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 

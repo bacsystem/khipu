@@ -1,9 +1,10 @@
 "use client";
 
-import { EyeIcon, EyeSlashIcon, FloppyDiskIcon, LockIcon, UserIcon } from "@phosphor-icons/react";
+import { FloppyDiskIcon, UserIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { Contrasena } from "khipu-design-system/formularios/contrasena";
 import { apiRequest } from "@/lib/api/browser";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -17,7 +18,6 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
   const mensajeError = useMensajeError();
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
-  const [verClave, setVerClave] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -68,27 +68,7 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
           <label htmlFor="clave-sol" className={ETIQUETA_CAMPO}>
             {t.clave}
           </label>
-          <div className="relative">
-            <LockIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
-              id="clave-sol"
-              type={verClave ? "text" : "password"}
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"}
-              autoComplete="new-password"
-              required
-              className={cn(CAMPO, "pr-10 pl-9 font-mono")}
-            />
-            <button
-              type="button"
-              onClick={() => setVerClave((v) => !v)}
-              title={verClave ? tc.ocultarClave : tc.mostrarClave}
-              className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {verClave ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
-            </button>
-          </div>
+          <Contrasena id="clave-sol" valor={clave} onCambio={setClave} placeholder={configuradas ? tc.guardadaPlaceholder : "••••••••"} autoComplete="new-password" etiquetaMostrar={tc.mostrarClave} etiquetaOcultar={tc.ocultarClave} className="font-mono" />
           <span className={AYUDA_CAMPO}>{tc.cifradaEnReposo}</span>
         </div>
       </div>
@@ -98,7 +78,8 @@ export function CredencialesSolForm({ configuradas }: { configuradas: boolean })
 
       {/* Sin «Verificar credenciales ante SUNAT» ni «Última validación: —» (C6): se veían y no hacían nada. */}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
+        {/* La clave es la `Contrasena` del design system, que no lleva `required`: sin clave no se ofrece guardar, como antes no dejaba el navegador. */}
+        <button type="submit" disabled={enviando || clave === ""} className={BOTON_PRIMARIO}>
           <FloppyDiskIcon className="size-4" />
           {enviando ? messages.empresa.comun.guardando : configuradas ? tc.reemplazar : tc.guardar}
         </button>

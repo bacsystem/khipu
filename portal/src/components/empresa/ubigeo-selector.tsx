@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
-import { AYUDA_CAMPO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 type Ubigeo = { codigo: string; departamento: string; provincia: string; distrito: string };
@@ -93,7 +93,7 @@ export function UbigeoSelector({
             setProvincia("");
             onChange("");
           }}
-          className={cn(CAMPO, "cursor-pointer")}
+          className={cn(SELECT_NATIVO, "w-full cursor-pointer")}
         >
           <option value="">{cargando ? t.cargando : errorCatalogo ? t.noDisponible : t.seleccione}</option>
           {departamentos.map((d) => (
@@ -115,7 +115,7 @@ export function UbigeoSelector({
             setProvincia(e.target.value);
             onChange("");
           }}
-          className={cn(CAMPO, "cursor-pointer")}
+          className={cn(SELECT_NATIVO, "w-full cursor-pointer")}
         >
           <option value="">{t.seleccione}</option>
           {provincias.map((p) => (
@@ -129,7 +129,7 @@ export function UbigeoSelector({
         <label htmlFor={`${idPrefijo}-distrito`} className={ETIQUETA_CAMPO}>
           {t.distrito}
         </label>
-        <select id={`${idPrefijo}-distrito`} value={value} disabled={!provincia} onChange={(e) => onChange(e.target.value)} className={cn(CAMPO, "cursor-pointer")}>
+        <select id={`${idPrefijo}-distrito`} value={value} disabled={!provincia} onChange={(e) => onChange(e.target.value)} className={cn(SELECT_NATIVO, "w-full cursor-pointer")}>
           <option value="">{t.seleccione}</option>
           {distritos.map((d) => (
             <option key={d.codigo} value={d.codigo}>

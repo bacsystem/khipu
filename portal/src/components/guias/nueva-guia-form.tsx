@@ -1,10 +1,13 @@
 "use client";
 
-import { CaretDownIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { UbigeoSelector } from "@/components/empresa/ubigeo-selector";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -13,7 +16,7 @@ import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Guia } from "@/lib/api/guias";
 import type { Serie } from "@/lib/api/series";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
 import {
   conductorVacio,
   conTiposAplicables,
@@ -79,17 +82,14 @@ function Seccion({ titulo, ayuda, children }: { titulo: string; ayuda?: string; 
 
 function Seleccion({ id, valor, alCambiar, opciones, vacio, deshabilitado }: { id: string; valor: string; alCambiar: (v: string) => void; opciones: Array<{ valor: string; texto: string }>; vacio?: string; deshabilitado?: boolean }) {
   return (
-    <div className="relative">
-      <select id={id} value={valor} disabled={deshabilitado} onChange={(e) => alCambiar(e.target.value)} className={cn(CAMPO, "appearance-none pr-8")}>
-        {vacio !== undefined ? <option value="">{vacio}</option> : null}
-        {opciones.map((o) => (
-          <option key={o.valor} value={o.valor}>
-            {o.texto}
-          </option>
-        ))}
-      </select>
-      <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
-    </div>
+    <select id={id} value={valor} disabled={deshabilitado} onChange={(e) => alCambiar(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
+      {vacio !== undefined ? <option value="">{vacio}</option> : null}
+      {opciones.map((o) => (
+        <option key={o.valor} value={o.valor}>
+          {o.texto}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -129,16 +129,16 @@ function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEsta
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
       <legend className="px-1 text-control font-semibold text-foreground">{titulo}</legend>
       {conEstablecimientos ? (
-        <div className="flex flex-wrap gap-4 text-control">
-          <label className="flex items-center gap-2">
-            <input type="radio" name={`${prefijo}-modo`} checked={modo === "establecimiento"} onChange={aEstablecimiento} className="accent-primary" />
-            {t.puntoEstablecimiento}
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name={`${prefijo}-modo`} checked={modo === "direccion"} onChange={() => alCambiar({ ...punto, modo: "direccion" })} className="accent-primary" />
-            {t.puntoDireccion}
-          </label>
-        </div>
+        <GrupoOpciones<PuntoForm["modo"]>
+          nombre={`${prefijo}-modo`}
+          opciones={[
+            { valor: "establecimiento", etiqueta: t.puntoEstablecimiento },
+            { valor: "direccion", etiqueta: t.puntoDireccion },
+          ]}
+          valor={modo}
+          onCambio={(v) => (v === "establecimiento" ? aEstablecimiento() : alCambiar({ ...punto, modo: "direccion" }))}
+          className="flex flex-wrap gap-4"
+        />
       ) : null}
       {modo === "establecimiento" ? (
         <Campo id={`${prefijo}-establecimiento`} etiqueta={t.puntoEstablecimientoSelect}>
@@ -275,7 +275,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             />
           </Campo>
           <Campo id="guia-fecha" etiqueta={t.fechaEmision} ayuda={t.fechaEmisionAyuda}>
-            <input id="guia-fecha" type="date" value={f.fecha_emision} max={hoy} onChange={(e) => cambiar({ fecha_emision: e.target.value })} className={CAMPO} />
+            <EntradaFecha id="guia-fecha" valor={f.fecha_emision} max={hoy} onCambio={(fecha_emision) => cambiar({ fecha_emision })} />
           </Campo>
         </div>
       </Seccion>
@@ -307,12 +307,12 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className={ETIQUETA_CAMPO}>{t.modalidad}</legend>
-            {(["02", "01"] as const).map((m) => (
-              <label key={m} className="flex items-center gap-2 text-control">
-                <input type="radio" name="guia-modalidad" checked={f.modalidad === m} onChange={() => cambiar({ modalidad: m })} className="accent-primary" />
-                {t.modalidades[m]}
-              </label>
-            ))}
+            <GrupoOpciones<GuiaForm["modalidad"]>
+              nombre="guia-modalidad"
+              opciones={(["02", "01"] as const).map((m) => ({ valor: m, etiqueta: t.modalidades[m] }))}
+              valor={f.modalidad}
+              onCambio={(modalidad) => cambiar({ modalidad })}
+            />
           </fieldset>
           {f.modalidad === "01" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -333,7 +333,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
       <Seccion titulo={t.traslado}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Campo id="guia-inicio" etiqueta={t.fechaInicio} ayuda={t.fechaInicioAyuda}>
-            <input id="guia-inicio" type="date" value={f.fecha_inicio} min={f.fecha_emision} onChange={(e) => cambiar({ fecha_inicio: e.target.value })} className={CAMPO} />
+            <EntradaFecha id="guia-inicio" valor={f.fecha_inicio} min={f.fecha_emision} onCambio={(fecha_inicio) => cambiar({ fecha_inicio })} />
           </Campo>
           <Campo id="guia-peso" etiqueta={t.pesoBruto}>
             <input id="guia-peso" inputMode="decimal" value={f.peso_bruto} onChange={(e) => cambiar({ peso_bruto: e.target.value })} className={cn(CAMPO, "font-mono")} />
@@ -350,15 +350,13 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           <legend className={ETIQUETA_CAMPO}>{t.indicadores}</legend>
           <p className={AYUDA_CAMPO}>{t.indicadoresAyuda}</p>
           {indicadoresOfrecidos.map((i) => (
-            <label key={i} className="flex items-center gap-2 text-control">
-              <input
-                type="checkbox"
-                checked={f.indicadores.includes(i)}
-                onChange={(e) => cambiar({ indicadores: e.target.checked ? [...f.indicadores, i] : f.indicadores.filter((x) => x !== i) })}
-                className="size-3.5 accent-primary"
-              />
-              {messages.guias.detalle.indicadoresNombres[i]}
-            </label>
+            <Casilla
+              key={i}
+              id={`guia-indicador-${i}`}
+              etiqueta={messages.guias.detalle.indicadoresNombres[i]}
+              checked={f.indicadores.includes(i)}
+              onCheckedChange={(marcado) => cambiar({ indicadores: marcado ? [...f.indicadores, i] : f.indicadores.filter((x) => x !== i) })}
+            />
           ))}
         </fieldset>
       </Seccion>
@@ -434,13 +432,13 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         <Campo id="guia-observaciones" etiqueta={t.observaciones} ayuda={t.observacionesAyuda}>
           <input id="guia-observaciones" value={f.observaciones} onChange={(e) => cambiar({ observaciones: e.target.value })} maxLength={MAX_OBSERVACIONES} className={CAMPO} />
         </Campo>
-        <label className="flex items-start gap-2 text-control">
-          <input type="checkbox" checked={f.enviar_automatico} onChange={(e) => cambiar({ enviar_automatico: e.target.checked })} className="mt-0.5 size-3.5 accent-primary" />
-          <span className="flex flex-col gap-1">
-            <span className="font-medium">{t.enviarAhora}</span>
-            <span className={AYUDA_CAMPO}>{t.enviarAhoraAyuda}</span>
-          </span>
-        </label>
+        <Casilla
+          id="guia-enviar-automatico"
+          etiqueta={t.enviarAhora}
+          descripcion={t.enviarAhoraAyuda}
+          checked={f.enviar_automatico}
+          onCheckedChange={(enviar_automatico) => cambiar({ enviar_automatico })}
+        />
       </Seccion>
 
       {error ? (

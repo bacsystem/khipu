@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import en from "@/messages/en.json";
 import es from "@/messages/es.json";
@@ -20,6 +20,8 @@ import { AlertasDelPanel } from "@/components/inicio/alertas-del-panel";
 import { KpisDelMes } from "@/components/inicio/kpis-del-mes";
 import { TopBar } from "@/components/nav/top-bar";
 import { SidebarContent } from "@/components/nav/sidebar-content";
+import { CertificadoForm } from "@/components/empresa/certificado-form";
+import { CredencialesSolForm } from "@/components/empresa/credenciales-sol-form";
 
 afterEach(cleanup);
 
@@ -98,6 +100,24 @@ describe("pantallas migradas en inglés (#25)", () => {
     expect(screen.getByTestId("kpi-atencion-detalle").textContent).toBe("1 rejected · 2 unsent receipts");
     expect(screen.getByTestId("kpi-facturado").textContent).toBe("S/ 1,180.00");
     sinCastellano(container, [es.inicio.kpis.aceptados, es.inicio.kpis.esteMes, es.atencion.boletaVarios.replace("{n} ", "")]);
+  });
+
+  // Los controles del design system traen sus nombres en castellano por defecto: el portal les pasa los traducidos.
+  it("el ojo de la clave y la ✕ del certificado tienen su nombre en inglés", () => {
+    fijarLocaleDePrueba("en");
+    render(<CredencialesSolForm configuradas={false} />);
+    fireEvent.click(screen.getByRole("button", { name: en.empresa.credenciales.mostrarClave }));
+    expect(screen.getByRole("button", { name: en.empresa.credenciales.ocultarClave })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: es.empresa.credenciales.ocultarClave })).toBeNull();
+    cleanup();
+
+    render(<CertificadoForm tieneCertificado={false} />);
+    expect(screen.getByRole("button", { name: en.empresa.certificado.mostrarContrasena })).toBeTruthy();
+    expect(screen.getByText(en.empresa.certificado.arrastra)).toBeTruthy();
+    const archivo = new File(["p12"], "empresa.p12", { type: "application/x-pkcs12" });
+    fireEvent.change(document.getElementById("certificado-archivo") as HTMLInputElement, { target: { files: [archivo] } });
+    expect(screen.getByRole("button", { name: en.empresa.certificado.quitarArchivo })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: es.empresa.certificado.quitarArchivo })).toBeNull();
   });
 
   it("sin fijar el locale todo sigue en castellano", async () => {

@@ -4,6 +4,7 @@ import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
@@ -117,10 +118,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           className={CAMPO}
         />
         {ilimitado ? (
-          <label className="flex items-center gap-2 text-control text-foreground/80">
-            <input type="checkbox" checked={marcado} onChange={(e) => poner(ilimitado, e.target.checked)} className="size-3.5 accent-primary" />
-            {f.ilimitado}
-          </label>
+          <Casilla id={`plan-${id}-${campo}-ilimitado`} etiqueta={f.ilimitado} checked={marcado} onCheckedChange={(v) => poner(ilimitado, v)} />
         ) : null}
         {errores[campo] ? (
           <span id={`plan-${id}-${campo}-error`} className="text-control text-destructive">
@@ -212,19 +210,14 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           </div>
 
           {/* H20: un plan a medida para un cliente se asigna y se cobra igual, pero no se publica en la página de precios. */}
-          <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-foreground">
-            <input
-              type="checkbox"
-              data-testid="plan-visible"
-              checked={valores.visibleEnPublicidad}
-              onChange={(e) => poner("visibleEnPublicidad", e.target.checked)}
-              className="mt-0.5 size-4 accent-primary"
-            />
-            <span className="grid gap-0.5">
-              <span className="font-medium">{f.visible}</span>
-              <span className="text-control text-muted-foreground">{f.visibleAyuda}</span>
-            </span>
-          </label>
+          <Casilla
+            id={`plan-${id}-visible`}
+            etiqueta={f.visible}
+            descripcion={f.visibleAyuda}
+            checked={valores.visibleEnPublicidad}
+            onCheckedChange={(v) => poner("visibleEnPublicidad", v)}
+            className="rounded-lg border border-border bg-muted/50 px-3 py-2.5"
+          />
 
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">

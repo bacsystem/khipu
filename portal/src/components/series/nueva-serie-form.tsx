@@ -1,12 +1,12 @@
 "use client";
 
-import { CaretDownIcon, FloppyDiskIcon } from "@phosphor-icons/react";
+import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
@@ -95,16 +95,13 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
           {t.tipoComprobante}
         </label>
-        <div className="relative">
-          <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(CAMPO, "appearance-none pr-8")}>
-            {TIPOS.map((codigo) => (
-              <option key={codigo} value={codigo}>
-                {t.tipos[codigo]}
-              </option>
-            ))}
-          </select>
-          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
-        </div>
+        <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
+          {TIPOS.map((codigo) => (
+            <option key={codigo} value={codigo}>
+              {t.tipos[codigo]}
+            </option>
+          ))}
+        </select>
         <span className={AYUDA_CAMPO}>{t.catalogo}</span>
       </div>
 
@@ -148,25 +145,22 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
         <label htmlFor="serie-establecimiento" className={ETIQUETA_CAMPO}>
           {t.establecimiento}
         </label>
-        <div className="relative">
-          <select
-            id="serie-establecimiento"
-            value={establecimiento}
-            onChange={(e) => setEstablecimiento(e.target.value)}
-            className={cn(CAMPO, "appearance-none pr-8")}
-            data-testid="serie-establecimiento"
-          >
-            <option value="0000">{t.domicilioFiscal}</option>
-            {(establecimientos ?? [])
-              .filter((e) => !e.principal)
-              .map((e) => (
-                <option key={e.codigo} value={e.codigo}>
-                  {e.codigo} · {e.nombre}
-                </option>
-              ))}
-          </select>
-          <CaretDownIcon weight="bold" className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
-        </div>
+        <select
+          id="serie-establecimiento"
+          value={establecimiento}
+          onChange={(e) => setEstablecimiento(e.target.value)}
+          className={cn(SELECT_NATIVO, "w-full")}
+          data-testid="serie-establecimiento"
+        >
+          <option value="0000">{t.domicilioFiscal}</option>
+          {(establecimientos ?? [])
+            .filter((e) => !e.principal)
+            .map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.codigo} · {e.nombre}
+              </option>
+            ))}
+        </select>
         <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
       </div>
 

@@ -5,6 +5,7 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { esIdDeComprobante, hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
@@ -14,7 +15,7 @@ import { apiRequest } from "@/lib/api/browser";
 
 /** El barrido lee cada XML y CDR del rango de todas las empresas (hasta 92 días): puede tardar bastante más que cualquier otra llamada; el límite del proxy es de 5 minutos. */
 const ESPERA_DE_LA_VERIFICACION_MS = 300_000;
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, CABECERA_TABLA, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import { formatearFecha, sumarDias } from "@/lib/formato";
 import { MAX_DIAS_DE_INTEGRIDAD, validarRango, type ErroresDeRango } from "@/lib/integridad-formulario";
 import type { Locale } from "@/i18n/config";
@@ -90,37 +91,37 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
           <label htmlFor="integridad-desde" className={ETIQUETA_CAMPO}>
             {t.desde}
           </label>
-          <input
+          <EntradaFecha
             id="integridad-desde"
-            type="date"
-            value={desde}
-            onChange={(e) => {
-              setDesde(e.target.value);
+            valor={desde}
+            onCambio={(v) => {
+              setDesde(v);
               olvidarResultado();
               setErrores({});
             }}
-            aria-invalid={errores.desde ? true : undefined}
-            className={cn(CAMPO, "w-44")}
+            invalido={Boolean(errores.desde)}
+            describidoPor={errores.desde ? "integridad-desde-error" : undefined}
+            className="w-44"
           />
-          {errores.desde ? <span className="text-control text-destructive">{errores.desde}</span> : null}
+          {errores.desde ? <span id="integridad-desde-error" className="text-control text-destructive">{errores.desde}</span> : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="integridad-hasta" className={ETIQUETA_CAMPO}>
             {t.hasta}
           </label>
-          <input
+          <EntradaFecha
             id="integridad-hasta"
-            type="date"
-            value={hasta}
-            onChange={(e) => {
-              setHasta(e.target.value);
+            valor={hasta}
+            onCambio={(v) => {
+              setHasta(v);
               olvidarResultado();
               setErrores({});
             }}
-            aria-invalid={errores.hasta ? true : undefined}
-            className={cn(CAMPO, "w-44")}
+            invalido={Boolean(errores.hasta)}
+            describidoPor={errores.hasta ? "integridad-hasta-error" : undefined}
+            className="w-44"
           />
-          {errores.hasta ? <span className="text-control text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
+          {errores.hasta ? <span id="integridad-hasta-error" className="text-control text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
         </div>
         <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-6")}>
           <ShieldCheckIcon className="size-4" />

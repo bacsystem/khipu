@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/forms/form-field";
 import { Alerta } from "khipu-design-system/feedback/alerta";
@@ -39,6 +39,7 @@ export function RegistroForm() {
   const [error, setError] = useState<string | null>(null);
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     // `onTouched`: el error aparece al salir del campo y no recién al enviar.
@@ -94,7 +95,12 @@ export function RegistroForm() {
         error={errors.password?.message}
         hint={messages.auth.registro.ayudaPassword}
       />
-      <CasillaDeTerminos id="acepta_terminos" {...register("acepta_terminos")} error={errors.acepta_terminos?.message} />
+      {/* La casilla del design system es controlada: va por un `Controller`, no por `register`. */}
+      <Controller
+        name="acepta_terminos"
+        control={control}
+        render={({ field }) => <CasillaDeTerminos id="acepta_terminos" name={field.name} checked={field.value} onCheckedChange={field.onChange} error={errors.acepta_terminos?.message} />}
+      />
       {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.registro.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>
         {messages.auth.registro.enviar}

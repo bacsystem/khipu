@@ -3,6 +3,7 @@
 import { EnvelopeSimpleIcon, PaperPlaneTiltIcon, XIcon } from "@phosphor-icons/react";
 import { useMessages, useTranslations } from "next-intl";
 import { useState } from "react";
+import { AreaTexto } from "khipu-design-system/formularios/campo";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -62,7 +63,7 @@ export function CorreoButton({ id, numero, correoDelCliente = null }: { id: stri
       <label htmlFor="correo-email" className="text-control font-medium text-foreground">{t.correoCliente}</label>
       <input id="correo-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="compras@cliente.pe" className={CAMPO} autoFocus />
       <label htmlFor="correo-mensaje" className="text-control font-medium text-foreground">{t.mensaje}</label>
-      <textarea id="correo-mensaje" value={mensaje} onChange={(e) => setMensaje(e.target.value)} maxLength={1000} rows={2} placeholder={t.mensajePlaceholder} className={cn(CAMPO, "h-auto py-2")} />
+      <AreaTexto id="correo-mensaje" value={mensaje} onChange={(e) => setMensaje(e.target.value)} maxLength={1000} rows={2} placeholder={t.mensajePlaceholder} />
       {error ? <p className="text-destructive" role="alert">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!email.includes("@") || enviando} onClick={enviar} className={cn(buttonVariants())}>

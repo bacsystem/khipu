@@ -4,6 +4,8 @@ import { ArrowsClockwiseIcon, CheckIcon, CloudArrowUpIcon, ImageIcon, PaletteIco
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { apiRequest } from "@/lib/api/browser";
 import { interpolar } from "@/i18n/mensajes";
 import { plantillasPdf, type PersonalizacionPdf, type PlantillaPdf } from "@/lib/api/empresas";
@@ -116,25 +118,13 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
       <form onSubmit={guardar} className="grid grid-cols-1 gap-5 xl:col-span-5">
         <fieldset className="flex flex-col gap-2">
           <legend className={ETIQUETA_CAMPO}>{t.plantilla}</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t.plantilla}>
-            {plantillasPdf(messages).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={plantilla === p.id}
-                onClick={() => setPlantilla(p.id)}
-                className={cn(
-                  "flex flex-col items-start rounded-lg border px-3 py-2.5 text-left transition-colors",
-                  plantilla === p.id ? "border-primary bg-accent/60 ring-1 ring-primary" : "border-border bg-card hover:bg-muted",
-                )}
-                data-testid={`plantilla-${p.id}`}
-              >
-                <span className="text-cuerpo font-semibold text-foreground">{p.nombre}</span>
-                <span className="text-control text-muted-foreground">{p.descripcion}</span>
-              </button>
-            ))}
-          </div>
+          <GrupoOpciones<PlantillaPdf>
+            nombre="pdf-plantilla"
+            estilo="tarjetas"
+            opciones={plantillasPdf(messages).map((p) => ({ valor: p.id, etiqueta: p.nombre, descripcion: p.descripcion }))}
+            valor={plantilla}
+            onCambio={setPlantilla}
+          />
         </fieldset>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -178,7 +168,7 @@ export function PersonalizacionPdfForm({ inicial }: { inicial: PersonalizacionPd
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="pdf-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones}</label>
-          <textarea id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder={t.observacionesPlaceholder} className={cn(CAMPO, "h-auto py-2")} />
+          <AreaTexto id="pdf-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} maxLength={1000} rows={3} placeholder={t.observacionesPlaceholder} />
           <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
         </div>
 

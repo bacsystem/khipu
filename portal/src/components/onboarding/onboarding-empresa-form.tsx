@@ -11,7 +11,7 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import { enlaceASeccion } from "@/lib/empresa/secciones";
-import { BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
@@ -136,7 +136,7 @@ export function OnboardingEmpresaForm() {
           <select
             id="entorno"
             {...empresaForm.register("entorno")}
-            className={CAMPO}
+            className={cn(SELECT_NATIVO, "w-full")}
           >
             <option value="BETA">{t.entornoBeta}</option>
             <option value="PRODUCCION">{t.entornoProduccion}</option>

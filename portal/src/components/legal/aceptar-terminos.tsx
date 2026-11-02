@@ -52,9 +52,9 @@ export function AceptarTerminos() {
       <CasillaDeTerminos
         id="acepta-terminos"
         checked={marcada}
-        onChange={(e) => {
-          setMarcada(e.target.checked);
-          if (e.target.checked) setError(null);
+        onCheckedChange={(v) => {
+          setMarcada(v);
+          if (v) setError(null);
         }}
         error={error ?? undefined}
       />

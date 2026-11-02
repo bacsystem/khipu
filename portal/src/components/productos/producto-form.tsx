@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
 import { etiquetaDelPrecio, gruposAfectacion } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
@@ -80,7 +80,7 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
       </Campo>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo id="prod-unidad" etiqueta={t.unidad} ayuda={t.unidadAyuda}>
-          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(CAMPO, "font-mono")}>
+          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
             {(unidades ?? []).some((u) => u.codigo === unidad) ? null : <option value={unidad}>{unidad}</option>}
             {(unidades ?? []).map((u) => (
               <option key={u.codigo} value={u.codigo}>
@@ -90,7 +90,7 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
           </select>
         </Campo>
         <Campo id="prod-afectacion" etiqueta={t.afectacion} ayuda={t.afectacionAyuda}>
-          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={CAMPO}>
+          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
             {gruposAfectacion(messages).map((g) => (
               <optgroup key={g.grupo} label={g.grupo}>
                 {g.opciones.map((a) => (

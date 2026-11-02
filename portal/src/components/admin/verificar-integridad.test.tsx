@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InformeDeIntegridad, ProblemaDeIntegridad } from "@/lib/api/admin-integridad";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { elegirFecha, fechaElegida } from "@/test/fecha-de-prueba";
 import { VerificarIntegridad } from "./verificar-integridad";
 
 const apiRequest = vi.hoisted(() => vi.fn());
@@ -27,17 +28,17 @@ const problema = (n: number, tipo: ProblemaDeIntegridad["tipo"], tenant = EMPRES
   detalle,
 });
 
-const desde = () => screen.getByLabelText("Desde") as HTMLInputElement;
-const hasta = () => screen.getByLabelText("Hasta (inclusive)") as HTMLInputElement;
+/** Las fechas son la `EntradaFecha` del design system: se eligen en su calendario, como el usuario. */
+const DESDE = "Desde";
+const HASTA = "Hasta (inclusive)";
 const boton = () => screen.getByTestId("integridad-verificar") as HTMLButtonElement;
-const escribir = (el: HTMLElement, valor: string) => fireEvent.change(el, { target: { value: valor } });
 
 describe("VerificarIntegridad (#198)", () => {
-  it("el rango arranca en los últimos siete días, de hace seis días a hoy, y no pide nada hasta que se lo piden", () => {
+  it("el rango arranca en los últimos siete días, de hace seis días a hoy, y no pide nada hasta que se lo piden", async () => {
     render(<VerificarIntegridad hoy={HOY} />);
 
-    expect(desde().value).toBe("2026-10-09");
-    expect(hasta().value).toBe(HOY);
+    expect(await fechaElegida(DESDE)).toBe("2026-10-09");
+    expect(await fechaElegida(HASTA)).toBe(HOY);
     expect(screen.getByText("Por fecha de emisión, hasta 92 días por vez.")).toBeTruthy();
     expect(apiRequest).not.toHaveBeenCalled();
     expect(screen.queryByTestId("integridad-resultado")).toBeNull();
@@ -46,8 +47,8 @@ describe("VerificarIntegridad (#198)", () => {
   it("verificar manda el rango por el BFF y muestra cuántos se verificaron", async () => {
     apiRequest.mockResolvedValue(exito(informe(120)));
     render(<VerificarIntegridad hoy={HOY} />);
-    escribir(desde(), "2026-09-01");
-    escribir(hasta(), "2026-09-30");
+    await elegirFecha(DESDE, "2026-09-01");
+    await elegirFecha(HASTA, "2026-09-30");
 
     fireEvent.click(boton());
 
@@ -163,31 +164,29 @@ describe("VerificarIntegridad (#198)", () => {
 
   // --- validación y estados ---------------------------------------------------------------------------------------------------------------
 
-  it("un rango inválido muestra el error y no pide nada; al cambiar una fecha el error se quita", () => {
+  it("un rango inválido muestra el error y no pide nada; al cambiar una fecha el error se quita", async () => {
     render(<VerificarIntegridad hoy={HOY} />);
-    escribir(desde(), "2026-10-31");
-    escribir(hasta(), "2026-10-01");
+    await elegirFecha(DESDE, "2026-10-31");
+    await elegirFecha(HASTA, "2026-10-01");
 
     fireEvent.click(boton());
 
     expect(apiRequest).not.toHaveBeenCalled();
     expect(screen.getByText("El rango no puede terminar antes de empezar.")).toBeTruthy();
-    escribir(hasta(), "2026-11-30");
+    // La fecha del design system se marca como el input nativo: inválida y descrita por su error.
+    expect(screen.getByLabelText(HASTA).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText(HASTA).getAttribute("aria-describedby")).toBe("integridad-hasta-error");
+    await elegirFecha(HASTA, "2026-11-30");
     expect(screen.queryByText("El rango no puede terminar antes de empezar.")).toBeNull();
   });
 
-  it("un rango de más de 92 días y las fechas vacías se rechazan antes de enviar", () => {
+  // Las fechas vienen puestas y el calendario no las deja en blanco: «Indica desde/hasta cuándo» lo prueba `integridad-formulario.test.ts`.
+  it("un rango de más de 92 días se rechaza antes de enviar", async () => {
     render(<VerificarIntegridad hoy={HOY} />);
-    escribir(desde(), "2026-01-01");
-    escribir(hasta(), "2026-12-31");
+    await elegirFecha(DESDE, "2026-01-01");
+    await elegirFecha(HASTA, "2026-12-31");
     fireEvent.click(boton());
     expect(screen.getByText("El rango no puede pasar de 92 días.")).toBeTruthy();
-
-    escribir(desde(), "");
-    escribir(hasta(), "");
-    fireEvent.click(boton());
-    expect(screen.getByText("Indica desde cuándo verificar.")).toBeTruthy();
-    expect(screen.getByText("Indica hasta cuándo verificar.")).toBeTruthy();
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
@@ -257,7 +256,7 @@ describe("VerificarIntegridad (#198)", () => {
     fireEvent.click(boton());
     await screen.findByTestId("integridad-resultado");
 
-    escribir(desde(), "2026-01-01");
+    await elegirFecha(DESDE, "2026-01-01");
     expect(screen.queryByTestId("integridad-resultado")).toBeNull();
 
     fireEvent.click(boton());

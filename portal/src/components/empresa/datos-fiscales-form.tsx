@@ -4,6 +4,7 @@ import { FloppyDiskIcon, MapPinIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { apiRequest } from "@/lib/api/browser";
 import type { Domicilio, EmpresaDetalle } from "@/lib/api/empresas";
 import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
@@ -149,21 +150,8 @@ export function DatosFiscalesForm({
           <input id="nombre-comercial" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={t.nombreComercialPlaceholder} maxLength={1500} className={CAMPO} />
           <span className={AYUDA_CAMPO}>{t.nombreComercialAyuda}</span>
         </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="padron-tasa-especial" className="inline-flex cursor-pointer items-center gap-2 self-start select-none">
-            <input
-              id="padron-tasa-especial"
-              type="checkbox"
-              checked={tasaEspecial}
-              onChange={(e) => setTasaEspecial(e.target.checked)}
-              className="size-4 rounded border-input"
-              data-testid="padron-tasa-especial"
-            />
-            <span className={ETIQUETA_CAMPO}>{t.padron}</span>
-          </label>
-          <span className={AYUDA_CAMPO}>
-            {t.padronAyuda}
-          </span>
+        <div className="sm:col-span-2">
+          <Casilla id="padron-tasa-especial" etiqueta={t.padron} descripcion={t.padronAyuda} checked={tasaEspecial} onCheckedChange={setTasaEspecial} className="select-none" />
         </div>
       </div>
 

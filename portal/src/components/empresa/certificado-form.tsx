@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowsClockwiseIcon, CloudArrowUpIcon, EyeIcon, EyeSlashIcon, FileLockIcon, KeyIcon, LockIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, LockIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
-import { type DragEvent, type FormEvent, useId, useState } from "react";
+import { type FormEvent, useState } from "react";
+import { Contrasena } from "khipu-design-system/formularios/contrasena";
+import { ZonaArchivos } from "khipu-design-system/formularios/zona-archivos";
 import { apiRequest } from "@/lib/api/browser";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
-import { interpolar } from "@/i18n/mensajes";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
 
@@ -17,20 +18,13 @@ function esCertificado(f: File) {
   return EXTENSIONES.some((ext) => nombre.endsWith(ext));
 }
 
-function tamano(bytes: number) {
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
-}
-
 export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolean }) {
   const router = useRouter();
   const messages = useMessages();
   const t = messages.empresa.certificado;
   const mensajeError = useMensajeError();
-  const inputId = useId();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [clave, setClave] = useState("");
-  const [verClave, setVerClave] = useState(false);
-  const [arrastrando, setArrastrando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -44,12 +38,6 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
       return;
     }
     setArchivo(f);
-  }
-
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    setArrastrando(false);
-    elegir(e.dataTransfer.files?.[0]);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -83,88 +71,26 @@ export function CertificadoForm({ tieneCertificado }: { tieneCertificado: boolea
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
       <div className="flex flex-col gap-1.5">
         <span className={ETIQUETA_CAMPO}>{tieneCertificado ? t.reemplazar : t.cargar}</span>
-        {archivo ? (
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted px-3 py-2.5">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <FileLockIcon className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-mono text-control font-medium text-foreground">{archivo.name}</p>
-              <p className={AYUDA_CAMPO}>{interpolar(t.listoParaSubir, { tamano: tamano(archivo.size) })}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setArchivo(null)}
-              title={t.quitarArchivo}
-              className="flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <XIcon weight="bold" className="size-4" />
-            </button>
-          </div>
-        ) : (
-          <label
-            htmlFor={inputId}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setArrastrando(true);
-            }}
-            onDragLeave={() => setArrastrando(false)}
-            onDrop={onDrop}
-            className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-7 text-center transition-colors",
-              arrastrando ? "border-primary bg-accent/60" : "border-border bg-muted hover:border-primary/50 hover:bg-accent/40",
-            )}
-          >
-            <CloudArrowUpIcon className="size-6 text-primary" />
-            <span className="text-control font-medium text-foreground">{t.arrastra}</span>
-            <span className={AYUDA_CAMPO}>{t.examinar}</span>
-          </label>
-        )}
-        <input
-          id={inputId}
-          type="file"
-          accept={EXTENSIONES.join(",")}
-          className="sr-only"
-          onChange={(e) => {
-            elegir(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
+        {/* La zona del design system: arrastrar o elegir, y con el archivo elegido muestra su nombre y su tamaño, con una ✕ para quitarlo. Un archivo que no es .p12/.pfx
+            no se toma: `elegir` lo rechaza con su error y la zona sigue vacía. */}
+        <ZonaArchivos id="certificado-archivo" archivo={archivo} onCambio={(f) => (f ? elegir(f) : setArchivo(null))} accept={EXTENSIONES.join(",")} titulo={t.arrastra} ayuda={t.examinar} etiquetaQuitar={t.quitarArchivo} />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="clave-cert" className={ETIQUETA_CAMPO}>
           {t.contrasena}
         </label>
-        <div className="relative">
-          <KeyIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            id="clave-cert"
-            type={verClave ? "text" : "password"}
-            value={clave}
-            onChange={(e) => setClave(e.target.value)}
-            autoComplete="off"
-            required
-            className={cn(CAMPO, "pr-10 pl-9 font-mono")}
-          />
-          <button
-            type="button"
-            onClick={() => setVerClave((v) => !v)}
-            title={verClave ? t.ocultarContrasena : t.mostrarContrasena}
-            className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {verClave ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
-          </button>
-        </div>
-        <span className={AYUDA_CAMPO}>{t.ayudaOu}</span>
+        <Contrasena id="clave-cert" valor={clave} onCambio={setClave} autoComplete="off" etiquetaMostrar={t.mostrarContrasena} etiquetaOcultar={t.ocultarContrasena} describidoPor="clave-cert-ayuda" className="font-mono" />
+        <span id="clave-cert-ayuda" className={AYUDA_CAMPO}>{t.ayudaOu}</span>
       </div>
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
       {ok ? <p className="text-cuerpo text-success-foreground">{t.actualizado}</p> : null}
 
+      {/* La clave es la `Contrasena` del design system, que no lleva `required`: sin clave no se ofrece subir, como antes no dejaba el navegador. */}
       <button
         type="submit"
-        disabled={enviando || !archivo}
+        disabled={enviando || !archivo || clave === ""}
         className={cn(BOTON_PRIMARIO, "w-full")}
       >
         <ArrowsClockwiseIcon className="size-4" />

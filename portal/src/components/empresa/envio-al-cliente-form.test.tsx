@@ -11,6 +11,7 @@ function stub(respuesta: () => Promise<Response>) {
   return fetch;
 }
 const sobre = (cuerpo: object, status = 200) => Promise.resolve(new Response(JSON.stringify(cuerpo), { status }));
+/** La `Casilla` del design system (base-ui) es un `role="checkbox"` que se deshabilita con `aria-disabled`, no con el atributo `disabled`. */
 const casilla = () => screen.getByRole("checkbox", { name: /Enviar automáticamente el comprobante al cliente/ });
 const guardar = () => screen.getByRole("button", { name: "Guardar preferencia" });
 
@@ -42,13 +43,13 @@ describe("EnvioAlClienteForm (#325)", () => {
   it("sin correo en el servidor lo dice y no deja activarlo", () => {
     render(<EnvioAlClienteForm inicial={{ enviar_automaticamente: false, correo_disponible: false }} />);
     expect(screen.getByText("El servidor no tiene correo configurado")).toBeInTheDocument();
-    expect(casilla()).toBeDisabled();
+    expect(casilla()).toHaveAttribute("aria-disabled", "true");
   });
 
   it("sin correo en el servidor, una preferencia activada sí se puede desactivar", async () => {
     const fetch = stub(() => sobre({ estado: "exito", datos: { enviar_automaticamente: false, correo_disponible: false }, mensaje: null, codigo: null, errores: null }));
     render(<EnvioAlClienteForm inicial={{ enviar_automaticamente: true, correo_disponible: false }} />);
-    expect(casilla()).toBeEnabled();
+    expect(casilla()).not.toHaveAttribute("aria-disabled", "true");
 
     fireEvent.click(casilla());
     fireEvent.click(guardar());

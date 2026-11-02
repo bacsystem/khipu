@@ -95,7 +95,7 @@ test("un envío que quedó en curso solo se retoma después de confirmar que se 
   await page.goto("/guias/g-enviando");
   const retomar = page.getByRole("button", { name: "Retomar el envío" });
   await expect(retomar).toBeDisabled();
-  await page.getByLabel("Revisé en SOL que la guía no llegó").check();
+  await page.getByRole("checkbox", { name: "Revisé en SOL que la guía no llegó" }).check();
   await expect(retomar).toBeEnabled();
   await retomar.click();
   await expect(page.getByTestId("guia-estado-ayuda")).toContainText("SUNAT recibió la guía");

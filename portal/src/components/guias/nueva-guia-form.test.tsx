@@ -123,7 +123,7 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     responder(() => exito(null));
     montar();
 
-    fireEvent.click(screen.getByLabelText(/Transporte público/));
+    fireEvent.click(screen.getByRole("radio", { name: /Transporte público/ }));
 
     expect(screen.queryByLabelText("Placa 1")).toBeNull();
     expect(screen.getByLabelText("RUC del transportista")).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
 
     expect(screen.queryByLabelText("Motivo del traslado")).toBeNull();
     expect(screen.getByLabelText("Registro MTC")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Un establecimiento de mi empresa")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Un establecimiento de mi empresa" })).toBeNull();
     expect(screen.getAllByLabelText("Número de documento")).toHaveLength(3);
   });
 
@@ -145,17 +145,17 @@ describe("NuevaGuiaForm: qué se pide según la guía", () => {
     responder(() => exito(null));
     montar();
 
-    expect(screen.getByLabelText("Vehículo M1 o L (autos o motos)")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Vehículos y conductores del transportista")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Vehículo M1 o L (autos o motos)" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Vehículos y conductores del transportista" })).toBeNull();
 
-    fireEvent.click(screen.getByLabelText(/Transporte público/));
-    expect(screen.queryByLabelText("Vehículo M1 o L (autos o motos)")).toBeNull();
-    expect(screen.getByLabelText("Vehículos y conductores del transportista")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /Transporte público/ }));
+    expect(screen.queryByRole("checkbox", { name: "Vehículo M1 o L (autos o motos)" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Vehículos y conductores del transportista" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Serie"), { target: { value: "V001" } });
-    expect(screen.queryByLabelText("Vehículo M1 o L (autos o motos)")).toBeNull();
-    expect(screen.queryByLabelText("Vehículos y conductores del transportista")).toBeNull();
-    expect(screen.getByLabelText("Transbordo programado")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Vehículo M1 o L (autos o motos)" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Vehículos y conductores del transportista" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Transbordo programado" })).toBeInTheDocument();
   });
 });
 
@@ -168,7 +168,7 @@ describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
     expect(form.querySelector("#partida-departamento")).not.toBeNull();
     expect(form.querySelector("#partida-establecimiento")).toBeNull();
     // Con un anexo sí puede elegir un establecimiento, y la lista no trae el 0000.
-    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByLabelText("Un establecimiento de mi empresa"));
+    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByRole("radio", { name: "Un establecimiento de mi empresa" }));
     const opciones = Array.from(form.querySelectorAll<HTMLOptionElement>("#partida-establecimiento option")).map((o) => o.value);
     expect(opciones).toEqual(["0002"]);
   });
@@ -179,7 +179,7 @@ describe("NuevaGuiaForm: de dónde sale la mercadería (F3)", () => {
     await llenarRemitentePrivada();
     const form = screen.getByTestId("nueva-guia-form");
 
-    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByLabelText("Un establecimiento de mi empresa"));
+    fireEvent.click(within(form.querySelector("fieldset:has(#partida-departamento)")!).getByRole("radio", { name: "Un establecimiento de mi empresa" }));
     fireEvent.click(screen.getByRole("button", { name: "Emitir la guía" }));
 
     await waitFor(() => expect(push).toHaveBeenCalled());

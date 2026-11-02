@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
+import { elegirFecha, fechaElegida } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 // El mock (src/mocks/handlers.ts) siembra los hallazgos por fecha y esta pantalla solo lee: ninguna spec de la corrida puede pisarse con otra. Si el rango incluye el
@@ -31,8 +32,8 @@ async function abrir(page: Page) {
 }
 
 async function verificar(page: Page, desde: string, hasta: string) {
-  await page.getByLabel("Desde").fill(desde);
-  await page.getByLabel("Hasta (inclusive)").fill(hasta);
+  await elegirFecha(page.getByLabel("Desde"), desde);
+  await elegirFecha(page.getByLabel("Hasta (inclusive)"), hasta);
   await page.getByTestId("integridad-verificar").click();
 }
 
@@ -52,8 +53,8 @@ test("el menú lleva a Integridad y la miga dice «Operación / Integridad»", a
 test("el rango arranca en los últimos siete días y no verifica nada hasta que se pide", async ({ page }) => {
   await abrir(page);
 
-  await expect(page.getByLabel("Desde")).toHaveValue(hace(6));
-  await expect(page.getByLabel("Hasta (inclusive)")).toHaveValue(hoy());
+  expect(await fechaElegida(page.getByLabel("Desde"))).toBe(hace(6));
+  expect(await fechaElegida(page.getByLabel("Hasta (inclusive)"))).toBe(hoy());
   await expect(page.getByTestId("integridad-resultado")).toHaveCount(0);
 });
 
@@ -145,21 +146,16 @@ test("un rango al revés se rechaza con su error y no verifica nada; al corregir
 
   await expect(page.getByText("El rango no puede terminar antes de empezar.")).toBeVisible();
   await expect(page.getByTestId("integridad-resultado")).toHaveCount(0);
-  await page.getByLabel("Hasta (inclusive)").fill("2026-10-15");
+  await elegirFecha(page.getByLabel("Hasta (inclusive)"), "2026-10-15");
   await expect(page.getByText("El rango no puede terminar antes de empezar.")).toHaveCount(0);
 });
 
-test("un rango de más de 92 días y las fechas vacías se rechazan antes de enviar", async ({ page }) => {
+// Las fechas vienen puestas y el calendario no las deja en blanco: «Indica desde/hasta cuándo» lo prueba `integridad-formulario.test.ts`.
+test("un rango de más de 92 días se rechaza antes de enviar", async ({ page }) => {
   await abrir(page);
 
   await verificar(page, "2026-01-01", "2026-12-31");
   await expect(page.getByText("El rango no puede pasar de 92 días.")).toBeVisible();
-
-  await page.getByLabel("Desde").fill("");
-  await page.getByLabel("Hasta (inclusive)").fill("");
-  await page.getByTestId("integridad-verificar").click();
-  await expect(page.getByText("Indica desde cuándo verificar.")).toBeVisible();
-  await expect(page.getByText("Indica hasta cuándo verificar.")).toBeVisible();
   await expect(page.getByTestId("integridad-resultado")).toHaveCount(0);
 });
 

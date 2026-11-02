@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
 import { CambiarPlan } from "./cambiar-plan";
 
 const refresh = vi.fn();
@@ -234,12 +235,16 @@ describe("CambiarPlan — confirmar", () => {
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
 
     expect(dialogo().textContent).toContain("Un plan de pago necesita la fecha hasta la que está pagado.");
+    // La fecha del design system se marca como el input nativo: inválida y descrita por su error.
+    const hasta = screen.getByLabelText("Pagado hasta (inclusive)");
+    expect(hasta.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(hasta.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Un plan de pago necesita la fecha hasta la que está pagado.");
     expect(llamadasPost()).toHaveLength(0);
   });
 
   it("confirma con el vencimiento (medianoche de Lima del día siguiente) y la gracia, cierra y recarga", async () => {
     await listoParaConfirmar();
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
     fireEvent.change(screen.getByLabelText("Días de gracia"), { target: { value: "5" } });
 
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
@@ -276,21 +281,24 @@ describe("CambiarPlan — confirmar", () => {
     expect(llamadasPost()[0][1].body).toEqual({ plan_id: GRATIS.id, dias_de_gracia: 0 });
   });
 
-  it("una fecha pasada o unos días de gracia fuera de rango se rechazan antes de enviar", async () => {
+  // El calendario no ofrece un día pasado (la regla «de hoy en adelante» la prueba `cambio-de-plan.test.ts`); la gracia fuera de rango se rechaza al confirmar.
+  it("una fecha pasada no se puede elegir y unos días de gracia fuera de rango se rechazan antes de enviar", async () => {
     await listoParaConfirmar();
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-10-03" } });
+    expect(await fechaEsElegible("Pagado hasta (inclusive)", "2026-10-03")).toBe(false);
+    expect(await fechaEsElegible("Pagado hasta (inclusive)", "2026-10-04")).toBe(true);
+    await elegirFecha("Pagado hasta (inclusive)", "2026-10-04");
     fireEvent.change(screen.getByLabelText("Días de gracia"), { target: { value: "91" } });
 
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
 
-    expect(dialogo().textContent).toContain("La fecha tiene que ser de hoy en adelante.");
+    expect(dialogo().textContent).not.toContain("La fecha tiene que ser de hoy en adelante.");
     expect(dialogo().textContent).toContain("Los días de gracia van de 0 a 90.");
     expect(llamadasPost()).toHaveLength(0);
   });
 
   it("si otro administrador cambió el plan en el medio lo dice y recarga para mostrar el estado real", async () => {
     await listoParaConfirmar({}, error("CAMBIO_CONCURRENTE", "Otro administrador cambió el plan de la cuenta mientras tanto: vuelve a mirarlo"));
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
 
@@ -301,7 +309,7 @@ describe("CambiarPlan — confirmar", () => {
 
   it("un corte de red no se reintenta a ciegas: dice que no se sabe y manda a recargar", async () => {
     await listoParaConfirmar({}, error("RED", "No se pudo conectar con el servidor."));
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
     fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
 
@@ -316,7 +324,7 @@ describe("CambiarPlan — confirmar", () => {
     abrir();
     elegir(NEGOCIO.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
@@ -333,7 +341,7 @@ describe("CambiarPlan — confirmar", () => {
     abrir();
     elegir(NEGOCIO.id);
     await waitFor(() => expect((screen.getByTestId("cambiar-plan-confirmar") as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("cambiar-plan-confirmar"));
@@ -347,13 +355,13 @@ describe("CambiarPlan — confirmar", () => {
 
   it("cerrar sin confirmar descarta lo escrito", async () => {
     await listoParaConfirmar();
-    fireEvent.change(screen.getByLabelText("Pagado hasta (inclusive)"), { target: { value: "2026-11-30" } });
+    await elegirFecha("Pagado hasta (inclusive)", "2026-11-30");
 
     fireEvent.click(screen.getByText("Cancelar"));
     fireEvent.click(screen.getByTestId("cambiar-plan"));
 
     expect((screen.getByLabelText("Plan nuevo") as HTMLSelectElement).value).toBe("");
-    expect((screen.getByLabelText("Pagado hasta (inclusive)") as HTMLInputElement).value).toBe("");
+    expect(await fechaElegida("Pagado hasta (inclusive)")).toBeNull();
     expect(screen.queryByTestId("cambiar-plan-previa")).toBeNull();
   });
 });

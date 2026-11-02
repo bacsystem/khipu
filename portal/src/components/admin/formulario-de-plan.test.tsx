@@ -122,9 +122,10 @@ describe("FormularioDePlan — nuevo", () => {
     apiRequest.mockResolvedValue(exito());
     abrirNuevo();
     llenar(VALIDOS);
-    expect((screen.getByTestId("plan-visible") as HTMLInputElement).checked).toBe(true);
+    const visible = screen.getByRole("checkbox", { name: /Mostrarlo en la página de precios/ });
+    expect(visible).toBeChecked();
 
-    fireEvent.click(screen.getByTestId("plan-visible"));
+    fireEvent.click(visible);
     fireEvent.click(screen.getByTestId("plan-guardar"));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/admin/planes", expect.objectContaining({ body: expect.objectContaining({ visible_en_publicidad: false }) })));
@@ -134,7 +135,7 @@ describe("FormularioDePlan — nuevo", () => {
     apiRequest.mockResolvedValue(exito());
     abrirNuevo();
     llenar(VALIDOS);
-    const ilimitados = screen.getAllByLabelText("Ilimitado") as HTMLInputElement[];
+    const ilimitados = screen.getAllByRole("checkbox", { name: "Ilimitado" });
     expect(ilimitados).toHaveLength(3);
 
     fireEvent.click(ilimitados[0]);
@@ -155,7 +156,7 @@ describe("FormularioDePlan — nuevo", () => {
   it("«Ilimitado» vacía el campo a la vista y al desmarcarlo vuelve el número que había", () => {
     abrirNuevo();
     llenar({ "Documentos por mes": "800" });
-    const ilimitado = screen.getAllByLabelText("Ilimitado")[0] as HTMLInputElement;
+    const ilimitado = screen.getAllByRole("checkbox", { name: "Ilimitado" })[0];
 
     fireEvent.click(ilimitado);
     expect(campo("Documentos por mes").value).toBe("");
@@ -276,7 +277,7 @@ describe("FormularioDePlan — editar", () => {
 
     expect(campo("Documentos por mes").value).toBe("");
     expect(campo("Documentos por mes").disabled).toBe(true);
-    expect((screen.getAllByLabelText("Ilimitado")[0] as HTMLInputElement).checked).toBe(true);
+    expect(screen.getAllByRole("checkbox", { name: "Ilimitado" })[0]).toBeChecked();
   });
 
   /** Lo último que se decidió es lo que va a regir: se muestra eso, y se avisa que volver a poner lo de hoy cancela el cambio. */

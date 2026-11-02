@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { elegirFecha, fechaEsElegible } from "./fecha";
 
 // El mock (src/mocks/handlers.ts) guarda el plan de cada cuenta en memoria y las specs de la corrida lo comparten en paralelo: los tests que solo miran usan las
 // cuentas sembradas con un plan propio (1 a 4) y los que cambian un plan usan **cada uno su propia cuenta** (5 a 11), que ninguna otra spec mira por su plan.
@@ -29,7 +30,7 @@ async function cambiar(page: Page, n: number, planId: string, hasta?: string, gr
   await abrirCambio(page, n);
   await elegir(page, planId);
   await expect(page.getByTestId("cambiar-plan-confirmar")).toBeEnabled();
-  if (hasta) await page.getByLabel("Pagado hasta (inclusive)").fill(hasta);
+  if (hasta) await elegirFecha(page.getByLabel("Pagado hasta (inclusive)"), hasta);
   if (gracia) await page.getByLabel("Días de gracia").fill(gracia);
   await page.getByTestId("cambiar-plan-confirmar").click();
   await expect(page.getByTestId("cambiar-plan-dialogo")).toHaveCount(0);
@@ -183,7 +184,7 @@ test("pasar a un plan gratis no pide fecha", async ({ page }) => {
   await expect(page.getByTestId("plan-programado")).toContainText("Pasa a Gratis el 1");
 });
 
-test("un plan de pago sin fecha, una fecha pasada o una gracia fuera de rango se rechazan antes de enviar", async ({ page }) => {
+test("un plan de pago sin fecha o una gracia fuera de rango se rechazan antes de enviar, y una fecha pasada no se puede elegir", async ({ page }) => {
   await abrirCambio(page, 8);
   await elegir(page, EMPRENDE);
   await expect(page.getByTestId("cambiar-plan-confirmar")).toBeEnabled();
@@ -191,11 +192,14 @@ test("un plan de pago sin fecha, una fecha pasada o una gracia fuera de rango se
   await page.getByTestId("cambiar-plan-confirmar").click();
   await expect(page.getByTestId("cambiar-plan-dialogo")).toContainText("Un plan de pago necesita la fecha hasta la que está pagado.");
 
-  await page.getByLabel("Pagado hasta (inclusive)").fill("2020-01-01");
+  // El calendario no ofrece un día pasado: la regla «de hoy en adelante» la prueba `cambio-de-plan.test.ts`.
+  const hasta = page.getByLabel("Pagado hasta (inclusive)");
+  expect(await fechaEsElegible(hasta, enDias(-2))).toBe(false);
+  await elegirFecha(hasta, enDias(30));
   await page.getByLabel("Días de gracia").fill("91");
   await page.getByTestId("cambiar-plan-confirmar").click();
-  await expect(page.getByTestId("cambiar-plan-dialogo")).toContainText("La fecha tiene que ser de hoy en adelante.");
   await expect(page.getByTestId("cambiar-plan-dialogo")).toContainText("Los días de gracia van de 0 a 90.");
+  await expect(page.getByTestId("cambiar-plan-dialogo")).not.toContainText("Un plan de pago necesita la fecha hasta la que está pagado.");
   await expect(seccion(page)).toContainText("Gratis");
 });
 

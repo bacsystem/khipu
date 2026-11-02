@@ -3,6 +3,7 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
+import { Casilla } from "khipu-design-system/formularios/casilla";
 import { interpolar } from "@/i18n/mensajes";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
 import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
@@ -53,15 +54,13 @@ export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobante
           <fieldset className="grid gap-1.5">
             <legend className="mb-1 text-control font-medium">{t.archivosLegend}</legend>
             {ARCHIVOS.map((a) => (
-              <label key={a} className="flex items-center gap-2 text-control">
-                <input
-                  type="checkbox"
-                  checked={elegidos.includes(a)}
-                  onChange={(e) => setElegidos((prev) => (e.target.checked ? [...prev, a] : prev.filter((x) => x !== a)))}
-                  className="size-3.5 accent-primary"
-                />
-                {t.archivos[a]}
-              </label>
+              <Casilla
+                key={a}
+                id={`descarga-masiva-${a}`}
+                etiqueta={t.archivos[a]}
+                checked={elegidos.includes(a)}
+                onCheckedChange={(v) => setElegidos((prev) => (v ? [...prev, a] : prev.filter((x) => x !== a)))}
+              />
             ))}
           </fieldset>
           {motivo ? (

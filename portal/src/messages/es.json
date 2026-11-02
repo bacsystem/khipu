@@ -12,7 +12,9 @@
     "cargando": "Cargando…",
     "guardar": "Guardar",
     "cancelar": "Cancelar",
-    "cerrarSesion": "Cerrar sesión"
+    "cerrarSesion": "Cerrar sesión",
+    "elegirFecha": "Elegir fecha",
+    "quitarFecha": "Quitar la fecha"
   },
   "referenciaTecnica": {
     "abrir": "Referencia técnica",
@@ -3367,7 +3369,6 @@
       "seleccionaArchivo": "Selecciona el archivo .p12 de tu certificado",
       "reemplazar": "Reemplazar o renovar certificado",
       "cargar": "Cargar certificado",
-      "listoParaSubir": "{tamano} · listo para subir",
       "quitarArchivo": "Quitar archivo",
       "arrastra": "Arrastra tu archivo .p12 o .pfx aquí",
       "examinar": "o haz clic para examinar desde tu equipo",

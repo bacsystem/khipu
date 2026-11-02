@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
+import { elegirFecha } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
 
 // La ficha de un comprobante en el backoffice (#251). Solo lee comprobantes que ninguna spec muta: de la cola de errores, el 201 (envío, 2 intentos) y el 203 (formato, 1033)
@@ -53,8 +54,8 @@ test("un fuera de plazo dice que no llegó a SUNAT y el 2108 queda como último 
 test("desde la verificación de integridad se abre la ficha del comprobante con el archivo que falta", async ({ page }) => {
   await page.goto("/admin/integridad");
   await esperarHidratacion(page, "#integridad-desde");
-  await page.getByLabel("Desde").fill("2026-09-01");
-  await page.getByLabel("Hasta (inclusive)").fill("2026-09-30");
+  await elegirFecha(page.getByLabel("Desde"), "2026-09-01");
+  await elegirFecha(page.getByLabel("Hasta (inclusive)"), "2026-09-30");
   await page.getByTestId("integridad-verificar").click();
 
   await page.getByRole("link", { name: "20100047226-03-B001-7" }).click();

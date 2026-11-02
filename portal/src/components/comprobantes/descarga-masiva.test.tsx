@@ -20,10 +20,10 @@ describe("DescargaMasiva (#324)", () => {
   it("se eligen los archivos: quitar uno cambia el enlace y sin ninguno no hay enlace", () => {
     render(<DescargaMasiva filtros={{}} total={3} />);
     abrir();
-    fireEvent.click(screen.getByLabelText("CDR de SUNAT"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "CDR de SUNAT" }));
     expect(new URL(screen.getByTestId("descarga-enlace").getAttribute("href")!, "http://x").searchParams.get("tipos")).toBe("pdf,xml");
-    fireEvent.click(screen.getByLabelText("PDF"));
-    fireEvent.click(screen.getByLabelText("XML firmado"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "PDF" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "XML firmado" }));
     expect(screen.queryByTestId("descarga-enlace")).not.toBeInTheDocument();
     expect(screen.getByText("Elige al menos un archivo")).toBeInTheDocument();
   });
@@ -47,8 +47,8 @@ describe("DescargaMasiva (#324)", () => {
     fijarLocaleDePrueba("en");
     render(<DescargaMasiva filtros={{}} total={DESCARGA_MAXIMA + 1} />);
     fireEvent.click(screen.getByRole("button", { name: "Download ZIP" }));
-    expect(screen.getByLabelText("Signed XML")).toBeInTheDocument();
-    expect(screen.getByLabelText("SUNAT CDR")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Signed XML" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "SUNAT CDR" })).toBeInTheDocument();
     expect(screen.getByTestId("descarga-motivo")).toHaveTextContent(`There are ${DESCARGA_MAXIMA + 1}: a download allows up to ${DESCARGA_MAXIMA}. Narrow the dates.`);
   });
 
