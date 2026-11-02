@@ -37,8 +37,10 @@ const COMPROBANTES = [
   // Las boletas se envían una por una (#20): el resumen diario se usa para anularlas.
   { codigo: "RC", clave: "resumenDiario", disponible: true },
   { codigo: "RA", clave: "comunicacionBaja", disponible: true },
-  { codigo: "09", clave: "guiaRemision", disponible: false },
-  { codigo: "—", clave: "retencionPercepcion", disponible: false },
+  // La GRE se emite y se firma, pero su envío a SUNAT está apagado hasta una corrida controlada (SUNAT no tiene ambiente de pruebas para la guía, #39).
+  { codigo: "09", clave: "guiaRemision", disponible: false, nota: "guiaRemision" },
+  // Se emiten y se envían por la API (#40), solo para empresas que SUNAT designó agentes; el portal no tiene pantalla para ellas.
+  { codigo: "20/40", clave: "retencionPercepcion", disponible: true, nota: "retencionPercepcion" },
 ] as const;
 
 // Se renderiza en cada request, no en el build: `REGISTRO_ABIERTO` y `CONTACTO_URL` son variables del entorno de despliegue
@@ -161,7 +163,7 @@ export default async function Home() {
                   className={`flex items-center gap-3 rounded-lg border bg-background p-4 transition-colors ${c.disponible ? "border-accent-border" : "border-border"}`}
                 >
                   <span
-                    className={`flex size-9 shrink-0 items-center justify-center rounded-md font-mono text-xs ${c.disponible ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
+                    className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-xs ${c.disponible ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
                   >
                     {c.codigo}
                   </span>
@@ -170,10 +172,9 @@ export default async function Home() {
                     {c.disponible ? (
                       <Badge className="mt-1 border-transparent bg-success text-success-foreground">{t.comprobantes.disponible}</Badge>
                     ) : (
-                      <Badge variant="outline" className="mt-1">
-                        {t.comprobantes.enConstruccion}
-                      </Badge>
+                      <Badge className="mt-1 border-transparent bg-warning text-warning-foreground">{t.comprobantes.piloto}</Badge>
                     )}
+                    {"nota" in c ? <p className="mt-1 text-xs text-muted-foreground">{t.comprobantes.notas[c.nota]}</p> : null}
                   </div>
                 </div>
               ))}

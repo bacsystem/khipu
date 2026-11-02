@@ -4151,9 +4151,13 @@
     },
     "comprobantes": {
       "titulo": "Electronic documents",
-      "descripcion": "Invoices, credit and debit notes, and voiding notices, all being issued today. The rest of the SUNAT catalog is on the way, and we label it as such so you know what to count on.",
+      "descripcion": "Invoices, sales receipts, credit and debit notes, daily summaries and voiding notices are issued and sent to SUNAT today. What still has a limit we say plainly, so you know what to count on.",
       "disponible": "Available",
-      "enConstruccion": "In progress",
+      "piloto": "Pilot",
+      "notas": {
+        "guiaRemision": "Issued and signed; sending to SUNAT is in pilot",
+        "retencionPercepcion": "Through the API, for agents designated by SUNAT"
+      },
       "tipos": {
         "factura": "Electronic invoice",
         "boleta": "Sales receipt (boleta)",

@@ -39,3 +39,15 @@ test("los íconos de «Cómo funciona» se distinguen de su fondo", async ({ pag
   const [a, b] = [luz(color), luz(fondo)].sort((x, y) => y - x);
   expect((a + 0.05) / (b + 0.05)).toBeGreaterThanOrEqual(3);
 });
+
+/** #529: la portada dice lo que el sistema hace hoy: la guía se emite y su envío está en piloto; retención y percepción, por la API. Nada «en construcción». */
+test("la portada marca la guía en piloto y la retención/percepción disponible por la API", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("En construcción")).toHaveCount(0);
+  const guia = page.locator("div", { has: page.getByText("Guía de remisión", { exact: true }) }).last();
+  await expect(guia.getByText("En piloto", { exact: true })).toBeVisible();
+  await expect(guia.getByText("el envío a SUNAT está en piloto")).toBeVisible();
+  const agentes = page.locator("div", { has: page.getByText("Retención / percepción", { exact: true }) }).last();
+  await expect(agentes.getByText("Disponible", { exact: true })).toBeVisible();
+  await expect(agentes.getByText("Por la API, para agentes designados por SUNAT")).toBeVisible();
+});
