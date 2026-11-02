@@ -1,10 +1,11 @@
 "use client";
 
-import { PlusIcon, SlidersHorizontalIcon, TrashIcon } from "@phosphor-icons/react";
+import { PanelQuitable } from "khipu-design-system/patrones/panel-quitable";
+import { CheckIcon, PlusIcon, SlidersHorizontalIcon, TrashIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
@@ -15,6 +16,7 @@ import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { StepperNumerico } from "khipu-design-system/formularios/stepper-numerico";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Button } from "khipu-design-system/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser";
@@ -43,7 +45,7 @@ import { errorDeIsc, gruposAfectacion, incompatibilidadDeTributos, ISC_VACIO, is
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
 import { useCalculo } from "@/lib/comprobantes/use-calculo";
 import { calcularTotales, esGratuita, TASA_GENERAL, type ItemParaTotales } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, CONTROL_FILTRO, ERROR_CAMPO, ETIQUETA_CAMPO, FOCO_CAMPO } from "@/lib/estilos";
 import { formatearMonto, hoyLima } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -58,7 +60,12 @@ import { RetencionEditor } from "./retencion-editor";
 import { EstadoConsultaRuc } from "./estado-consulta-ruc";
 import { useAnticiposDisponibles } from "./use-anticipos-disponibles";
 import { useConsultaRuc } from "./use-consulta-ruc";
-
+import { extrasOfrecidos, type Extra } from "@/lib/comprobantes/extras";
+import { enlaceASeccion } from "@/lib/empresa/secciones";
+import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { rucValido } from "@/lib/validacion";
+import { TarjetaDeCliente } from "./tarjeta-de-cliente";
+import { usePreferenciasDeEmision } from "@/lib/use-preferencias-de-emision";
 
 
 
@@ -97,18 +104,30 @@ const PATRON_NOMBRE = "\\s*\\S.+\\S\\s*";
 /** Espeja `Comprobante.TOPE_BOLETA_SIN_DOCUMENTO`: hasta este total (en soles) la boleta puede no identificar al comprador. */
 const TOPE_SIN_DOCUMENTO = 700;
 
+/** Un panel de la fila «Agregar:»: su título y el botón que lo quita (con su contenido). */
+function PanelExtra({ id, titulo, etiquetaQuitar, onQuitar, children }: { id: Extra; titulo: string; etiquetaQuitar: string; onQuitar: () => void; children: ReactNode }) {
+  return (
+    <PanelQuitable titulo={titulo} etiquetaQuitar={etiquetaQuitar} onQuitar={onQuitar} data-testid={`extra-${id}`}>
+      {children}
+    </PanelQuitable>
+  );
+}
+
 export function NuevoComprobanteForm({
   tipo = "factura",
   series,
   tasaIgv,
   cuentaDetracciones = null,
   plantilla = null,
+  selectorDeTipo = null,
   onEmitido,
   onCancelar,
   onCambioDatos,
 }: {
   /** Factura (series F###, comprador con RUC) o boleta (series B###, comprador con cualquier documento o, hasta S/ 700, sin documento). */
   tipo?: TipoEmitible;
+  /** #557: el selector Factura/Boleta del diálogo, que va en la misma línea que la serie, la fecha y la moneda (y sobre el aviso de que faltan series). */
+  selectorDeTipo?: ReactNode;
   series: Serie[];
   /**
    * Tasa vigente de la empresa: 10.5 % si está en el padrón de tasa especial, 18 % si no, y `null` mientras no se
@@ -130,6 +149,9 @@ export function NuevoComprobanteForm({
   const locale = useLocale();
   const mensajeError = useMensajeError();
   const t = messages.comprobantes.formulario;
+  // #560: los «+» avanzados, solo si la empresa los pidió; mientras se lee (o si falla), el formulario simple.
+  const { opcionesAvanzadas } = usePreferenciasDeEmision();
+  const sinPermisoDeConfigurar = useSinPermisoDeConfigurar();
   const docsBoleta = useMemo(() => documentosBoleta(messages), [messages]);
   const boleta = tipo === "boleta";
   const nombre = t.nombre[tipo];
@@ -142,15 +164,22 @@ export function NuevoComprobanteForm({
   const [moneda, setMoneda] = useState(plantilla?.moneda ?? "PEN");
   // #316: soles por unidad de la moneda; opcional, solo fuera de soles. SUNAT no lo recibe: sirve al PDF, al registro de ventas y al tope de la boleta sin documento.
   const [tipoCambio, setTipoCambio] = useState("");
-  // La factura siempre lleva RUC; la boleta, el documento que elija el usuario (DNI por defecto: es la venta más común).
-  const [tipoDoc, setTipoDoc] = useState(plantilla?.cliente.tipoDoc ?? (boleta ? "1" : "6"));
+  // La factura siempre lleva RUC; la boleta, el documento que elija el usuario. #557: la boleta empieza como «Clientes varios» (sin documento): el campo «Cliente»
+  // vacío es eso, y un DNI o un RUC escrito ahí lo reemplaza.
+  const [tipoDoc, setTipoDoc] = useState(plantilla?.cliente.tipoDoc ?? (boleta ? SIN_DOCUMENTO : "6"));
   const [numDoc, setNumDoc] = useState(plantilla?.cliente.numDoc ?? "");
-  const [razonSocial, setRazonSocial] = useState(plantilla ? (plantilla.cliente.tipoDoc === SIN_DOCUMENTO ? COMPRADOR_SIN_DOCUMENTO : plantilla.cliente.razonSocial) : "");
+  const [razonSocial, setRazonSocial] = useState(plantilla ? (plantilla.cliente.tipoDoc === SIN_DOCUMENTO ? COMPRADOR_SIN_DOCUMENTO : plantilla.cliente.razonSocial) : boleta ? COMPRADOR_SIN_DOCUMENTO : "");
+  // #557: lo escrito en el campo «Cliente» mientras no es un cliente (busca en los guardados; un documento completo se toma como tal), si los campos del comprador están
+  // desplegados («Editar datos» o «Ingresar a mano») y si el campo debe tomar el foco al volver de «Cambiar».
+  const [textoCliente, setTextoCliente] = useState("");
+  const [editandoCliente, setEditandoCliente] = useState(false);
+  const [enfocarCliente, setEnfocarCliente] = useState(false);
   const [direccion, setDireccion] = useState(plantilla?.cliente.direccion ?? "");
   // #325: el correo del cliente viaja con el comprobante; si la empresa activó el envío automático, le llega el PDF y el XML cuando SUNAT lo acepta.
   const [email, setEmail] = useState(plantilla?.cliente.email ?? "");
-  // #319: guardar al comprador en «Clientes» al emitir (el guardado es idempotente y conserva lo que ya estaba guardado), y el aviso de un cliente guardado que no sirve para este comprobante.
-  const [guardarCliente, setGuardarCliente] = useState(true);
+  // #319: al emitir, el comprador con documento se guarda en «Clientes» (el guardado es idempotente y conserva lo que ya estaba guardado). #557: sin casilla; solo no se
+  // vuelve a guardar el cliente que se eligió de los guardados (su «tipo/número»), mientras siga siendo ese. También el aviso de un cliente guardado que no sirve para este comprobante.
+  const [clienteElegido, setClienteElegido] = useState<string | null>(null);
   const [avisoCliente, setAvisoCliente] = useState<string | null>(null);
   const [avisoProducto, setAvisoProducto] = useState<string | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(plantilla?.lineas.length ? plantilla.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
@@ -173,8 +202,13 @@ export function NuevoComprobanteForm({
   const [retencion, setRetencion] = useState<RetencionForm>(RETENCION_VACIA);
   // #300: orden de compra, guías, otros documentos relacionados y observaciones; no cambian importes, así que no entran en el cálculo.
   const [referencias, setReferencias] = useState<ReferenciasForm>(REFERENCIAS_VACIAS);
-  // Abierta por quien la abre (no por si hay algo escrito: al borrar lo escrito se cerraba sola mientras se usaba).
+  // #557: los paneles «+» que el usuario abrió. Un panel también se ve si ya trae datos (una copia, un cliente guardado con correo), y no se cierra solo al borrar lo
+  // escrito mientras se usa: solo con su botón de quitar, que además lo limpia. Crédito, detracción, percepción y retención llevan su propia bandera (`alCredito`, `activa`).
   const [datosAbiertos, setDatosAbiertos] = useState(false);
+  const [operacionAbierta, setOperacionAbierta] = useState(false);
+  const [masAbierto, setMasAbierto] = useState(false);
+  const [correoAbierto, setCorreoAbierto] = useState(false);
+  const botonesExtra = useRef<Partial<Record<Extra, HTMLButtonElement | null>>>({});
   // #312: anticipos. `esAnticipo` solo ayuda a describir la línea (SUNAT no marca la factura de anticipo); `anticiposAbierto` activa la búsqueda de los del cliente.
   const [esAnticipo, setEsAnticipo] = useState(false);
   const [anticiposAbierto, setAnticiposAbierto] = useState(false);
@@ -199,6 +233,8 @@ export function NuevoComprobanteForm({
   const { resultado: consultaRuc, consultando: consultandoRuc, reintentar: reintentarConsultaRuc } = useConsultaRuc(numDoc, conRuc);
   const [auto, setAuto] = useState({ razon: "", direccion: "" });
   useEffect(() => {
+    // #557: sin el padrón (no figura, sin cargar, cupo, error) el nombre se escribe a mano: se despliegan los campos del cliente para que se vea dónde.
+    if (consultaRuc && consultaRuc.tipo !== "encontrado" && !razonSocial.trim()) setEditandoCliente(true);
     if (consultaRuc?.tipo !== "encontrado") return;
     const c = consultaRuc.contribuyente;
     // Solo se rellena lo vacío: lo que el usuario ya escribió se respeta (y se le ofrece el nombre de SUNAT aparte). La boleta no tiene campo de dirección.
@@ -248,7 +284,68 @@ export function NuevoComprobanteForm({
     setDireccion(boleta ? "" : (c.direccion ?? ""));
     setPais(c.pais ?? "");
     setEmail(c.email ?? "");
-    setGuardarCliente(false);
+    // Con correo, su panel se abre para que se vea a quién se le enviará; queda abierto aunque el siguiente cliente elegido no tenga.
+    if (c.email) setCorreoAbierto(true);
+    setClienteElegido(`${c.tipo_doc}/${c.num_doc}`);
+    setTextoCliente("");
+  }
+
+  /** Si este comprobante admite ese documento como comprador: la factura (venta interna), solo RUC; la boleta y la exportación, los de su selector. */
+  function admiteDocumento(codigo: string) {
+    return usaSelectorDeDocumento ? documentosOfrecidos.some((d) => d.codigo === codigo) : codigo === "6";
+  }
+
+  /** Qué documento es lo escrito en el campo «Cliente»: 11 dígitos, un RUC; 8, un DNI (en boleta). Lo demás es un nombre para buscar en los guardados. */
+  function documentoDelTexto(texto: string): string | null {
+    const v = texto.trim();
+    if (/^\d{11}$/.test(v) && admiteDocumento("6")) return "6";
+    if (/^\d{8}$/.test(v) && admiteDocumento("1")) return "1";
+    return null;
+  }
+
+  /** Toma lo escrito como el documento del comprador: llena tipo y número (y con un RUC, la consulta al padrón llena el nombre y la dirección). */
+  function aplicarDocumento(codigo: string, numero: string) {
+    setAvisoCliente(null);
+    if (codigo !== tipoDoc) cambiarTipoDoc(codigo);
+    else soltarAutocompletado();
+    setNumDoc(numero);
+    setTextoCliente("");
+    // El DNI no se consulta y un RUC con el dígito verificador mal tampoco: el nombre se escribe a mano, así que los campos se despliegan.
+    if (codigo !== "6" || !rucValido(numero)) setEditandoCliente(true);
+  }
+
+  /** Mientras se escribe: un RUC completo (11 dígitos, no hay documento numérico más largo) se toma al instante; un DNI espera a Enter o a salir del campo, porque son los primeros 8 de un RUC. */
+  function escribirCliente(texto: string) {
+    setTextoCliente(texto);
+    if (documentoDelTexto(texto) === "6") aplicarDocumento("6", texto.trim());
+  }
+
+  function resolverTextoCliente(texto: string) {
+    const codigo = documentoDelTexto(texto);
+    if (codigo) aplicarDocumento(codigo, texto.trim());
+  }
+
+  /** «Ingresar a mano»: despliega los campos sin cliente elegido. En boleta pasa de «Clientes varios» al DNI, el documento más común. */
+  function ingresarAMano() {
+    if (boleta && sinDocumento) cambiarTipoDoc("1");
+    setEditandoCliente(true);
+  }
+
+  /** «Cambiar» en la tarjeta (y descartar lo ingresado a mano): vuelve al campo «Cliente» vacío; la boleta, a «Clientes varios». */
+  function limpiarCliente() {
+    soltarAutocompletado();
+    setTipoDoc(boleta ? SIN_DOCUMENTO : exportacion ? "0" : "6");
+    setNumDoc("");
+    setRazonSocial(boleta ? COMPRADOR_SIN_DOCUMENTO : "");
+    setDireccion("");
+    setPais("");
+    // El correo que vino con un cliente guardado es de ese cliente: no se le manda el comprobante de otro.
+    if (clienteElegido) setEmail("");
+    setClienteElegido(null);
+    setAvisoCliente(null);
+    setTextoCliente("");
+    setEditandoCliente(false);
+    setEnfocarCliente(true);
   }
 
   // Tras un error el botón estuvo `disabled` y el navegador soltó el foco a `<body>`: un usuario de teclado perdía
@@ -296,6 +393,9 @@ export function NuevoComprobanteForm({
 
   const sinDocumento = boleta && tipoDoc === SIN_DOCUMENTO;
   const documento = docsBoleta.find((d) => d.codigo === tipoDoc) ?? docsBoleta[0];
+  // #557: hay un cliente que mostrar en la tarjeta: con documento, o en boleta sin documento con un nombre que no es el de relleno.
+  const conCliente = sinDocumento ? razonSocial.trim() !== "" && razonSocial !== COMPRADOR_SIN_DOCUMENTO : numDoc.trim() !== "";
+  const etiquetaCliente = boleta ? t.comprador : t.cliente;
   const redondeo = redondeoDe(redondeoTexto, messages);
   const exportacion = esExportacion(operacion);
   const conDetraccion = detraccion.activa && operacion === "0101";
@@ -422,6 +522,7 @@ export function NuevoComprobanteForm({
     : { ...totales, total: totales.total + (redondeo.valor ?? 0) };
   // Algo del cliente o de las líneas está escrito: cerrar el diálogo (Esc, la X) lo perdería, y el diálogo pide confirmación (#117).
   const hayDatos =
+    textoCliente.trim() !== "" ||
     numDoc.trim() !== "" ||
     (razonSocial.trim() !== "" && razonSocial !== COMPRADOR_SIN_DOCUMENTO) ||
     direccion.trim() !== "" ||
@@ -434,6 +535,109 @@ export function NuevoComprobanteForm({
   const sinImporteLocal = !delServidor && totales.noContempladas.length > 0;
   // Con tipo de cambio el tope de S/ 700 se mide en soles; sin él no hay cómo comparar otra moneda y el backend exige el documento: aquí se avisa antes.
   const superaTopeSinDocumento = sinDocumento && superaElTope(mostrados.total, moneda, tipoCambioAApi(tipoCambio, moneda, messages));
+
+  // #557: qué «+» se ofrecen y cuáles están activos. Detracción, percepción y retención son de la venta interna (0101) y se excluyen entre sí como antes: activar la
+  // detracción apaga las otras dos, y la percepción a la retención; mientras una más fuerte está activa, la otra no se ofrece. La retención y el crédito, solo en factura.
+  const ventaInterna = operacion === "0101";
+  const hayMasOpciones = redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== "";
+  const hayReferencias = referencias.ordenCompra !== "" || referencias.guias.length > 0 || referencias.documentos.length > 0 || referencias.observaciones !== "";
+  const activo: Record<Extra, boolean> = {
+    credito: alCredito,
+    detraccion: detraccion.activa,
+    percepcion: percepcion.activa,
+    retencion: retencion.activa,
+    operacion: operacionAbierta || !ventaInterna,
+    masOpciones: masAbierto || hayMasOpciones,
+    anticipos: anticiposAbierto || anticiposElegidos.length > 0 || esAnticipo,
+    referencias: datosAbiertos || hayReferencias,
+    correo: correoAbierto || email !== "",
+  };
+  // #560: sin «Mostrar opciones avanzadas» solo los básicos, salvo un avanzado que ya trae datos (una copia), que no se esconde.
+  const { ofrecidos, hayOcultos } = extrasOfrecidos({ tipo, operacion, avanzadas: opcionesAvanzadas, activos: activo });
+  const visible = (e: Extra) => ofrecidos.includes(e) && activo[e];
+  // Lo que dice cada «+» al pasar el puntero, y el título de su panel.
+  const tituloExtra: Record<Extra, string> = {
+    credito: t.alCredito,
+    detraccion: t.detraccionCheck,
+    percepcion: t.percepcionCheck,
+    retencion: t.retencionCheck,
+    operacion: t.tipoOperacion,
+    masOpciones: t.masOpciones,
+    anticipos: t.anticipos,
+    referencias: t.datosAdicionales,
+    correo: t.correo,
+  };
+
+  function activar(e: Extra) {
+    switch (e) {
+      case "credito":
+        return setAlCredito(true);
+      case "detraccion":
+        setDetraccion((d) => ({ ...d, activa: true, cuenta: d.cuenta || cuentaDetracciones || "" }));
+        setPercepcion(PERCEPCION_VACIA);
+        return setRetencion(RETENCION_VACIA);
+      case "percepcion":
+        setPercepcion((p) => ({ ...p, activa: true }));
+        return setRetencion(RETENCION_VACIA);
+      case "retencion":
+        return setRetencion((r) => ({ ...r, activa: true }));
+      case "operacion":
+        return setOperacionAbierta(true);
+      case "masOpciones":
+        return setMasAbierto(true);
+      case "anticipos":
+        return setAnticiposAbierto(true);
+      case "referencias":
+        return setDatosAbiertos(true);
+      case "correo":
+        return setCorreoAbierto(true);
+    }
+  }
+
+  /** Apaga el panel y limpia lo suyo: lo quitado no se calcula ni se envía. */
+  function quitar(e: Extra) {
+    switch (e) {
+      case "credito":
+        setAlCredito(false);
+        return setCredito(CREDITO_VACIO);
+      case "detraccion":
+        return setDetraccion(DETRACCION_VACIA);
+      case "percepcion":
+        return setPercepcion(PERCEPCION_VACIA);
+      case "retencion":
+        return setRetencion(RETENCION_VACIA);
+      case "operacion":
+        if (!ventaInterna) cambiarOperacion("0101");
+        return setOperacionAbierta(false);
+      case "masOpciones":
+        setRedondeoTexto("");
+        setDescuentoGlobal(AJUSTE_VACIO);
+        setCargoGlobal(AJUSTE_VACIO);
+        setFechaVencimiento("");
+        return setMasAbierto(false);
+      case "anticipos":
+        setEsAnticipo(false);
+        setAnticiposElegidos([]);
+        return setAnticiposAbierto(false);
+      case "referencias":
+        setReferencias(REFERENCIAS_VACIAS);
+        return setDatosAbiertos(false);
+      case "correo":
+        setEmail("");
+        return setCorreoAbierto(false);
+    }
+  }
+
+  /** Quitar desde el panel: el botón desaparece con él, así que el foco vuelve a su «+» (que sigue en la fila) en vez de caer al cuerpo de la página. */
+  function quitarDesdeElPanel(e: Extra) {
+    quitar(e);
+    botonesExtra.current[e]?.focus();
+  }
+
+  // El total que dice el botón de emitir: el del pie, salvo que no haya líneas completas o que el importe todavía no se conozca (IVAP o exportación sin respuesta del backend).
+  const totalConocido = lineasCompletas.length > 0 && !sinImporteLocal;
+  const opcionesSerie = seriesDelTipo.map((s) => ({ value: s.serie, label: `${s.serie} · ${s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}` }));
+  const opcionesMoneda = monedas(messages).map((m) => ({ value: m.codigo, label: m.etiqueta }));
 
   /** Al pasar a «sin documento» el nombre se completa con el habitual; al volver a un documento, ese nombre de relleno se quita. */
   function cambiarTipoDoc(nuevo: string) {
@@ -500,6 +704,22 @@ export function NuevoComprobanteForm({
     (document.activeElement as HTMLElement | null)?.blur();
     setError(null);
     setLlevaAlPlan(false);
+    // #557: los campos del comprador van plegados, así que el navegador no los valida: lo que falta del cliente se dice aquí. Lo escrito en «Cliente» que no llegó a
+    // ser un cliente (un nombre sin elegir de la lista, un número incompleto) no se emite como «Clientes varios» sin avisar.
+    if (textoCliente.trim() !== "" && !conCliente) {
+      setError(t.errores.clienteSinResolver);
+      return;
+    }
+    // Con los campos desplegados los valida el navegador (`required`, `pattern`, `minLength`), como siempre: esto cubre solo los plegados.
+    if (!editandoCliente && !sinDocumento && numDoc.trim() === "") {
+      setError(t.errores.sinCliente);
+      return;
+    }
+    if (!editandoCliente && (!new RegExp(`^(?:${PATRON_NOMBRE})$`).test(razonSocial) || razonSocial.length > 1500)) {
+      setEditandoCliente(true);
+      setError(t.errores.nombreDelCliente);
+      return;
+    }
     if (lineasCompletas.length === 0) {
       setError(t.errores.sinItems);
       return;
@@ -566,7 +786,7 @@ export function NuevoComprobanteForm({
     // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha del comprobante los muestra desde aquí.
     guardarAvisosDeEmision(res.datos.id, res.avisos);
     // #319: el guardado del cliente no puede estorbar la emisión ya hecha; si falla, la factura sigue emitida y el cliente se guarda a mano desde «Clientes».
-    if (guardarCliente && !sinDocumento && numDoc.trim() !== "") {
+    if (!sinDocumento && numDoc.trim() !== "" && clienteElegido !== `${tipoDoc}/${numDoc.trim()}`) {
       void apiRequest(`/api/proxy/clientes/documento/${encodeURIComponent(tipoDoc)}/${encodeURIComponent(numDoc.trim())}`, {
         method: "PUT",
         body: { razon_social: razonSocial.trim(), direccion: direccion.trim() || undefined, pais: exportacion && pais ? pais : undefined, email: email.trim() || undefined },
@@ -580,6 +800,7 @@ export function NuevoComprobanteForm({
   if (seriesDelTipo.length === 0) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
+        {selectorDeTipo ? <div>{selectorDeTipo}</div> : null}
         <Alerta tono="aviso" titulo={interpolar(t.sinSeries.titulo, { nombre })}>
           {interpolar(t.sinSeries.texto, { tipo: TIPO_DE_SERIE[tipo], patron: boleta ? "B###" : "F###" })}
         </Alerta>
@@ -595,60 +816,138 @@ export function NuevoComprobanteForm({
       {/* El scroll vive solo en la lista de ítems: así la serie, la fecha y el cliente quedan siempre a la vista
           por largo que sea el comprobante. */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-      <div className="grid items-start gap-4 sm:grid-cols-3">
-        <Campo id="nc-serie" etiqueta={t.serie} ayuda={t.ayudaSerie}>
-          <SelectCampo
-            id="nc-serie"
-            valor={serie}
-            onCambio={setSerie}
-            opciones={seriesDelTipo.map((s) => ({ value: s.serie, label: `${s.serie} · ${s.ultimo_numero > 0 ? interpolar(t.ultimoEmitido, { n: s.ultimo_numero }) : t.sinEmitir}` }))}
-            mono
-          />
-        </Campo>
+      {/* #557: una sola línea con el tipo, la serie, la fecha y la moneda, como las píldoras de la barra de filtros del design system. Las ayudas largas van en el
+          `title` y, para un lector de pantalla, en la descripción del control. */}
+      <div className="flex flex-wrap items-start gap-2">
+        {selectorDeTipo}
+        <Select items={opcionesSerie} value={serie} onValueChange={(v) => setSerie((v as string | null) ?? "")}>
+          <SelectTrigger id="nc-serie" className={cn(CONTROL_FILTRO, "w-auto pl-3 tabular-nums")} aria-label={t.serie} aria-describedby="nc-serie-ayuda" title={t.ayudaSerie}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {opcionesSerie.map(({ value, label }) => (
+              <SelectItem key={value} value={value} className="tabular-nums">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span id="nc-serie-ayuda" className="sr-only">
+          {t.ayudaSerie}
+        </span>
 
-        <Campo id="nc-fecha" etiqueta={t.fechaEmision} ayuda={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
+        <span className="inline-flex" title={interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}>
+          <label htmlFor="nc-fecha" className="sr-only">
+            {t.fechaEmision}
+          </label>
           {/* Los dos extremos los rechaza el backend (futura y fuera del plazo de envío: 3 días la factura, 2108; 7 la boleta, 1079), así que
               el calendario los cierra acá en vez de gastar un viaje para que lo diga SUNAT (#292). */}
           {/* `||` y no `??`: un input de fecha vaciado emite `""`, no `null`, así que `??` dejaba pasar el vacío
               hasta el `@NotNull LocalDate` del backend y la emisión moría con un error de deserialización. */}
-          <EntradaFecha id="nc-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} variante="filtro" />
-          {soloPorResumen(tipo, fecha, hoy) ? (
-            <p className={cn(AYUDA_CAMPO, "mt-1")} data-testid="aviso-resumen-diario" role="status">
-              {t.avisoResumen}
-            </p>
-          ) : null}
-        </Campo>
+          <EntradaFecha id="nc-fecha" enBarra valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={fechaMinimaDeEmision(tipo, hoy)} max={hoy} describidoPor="nc-fecha-ayuda" className="w-40" />
+          <span id="nc-fecha-ayuda" className="sr-only">
+            {interpolar(t.ayudaFecha, { dias: PLAZO_ENVIO[tipo].dias })}
+          </span>
+        </span>
 
-        <Campo id="nc-moneda" etiqueta={t.moneda}>
-          <SelectCampo
-            id="nc-moneda"
-            valor={moneda}
-            onCambio={(v) => { setMoneda(v); setTipoCambio(""); }}
-            opciones={monedas(messages).map((m) => ({ value: m.codigo, label: m.etiqueta }))}
-          />
-        </Campo>
+        <Select items={opcionesMoneda} value={moneda} onValueChange={(v) => { setMoneda((v as string | null) ?? ""); setTipoCambio(""); }}>
+          <SelectTrigger id="nc-moneda" className={cn(CONTROL_FILTRO, "w-auto pl-3")} aria-label={t.moneda}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {opcionesMoneda.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {moneda === "PEN" ? null : (
-          <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional ayuda={interpolar(t.ayudaTipoCambio, { moneda })} error={errorTipoCambio ?? undefined}>
-            <input id="nc-tipo-cambio" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} inputMode="decimal" placeholder="3.756" aria-invalid={errorTipoCambio !== null} className={cn(CAMPO, "font-mono tabular-nums")} />
+          <Campo id="nc-tipo-cambio" etiqueta={t.tipoCambio} opcional error={errorTipoCambio ?? undefined} className="gap-1 [&>label]:sr-only">
+            <input
+              id="nc-tipo-cambio"
+              value={tipoCambio}
+              onChange={(e) => setTipoCambio(e.target.value)}
+              inputMode="decimal"
+              placeholder={t.tipoCambio}
+              title={interpolar(t.ayudaTipoCambio, { moneda })}
+              aria-describedby={errorTipoCambio ? "nc-tipo-cambio-error" : "nc-tipo-cambio-ayuda"}
+              aria-invalid={errorTipoCambio !== null}
+              className={cn(CONTROL_FILTRO, FOCO_CAMPO, ERROR_CAMPO, "w-32 px-3 font-mono tabular-nums outline-none placeholder:font-sans placeholder:font-normal placeholder:text-texto-terciario")}
+            />
+            <span id="nc-tipo-cambio-ayuda" className="sr-only">
+              {interpolar(t.ayudaTipoCambio, { moneda })}
+            </span>
           </Campo>
         )}
+        {soloPorResumen(tipo, fecha, hoy) ? (
+          <p className={cn(AYUDA_CAMPO, "basis-full")} data-testid="aviso-resumen-diario" role="status">
+            {t.avisoResumen}
+          </p>
+        ) : null}
       </div>
 
+      {/* #557: el cliente en un solo campo. Se escribe el DNI, el RUC o el nombre: sugiere los guardados y un RUC (o, en boleta, un DNI) completo se toma como
+          documento y, si es RUC, se consulta el padrón. Elegido o resuelto, una tarjeta dice quién es; sus datos se corrigen en «Editar datos», que despliega los
+          campos de siempre. En boleta el campo vacío es «Clientes varios» (sin documento, hasta el tope). */}
       <section className="grid gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className={ETIQUETA_CAMPO}>{boleta ? t.comprador : t.cliente}</h3>
-          {sinDocumento ? null : (
-            <Casilla id="nc-guardar-cliente" etiqueta={t.guardarCliente} checked={guardarCliente} onCheckedChange={setGuardarCliente} />
-          )}
-        </div>
-        <BuscadorDeClientes onElegir={elegirClienteGuardado} />
+        <h3 className={ETIQUETA_CAMPO}>{etiquetaCliente}</h3>
+        {conCliente ? (
+          <TarjetaDeCliente
+            nombre={razonSocial}
+            documento={sinDocumento ? t.sinDocumentoCorto : `${documento.etiqueta} ${numDoc.trim()}`}
+            direccion={boleta ? undefined : direccion.trim() || undefined}
+            estado={
+              conRuc ? (
+                <EstadoConsultaRuc
+                  consultando={consultandoRuc}
+                  resultado={consultaRuc}
+                  nombreActual={razonSocial}
+                  onReintentar={reintentarConsultaRuc}
+                  onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
+                />
+              ) : undefined
+            }
+            editando={editandoCliente}
+            idDatos="nc-datos-cliente"
+            onEditar={() => setEditandoCliente((e) => !e)}
+            onCambiar={limpiarCliente}
+          />
+        ) : (
+          <div className="grid gap-1">
+            <BuscadorDeClientes
+              etiqueta={etiquetaCliente}
+              placeholder={boleta ? t.placeholderClienteBoleta : exportacion ? t.placeholderClienteExportacion : t.placeholderClienteFactura}
+              texto={textoCliente}
+              onTexto={escribirCliente}
+              onEnter={resolverTextoCliente}
+              onBlur={resolverTextoCliente}
+              autoFocus={enfocarCliente}
+              describidoPor="nc-cliente-ayuda"
+              onElegir={elegirClienteGuardado}
+            />
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p id="nc-cliente-ayuda" className={AYUDA_CAMPO}>
+                {boleta ? interpolar(t.ayudaClienteBoleta, { tope: TOPE_SIN_DOCUMENTO }) : exportacion ? t.ayudaClienteExportacion : t.ayudaClienteFactura}
+              </p>
+              <button type="button" className="text-etiqueta font-medium text-primary hover:underline" aria-expanded={editandoCliente} onClick={editandoCliente ? limpiarCliente : ingresarAMano}>
+                {editandoCliente ? t.descartarDatosCliente : t.ingresarAMano}
+              </button>
+            </div>
+          </div>
+        )}
         {avisoCliente ? (
           <p role="status" className="text-control text-warning-foreground" data-testid="aviso-cliente-guardado">
             {avisoCliente}
           </p>
         ) : null}
-        {usaSelectorDeDocumento ? (
-          <div className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
+        {superaTopeSinDocumento ? (
+          <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")}>
+            {interpolar(t.avisoTope, { tope: TOPE_SIN_DOCUMENTO, extra: moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda, messages) === undefined ? t.avisoTopeSinTipoCambio : "" })}
+          </p>
+        ) : null}
+        {!editandoCliente ? null : usaSelectorDeDocumento ? (
+          <div id="nc-datos-cliente" className="grid gap-4 sm:grid-cols-[200px_180px_1fr]">
             <Campo id="nc-tipo-doc" etiqueta={t.documentoComprador}>
               <SelectCampo id="nc-tipo-doc" valor={tipoDoc} onCambio={cambiarTipoDoc} opciones={documentosOfrecidos.map((d) => ({ value: d.codigo, label: d.etiqueta }))} />
             </Campo>
@@ -686,46 +985,16 @@ export function NuevoComprobanteForm({
                 className={CAMPO}
               />
             </Campo>
-            {exportacion ? (
-              <>
-                <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
-                  <Combobox
-                    id="nc-pais"
-                    items={paises.map((p) => ({ value: p.codigo, label: p.nombre }))}
-                    valor={pais}
-                    onCambio={(v) => setPais(v ?? "")}
-                    placeholder={t.seleccione}
-                    vacio={messages.comun.sinResultados}
-                    etiquetaAbrir={messages.comun.abrirOpciones}
-                  />
+            {exportacion && !boleta ? (
+              <div className="sm:col-span-3">
+                <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
+                  <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccionExterior} className={CAMPO} />
                 </Campo>
-                {boleta ? null : (
-                  <div className="sm:col-span-2">
-                    <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
-                      <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccionExterior} className={CAMPO} />
-                    </Campo>
-                  </div>
-                )}
-              </>
-            ) : null}
-            {conRuc ? (
-              <EstadoConsultaRuc
-                className="sm:col-span-3"
-                consultando={consultandoRuc}
-                resultado={consultaRuc}
-                nombreActual={razonSocial}
-                onReintentar={reintentarConsultaRuc}
-                onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
-              />
-            ) : null}
-            {superaTopeSinDocumento ? (
-              <p data-testid="aviso-sin-documento" role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground sm:col-span-3")}>
-                {interpolar(t.avisoTope, { tope: TOPE_SIN_DOCUMENTO, extra: moneda !== "PEN" && tipoCambioAApi(tipoCambio, moneda, messages) === undefined ? t.avisoTopeSinTipoCambio : "" })}
-              </p>
+              </div>
             ) : null}
           </div>
         ) : (
-        <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+        <div id="nc-datos-cliente" className="grid gap-4 sm:grid-cols-[180px_1fr]">
           <Campo id="nc-ruc" etiqueta="RUC" >
             <input
               id="nc-ruc"
@@ -757,14 +1026,6 @@ export function NuevoComprobanteForm({
               className={CAMPO}
             />
           </Campo>
-          <EstadoConsultaRuc
-            className="sm:col-span-2"
-            consultando={consultandoRuc}
-            resultado={consultaRuc}
-            nombreActual={razonSocial}
-            onReintentar={reintentarConsultaRuc}
-            onUsarNombre={(n) => { setRazonSocial(n); setAuto((a) => ({ ...a, razon: n })); }}
-          />
           <div className="sm:col-span-2">
             <Campo id="nc-direccion" etiqueta={t.direccion} opcional>
               <input id="nc-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder={t.placeholderDireccion} className={CAMPO} />
@@ -772,124 +1033,6 @@ export function NuevoComprobanteForm({
           </div>
         </div>
         )}
-        <Campo id="nc-email" etiqueta={t.correo} opcional ayuda={t.ayudaCorreo}>
-          <input
-            id="nc-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t.placeholderCorreo}
-            // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
-            maxLength={150}
-            autoComplete="off"
-            className={CAMPO}
-          />
-        </Campo>
-      </section>
-
-      {/* #309: forma de pago, solo en factura. Al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
-      <section className="grid gap-3">
-        <div className="grid items-start gap-4 sm:grid-cols-2">
-          {/* #311: tipo de operación (catálogo 51): venta interna o exportación. */}
-          <Campo id="nc-operacion" etiqueta={t.tipoOperacion}>
-            <SelectCampo
-              id="nc-operacion"
-              valor={operacion}
-              onCambio={cambiarOperacion}
-              opciones={GRUPOS_OPERACION.flatMap((g) =>
-                operaciones(messages)
-                  .filter((o) => o.grupo === g && (boleta || !o.soloBoleta))
-                  .map((o) => ({ value: o.codigo, label: `${o.codigo} · ${o.etiqueta}`, grupo: messages.documentos.grupoOperacion[g] })),
-              )}
-            />
-          </Campo>
-          {boleta ? null : (
-            <Campo id="nc-forma-pago" etiqueta={t.formaPago}>
-              <SelectCampo
-                id="nc-forma-pago"
-                valor={alCredito ? "credito" : "contado"}
-                onCambio={(v) => setAlCredito(v === "credito")}
-                opciones={[
-                  { value: "contado", label: t.alContado },
-                  { value: "credito", label: t.alCredito },
-                ]}
-              />
-            </Campo>
-          )}
-        </div>
-        {exportacion ? (
-          <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
-            <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
-              <SelectCampo id="nc-incoterm" valor={incoterm} onCambio={setIncoterm} opciones={[{ value: "", label: t.sinIncoterm }, ...INCOTERMS.map((i) => ({ value: i, label: i }))]} />
-            </Campo>
-            {EXIGE_PAIS_DE_USO.has(operacion) ? (
-              <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
-                <Combobox
-                  id="nc-pais-uso"
-                  items={paises.filter((p) => p.codigo !== "PE").map((p) => ({ value: p.codigo, label: p.nombre }))}
-                  valor={paisDeUso}
-                  onCambio={(v) => setPaisDeUso(v ?? "")}
-                  placeholder={t.seleccione}
-                  vacio={messages.comun.sinResultados}
-                  etiquetaAbrir={messages.comun.abrirOpciones}
-                />
-              </Campo>
-            ) : null}
-          </div>
-        ) : null}
-        {/* #288: detracción, #297: percepción. Solo en una venta interna (factura o boleta); se excluyen entre sí porque cada una fija su tipo de operación. */}
-        {operacion !== "0101" ? null : (
-          <div className="grid gap-3">
-            <Casilla
-              id="nc-detraccion"
-              etiqueta={t.detraccionCheck}
-              checked={detraccion.activa}
-              onCheckedChange={(activa) => {
-                setDetraccion((d) => ({ ...d, activa, cuenta: d.cuenta || cuentaDetracciones || "" }));
-                if (activa) {
-                  setPercepcion((p) => ({ ...p, activa: false }));
-                  setRetencion((r) => ({ ...r, activa: false }));
-                }
-              }}
-            />
-            {detraccion.activa ? (
-              <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
-            ) : avisoDeDetraccion({ activa: false, moneda, total: mostrados.total, boleta }) ? (
-              <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
-                {t.avisoDetraccion}
-              </p>
-            ) : null}
-            {detraccion.activa ? null : (
-              <>
-                <Casilla
-                  id="nc-percepcion"
-                  etiqueta={t.percepcionCheck}
-                  checked={percepcion.activa}
-                  onCheckedChange={(activa) => {
-                    setPercepcion((p) => ({ ...p, activa }));
-                    if (activa) setRetencion((r) => ({ ...r, activa: false }));
-                  }}
-                />
-                {percepcion.activa ? (
-                  <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
-                ) : null}
-                {boleta || percepcion.activa ? null : (
-                  <>
-                    <Casilla id="nc-retencion" etiqueta={t.retencionCheck} checked={retencion.activa} onCheckedChange={(activa) => setRetencion((r) => ({ ...r, activa }))} />
-                    {retencion.activa ? <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} /> : null}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {errorExportacion ? (
-          <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
-            {errorExportacion}
-          </p>
-        ) : null}
-        {boleta || !alCredito ? null : <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} />}
       </section>
 
       <section className="flex min-h-[11rem] flex-1 flex-col gap-3">
@@ -1061,34 +1204,158 @@ export function NuevoComprobanteForm({
         </div>
       </section>
 
-        {/* #358: ajustes poco frecuentes del comprobante. Cerrado por defecto: la vista básica es la de siempre. Los issues siguientes (#310, #300, #309…) agregan sus campos acá. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="mas-opciones" open={redondeoTexto !== "" || descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" || fechaVencimiento !== ""}>
-          <summary className="cursor-pointer text-control font-medium">{t.masOpciones}</summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
-              <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
-            </Campo>
-            <Campo id="nc-redondeo" etiqueta={t.redondeo} ayuda={redondeo.error ?? t.ayudaRedondeo}>
-              <input
-                id="nc-redondeo"
-                value={redondeoTexto}
-                onChange={(e) => setRedondeoTexto(e.target.value)}
-                inputMode="decimal"
-                placeholder="0.00"
-                aria-invalid={redondeo.error !== null}
-                className={cn(CAMPO, "font-mono tabular-nums")}
-              />
-            </Campo>
-            {/* #310: descuento global (02/03) y cargos globales (46 recargo al consumo, 49, 50). */}
-            <AjusteEditor id="nc-desc-global" etiqueta={t.descuentoGlobal} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
-            <AjusteEditor id="nc-cargo-global" etiqueta={t.cargoGlobal} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
-          </div>
-        </details>
+      {/* #557: lo poco frecuente, a pedido. Reemplaza a la forma de pago y al tipo de operación siempre visibles, a las casillas de detracción, percepción y
+          retención, al correo del cliente y a las tres secciones plegables. */}
+      <section className="grid gap-3 border-t border-border/60 pt-3">
+        <div className="flex flex-wrap items-center gap-2" data-testid="extras">
+          <span className={AYUDA_CAMPO}>{t.agregar}</span>
+          {ofrecidos.map((e) => (
+            <Button
+              key={e}
+              ref={(b: HTMLButtonElement | null) => {
+                botonesExtra.current[e] = b;
+              }}
+              type="button"
+              variant={activo[e] ? "suave" : "outline"}
+              size="sm"
+              aria-pressed={activo[e]}
+              title={tituloExtra[e]}
+              onClick={() => (activo[e] ? quitar(e) : activar(e))}
+            >
+              {activo[e] ? <CheckIcon weight="bold" /> : <PlusIcon weight="bold" />}
+              {t.extras[e]}
+            </Button>
+          ))}
+          {/* #560: dónde se activan los avanzados que no se ofrecen. Solo a quien puede cambiar el ajuste (un administrador); fuera del proveedor de rol, a todos. En otra
+              pestaña: ir ahí en esta cerraría el modal y perdería lo escrito. */}
+          {hayOcultos && sinPermisoDeConfigurar === null ? (
+            <Link href={enlaceASeccion("emision")} target="_blank" rel="noopener" className={cn(AYUDA_CAMPO, "ml-auto underline-offset-2 hover:text-foreground hover:underline")} data-testid="extras-ocultos">
+              {t.masOpcionesEnEmpresa}
+            </Link>
+          ) : null}
+        </div>
 
+        {/* El aviso de detracción ya no pide marcar una casilla: ofrece abrir su panel. */}
+        {ventaInterna && avisoDeDetraccion({ activa: detraccion.activa, moneda, total: mostrados.total, boleta }) ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p role="status" className={cn(AYUDA_CAMPO, "text-warning-foreground")} data-testid="aviso-detraccion">
+              {t.avisoDetraccion}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => activar("detraccion")}>
+              <PlusIcon weight="bold" />
+              {t.activarDetraccion}
+            </Button>
+          </div>
+        ) : null}
+
+        {/* #309: al crédito se arman las cuotas; la boleta se emite siempre al contado. */}
+        {visible("credito") ? (
+          <PanelExtra id="credito" titulo={tituloExtra.credito} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.credito })} onQuitar={() => quitarDesdeElPanel("credito")}>
+            <CreditoEditor credito={credito} onCambio={setCredito} neto={netoBase} moneda={moneda} emision={fecha} error={credito.cuotas.length === 0 ? null : errorCredito} />
+          </PanelExtra>
+        ) : null}
+        {/* #288: detracción, #297: percepción, #313: retención. Solo en una venta interna; se excluyen entre sí porque cada una fija su tipo de operación. */}
+        {visible("detraccion") ? (
+          <PanelExtra id="detraccion" titulo={tituloExtra.detraccion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.detraccion })} onQuitar={() => quitarDesdeElPanel("detraccion")}>
+            <DetraccionEditor valor={detraccion} onCambio={setDetraccion} moneda={moneda} montoCalculado={montoDetraccion} cuentaDeLaEmpresa={cuentaDetracciones} />
+          </PanelExtra>
+        ) : null}
+        {visible("percepcion") ? (
+          <PanelExtra id="percepcion" titulo={tituloExtra.percepcion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.percepcion })} onQuitar={() => quitarDesdeElPanel("percepcion")}>
+            <PercepcionEditor valor={percepcion} onCambio={setPercepcion} moneda={moneda} alCredito={alCredito && !boleta} montoCalculado={montoPercepcion} />
+          </PanelExtra>
+        ) : null}
+        {visible("retencion") ? (
+          <PanelExtra id="retencion" titulo={tituloExtra.retencion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.retencion })} onQuitar={() => quitarDesdeElPanel("retencion")}>
+            <RetencionEditor valor={retencion} onCambio={setRetencion} moneda={moneda} montoCalculado={montoRetencion} />
+          </PanelExtra>
+        ) : null}
+        {/* #311: tipo de operación (catálogo 51): venta interna, exportación y las demás. Quitarlo vuelve a la venta interna (0101). */}
+        {visible("operacion") ? (
+          <PanelExtra id="operacion" titulo={tituloExtra.operacion} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.operacion })} onQuitar={() => quitarDesdeElPanel("operacion")}>
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              <Campo id="nc-operacion" etiqueta={t.tipoOperacion} className="[&>label]:sr-only">
+                <SelectCampo
+                  id="nc-operacion"
+                  valor={operacion}
+                  // Volver a 0101 desde el panel no lo cierra bajo el puntero (abierto por una copia de exportación, su bandera seguía apagada).
+                  onCambio={(v) => {
+                    setOperacionAbierta(true);
+                    cambiarOperacion(v);
+                  }}
+                  opciones={GRUPOS_OPERACION.flatMap((g) =>
+                    operaciones(messages)
+                      .filter((o) => o.grupo === g && (boleta || !o.soloBoleta))
+                      .map((o) => ({ value: o.codigo, label: `${o.codigo} · ${o.etiqueta}`, grupo: messages.documentos.grupoOperacion[g] })),
+                  )}
+                />
+              </Campo>
+            </div>
+            {exportacion ? (
+              <div className="grid items-start gap-4 sm:grid-cols-2" data-testid="datos-exportacion">
+                {/* #557: el país del cliente del exterior vive aquí, con lo demás de la exportación: los datos del cliente van plegados en su tarjeta. */}
+                <Campo id="nc-pais" etiqueta={t.paisCliente} ayuda={boleta ? t.paisOpcionalBoleta : t.paisObligatorio}>
+                  <Combobox
+                    id="nc-pais"
+                    items={paises.map((p) => ({ value: p.codigo, label: p.nombre }))}
+                    valor={pais}
+                    onCambio={(v) => setPais(v ?? "")}
+                    placeholder={t.seleccione}
+                    vacio={messages.comun.sinResultados}
+                    etiquetaAbrir={messages.comun.abrirOpciones}
+                  />
+                </Campo>
+                <Campo id="nc-incoterm" etiqueta={t.incoterm} opcional ayuda={t.ayudaIncoterm}>
+                  <SelectCampo id="nc-incoterm" valor={incoterm} onCambio={setIncoterm} opciones={[{ value: "", label: t.sinIncoterm }, ...INCOTERMS.map((i) => ({ value: i, label: i }))]} />
+                </Campo>
+                {EXIGE_PAIS_DE_USO.has(operacion) ? (
+                  <Campo id="nc-pais-uso" etiqueta={t.paisUso} ayuda={t.ayudaPaisUso}>
+                    <Combobox
+                      id="nc-pais-uso"
+                      items={paises.filter((p) => p.codigo !== "PE").map((p) => ({ value: p.codigo, label: p.nombre }))}
+                      valor={paisDeUso}
+                      onCambio={(v) => setPaisDeUso(v ?? "")}
+                      placeholder={t.seleccione}
+                      vacio={messages.comun.sinResultados}
+                      etiquetaAbrir={messages.comun.abrirOpciones}
+                    />
+                  </Campo>
+                ) : null}
+              </div>
+            ) : null}
+            {errorExportacion ? (
+              <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="error-exportacion">
+                {errorExportacion}
+              </p>
+            ) : null}
+          </PanelExtra>
+        ) : null}
+        {/* #358, #310: vencimiento, redondeo, descuento y cargo globales (02/03 y 46 recargo al consumo, 49, 50). */}
+        {visible("masOpciones") ? (
+          <PanelExtra id="masOpciones" titulo={tituloExtra.masOpciones} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.masOpciones })} onQuitar={() => quitarDesdeElPanel("masOpciones")}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Campo id="nc-vencimiento" etiqueta={t.vencimiento} ayuda={t.ayudaVencimiento} opcional>
+                <EntradaFecha id="nc-vencimiento" valor={fechaVencimiento} onCambio={setFechaVencimiento} min={fecha} variante="filtro" />
+              </Campo>
+              <Campo id="nc-redondeo" etiqueta={t.redondeo} ayuda={redondeo.error ?? t.ayudaRedondeo}>
+                <input
+                  id="nc-redondeo"
+                  value={redondeoTexto}
+                  onChange={(e) => setRedondeoTexto(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  aria-invalid={redondeo.error !== null}
+                  className={cn(CAMPO, "font-mono tabular-nums")}
+                />
+              </Campo>
+              <AjusteEditor id="nc-desc-global" etiqueta={t.descuentoGlobal} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} />
+              <AjusteEditor id="nc-cargo-global" etiqueta={t.cargoGlobal} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} ofreceRecargoConsumo />
+            </div>
+          </PanelExtra>
+        ) : null}
         {/* #312: anticipos. Una factura de anticipo es común; la final descuenta los del mismo cliente. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="anticipos" open={anticiposAbierto || anticiposElegidos.length > 0} onToggle={(e) => setAnticiposAbierto((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-control font-medium">{t.anticipos}</summary>
-          <div className="mt-3 grid gap-3">
+        {visible("anticipos") ? (
+          <PanelExtra id="anticipos" titulo={tituloExtra.anticipos} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.anticipos })} onQuitar={() => quitarDesdeElPanel("anticipos")}>
             <Casilla
               id="nc-es-anticipo"
               etiqueta={interpolar(t.esAnticipo, { nombre })}
@@ -1111,16 +1378,33 @@ export function NuevoComprobanteForm({
                 <AnticiposEditor disponibles={disponibles} elegidos={anticiposVigentes} onCambio={setAnticiposElegidos} moneda={moneda} hayCliente={documentoDelCliente !== ""} />
               </div>
             )}
-          </div>
-        </details>
-
-        {/* #300: datos adicionales, colapsados; se abren solos si ya hay algo escrito. */}
-        <details className="rounded-xl border border-border px-3 py-2" data-testid="datos-adicionales" open={datosAbiertos} onToggle={(e) => setDatosAbiertos((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-control font-medium">{t.datosAdicionales}</summary>
-          <div className="mt-3">
+          </PanelExtra>
+        ) : null}
+        {/* #300: orden de compra, guías, documentos relacionados y observaciones. */}
+        {visible("referencias") ? (
+          <PanelExtra id="referencias" titulo={tituloExtra.referencias} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.referencias })} onQuitar={() => quitarDesdeElPanel("referencias")}>
             <ReferenciasEditor valor={referencias} onCambio={setReferencias} boleta={boleta} />
-          </div>
-        </details>
+          </PanelExtra>
+        ) : null}
+        {/* #325: el correo del cliente viaja con el comprobante; con el envío automático, le llegan el PDF y el XML cuando SUNAT lo acepta. */}
+        {visible("correo") ? (
+          <PanelExtra id="correo" titulo={tituloExtra.correo} etiquetaQuitar={interpolar(t.quitarExtra, { extra: t.extras.correo })} onQuitar={() => quitarDesdeElPanel("correo")}>
+            <Campo id="nc-email" etiqueta={t.correo} opcional ayuda={t.ayudaCorreo} className="[&>label]:sr-only">
+              <input
+                id="nc-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t.placeholderCorreo}
+                // Lo que admite el backend (`CorreoDelCliente`): hasta 150 caracteres.
+                maxLength={150}
+                autoComplete="off"
+                className={CAMPO}
+              />
+            </Campo>
+          </PanelExtra>
+        ) : null}
+      </section>
 
         {incompatibilidad ? (
           <p role="alert" className={cn(AYUDA_CAMPO, "text-destructive")} data-testid="tributos-incompatibles">
@@ -1230,7 +1514,8 @@ export function NuevoComprobanteForm({
             textoPendiente={t.emitiendo}
             aria-describedby={lineasIncompletas > 0 ? "nc-aviso-incompletos" : undefined}
           >
-            {interpolar(t.emitir, { nombre })}
+            {/* #557: dice qué emite y cuánto, con el total del pie. */}
+            {totalConocido ? interpolar(t.emitirConTotal, { nombre, total: formatearMonto(moneda, mostrados.total, locale) }) : interpolar(t.emitir, { nombre })}
           </BotonAsync>
         </div>
       </div>

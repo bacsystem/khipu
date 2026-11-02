@@ -9,10 +9,11 @@ const paneles = {
   sol: <p>panel sol</p>,
   pdf: <p>panel pdf</p>,
   correo: <p>panel correo</p>,
+  emision: <p>panel emision</p>,
   empresas: <p>panel empresas</p>,
 };
 
-function renderizar(inicial: "datos" | "certificado" | "sol" | "pdf" | "correo" | "empresas", pendientes: Array<"certificado" | "sol"> = []) {
+function renderizar(inicial: "datos" | "certificado" | "sol" | "pdf" | "correo" | "emision" | "empresas", pendientes: Array<"certificado" | "sol"> = []) {
   return render(<SeccionesEmpresa inicial={inicial} pendientes={pendientes} empresas={2} paneles={paneles} />);
 }
 
@@ -57,5 +58,6 @@ describe("SeccionesEmpresa", () => {
     expect(screen.getByRole("tab", { name: "Tax details" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /SOL credentials/ })).toHaveAccessibleName("SOL credentials, pending");
     expect(screen.getByRole("tab", { name: /Customer delivery/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Issuing" })).toBeInTheDocument();
   });
 });
