@@ -7,11 +7,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); vers
 Una emisión más simple y todo el portal con el design system. Trae **una migración (V72)**, que solo agrega una columna con valor por defecto: igual conviene respaldar la base antes de desplegar.
 
 ### Added
+- Padrón de RUC de SUNAT en todos los formularios con RUC (#575): onboarding, empresa nueva, alta asistida del backoffice, clientes, destinatario/remitente y transportista de las guías rellenan la razón social (y la dirección donde aplica) sin pisar lo escrito, y avisan si el RUC propio no está activo o no está habido; Datos fiscales sugiere el domicilio del padrón. La consulta funciona sin empresa elegida (cupo por cuenta) y desde el backoffice (`GET /v1/admin/consultas/ruc/{ruc}`, cupo por administrador).
 - Ajuste por empresa «Mostrar opciones avanzadas al emitir» (Empresa → Emisión, `GET/PUT /v1/empresa/preferencias-emision`, #560): apagado, el modal de emisión queda en lo esencial; encendido, ofrece los «+» de tipo de operación, crédito, detracción, percepción, retención, anticipos y referencias.
 
 ### Changed
 - Modal de emisión (#557): lo esencial primero (serie, cliente, ítems y totales) y lo poco frecuente a pedido, en bloques que se agregan con «+» y se quitan con la ✕. El cliente es un solo campo que busca entre los guardados o acepta un documento nuevo.
-- Todo el portal y el backoffice con el design system (v0.5.9): combos del DS en vez de `<select>` nativos (#555), pills de estado y avisos (#562), cabeceras, páginas de detalle y tablas (#567), barras de filtros del backoffice con el patrón del cliente (#564), acciones, controles, Empresa y la portada (#569), y el gráfico del inicio con el `GraficoBarras` del DS (#511).
+- Todo el portal y el backoffice con el design system (v0.5.9): combos del DS en vez de `<select>` nativos (#555), pills de estado y avisos (#562), el formulario de guías con la `Entrada` del DS (#575), cabeceras, páginas de detalle y tablas (#567), barras de filtros del backoffice con el patrón del cliente (#564), acciones, controles, Empresa y la portada (#569), y el gráfico del inicio con el `GraficoBarras` del DS (#511).
 - Dependabot abre sus PR contra `develop` y no propone versiones mayores (#558).
 
 ### Fixed
