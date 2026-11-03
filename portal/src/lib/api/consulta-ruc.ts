@@ -25,17 +25,28 @@ export type ResultadoConsultaRuc =
   | { tipo: "no-encontrado" }
   /** 503: el padrón nunca se cargó, así que no se puede afirmar nada del RUC. */
   | { tipo: "sin-padron" }
-  /** 429: se agotó el cupo de consultas de la empresa (60 por minuto, 5 000 por día). */
+  /** 429: se agotó el cupo de consultas de quien consulta (60 por minuto, 5 000 por día; de la empresa, de la cuenta sin empresa o del administrador). */
   | { tipo: "cupo" }
   /** Red caída, respuesta que no es JSON o con otra forma: se digita a mano. */
   | { tipo: "error" };
 
 /**
- * Consulta un RUC en el padrón de SUNAT por el proxy del portal. No lanza: cada desenlace es un resultado, porque el formulario sigue siendo
- * utilizable a mano en todos (un RUC nuevo o un padrón caído no bloquean la emisión).
+ * Desde dónde se consulta (#575): el portal del cliente, con o sin empresa elegida (el onboarding), por su proxy; o el backoffice, por su propia ruta y
+ * con la sesión de administrador. El backend responde lo mismo en los dos.
  */
-export async function consultarRuc(ruc: string): Promise<ResultadoConsultaRuc> {
-  const res = await apiRequest<ContribuyenteSunat>(`/api/proxy/consultas/ruc/${encodeURIComponent(ruc)}`, { method: "GET" });
+export type OrigenConsultaRuc = "portal" | "admin";
+
+const RUTA: Record<OrigenConsultaRuc, string> = {
+  portal: "/api/proxy/consultas/ruc/",
+  admin: "/api/admin/consultas/ruc/",
+};
+
+/**
+ * Consulta un RUC en el padrón de SUNAT. No lanza: cada desenlace es un resultado, porque el formulario sigue siendo utilizable a mano en todos (un RUC
+ * nuevo o un padrón caído no bloquean nada).
+ */
+export async function consultarRuc(ruc: string, origen: OrigenConsultaRuc = "portal"): Promise<ResultadoConsultaRuc> {
+  const res = await apiRequest<ContribuyenteSunat>(`${RUTA[origen]}${encodeURIComponent(ruc)}`, { method: "GET" });
   if (res.estado === "exito") {
     const c = res.datos;
     // Una respuesta de otra forma (un proxy intermedio, un mock que contesta lo mismo a todo) no se interpreta como un contribuyente.
@@ -60,9 +71,21 @@ export type ObservacionDeSunat = { codigo: "4013" | "4014"; texto: string };
  * con la condición «NO HABIDO» —«NO HALLADO …», «PENDIENTE» y «POR VERIFICAR» no se observan—. SUNAT acepta el comprobante con la observación.
  */
 export function observacionesDeSunat(c: Pick<ContribuyenteSunat, "estado" | "condicion" | "activo">, messages: Mensajes): ObservacionDeSunat[] {
-  const t = messages.comprobantes.consultaRuc.observaciones;
+  const t = messages.consultaRuc.observaciones;
   const observaciones: ObservacionDeSunat[] = [];
   if (!c.activo) observaciones.push({ codigo: "4013", texto: interpolar(t.noActivo, { estado: c.estado }) });
   if (c.condicion === "NO HABIDO") observaciones.push({ codigo: "4014", texto: t.noHabido });
   return observaciones;
+}
+
+/**
+ * Lo que conviene saber cuando el RUC es el del emisor (#575: el onboarding, una empresa nueva, el alta asistida): un emisor que no está activo, o que no está
+ * habido, puede ver sus comprobantes rechazados. No bloquea: el padrón es de ayer y el cliente puede estar regularizándolo.
+ */
+export function avisosDeEmisor(c: Pick<ContribuyenteSunat, "estado" | "condicion" | "activo">, messages: Mensajes): string[] {
+  const t = messages.consultaRuc.emisor;
+  const avisos: string[] = [];
+  if (!c.activo) avisos.push(interpolar(t.noActivo, { estado: c.estado }));
+  if (c.condicion === "NO HABIDO") avisos.push(t.noHabido);
+  return avisos;
 }

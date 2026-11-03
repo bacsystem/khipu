@@ -339,3 +339,72 @@ describe("NuevaGuiaForm: validar y emitir", () => {
     expect(within(form).getAllByLabelText("Tipo de documento")[0].tagName).toBe("INPUT");
   });
 });
+
+/** #575: el destinatario, el remitente y la empresa de transporte con RUC se consultan en el padrón de SUNAT. */
+describe("NuevaGuiaForm — el RUC en el padrón de SUNAT", () => {
+  const PADRON: Record<string, { razon_social: string }> = {
+    "20601234565": { razon_social: "PESQUERA PACÍFICO S.A.C." },
+    "20480072872": { razon_social: "TRANSPORTES DEL SUR S.A.C." },
+  };
+  const contribuyente = (ruc: string) => ({ ruc, ...PADRON[ruc], estado: "ACTIVO", condicion: "HABIDO", activo: true, habido: true, actualizado_al: "2026-10-16T09:30:00Z" });
+
+  beforeEach(() => {
+    responder((ruta) => {
+      const ruc = ruta.match(/\/consultas\/ruc\/(\d+)/)?.[1];
+      if (ruc) return PADRON[ruc] ? exito(contribuyente(ruc)) : fallo("NO_ENCONTRADO");
+      return exito(null);
+    });
+  });
+
+  it("el RUC del destinatario rellena su nombre", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+
+    fireEvent.change(form.querySelector("#destinatario-num")!, { target: { value: "20601234565" } });
+
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#destinatario-nombre")!.value).toBe("PESQUERA PACÍFICO S.A.C."));
+    expect(llamadasA("/consultas/ruc/").map(([ruta]) => ruta)).toEqual(["/api/proxy/consultas/ruc/20601234565"]);
+  });
+
+  it("al pasar el destinatario de RUC a DNI se suelta el nombre que puso el padrón", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+    fireEvent.change(form.querySelector("#destinatario-num")!, { target: { value: "20601234565" } });
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#destinatario-nombre")!.value).toBe("PESQUERA PACÍFICO S.A.C."));
+
+    await elegirOpcion(combo("#destinatario-tipo"), /DNI/);
+
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#destinatario-nombre")!.value).toBe(""));
+  });
+
+  it("con DNI el destinatario no se consulta", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+    await elegirOpcion(combo("#destinatario-tipo"), /DNI/);
+
+    fireEvent.change(form.querySelector("#destinatario-num")!, { target: { value: "20601234565" } });
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(llamadasA("/consultas/ruc/")).toEqual([]);
+  });
+
+  it("en transporte público, el RUC de la empresa de transporte rellena su razón social", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+    fireEvent.click(screen.getByRole("radio", { name: /Transporte público/ }));
+
+    fireEvent.change(form.querySelector("#guia-transportista-ruc")!, { target: { value: "20480072872" } });
+
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#guia-transportista-nombre")!.value).toBe("TRANSPORTES DEL SUR S.A.C."));
+  });
+
+  it("en una guía transportista, el RUC del remitente rellena su nombre", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+    await elegirOpcion(combo("#guia-serie"), /V001/);
+
+    fireEvent.change(form.querySelector("#remitente-num")!, { target: { value: "20601234565" } });
+
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#remitente-nombre")!.value).toBe("PESQUERA PACÍFICO S.A.C."));
+  });
+});

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { useConsultaRuc } from "@/components/consulta-ruc/use-consulta-ruc";
 import { apiRequest } from "@/lib/api/browser";
 import type { Domicilio, EmpresaDetalle } from "@/lib/api/empresas";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
@@ -28,11 +30,14 @@ export function faltaElDistrito(ubigeo: string, direccion: string, urbanizacion:
 }
 
 export function DatosFiscalesForm({
+  ruc,
   domicilio,
   cuentaDetracciones,
   nombreComercial,
   padronTasaEspecialIgv,
 }: {
+  /** El de la empresa: sin domicilio guardado, se busca el suyo en el padrón de SUNAT para sugerirlo (#575). */
+  ruc?: string;
   domicilio: Domicilio | null;
   cuentaDetracciones: string | null;
   nombreComercial: string | null;
@@ -53,6 +58,12 @@ export function DatosFiscalesForm({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
+
+  // #575: una empresa sin domicilio todavía ve el que SUNAT tiene en el padrón y lo usa con un clic. Es una sugerencia, no se rellena sola: es lo que va en
+  // cada XML. Con un domicilio ya guardado no se consulta.
+  const { resultado: padron } = useConsultaRuc(ruc ?? "", !domicilio?.ubigeo && !domicilio?.direccion);
+  const sugerido = padron?.tipo === "encontrado" && padron.contribuyente.direccion && padron.contribuyente.ubigeo ? padron.contribuyente : null;
+  const mostrarSugerido = sugerido !== null && !ubigeo && !direccion.trim();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -83,6 +94,28 @@ export function DatosFiscalesForm({
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4" data-testid="datos-fiscales">
+      {mostrarSugerido ? (
+        <Alerta
+          tono="info"
+          className="px-3 py-2"
+          accion={
+            <button
+              type="button"
+              className="text-control font-medium text-primary hover:underline"
+              onClick={() => {
+                setDireccion((sugerido.direccion ?? "").slice(0, 200));
+                setUbigeo(sugerido.ubigeo ?? "");
+              }}
+            >
+              {t.usarDomicilioSunat}
+            </button>
+          }
+        >
+          <span data-testid="domicilio-sunat">
+            {t.domicilioSunat} <strong className="font-medium">{sugerido.direccion}</strong>
+          </span>
+        </Alerta>
+      ) : null}
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
         <UbigeoSelector value={ubigeo} onChange={setUbigeo} inicial={domicilio} />
       </div>

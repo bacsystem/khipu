@@ -18,6 +18,7 @@ type Namespace = keyof Mensajes;
 const BASE = [
   "aceptarTerminos",
   "auth",
+  "consultaRuc",
   "cuentaSuspendida",
   "errores",
   "legal",

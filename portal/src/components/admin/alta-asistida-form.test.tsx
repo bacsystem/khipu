@@ -1,11 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { elegirOpcion } from "@/test/select-de-prueba";
+import es from "@/messages/es.json";
+import { DE_BAJA, TIENDAS } from "@/test/padron-de-prueba";
+import { consultarRuc } from "@/lib/api/consulta-ruc";
 import { AltaAsistidaForm } from "./alta-asistida-form";
+
+// La consulta al padrón (#575) va aparte: estas pruebas cuentan los pedidos del alta, y la consulta no debe gastarles el `fetch` de prueba.
+vi.mock("@/lib/api/consulta-ruc", async (original) => ({
+  ...(await original<typeof import("@/lib/api/consulta-ruc")>()),
+  consultarRuc: vi.fn(async () => ({ tipo: "sin-padron" as const })),
+}));
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.mocked(consultarRuc).mockClear();
 });
 
 const CREADA = {
@@ -422,5 +432,44 @@ describe("AltaAsistidaForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     expect(alTerminar).toHaveBeenCalledTimes(1);
+  });
+
+  describe("el RUC en el padrón de SUNAT (#575)", () => {
+    const ruc = () => screen.getByLabelText("RUC") as HTMLInputElement;
+    const razon = () => screen.getByLabelText("Razón social") as HTMLInputElement;
+
+    it("consulta por la ruta del backoffice y rellena la razón social vacía", async () => {
+      vi.mocked(consultarRuc).mockResolvedValueOnce({ tipo: "encontrado", contribuyente: TIENDAS });
+      render(<AltaAsistidaForm />);
+
+      llenar("RUC", TIENDAS.ruc);
+
+      await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
+      expect(consultarRuc).toHaveBeenCalledWith(TIENDAS.ruc, "admin");
+      expect(screen.getByTestId("consulta-ruc")).toHaveAttribute("data-estado", "encontrado");
+    });
+
+    it("no pisa la razón social escrita, y avisa como emisor si el RUC no está activo", async () => {
+      vi.mocked(consultarRuc).mockResolvedValueOnce({ tipo: "encontrado", contribuyente: DE_BAJA });
+      render(<AltaAsistidaForm />);
+      llenar("Razón social", "QUISPE MAMANI");
+
+      llenar("RUC", DE_BAJA.ruc);
+
+      await screen.findByText(es.consultaRuc.usarNombre);
+      expect(razon().value).toBe("QUISPE MAMANI");
+      expect(screen.getByTestId("aviso-ruc-emisor-0")).toHaveTextContent("BAJA DE OFICIO");
+    });
+
+    it("un RUC incompleto o con el dígito verificador mal no se consulta", async () => {
+      render(<AltaAsistidaForm />);
+
+      llenar("RUC", "2010006660");
+      llenar("RUC", "20100066604");
+
+      await new Promise((r) => setTimeout(r, 20));
+      expect(consultarRuc).not.toHaveBeenCalled();
+      expect(ruc().value).toBe("20100066604");
+    });
   });
 });

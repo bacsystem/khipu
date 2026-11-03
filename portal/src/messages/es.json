@@ -2072,6 +2072,26 @@
       "accion": "Crear serie"
     }
   },
+  "consultaRuc": {
+    "consultando": "Consultando SUNAT…",
+    "encontrado": "Encontrado en SUNAT · {estado} · {condicion}",
+    "registraComo": "SUNAT lo registra como",
+    "usarNombre": "Usar este nombre",
+    "noEncontrado": "Este RUC no figura en el padrón de SUNAT, que se actualiza cada día: si lo inscribieron hoy, puede tardar un día en aparecer. SUNAT rechaza los comprobantes a un RUC que no existe, así que confirma el número. Puedes digitar los datos a mano.",
+    "sinPadron": "La consulta de RUC no está disponible por ahora: digita los datos a mano.",
+    "cupo": "Hiciste muchas consultas seguidas. Espera un momento para consultar de nuevo, o digita los datos a mano.",
+    "error": "No se pudo consultar SUNAT. Reintenta o digita los datos a mano.",
+    "reintentar": "Consultar de nuevo",
+    "noEncontradoGeneral": "Este RUC no figura en el padrón de SUNAT, que se actualiza cada día: si lo inscribieron hoy, puede tardar un día en aparecer. Confirma el número o digita los datos a mano.",
+    "emisor": {
+      "noActivo": "Este RUC figura como {estado} en SUNAT. SUNAT puede rechazar los comprobantes de un emisor que no está activo: revisa el número antes de continuar.",
+      "noHabido": "Este RUC figura como no habido en SUNAT. SUNAT puede rechazar los comprobantes de un emisor no habido: regulariza el domicilio fiscal antes de emitir."
+    },
+    "observaciones": {
+      "noActivo": "El RUC no está activo en SUNAT ({estado}). SUNAT aceptará el comprobante con una observación (4013).",
+      "noHabido": "El RUC figura como no habido en SUNAT. SUNAT aceptará el comprobante con una observación (4014)."
+    }
+  },
   "onboarding": {
     "titulo": "Configura tu empresa",
     "subtitulo": "Necesitamos estos datos para poder emitir comprobantes a nombre tuyo.",
@@ -3009,21 +3029,6 @@
         "encontradoVarios": "productos encontrados"
       }
     },
-    "consultaRuc": {
-      "consultando": "Consultando SUNAT…",
-      "encontrado": "Encontrado en SUNAT · {estado} · {condicion}",
-      "registraComo": "SUNAT lo registra como",
-      "usarNombre": "Usar este nombre",
-      "noEncontrado": "Este RUC no figura en el padrón de SUNAT, que se actualiza cada día: si lo inscribieron hoy, puede tardar un día en aparecer. SUNAT rechaza los comprobantes a un RUC que no existe, así que confirma el número. Puedes digitar los datos a mano.",
-      "sinPadron": "La consulta de RUC no está disponible por ahora: digita los datos a mano.",
-      "cupo": "Hiciste muchas consultas seguidas. Espera un momento para consultar de nuevo, o digita los datos a mano.",
-      "error": "No se pudo consultar SUNAT. Reintenta o digita los datos a mano.",
-      "reintentar": "Consultar de nuevo",
-      "observaciones": {
-        "noActivo": "El RUC no está activo en SUNAT ({estado}). SUNAT aceptará el comprobante con una observación (4013).",
-        "noHabido": "El RUC figura como no habido en SUNAT. SUNAT aceptará el comprobante con una observación (4014)."
-      }
-    },
     "vistaPrevia": {
       "noExiste": "El documento todavía no existe.",
       "errorHttp": "Error {estado} al obtener el documento.",
@@ -3447,6 +3452,8 @@
       "quitar": "Quitar credenciales"
     },
     "datosFiscales": {
+      "domicilioSunat": "SUNAT registra este domicilio fiscal para tu RUC:",
+      "usarDomicilioSunat": "Usar este domicilio",
       "faltaDistrito": "Elige el distrito. Sin ubigeo, SUNAT no acepta el domicilio (regla 4093) y la dirección no se guarda.",
       "direccion": "Dirección",
       "direccionPlaceholder": "Av. Javier Prado Este 123 Of. 501",

@@ -200,6 +200,7 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                 <p className="mb-3 text-control leading-relaxed text-muted-foreground">{t.datos.ayuda}</p>
                 <FormulariosDeEscritura permiso="configurar">
                   <DatosFiscalesForm
+                    ruc={empresa.ruc}
                     domicilio={domicilio}
                     cuentaDetracciones={empresa.cuenta_detracciones ?? null}
                     nombreComercial={empresa.nombre_comercial ?? null}
