@@ -22,6 +22,14 @@ if (!soloTipos) {
     process.exit(1);
   }
   const doc = await respuesta.json();
+  // #602: con la configuración por defecto (la de producción) el backend no publica `/v1/admin/**`. Escribir ese documento borraría los
+  // tipos del backoffice y `typecheck` fallaría en contrato-openapi.ts sin decir por qué: se para aquí y se dice.
+  if (!Object.keys(doc.paths ?? {}).some((ruta) => ruta.startsWith("/v1/admin/"))) {
+    console.error(
+      `${base}/openapi.json no publica las rutas /v1/admin/** (configuración de producción). Levante el backend con OPENAPI_RUTAS_OCULTAS= (vacía) y repita.`,
+    );
+    process.exit(1);
+  }
   // `servers` trae el host desde el que se pidió el documento: cambia entre máquinas y entornos sin que la API cambie.
   delete doc.servers;
   writeFileSync(jsonUrl, JSON.stringify(doc, null, 2) + "\n");

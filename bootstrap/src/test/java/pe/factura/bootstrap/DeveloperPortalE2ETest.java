@@ -25,7 +25,9 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("unchecked")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// #602: como en desarrollo, el OpenAPI publica también el backoffice (`OPENAPI_RUTAS_OCULTAS` vacía): es el documento que el portal commitea.
+// Lo que se publica en producción, sin el backoffice, lo prueba OpenApiPublicoE2ETest.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "springdoc.paths-to-exclude=")
 @ActiveProfiles("test")
 @Testcontainers
 @AutoConfigureTestRestTemplate

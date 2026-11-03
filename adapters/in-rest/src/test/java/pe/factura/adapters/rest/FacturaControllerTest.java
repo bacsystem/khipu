@@ -1347,6 +1347,20 @@ class FacturaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("RUTA_INEXISTENTE"));
     }
 
+    /** #602: un sondeo con el método equivocado no es un error interno (antes 500 y un ERROR con traza en el log por cada uno). */
+    @Test void metodoNoSoportadoEs405ConAllowYNo500() throws Exception {
+        mvc.perform(put("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", org.hamcrest.Matchers.containsString("POST")))
+                .andExpect(jsonPath("$.codigo").value("METODO_NO_PERMITIDO"));
+    }
+
+    @Test void tipoDeContenidoNoSoportadoEs415YNo500() throws Exception {
+        mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("text/plain").content("hola"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.codigo").value("TIPO_NO_SOPORTADO"));
+    }
+
     @Test void errorInternoEs500SinDetalle() throws Exception {
         when(emitir.emitirFactura(eq(tenant), any())).thenThrow(new IllegalStateException("detalle secreto"));
         mvc.perform(post("/v1/facturas").requestAttr(TenantActual.ATRIBUTO, tenant).contentType("application/json").content(cuerpo))

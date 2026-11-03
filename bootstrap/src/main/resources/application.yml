@@ -63,6 +63,10 @@ springdoc:
     path: /openapi.json
     # DEPS-02: springdoc 3.x emite OpenAPI 3.1 por defecto (sin `type: object` en los esquemas, entre otros cambios); el portal genera sus tipos del 3.0 commiteado, así que se mantiene 3.0.
     version: openapi_3_0
+  # #602: lo publicado (/openapi.json, /swagger-ui y la referencia de /developers) no documenta el backoffice: sus rutas no dan acceso
+  # sin credenciales, pero son el mapa de lo que hay detrás. Vacío (`OPENAPI_RUTAS_OCULTAS=`) las publica todas: lo necesitan el
+  # desarrollo y `npm --prefix portal run generate:api`, porque la guardia de contrato del portal compara también los tipos del backoffice.
+  paths-to-exclude: ${OPENAPI_RUTAS_OCULTAS:/v1/admin/**}
   swagger-ui:
     path: /swagger-ui
 app:
