@@ -10,10 +10,11 @@ vi.mock("@/lib/api/admin-origen", () => ({
 import { origenDelBackend } from "@/lib/api/admin-origen";
 import { GET } from "./route";
 
-function peticion(init: { sesion?: boolean; xff?: string } = {}) {
+function peticion(init: { sesion?: boolean; xff?: string; cf?: string } = {}) {
   const headers: Record<string, string> = {};
   if (init.sesion !== false) headers.cookie = `${COOKIE_ADMIN_ACCESS}=jwt-admin`;
   if (init.xff !== undefined) headers["x-forwarded-for"] = init.xff;
+  if (init.cf !== undefined) headers["cf-connecting-ip"] = init.cf;
   return new NextRequest("http://localhost/api/admin/origen", { headers });
 }
 
@@ -45,11 +46,43 @@ describe("GET /api/admin/origen", () => {
     expect(json.datos).toEqual({
       cadena_recibida: "6.6.6.6, 203.0.113.7",
       saltos: 1,
+      ip_de_la_conexion: "203.0.113.7",
+      cf_connecting_ip_recibida: null,
+      cloudflare_activado: false,
+      cloudflare_confiada: false,
       ip_resuelta: "203.0.113.7",
       ip_backend: "203.0.113.7",
     });
     // Al backend sale la IP ya resuelta, no la cadena: es lo que permite comparar `ip_backend` con `ip_resuelta`.
     expect(origenDelBackend).toHaveBeenCalledWith("jwt-admin", { "X-Forwarded-For": "203.0.113.7" });
+  });
+
+  it("con Cloudflare delante (#594) muestra la conexión de Cloudflare, la CF-Connecting-IP y que se confió en ella", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    vi.stubEnv("TRUSTED_CLOUDFLARE", "true");
+    vi.mocked(origenDelBackend).mockResolvedValue({ ip: "203.0.113.7" });
+
+    const json = await (await GET(peticion({ xff: "198.41.230.10, 100.64.0.5", cf: "203.0.113.7" }))).json();
+
+    expect(json.datos).toMatchObject({
+      ip_de_la_conexion: "198.41.230.10",
+      cf_connecting_ip_recibida: "203.0.113.7",
+      cloudflare_activado: true,
+      cloudflare_confiada: true,
+      ip_resuelta: "203.0.113.7",
+    });
+    expect(origenDelBackend).toHaveBeenCalledWith("jwt-admin", { "X-Forwarded-For": "203.0.113.7" });
+  });
+
+  it("con Cloudflare activado, una CF-Connecting-IP inventada desde fuera de Cloudflare se muestra pero no se usa", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    vi.stubEnv("TRUSTED_CLOUDFLARE", "true");
+    vi.mocked(origenDelBackend).mockResolvedValue({ ip: "203.0.113.9" });
+
+    const json = await (await GET(peticion({ xff: "203.0.113.9, 100.64.0.5", cf: "6.6.6.6" }))).json();
+
+    expect(json.datos).toMatchObject({ cf_connecting_ip_recibida: "6.6.6.6", cloudflare_confiada: false, ip_resuelta: "203.0.113.9" });
+    expect(origenDelBackend).toHaveBeenCalledWith("jwt-admin", { "X-Forwarded-For": "203.0.113.9" });
   });
 
   it("sin saltos de confianza no resuelve ninguna IP, no manda ninguna al backend, y lo dice", async () => {
