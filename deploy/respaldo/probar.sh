@@ -23,7 +23,7 @@ limpiar
 docker network create "$red" >/dev/null
 docker build -q -t "$imagen" "$raiz/deploy/respaldo" >/dev/null
 for nombre in origen destino; do
-  docker run -d --name "khipu-pr-$nombre" --network "$red" -e POSTGRES_USER=khipu -e POSTGRES_PASSWORD=khipu -e POSTGRES_DB=khipu postgres:16-alpine >/dev/null
+  docker run -d --name "khipu-pr-$nombre" --network "$red" -e POSTGRES_USER=khipu -e POSTGRES_PASSWORD=khipu -e POSTGRES_DB=khipu postgres:18-alpine >/dev/null
 done
 # `--user 0:0` como en docker-compose.yml: la imagen corre como 65532 y no puede escribir en /data.
 docker run -d --name khipu-pr-minio --network "$red" --user 0:0 -e MINIO_ROOT_USER=khipu -e MINIO_ROOT_PASSWORD=khipu-minio \
