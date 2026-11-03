@@ -13,7 +13,10 @@ export async function elegirOpcion(combo: Locator, opcion: string | RegExp): Pro
   await expect(lista).toHaveCount(0);
 }
 
-/** Lo que muestra el combo (el texto de la opción elegida), lo que antes era `toHaveValue` del `<select>`. */
+/**
+ * Lo que muestra el combo (el texto de la opción elegida), lo que antes era `toHaveValue` del `<select>`. Se lee el valor (`data-slot="select-value"`) y no el
+ * botón entero: el ícono del `Select` de base-ui lleva «▼» como texto (el DS lo dibuja como SVG, pero el texto queda en `textContent`).
+ */
 export async function esperarOpcion(combo: Locator, texto: string | RegExp): Promise<void> {
-  await expect(combo).toHaveText(texto);
+  await expect(combo.locator('[data-slot="select-value"]')).toHaveText(texto);
 }

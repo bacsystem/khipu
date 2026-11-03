@@ -426,6 +426,9 @@ test("la unidad sale de las más usadas del catálogo 03 y una inexistente vuelv
   await completarMinimo(dialogo);
   await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
   const unidad = dialogo.getByLabel("Unidad de medida");
+  // El catálogo 03 se pide al abrir «Más opciones»: hasta que llega, el combo solo tiene la unidad de la línea («NIU», sin descripción). Escribir antes
+  // filtraría esa lista de uno; con el catálogo, la unidad se ve con su descripción.
+  await expect(unidad).toHaveValue(/^NIU · /);
   // Un combobox con búsqueda (catálogo 03): se escribe para filtrar y se elige de la lista.
   await unidad.fill("BX");
   await expect(page.getByRole("option", { name: "BX · Caja" })).toBeVisible();
@@ -706,7 +709,7 @@ test("emite una factura de exportación: afectación 40, cliente del exterior co
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
   await dialogo.getByRole("button", { name: "Tipo de operación", exact: true }).click();
-  await elegirOpcion(dialogo.getByLabel("Tipo de operación"), /^0200 · /);
+  await elegirOpcion(dialogo.getByRole("combobox", { name: "Tipo de operación" }), /^0200 · /);
   await esperarOpcion(dialogo.getByLabel("Moneda"), /\(USD\)$/);
 
   await abrirDatosDelCliente(dialogo);
@@ -788,7 +791,7 @@ test("emite una boleta NRUS (0113) y no deja agregarle bolsas de plástico (#297
   await dialogo.getByLabel("Descripción").fill("Pan");
   await dialogo.getByLabel(/Precio unit\./).fill("5");
   await dialogo.getByRole("button", { name: "Tipo de operación", exact: true }).click();
-  await elegirOpcion(dialogo.getByLabel("Tipo de operación"), /^0113 · /);
+  await elegirOpcion(dialogo.getByRole("combobox", { name: "Tipo de operación" }), /^0113 · /);
 
   await dialogo.getByRole("button", { name: "Más opciones del ítem 1" }).click();
   await dialogo.getByRole("checkbox", { name: "Bolsas de plástico (ICBPER)" }).check();

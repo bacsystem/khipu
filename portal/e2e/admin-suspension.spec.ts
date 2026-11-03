@@ -24,7 +24,8 @@ test("el listado dice qué cuentas están suspendidas y las distingue de las act
   const suspendida = page.locator("tr", { hasText: "Cliente 06" });
   await expect(suspendida).toHaveAttribute("data-estado-cuenta", "SUSPENDIDA");
   await expect(suspendida.getByText("Suspendida")).toBeVisible();
-  await expect(suspendida).toHaveClass(/bg-destructive/);
+  // El rojo lo lleva la pill del estado (#562): con el patrón de tablas del design system las filas no se pintan enteras.
+  await expect(suspendida.getByText("Suspendida")).toHaveClass(/bg-destructive-suave/);
   const activa = page.locator("tr", { hasText: "Cliente 04" });
   await expect(activa).toHaveAttribute("data-estado-cuenta", "ACTIVA");
   await expect(activa.getByText("Activa")).toBeVisible();

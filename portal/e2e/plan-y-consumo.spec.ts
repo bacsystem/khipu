@@ -54,7 +54,8 @@ test("la página del plan muestra lo que se usa de API keys, usuarios y RUC cont
 
   for (const [clave, etiqueta] of [["apiKeys", "API keys activas"], ["usuarios", "Usuarios"], ["rucs", "Empresas (RUC)"]] as const) {
     const fila = page.getByTestId(`uso-${clave}`);
-    await expect(fila.getByText(etiqueta, { exact: true })).toBeVisible();
+    // La barra de progreso del design system repite la etiqueta en texto solo para lectores de pantalla (#567): la que se ve es la primera.
+    await expect(fila.getByText(etiqueta, { exact: true }).first()).toBeVisible();
     await expect(fila.getByRole("progressbar")).toBeVisible();
     await expect(fila).toContainText(" / 1");
   }

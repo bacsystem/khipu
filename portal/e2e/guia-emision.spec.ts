@@ -16,6 +16,9 @@ function rucUnico(): string {
  * se cargan desde la propia guía y el avance cambia sin recargar a mano → siguen domicilio y series → con todo listo desaparece.
  */
 test("la guía acompaña a la empresa nueva hasta que puede emitir y entonces desaparece", async ({ page }) => {
+  // #502: un flujo largo (registro, alta de empresa, varias páginas que el dev server compila la primera vez) que con 4 workers sobre el mismo servidor pasa
+  // de los 30 s aunque solo tarde 8-30 s. `slow` triplica el tope; no esconde un fallo, que igual llega al `expect` que no se cumple.
+  test.slow();
   await registrarYVerificar(page, { email: `guia${Date.now()}@ejemplo.pe`, nombre: "Guía SAC", celular: "987654325" });
   await page.getByLabel("RUC").fill(rucUnico());
   await page.getByLabel("Razón social").fill("GUIA SAC");
