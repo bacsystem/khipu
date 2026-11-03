@@ -8,9 +8,14 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Cuenta;
 import pe.factura.domain.cuenta.Rol;
 import pe.factura.domain.cuenta.Usuario;
+import pe.factura.domain.plan.EstadoPlan;
+import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.Limites;
+import pe.factura.domain.plan.Plan;
 import pe.factura.domain.tenant.Entorno;
 import pe.factura.domain.tenant.Tenant;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -94,12 +99,77 @@ class AutenticarUsuarioServiceTest {
     Fakes.Aceptaciones aceptaciones = new Fakes.Aceptaciones();
     static final String TERMINOS = "2026-10-20";
     AceptarTerminosService terminos = new AceptarTerminosService(aceptaciones, Fakes.UOW, clock, TERMINOS);
-    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
+    /** #581: los planes que conoce el registro, lo que anotó y lo que avisó al operador. */
+    GestionarPlanesServiceTest.Planes planes = new GestionarPlanesServiceTest.Planes();
+    Map<UUID, UUID> anotados = new HashMap<>();
+    PlanSolicitadoRepository planesSolicitados = anotados::put;
+    List<String> avisos = new ArrayList<>();
+    AvisoAlOperador operador = (asunto, cuerpo) -> avisos.add(asunto + "|" + cuerpo);
+    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
 
     /** El token del último correo que contiene {@code ruta}: así llega al usuario, y así se lo usa. */
     private String tokenDelCorreo(String ruta) {
         String c = correos.stream().filter(x -> x.contains(ruta)).reduce((a, b) -> b).orElseThrow();
         return c.substring(c.lastIndexOf(ruta) + ruta.length()).trim();
+    }
+
+    // --- #581: el plan que eligió en la página de precios ---------------------------------------------------------------------------
+
+    Plan plan(String nombre, String precio, boolean porDefecto, EstadoPlan estado, boolean publicado) {
+        Plan p = new Plan(UUID.randomUUID(), nombre, new BigDecimal(precio), new Limites(Limite.de(300), 1, Limite.de(1), Limite.de(2), 5), estado, porDefecto, null, publicado);
+        planes.datos.put(p.id(), p);
+        return p;
+    }
+
+    UUID cuentaDe(Tokens t) { return t.usuario().cuentaId(); }
+
+    /** Un plan publicado de pago queda anotado en la cuenta, en la transacción del registro, y el operador recibe el aviso con quién es y dónde verla. */
+    @Test void elPlanElegidoQuedaAnotadoYSeAvisaAlOperador() {
+        Plan negocio = plan("Negocio", "69", false, EstadoPlan.ACTIVO, true);
+
+        Tokens t = service.registrar("Bodega Ana", "a@b.pe", "Segura123", "987654321", true, "negocio", PORTAL);
+
+        assertThat(anotados).containsExactly(Map.entry(cuentaDe(t), negocio.id()));
+        assertThat(avisos).singleElement().satisfies(a -> assertThat(a)
+                .startsWith("Cuenta nueva pide el plan Negocio|")
+                .contains("Bodega Ana").contains("a@b.pe").contains("987654321")
+                .contains(PORTAL + "/admin/cuentas/" + cuentaDe(t)));
+    }
+
+    @Test void elNombreSeEmparejaSinImportarMayusculasNiEspacios() {
+        Plan pro = plan("Pro", "129", false, EstadoPlan.ACTIVO, true);
+
+        Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, "  PRO ", PORTAL);
+
+        assertThat(anotados).containsEntry(cuentaDe(t), pro.id());
+    }
+
+    /**
+     * Lo que no es un plan de pago que se ofrece hoy se ignora y la cuenta se crea igual: el gratis (con el que nace toda cuenta), uno que no se publica, uno
+     * fuera de la oferta, uno que no existe, o nada. Un enlace viejo o retocado no impide registrarse ni molesta al operador.
+     */
+    @Test void loQueNoEsUnPlanDePagoPublicadoSeIgnora() {
+        plan("Gratis", "0", true, EstadoPlan.ACTIVO, true);
+        plan("Estudio", "49", false, EstadoPlan.ACTIVO, false);
+        plan("Viejo", "19", false, EstadoPlan.INACTIVO, true);
+        int n = 0;
+        for (String pedido : Arrays.asList("gratis", "estudio", "viejo", "corporativo", "", "   ", null)) {
+            Tokens t = service.registrar("A", "c" + (n++) + "@b.pe", "Segura123", "987654321", true, pedido, PORTAL);
+            assertThat(t.usuario()).as("se registra igual con %s", pedido).isNotNull();
+        }
+
+        assertThat(anotados).isEmpty();
+        assertThat(avisos).isEmpty();
+    }
+
+    /** Si el registro falla, no queda nada anotado ni se avisa: el aviso sale después de la transacción. */
+    @Test void unRegistroQueFallaNoAvisa() {
+        plan("Negocio", "69", false, EstadoPlan.ACTIVO, true);
+        service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+
+        assertThatThrownBy(() -> service.registrar("B", "a@b.pe", "Segura123", "987654321", true, "Negocio", PORTAL)).extracting("codigo").isEqualTo("DUPLICADO");
+        assertThat(anotados).isEmpty();
+        assertThat(avisos).isEmpty();
     }
 
     // --- #22: verificación del correo ---------------------------------------------------------------------------------------------
@@ -128,7 +198,7 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         String token = tokenDelCorreo("/verificar/");
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
 
         assertThatThrownBy(() -> tarde.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
         assertThatThrownBy(() -> service.verificarCorreo("inventado")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
@@ -178,7 +248,7 @@ class AutenticarUsuarioServiceTest {
         assertThat(verifMap).hasSize(5);
 
         AutenticarUsuarioService manana = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
         manana.reenviarVerificacion(id, PORTAL);
         assertThat(correos).hasSize(6);
     }
@@ -205,7 +275,7 @@ class AutenticarUsuarioServiceTest {
             public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
             public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
         };
-        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
 
         enCarrera.verificarCorreo(token);
 
@@ -249,7 +319,7 @@ class AutenticarUsuarioServiceTest {
             }
         };
         AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, conCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones,
-                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
+                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
 
         enCarrera.restablecer(token, "Nueva1234");
 
@@ -264,7 +334,7 @@ class AutenticarUsuarioServiceTest {
             public void enviar(String p, String a, String c) { throw new IllegalStateException("SMTP caído"); }
             public void enviar(String p, String a, String c, List<Adjunto> adj) { throw new IllegalStateException("SMTP caído"); }
         };
-        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos);
+        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
 
         Tokens t = conRoto.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
 
@@ -323,7 +393,7 @@ class AutenticarUsuarioServiceTest {
         service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         AceptarTerminosService nuevos = new AceptarTerminosService(aceptaciones, Fakes.UOW, clock, "2027-01-15");
         AutenticarUsuarioService conNuevos = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock,
-                verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, nuevos);
+                verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, nuevos, planes, planesSolicitados, operador);
 
         assertThat(conNuevos.login("a@b.pe", "Segura123", null).terminosPendientes()).isTrue();
     }
@@ -404,7 +474,7 @@ class AutenticarUsuarioServiceTest {
     }
 
     private AutenticarUsuarioService conReloj(Clock c) {
-        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos);
+        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
     }
 
     @Test void refreshRotaYElAnteriorDejaDeServir() {
@@ -514,7 +584,7 @@ class AutenticarUsuarioServiceTest {
     @Test void refreshExpiradoFalla() {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos);
+                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
         assertThatThrownBy(() -> tarde.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 

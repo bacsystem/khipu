@@ -15,6 +15,7 @@ import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/adm
 import { MAX_BUSQUEDA } from "@/lib/api/admin-errores";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
+import { interpolar } from "@/i18n/mensajes";
 
 /**
  * Listado de cuentas del backoffice (#180), paginado y filtrado en el servidor: buscar, paginar y cambiar las filas por
@@ -78,6 +79,12 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
                       {c.nombre}
                     </Link>
                     <span className="font-mono text-etiqueta text-muted-foreground">{c.email}</span>
+                    {/* #581: el plan que eligió en la página de precios; la cuenta nació gratis y el operador lo activa al cobrar. */}
+                    {c.plan_solicitado ? (
+                      <span data-testid="plan-solicitado" className="text-etiqueta font-medium text-primary">
+                        {interpolar(messages.admin.cuentas.pidioPlan, { plan: c.plan_solicitado })}
+                      </span>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="px-3 py-2 font-mono text-control text-foreground/80">{c.telefono ?? "—"}</TableCell>

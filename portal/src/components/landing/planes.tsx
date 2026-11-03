@@ -30,7 +30,9 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
   const messages = useMessages();
   const t = messages.landing.planes;
   const [anual, setAnual] = useState(false);
-  const destinoCta = abierto ? "/registro" : contacto;
+  // #581: cada plan de pago lleva su nombre al registro, que lo muestra y lo manda al backend para el operador. El gratis no pide nada: es con el que nace toda cuenta.
+  const destinoCta = (p: TarjetaDePlan) =>
+    abierto ? (p.mensual > 0 ? `/registro?plan=${encodeURIComponent(p.nombre.toLowerCase())}` : "/registro") : contacto;
 
   return (
     <section id="precios" className="mx-auto max-w-6xl px-6 py-24">
@@ -108,9 +110,9 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                 <p className="text-muted-foreground">{p.rucs}</p>
               </div>
 
-              {destinoCta ? (
+              {destinoCta(p) ? (
                 <Link
-                  href={destinoCta}
+                  href={destinoCta(p)!}
                   className={cn(
                     "mt-5 inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors",
                     p.destacado

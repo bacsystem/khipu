@@ -49,6 +49,8 @@ export type CuentaAdminMock = {
   suspendida_en?: string;
   /** Desde cuándo está dada de baja (#201); ausente si está en servicio. Las de baja no salen en los listados salvo que se pida con `bajas`. */
   baja_en?: string;
+  /** #581: el plan que eligió en la página de precios al registrarse; ausente si no eligió ninguno. */
+  plan_solicitado?: string;
   empresas: Array<{ ruc: string; razon_social: string }>;
   /** Los cambios de estado que hizo el mock (H15), del más reciente al más antiguo, como `historial_estado` del backend. */
   historial_estado?: Array<{ accion: string; actor: "ADMINISTRADOR"; administrador: string; ocurrido_en: string; detalle?: string }>;
@@ -450,6 +452,8 @@ export function resetDb() {
       telefono: "912345678",
       creada_en: "2026-09-02T15:00:00Z",
       ultimo_acceso: "2026-09-30T20:00:00Z",
+      // #581: se registró eligiendo Negocio en la página de precios.
+      plan_solicitado: "Negocio",
       empresas: [{ ruc: "20100055121", razon_social: "FERRETERIA LUNA SAC" }],
     },
     ...Array.from({ length: 9 }, (_, i): CuentaAdminMock => {

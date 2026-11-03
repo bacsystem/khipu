@@ -16,3 +16,13 @@ export async function obtenerPlanesPublicados(): Promise<PlanPublicado[] | null>
     return null;
   }
 }
+
+/**
+ * El plan de pago que eligió en la página de precios (#581), por la clave de `/registro?plan=<clave>`: el nombre en minúsculas, como la portada empareja sus
+ * tarjetas. `null` si no hay clave, si no es un plan publicado o si es gratis (con ese nace toda cuenta: no hay nada que pedir). Un enlace viejo no rompe nada.
+ */
+export function planDePagoElegido(publicados: PlanPublicado[] | null, clave: string | undefined): PlanPublicado | null {
+  const buscado = clave?.trim().toLowerCase();
+  if (!buscado || !publicados) return null;
+  return publicados.find((p) => p.nombre.toLowerCase() === buscado && p.precio_mensual > 0) ?? null;
+}

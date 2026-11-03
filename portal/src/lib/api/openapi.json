@@ -3253,7 +3253,7 @@
           "Autenticación (portal)"
         ],
         "summary": "Registrar una cuenta",
-        "description": "Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta\nverificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.\n`403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,\n`400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha.",
+        "description": "Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta\nverificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.\n`403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,\n`400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha. `plan` (opcional, #581): el plan\nque eligió en la página de precios; si es uno publicado de pago queda anotado en la cuenta y se avisa al operador.",
         "operationId": "registrar",
         "requestBody": {
           "content": {
@@ -13401,6 +13401,13 @@
             "type": "boolean",
             "description": "Que acepta los términos del servicio y la política de privacidad vigentes (#342). Sin `true`, `400 TERMINOS_NO_ACEPTADOS`.",
             "example": true
+          },
+          "plan": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "El plan que eligió en la página de precios (#581), por su nombre. La cuenta nace igual en el plan por defecto; si es un plan publicado de pago queda anotado para el operador, que lo activa al registrar el pago. Uno desconocido o el gratis se ignora.",
+            "example": "Negocio"
           }
         }
       },
@@ -18650,6 +18657,11 @@
             "description": "Desde cuándo está dada de baja; ausente si está en servicio",
             "format": "date-time",
             "example": "2026-10-03T09:00:00Z"
+          },
+          "plan_solicitado": {
+            "type": "string",
+            "description": "El plan que eligió en la página de precios al registrarse (#581). Es lo que pidió, no lo que tiene: la cuenta nace en el plan por defecto y el plan pagado se activa al registrar el pago. Ausente si no eligió ninguno",
+            "example": "Negocio"
           }
         }
       },
@@ -18828,6 +18840,11 @@
             "items": {
               "$ref": "#/components/schemas/EventoDeCuenta"
             }
+          },
+          "plan_solicitado": {
+            "type": "string",
+            "description": "El plan que eligió en la página de precios al registrarse (#581). Es lo que pidió, no lo que tiene: la cuenta nace en el plan por defecto y el plan pagado se activa al registrar el pago. Ausente si no eligió ninguno",
+            "example": "Negocio"
           }
         }
       },

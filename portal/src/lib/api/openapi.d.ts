@@ -1452,7 +1452,8 @@ export interface paths {
          * @description Crea la cuenta del portal y devuelve los tokens de sesión. El correo queda sin verificar y se le manda un enlace (24 h): hasta
          *     verificarlo puede entrar al portal, pero cualquier escritura con su sesión responde `403 CORREO_SIN_VERIFICAR`.
          *     `403 REGISTRO_CERRADO` si el autoservicio está cerrado (`app.registro-abierto`). Exige `acepta_terminos: true` (#342): sin eso,
-         *     `400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha.
+         *     `400 TERMINOS_NO_ACEPTADOS` y no se crea nada; con eso queda guardada la versión vigente de los términos y la fecha. `plan` (opcional, #581): el plan
+         *     que eligió en la página de precios; si es uno publicado de pago queda anotado en la cuenta y se avisa al operador.
          */
         post: operations["registrar"];
         delete?: never;
@@ -7312,6 +7313,11 @@ export interface components {
              * @example true
              */
             acepta_terminos: boolean;
+            /**
+             * @description El plan que eligió en la página de precios (#581), por su nombre. La cuenta nace igual en el plan por defecto; si es un plan publicado de pago queda anotado para el operador, que lo activa al registrar el pago. Uno desconocido o el gratis se ignora.
+             * @example Negocio
+             */
+            plan?: string;
         };
         ApiResponseTokensResponse: {
             /**
@@ -10520,6 +10526,11 @@ export interface components {
              * @example 2026-10-03T09:00:00Z
              */
             baja_en?: string;
+            /**
+             * @description El plan que eligió en la página de precios al registrarse (#581). Es lo que pidió, no lo que tiene: la cuenta nace en el plan por defecto y el plan pagado se activa al registrar el pago. Ausente si no eligió ninguno
+             * @example Negocio
+             */
+            plan_solicitado?: string;
         };
         ApiResponseCuentaDetalleResponse: {
             /**
@@ -10629,6 +10640,11 @@ export interface components {
             eventos?: components["schemas"]["EventoDeCuenta"][];
             /** @description Todas las suspensiones, reactivaciones, bajas y reposiciones de la cuenta, de la más reciente a la más antigua, con su motivo en `detalle` */
             historial_estado?: components["schemas"]["EventoDeCuenta"][];
+            /**
+             * @description El plan que eligió en la página de precios al registrarse (#581). Es lo que pidió, no lo que tiene: la cuenta nace en el plan por defecto y el plan pagado se activa al registrar el pago. Ausente si no eligió ninguno
+             * @example Negocio
+             */
+            plan_solicitado?: string;
         };
         EmpresaDeCuenta: {
             /** Format: uuid */

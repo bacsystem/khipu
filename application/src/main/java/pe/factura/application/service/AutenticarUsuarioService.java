@@ -10,9 +10,11 @@ import pe.factura.domain.DomainException;
 import pe.factura.domain.cuenta.Cuenta;
 import pe.factura.domain.cuenta.Rol;
 import pe.factura.domain.cuenta.Usuario;
+import pe.factura.domain.plan.Plan;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -42,9 +44,12 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final PlantillasDeCorreo plantillas;
     private final LimiteDeIntentos limite;
     private final AceptarTerminosUseCase terminos;
+    private final PlanRepository planes;
+    private final PlanSolicitadoRepository planesSolicitados;
+    private final AvisoAlOperador operador;
 
     @Override
-    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String urlBase) {
+    public Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String planSolicitado, String urlBase) {
         // Antes que nada (#342): sin la aceptación no hay registro, aunque el resto venga bien.
         if (!aceptaTerminos)
             throw new DomainException("TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad");
@@ -54,8 +59,10 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
             throw new DomainException("DUPLICADO", "Ya existe una cuenta con ese correo");
         Usuario usuario = new Usuario(UUID.randomUUID(), cuenta.id(), email, hasher.hash(password), Rol.ADMIN, true);
         String verificacion = TokenOpaco.generar();
+        Optional<Plan> pedido = planPedido(planSolicitado);
         Tokens t = uow.ejecutar(() -> {
             cuentas.guardar(cuenta);
+            pedido.ifPresent(p -> planesSolicitados.anotar(cuenta.id(), p.id()));
             usuarios.guardar(usuario);
             verificaciones.crear(new VerificacionCorreoRepository.Token(TokenOpaco.hash(verificacion), usuario.id(), clock.instant().plus(VIDA_VERIFICACION), false));
             // En la misma transacción que el usuario: no queda una cuenta creada sin la constancia de lo que aceptó.
@@ -63,7 +70,27 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
             return emitirTokens(usuario);
         });
         enviarVerificacion(usuario.email(), urlBase, verificacion);
+        pedido.ifPresent(p -> avisarPlanPedido(cuenta, p, urlBase));
         return t;
+    }
+
+    /**
+     * El plan que eligió en la página de precios (#581), si es uno que se ofrece ahí y es de pago: activo, publicado y no el que trae toda cuenta nueva. Por
+     * nombre, sin importar mayúsculas ni espacios, como lo empareja la portada.
+     */
+    private Optional<Plan> planPedido(String nombre) {
+        if (nombre == null || nombre.isBlank()) return Optional.empty();
+        String buscado = nombre.strip();
+        return planes.listar().stream()
+                .filter(p -> p.activo() && p.visibleEnPublicidad() && !p.porDefecto() && p.nombre().equalsIgnoreCase(buscado))
+                .findFirst();
+    }
+
+    /** Después de la transacción, como el correo de verificación: el aviso no puede deshacer un registro ya hecho. */
+    private void avisarPlanPedido(Cuenta cuenta, Plan plan, String urlBase) {
+        operador.avisar("Cuenta nueva pide el plan " + plan.nombre(),
+                cuenta.nombre() + " (" + cuenta.email() + (cuenta.telefono() == null ? "" : ", " + cuenta.telefono()) + ") se registró eligiendo el plan "
+                        + plan.nombre() + ". Nació en el plan por defecto: contáctala para cobrarle y cambiarle el plan. " + urlBase + "/admin/cuentas/" + cuenta.id());
     }
 
     @Override

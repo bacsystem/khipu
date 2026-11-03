@@ -30,6 +30,18 @@ const SIN_FILTROS = { pagina: 1, porPagina: 10 };
 
 const buscador = () => screen.getByLabelText("Buscar por correo, nombre, RUC o razón social") as HTMLInputElement;
 
+/** #581: el plan que eligió en la página de precios se ve en la fila, para que el operador sepa a quién cobrarle; sin pedido, nada. */
+describe("CuentasTabla plan pedido (#581)", () => {
+  it("dice qué plan pidió la cuenta al registrarse, solo si pidió uno", () => {
+    render(<CuentasTabla datos={[{ ...NUEVA, plan_solicitado: "Negocio" }, ANA]} total={2} params={SIN_FILTROS} />);
+
+    const pedidos = screen.getAllByTestId("plan-solicitado");
+    expect(pedidos).toHaveLength(1);
+    expect(pedidos[0].textContent).toBe("Pidió Negocio");
+    expect(within(pedidos[0].closest("tr") as HTMLElement).getByText("Ferretería Luna")).toBeTruthy();
+  });
+});
+
 describe("CuentasTabla estado (#182)", () => {
   it("cada cuenta dice si está activa o suspendida", () => {
     render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);

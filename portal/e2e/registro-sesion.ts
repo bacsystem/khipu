@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 /** Registro por el formulario: entra al portal con el correo todavía sin verificar (#22). */
 export async function registrar(page: Page, { email, nombre = "Mi Empresa de Prueba", celular = "987654321" }: { email: string; nombre?: string; celular?: string }) {
   await page.goto("/registro");
-  await page.getByLabel("Nombre de la cuenta").fill(nombre);
+  await page.getByLabel("Tu nombre o el de tu negocio").fill(nombre);
   await page.getByLabel(/Celular/).fill(celular);
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill("Passw0rd1");

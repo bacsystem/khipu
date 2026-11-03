@@ -19,7 +19,7 @@ function stubFetch(status: number, cuerpo: object) {
 }
 
 function llenar() {
-  fireEvent.change(screen.getByLabelText("Nombre de la cuenta"), { target: { value: "Mi negocio" } });
+  fireEvent.change(screen.getByLabelText("Tu nombre o el de tu negocio"), { target: { value: "Mi negocio" } });
   fireEvent.change(screen.getByLabelText("Celular (Perú)"), { target: { value: "987654321" } });
   fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "ana@negocio.pe" } });
   fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "Segura123" } });
@@ -84,5 +84,36 @@ describe("RegistroForm: términos y privacidad (#342)", () => {
 
     await waitFor(() => expect(screen.getByText("Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad.")).toBeTruthy());
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+/** #581: el plan que eligió en la página de precios se ve en el registro, con lo que pasa con él, y viaja con el registro. */
+describe("RegistroForm: plan elegido (#581)", () => {
+  it("dice qué plan eligió, a qué precio, y que la cuenta empieza gratis", () => {
+    render(<RegistroForm plan={{ nombre: "Negocio", precio: 69 }} />);
+
+    expect(screen.getByText("Elegiste el plan Negocio · S/ 69/mes, IGV incluido")).toBeTruthy();
+    expect(screen.getByTestId("plan-elegido").textContent).toContain("Tu cuenta empieza en el plan gratuito y te escribimos para activar Negocio");
+  });
+
+  it("manda el plan con el registro; sin plan elegido no manda la clave", async () => {
+    const fetch = stubFetch(201, { estado: "exito", datos: { usuario: {} } });
+    render(<RegistroForm plan={{ nombre: "Negocio", precio: 69 }} />);
+    llenar();
+    fireEvent.click(casilla());
+    enviar();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/onboarding"));
+    expect(JSON.parse((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).plan).toBe("Negocio");
+
+    cleanup();
+    render(<RegistroForm />);
+    expect(screen.queryByTestId("plan-elegido")).toBeNull();
+  });
+
+  it("el nombre dice qué dato va y para qué se usa", () => {
+    render(<RegistroForm />);
+    const nombre = screen.getByLabelText("Tu nombre o el de tu negocio");
+    const ayuda = document.getElementById(nombre.getAttribute("aria-describedby")?.split(" ")[0] ?? "");
+    expect(ayuda?.textContent).toContain("La razón social de tu empresa te la pedimos después");
   });
 });

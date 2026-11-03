@@ -65,6 +65,21 @@ class AdminCuentaControllerTest {
                 .andExpect(jsonPath("$.datos[0].plan").doesNotExist());
     }
 
+    /** #581: el plan que pidió al registrarse sale por su nombre; sin pedido, la clave no viene (como el resto de los opcionales). */
+    @Test void elPlanPedidoSaleEnElListadoYEnElDetalle() throws Exception {
+        CuentaResumen pidio = new CuentaResumen(ID, "Mi negocio", "ana@negocio.pe", "987654321", Instant.parse("2026-09-01T10:00:00Z"), 0, null, null, null, "Negocio");
+        when(listar.listar(Filtro.NINGUNO, 1, 20)).thenReturn(List.of(pidio, ANA));
+        mvc.perform(get("/v1/admin/cuentas"))
+                .andExpect(jsonPath("$.datos[0].plan_solicitado").value("Negocio"))
+                .andExpect(jsonPath("$.datos[1].plan_solicitado").doesNotExist());
+
+        CuentaDetalle d = detalleCompleto();
+        when(detalle.detalle(ID)).thenReturn(new CuentaDetalle(d.id(), d.nombre(), d.email(), d.telefono(), d.creadaEn(), null, null, d.usuarios(), d.empresas(),
+                d.comprobantes(), d.eventos(), d.historialEstado(), "Negocio"));
+        mvc.perform(get("/v1/admin/cuentas/" + ID))
+                .andExpect(jsonPath("$.datos.plan_solicitado").value("Negocio"));
+    }
+
     // --- #182: estado de la cuenta -------------------------------------------------------------------------------------------------
 
     @Test void unaCuentaActivaDiceActivaYSinFechaDeSuspension() throws Exception {

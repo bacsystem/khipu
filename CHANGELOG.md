@@ -4,12 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); vers
 
 ## [Unreleased]
 
-Trae **una migración (V73)**, que agrega el entorno a cada documento y lo rellena desde la bitácora de cambios de entorno: respaldar la base antes de desplegar.
+Trae **dos migraciones**: V73 agrega el entorno a cada documento y lo rellena desde la bitácora de cambios de entorno; V74 agrega a la cuenta el plan que pidió al registrarse (columna opcional). Respaldar la base antes de desplegar.
 
 ### Added
+- El plan elegido en la página de precios llega al registro (#581): cada botón de pago lleva a `/registro?plan=<plan>`, el registro dice qué plan eligió, a qué precio y que la cuenta empieza gratis hasta que el equipo active el plan. El backend lo anota en la cuenta (`plan` en `POST /v1/auth/registro`, solo un plan publicado de pago; uno desconocido se ignora), el backoffice lo muestra en Cuentas y en el detalle (`plan_solicitado`), y el operador recibe un aviso por `ALERTAS_EMAIL` / `ALERTAS_WEBHOOK_URL`.
 - Variable de entorno `REVISADO_POR_LEGAL` del portal (#580): `true` quita el aviso de borrador de los términos, la privacidad y la casilla del registro, sin construir otra imagen.
 
 ### Changed
+- Registro (#581): «Nombre de la cuenta» pasa a «Tu nombre o el de tu negocio», con una ayuda que dice para qué se usa. Los enlaces de la cabecera de la portada tienen más peso y contraste.
 - El tope y el consumo del plan cuentan solo Producción (#580): cada documento guarda el entorno en que se emitió (V73), las pruebas en Beta no consumen ni ocupan el tope en ningún plan, y una empresa en Beta sigue probando aunque su cuenta llegó al tope. Plan y consumo del cliente y el consumo del backoffice usan el mismo criterio.
 - Portada (#580): Gratis con comprobantes reales en Producción y pruebas en Beta sin límite, Pro con 10 000 documentos/mes en la lista de respaldo; Emprende ya no vende «Producción además de pruebas», y la nota dice que las pruebas no consumen el plan. Los límites publicados siguen saliendo del backoffice.
 

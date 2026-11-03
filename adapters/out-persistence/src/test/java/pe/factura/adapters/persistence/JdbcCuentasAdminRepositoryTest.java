@@ -69,6 +69,29 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(filas.get(1).empresas()).isZero();
     }
 
+    /**
+     * #581: el plan que pidió al registrarse sale en el listado y en el detalle por su nombre; sin pedido, nulo. Guardar la cuenta otra vez (cambiar su nombre o
+     * su teléfono) no lo borra, y si el plan se borra el dato se va con él sin llevarse la cuenta.
+     */
+    @Test void elPlanPedidoSaleEnElListadoYEnElDetalle() {
+        UUID pidio = cuenta("Pidió", "pidio@x.pe", T0);
+        UUID nada = cuenta("Nada", "nada@x.pe", T0.minusSeconds(60));
+        UUID estudio = UUID.randomUUID();
+        jdbc.update("INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios) VALUES (?, 'Estudio', 49, 500, 2, 2, 2, 5)", estudio);
+        new JdbcPlanSolicitadoRepository(jdbc).anotar(pidio, estudio);
+        new JdbcCuentaRepository(jdbc).guardar(new pe.factura.domain.cuenta.Cuenta(pidio, "Pidió y cambió", "pidio@x.pe", "912345678"));
+
+        List<CuentaResumen> filas = repo.listar(Filtro.NINGUNO, 1, 20);
+
+        assertThat(filas.get(0).planSolicitado()).isEqualTo("Estudio");
+        assertThat(filas.get(1).planSolicitado()).isNull();
+        assertThat(repo.detalle(pidio).orElseThrow().planSolicitado()).isEqualTo("Estudio");
+        assertThat(repo.detalle(nada).orElseThrow().planSolicitado()).isNull();
+
+        jdbc.update("DELETE FROM plan WHERE id = ?", estudio);
+        assertThat(repo.detalle(pidio).orElseThrow().planSolicitado()).isNull();
+    }
+
     @Test void elUltimoAccesoEsLaSesionMasRecienteDeCualquierUsuarioDeLaCuenta() {
         UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
         UUID u1 = usuario(cuenta, "ana@negocio.pe");

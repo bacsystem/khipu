@@ -34,6 +34,20 @@ function pestana(nombre: RegExp) {
   fireEvent.click(screen.getByRole("tab", { name: nombre }));
 }
 
+/** #581: lo que pidió al registrarse, en los datos de la cuenta; sin pedido, dice que empezó gratis. */
+describe("CuentaDetalle plan pedido (#581)", () => {
+  it("muestra el plan que pidió al registrarse", () => {
+    render(<CuentaDetalle cuenta={{ ...CUENTA, plan_solicitado: "Negocio" }} hoy="2026-10-08" plan={<p>plan</p>} />);
+    expect(screen.getByText("Plan que pidió al registrarse")).toBeTruthy();
+    expect(screen.getByText("Negocio")).toBeTruthy();
+  });
+
+  it("sin pedido dice que empezó gratis", () => {
+    render(<CuentaDetalle cuenta={CUENTA} hoy="2026-10-08" plan={<p>plan</p>} />);
+    expect(screen.getByText("Ninguno (empezó gratis)")).toBeTruthy();
+  });
+});
+
 describe("CuentaDetalle", () => {
   it("H19: lo de la cuenta va en pestañas, empezando por el plan y los pagos, y solo se monta la activa", () => {
     render(<CuentaDetalle cuenta={CUENTA} hoy="2026-10-08" plan={<p data-testid="plan">plan</p>} />);
