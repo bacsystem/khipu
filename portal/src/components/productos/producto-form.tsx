@@ -3,14 +3,15 @@
 import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useState } from "react";
-import { Campo } from "khipu-design-system/formularios/campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { apiRequest } from "@/lib/api/browser";
 import type { DatosDeProducto, ProductoGuardado } from "@/lib/api/productos";
 import { etiquetaDelPrecio, gruposAfectacion } from "@/lib/comprobantes/tributos";
 import { type EntradaCatalogo, unidadesDelSelector } from "@/lib/comprobantes/unidades";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosProductos } from "./eventos";
 
 
@@ -76,48 +77,52 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="producto-form">
       <Campo id="prod-descripcion" etiqueta={t.descripcion} error={intento ? errorDescripcion : null}>
-        <input id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder={t.descripcionPlaceholder} className={CAMPO} />
+        <Entrada id="prod-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} autoFocus={!existente} placeholder={t.descripcionPlaceholder} invalido={intento && !!errorDescripcion} aria-describedby={intento && errorDescripcion ? "prod-descripcion-error" : undefined} />
       </Campo>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
         <Campo id="prod-unidad" etiqueta={t.unidad} ayuda={t.unidadAyuda}>
-          <select id="prod-unidad" value={unidad} onChange={(e) => setUnidad(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-            {(unidades ?? []).some((u) => u.codigo === unidad) ? null : <option value={unidad}>{unidad}</option>}
-            {(unidades ?? []).map((u) => (
-              <option key={u.codigo} value={u.codigo}>
-                {u.codigo} · {u.descripcion}
-              </option>
-            ))}
-          </select>
+          {/* Las unidades más usadas del catálogo 03 son pocas: un combo basta. Si la actual no está entre ellas (o el catálogo no llegó), se ofrece igual. */}
+          <SelectCampo
+            id="prod-unidad"
+            mono
+            valor={unidad}
+            onCambio={setUnidad}
+            opciones={[
+              ...((unidades ?? []).some((u) => u.codigo === unidad) ? [] : [{ value: unidad, label: unidad }]),
+              ...(unidades ?? []).map((u) => ({ value: u.codigo, label: `${u.codigo} · ${u.descripcion}` })),
+            ]}
+          />
         </Campo>
         <Campo id="prod-afectacion" etiqueta={t.afectacion} ayuda={t.afectacionAyuda}>
-          <select id="prod-afectacion" value={afectacion} onChange={(e) => setAfectacion(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-            {gruposAfectacion(messages).map((g) => (
-              <optgroup key={g.grupo} label={g.grupo}>
-                {g.opciones.map((a) => (
-                  <option key={a.codigo} value={a.codigo}>
-                    {a.codigo} · {a.etiqueta}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value="40">{t.exportacion}</option>
-          </select>
+          <SelectCampo
+            id="prod-afectacion"
+            valor={afectacion}
+            onCambio={setAfectacion}
+            opciones={[
+              ...gruposAfectacion(messages).flatMap((g) => g.opciones.map((a) => ({ value: a.codigo, label: `${a.codigo} · ${a.etiqueta}`, grupo: g.grupo }))),
+              { value: "40", label: t.exportacion },
+            ]}
+          />
         </Campo>
         <Campo id="prod-precio" etiqueta={etiquetaDelPrecio(afectacion, messages)} error={intento ? errorPrecio : null} ayuda={t.precioAyuda}>
-          <input id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" className={cn(CAMPO, "text-right font-mono tabular-nums")} />
+          {/* `Entrada` y no `EntradaMonto`: el precio admite hasta 10 decimales y `EntradaMonto` lo redondearía a 2. */}
+          <Entrada id="prod-precio" inputMode="decimal" value={precioTexto} onChange={(e) => setPrecioTexto(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0.00" mono className="text-right tabular-nums" invalido={intento && !!errorPrecio} aria-describedby={intento && errorPrecio ? "prod-precio-error" : "prod-precio-ayuda"} />
         </Campo>
         <Campo id="prod-codigo" etiqueta={t.codigo} opcional error={intento ? errorCodigo : null} ayuda={t.codigoAyuda}>
-          <input id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" className={cn(CAMPO, "font-mono")} />
+          <Entrada id="prod-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={30} placeholder="SKU-001" mono invalido={intento && !!errorCodigo} aria-describedby={intento && errorCodigo ? "prod-codigo-error" : "prod-codigo-ayuda"} />
         </Campo>
       </div>
       <Campo id="prod-codigo-sunat" etiqueta={t.codigoSunat} opcional error={intento ? errorCodigoSunat : null} ayuda={t.codigoSunatAyuda}>
-        <input
+        <Entrada
           id="prod-codigo-sunat"
           value={codigoSunat}
           onChange={(e) => setCodigoSunat(e.target.value.replace(/\D/g, "").slice(0, 8))}
           inputMode="numeric"
           placeholder="80101500"
-          className={cn(CAMPO, "font-mono tabular-nums")}
+          mono
+          className="tabular-nums"
+          invalido={intento && !!errorCodigoSunat}
+          aria-describedby={intento && errorCodigoSunat ? "prod-codigo-sunat-error" : "prod-codigo-sunat-ayuda"}
         />
       </Campo>
 
@@ -133,10 +138,9 @@ export function ProductoForm({ existente, onGuardado, onCancelar }: { existente?
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {existente ? t.guardarCambios : t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

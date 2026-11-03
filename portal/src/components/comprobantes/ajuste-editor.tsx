@@ -3,9 +3,10 @@
 import { useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
-import { CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 
@@ -42,10 +43,15 @@ export function AjusteEditor({
       <legend className="mb-1 text-control font-medium text-foreground">{etiqueta}</legend>
       <div className="grid grid-cols-[110px_1fr] gap-2">
         <Campo id={`${id}-modo`} etiqueta={interpolar(t.tipo, { etiqueta })} className="[&>label]:sr-only">
-          <select id={`${id}-modo`} value={valor.modo} onChange={(e) => set({ modo: e.target.value as AjusteForm["modo"] })} className={cn(SELECT_NATIVO, "w-full")}>
-            <option value="porcentaje">{t.porcentaje}</option>
-            <option value="monto">{t.monto}</option>
-          </select>
+          <SelectCampo
+            id={`${id}-modo`}
+            valor={valor.modo}
+            onCambio={(v) => set({ modo: v as AjusteForm["modo"] })}
+            opciones={[
+              { value: "porcentaje", label: t.porcentaje },
+              { value: "monto", label: t.monto },
+            ]}
+          />
         </Campo>
         <Campo id={`${id}-valor`} etiqueta={interpolar(t.valor, { etiqueta })} className="[&>label]:sr-only" error={error ?? undefined}>
           <input

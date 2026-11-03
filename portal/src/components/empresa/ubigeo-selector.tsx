@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import type { CatalogoSunat } from "@/lib/api/catalogos";
-import { AYUDA_CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { Campo } from "khipu-design-system/formularios/campo";
 
 type Ubigeo = { codigo: string; departamento: string; provincia: string; distrito: string };
 
@@ -70,6 +70,15 @@ export function UbigeoSelector({
   );
   const cargando = ubigeos === null && !errorCatalogo;
 
+  // Un distrito elegido desde afuera (#575: el domicilio que sugiere el padrón de SUNAT) lleva el departamento y la provincia al suyo: sin esto el combo del
+  // distrito quedaba con un valor que no está entre sus opciones.
+  useEffect(() => {
+    const u = value ? ubigeos?.find((x) => x.codigo === value) : undefined;
+    if (!u) return;
+    setDepartamento(u.departamento);
+    setProvincia(u.provincia);
+  }, [value, ubigeos]);
+
   return (
     <>
       {errorCatalogo ? (
@@ -80,65 +89,40 @@ export function UbigeoSelector({
           </button>
         </p>
       ) : null}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-departamento`} className={ETIQUETA_CAMPO}>
-          {t.departamento}
-        </label>
-        <select
+      <Campo id={`${idPrefijo}-departamento`} etiqueta={t.departamento}>
+        <SelectCampo
           id={`${idPrefijo}-departamento`}
-          value={departamento}
+          valor={departamento}
           disabled={ubigeos === null}
-          onChange={(e) => {
-            setDepartamento(e.target.value);
+          onCambio={(v) => {
+            setDepartamento(v);
             setProvincia("");
             onChange("");
           }}
-          className={cn(SELECT_NATIVO, "w-full cursor-pointer")}
-        >
-          <option value="">{cargando ? t.cargando : errorCatalogo ? t.noDisponible : t.seleccione}</option>
-          {departamentos.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-provincia`} className={ETIQUETA_CAMPO}>
-          {t.provincia}
-        </label>
-        <select
+          opciones={[{ value: "", label: cargando ? t.cargando : errorCatalogo ? t.noDisponible : t.seleccione }, ...departamentos.map((d) => ({ value: d, label: d }))]}
+        />
+      </Campo>
+      <Campo id={`${idPrefijo}-provincia`} etiqueta={t.provincia}>
+        <SelectCampo
           id={`${idPrefijo}-provincia`}
-          value={provincia}
+          valor={provincia}
           disabled={!departamento}
-          onChange={(e) => {
-            setProvincia(e.target.value);
+          onCambio={(v) => {
+            setProvincia(v);
             onChange("");
           }}
-          className={cn(SELECT_NATIVO, "w-full cursor-pointer")}
-        >
-          <option value="">{t.seleccione}</option>
-          {provincias.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`${idPrefijo}-distrito`} className={ETIQUETA_CAMPO}>
-          {t.distrito}
-        </label>
-        <select id={`${idPrefijo}-distrito`} value={value} disabled={!provincia} onChange={(e) => onChange(e.target.value)} className={cn(SELECT_NATIVO, "w-full cursor-pointer")}>
-          <option value="">{t.seleccione}</option>
-          {distritos.map((d) => (
-            <option key={d.codigo} value={d.codigo}>
-              {d.distrito}
-            </option>
-          ))}
-        </select>
-        <span className={AYUDA_CAMPO}>{value ? interpolar(t.elegido, { codigo: value }) : t.ayuda}</span>
-      </div>
+          opciones={[{ value: "", label: t.seleccione }, ...provincias.map((p) => ({ value: p, label: p }))]}
+        />
+      </Campo>
+      <Campo id={`${idPrefijo}-distrito`} etiqueta={t.distrito} ayuda={value ? interpolar(t.elegido, { codigo: value }) : t.ayuda}>
+        <SelectCampo
+          id={`${idPrefijo}-distrito`}
+          valor={value}
+          disabled={!provincia}
+          onCambio={onChange}
+          opciones={[{ value: "", label: t.seleccione }, ...distritos.map((d) => ({ value: d.codigo, label: d.distrito }))]}
+        />
+      </Campo>
     </>
   );
 }

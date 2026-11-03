@@ -58,7 +58,8 @@ test("con datos: los indicadores del mes, la comparación con el mes anterior y 
     await expect(page.locator(`[data-testid="grafico-emision-dia"][data-fecha="${primero}"]`)).toHaveAttribute("data-emitidos", "3");
     await expect(page.locator(`[data-testid="grafico-emision-dia"][data-fecha="${hoy}"]`)).toHaveAttribute("data-emitidos", "2");
   }
-  await expect(page.getByTestId("grafico-emision-maximo")).toHaveText(primero === hoy ? "5" : "3");
+  // Hoy, el último día, lleva la barra en el acento de la paleta.
+  await expect(page.locator(`[data-testid="grafico-emision-dia"][data-fecha="${hoy}"] path`)).toHaveAttribute("fill", "var(--chart-destacado)");
 
   // La misma información como tabla.
   await page.getByText("Ver como tabla").click();

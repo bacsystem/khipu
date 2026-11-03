@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
+import { elegirOpcion, esperarOpcion } from "./combo";
 
 // El mock (src/mocks/data.ts) siembra 12 empresas, de la más reciente a la más antigua: la primera página trae 10 y la segunda, «Ferretería
 // Luna» (certificado vencido) y «Panadería Sol» (por vencer en 10 días). Por estado del certificado: 2 vencidas, 2 por vencer, 2 vigentes
@@ -41,15 +42,16 @@ test("las empresas con el certificado vencido o por vencer se distinguen a simpl
   await expect(vencida).toContainText(/Venció el/);
   await expect(porVencer).toContainText("PANADERIA SOL SAC");
   await expect(porVencer).toContainText(/Vence el .* \(10 días\)/);
-  await expect(vencida).toHaveClass(/bg-destructive/);
-  await expect(porVencer).toHaveClass(/bg-warning/);
+  // El tono lo lleva la pill del certificado (#562): con el patrón de tablas del design system las filas no se pintan enteras.
+  await expect(vencida.locator("[data-estado] > span")).toHaveClass(/bg-destructive-suave/);
+  await expect(porVencer.locator("[data-estado] > span")).toHaveClass(/bg-warning/);
 });
 
 test("filtrar por el estado del certificado cambia la URL y deja solo esas empresas", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/empresas");
 
-  await page.getByLabel("Certificado").selectOption("VENCIDO");
+  await elegirOpcion(page.getByLabel("Certificado"), "Vencido");
 
   await expect(page).toHaveURL(/certificado=VENCIDO/);
   await expect(filas(page)).toHaveCount(2);
@@ -84,11 +86,11 @@ test("filtrar por entorno, y combinado con el certificado", async ({ page }) => 
   await entrarComoAdmin(page);
   await page.goto("/admin/empresas");
 
-  await page.getByLabel("Entorno").selectOption("PRODUCCION");
+  await elegirOpcion(page.getByLabel("Entorno"), "Producción");
   await expect(page).toHaveURL(/entorno=PRODUCCION/);
   await expect(filas(page)).toHaveCount(3);
 
-  await page.getByLabel("Certificado").selectOption("VENCIDO");
+  await elegirOpcion(page.getByLabel("Certificado"), "Vencido");
   await expect(page).toHaveURL(/entorno=PRODUCCION&certificado=VENCIDO/);
   await expect(filas(page)).toHaveCount(1);
   await expect(page.getByText("FERRETERIA LUNA SAC")).toBeVisible();
@@ -98,22 +100,22 @@ test("cambiar cualquiera de los dos filtros vuelve a la primera página", async 
   await entrarComoAdmin(page);
 
   await page.goto("/admin/empresas?pagina=2");
-  await page.getByLabel("Entorno").selectOption("BETA");
+  await elegirOpcion(page.getByLabel("Entorno"), "Beta");
   await expect(page).not.toHaveURL(/pagina=/);
   await expect(page).toHaveURL(/entorno=BETA/);
 
   await page.goto("/admin/empresas?pagina=2");
-  await page.getByLabel("Certificado").selectOption("SIN_CERTIFICADO");
+  await elegirOpcion(page.getByLabel("Certificado"), "Sin certificado");
   await expect(page).not.toHaveURL(/pagina=/);
   await expect(page).toHaveURL(/certificado=SIN_CERTIFICADO/);
 });
 
-test("«Quitar filtros» vuelve al listado completo", async ({ page }) => {
+test("«Limpiar» vuelve al listado completo", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/empresas?entorno=PRODUCCION&certificado=VENCIDO");
   await expect(filas(page)).toHaveCount(1);
 
-  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await page.getByRole("link", { name: "Limpiar" }).click();
 
   await expect(page).toHaveURL(/\/admin\/empresas$/);
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*12/);
@@ -126,8 +128,8 @@ test("la URL con los filtros es compartible: abrirla directo ya muestra lo filtr
 
   await expect(filas(page)).toHaveCount(1);
   await expect(page.getByText("CLIENTE 07 SAC")).toBeVisible();
-  await expect(page.getByLabel("Entorno")).toHaveValue("PRODUCCION");
-  await expect(page.getByLabel("Certificado")).toHaveValue("POR_VENCER");
+  await esperarOpcion(page.getByLabel("Entorno"), "Producción");
+  await esperarOpcion(page.getByLabel("Certificado"), "Por vencer");
 });
 
 test("un filtro inventado en la URL se ignora: no rompe el listado", async ({ page }) => {

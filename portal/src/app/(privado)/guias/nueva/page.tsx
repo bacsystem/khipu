@@ -1,5 +1,6 @@
-import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { TruckIcon } from "@phosphor-icons/react/dist/ssr";
+import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
+import { EnlaceVolver } from "khipu-design-system/patrones/cabecera-pagina";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
@@ -9,6 +10,7 @@ import { obtenerCatalogo } from "@/lib/api/catalogos";
 import { listarEstablecimientos } from "@/lib/api/establecimientos";
 import { listarSeries } from "@/lib/api/series";
 import { hoyLima } from "@/lib/formato";
+import { ACCION_PRINCIPAL, CONTENEDOR_PAGINA } from "@/lib/estilos";
 import { getServerSession } from "@/lib/session-server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -52,19 +54,25 @@ export default async function NuevaGuiaPage() {
   const seriesDeGuia = series.filter((s) => s.activa && (s.tipo === "09" || s.tipo === "31"));
 
   return (
-    <div className="mx-auto grid w-full max-w-[1100px] min-w-0 grid-cols-1 gap-4">
-      <Link href="/guias" className="flex w-fit items-center gap-1.5 text-control text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
-        {t.form.volver}
-      </Link>
+    <div className={CONTENEDOR_PAGINA}>
+      <div>
+        <EnlaceVolver href="/guias">{t.form.volver}</EnlaceVolver>
+      </div>
       <AvisoExperimental />
       {seriesDeGuia.length === 0 ? (
-        <p className="text-cuerpo text-muted-foreground" data-testid="guias-sin-serie">
-          {t.pagina.sinSerie}{" "}
-          <Link href="/series" className="text-primary hover:underline">
-            {t.pagina.crearSerie}
-          </Link>
-        </p>
+        <div data-testid="guias-sin-serie">
+          <EstadoVacio
+            icon={TruckIcon}
+            titulo={t.pagina.sinSerieTitulo}
+            accion={
+              <Link href="/series" className={ACCION_PRINCIPAL}>
+                {t.pagina.crearSerie}
+              </Link>
+            }
+          >
+            {t.pagina.sinSerie}
+          </EstadoVacio>
+        </div>
       ) : (
         <NuevaGuiaForm series={seriesDeGuia} establecimientos={establecimientos} catalogos={{ motivos, tiposDocumento, documentos }} hoy={hoyLima()} />
       )}

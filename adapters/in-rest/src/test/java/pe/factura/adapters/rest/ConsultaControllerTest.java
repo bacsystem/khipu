@@ -29,7 +29,7 @@ class ConsultaControllerTest {
     UUID tenant = UUID.randomUUID();
 
     @Test void consultaUnRucDelPadron() throws Exception {
-        when(padron.consultar(tenant, "20100066603")).thenReturn(new ConsultarPadronRucUseCase.Consulta(
+        when(padron.consultar(ConsultarPadronRucUseCase.Solicitante.empresa(tenant), "20100066603")).thenReturn(new ConsultarPadronRucUseCase.Consulta(
                 new PadronRucRepository.Contribuyente("20100066603", "TIENDAS S.A.C.", "ACTIVO", "HABIDO", "150101", "AV. PERU NRO. 1"), Instant.parse("2026-10-15T09:40:00Z")));
         mvc.perform(get("/v1/consultas/ruc/20100066603").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk())
@@ -44,8 +44,30 @@ class ConsultaControllerTest {
                 .andExpect(jsonPath("$.datos.actualizado_al").value("2026-10-15T09:40:00Z"));
     }
 
+    /** #575: el onboarding consulta con la sesión y sin empresa todavía; el cupo se le cuenta a la cuenta. Con empresa elegida, a la empresa aunque haya sesión. */
+    @Test void sinEmpresaElCupoEsDeLaCuentaYConEmpresaDeLaEmpresa() throws Exception {
+        UUID cuenta = UUID.randomUUID();
+        var consulta = new ConsultarPadronRucUseCase.Consulta(
+                new PadronRucRepository.Contribuyente("20100066603", "TIENDAS S.A.C.", "ACTIVO", "HABIDO", null, null), Instant.parse("2026-10-15T09:40:00Z"));
+        when(padron.consultar(any(), eq("20100066603"))).thenReturn(consulta);
+
+        mvc.perform(get("/v1/consultas/ruc/20100066603").requestAttr(CuentaActual.ATRIBUTO, cuenta))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.datos.razon_social").value("TIENDAS S.A.C."));
+        verify(padron).consultar(ConsultarPadronRucUseCase.Solicitante.cuenta(cuenta), "20100066603");
+
+        mvc.perform(get("/v1/consultas/ruc/20100066603").requestAttr(CuentaActual.ATRIBUTO, cuenta).requestAttr(TenantActual.ATRIBUTO, tenant))
+                .andExpect(status().isOk());
+        verify(padron).consultar(ConsultarPadronRucUseCase.Solicitante.empresa(tenant), "20100066603");
+    }
+
+    @Test void sinEmpresaNiCuentaNoConsulta() throws Exception {
+        mvc.perform(get("/v1/consultas/ruc/20100066603"))
+                .andExpect(status().is4xxClientError()).andExpect(jsonPath("$.codigo").value("EMPRESA_REQUERIDA"));
+        verifyNoInteractions(padron);
+    }
+
     @Test void unRucDeBajaNoEsActivoNiHabido() throws Exception {
-        when(padron.consultar(tenant, "20100066603")).thenReturn(new ConsultarPadronRucUseCase.Consulta(
+        when(padron.consultar(ConsultarPadronRucUseCase.Solicitante.empresa(tenant), "20100066603")).thenReturn(new ConsultarPadronRucUseCase.Consulta(
                 new PadronRucRepository.Contribuyente("20100066603", "TIENDAS S.A.C.", "BAJA DE OFICIO", "NO HABIDO", null, null), Instant.parse("2026-10-15T09:40:00Z")));
         mvc.perform(get("/v1/consultas/ruc/20100066603").requestAttr(TenantActual.ATRIBUTO, tenant))
                 .andExpect(status().isOk())

@@ -14,7 +14,9 @@
     "cancelar": "Cancel",
     "cerrarSesion": "Sign out",
     "elegirFecha": "Pick a date",
-    "quitarFecha": "Clear the date"
+    "quitarFecha": "Clear the date",
+    "abrirOpciones": "Open options",
+    "sinResultados": "No results"
   },
   "referenciaTecnica": {
     "abrir": "Technical reference",
@@ -201,8 +203,8 @@
       "titulo": "Accounts",
       "descripcion": "Customers registered on the platform.",
       "buscar": "Search by email, name, RUC or business name",
-      "botonBuscar": "Search",
-      "quitarFiltros": "Clear filters",
+      "barraDeFiltros": "Filter accounts",
+      "quitarFiltros": "Clear",
       "vacio": "There are no accounts yet.",
       "sinResultados": "No accounts match those filters.",
       "nunca": "Never",
@@ -221,12 +223,12 @@
       "titulo": "Companies",
       "descripcion": "All companies on the platform and whether they are able to issue.",
       "buscar": "Search by RUC or business name",
-      "botonBuscar": "Search",
+      "barraDeFiltros": "Filter companies",
       "filtroEntorno": "Environment",
       "filtroCertificado": "Certificate",
       "todosEntornos": "All environments",
       "todosCertificados": "All certificates",
-      "quitarFiltros": "Clear filters",
+      "quitarFiltros": "Clear",
       "vacio": "There are no companies yet.",
       "sinResultados": "No companies match those filters.",
       "sinCuenta": "No account",
@@ -405,10 +407,11 @@
       "mes": "Month",
       "orden": "Sort by",
       "ordenes": {
-        "PORCENTAJE": "Percentage used",
-        "DOCUMENTOS": "Documents used"
+        "PORCENTAJE": "By percentage used",
+        "DOCUMENTOS": "By documents used"
       },
       "vistas": "Accounts to show",
+      "barraDeFiltros": "Filter usage",
       "filtros": {
         "TODAS": "All",
         "CERCA_DEL_LIMITE": "Near the limit",
@@ -709,8 +712,8 @@
       },
       "buscar": "Search customer",
       "buscarPlaceholder": "RUC, business name or account",
-      "botonBuscar": "Search",
-      "quitarFiltros": "Clear filters",
+      "barraDeFiltros": "Filter the error queue",
+      "quitarFiltros": "Clear",
       "soloUnaEmpresa": "One company only",
       "verTodas": "View all",
       "columnas": {
@@ -931,7 +934,9 @@
         "texto": "Text",
         "textoAyuda": "A single line, up to {max} characters. It is shown as plain text.",
         "desde": "Shown from",
+        "horaDesde": "Start time",
         "hasta": "Until",
+        "horaHasta": "End time",
         "hastaAyuda": "Required, and at most {dias} days after it starts.",
         "publicar": "Publish notice",
         "reemplazar": "Replace notice",
@@ -973,8 +978,8 @@
     },
     "bajas": {
       "etiqueta": "Closed accounts",
-      "ocultas": "Hide",
-      "incluidas": "Include",
+      "ocultas": "Without closed accounts",
+      "incluidas": "With closed accounts",
       "solo": "Closed accounts only",
       "cuentaDeBaja": "Closed"
     },
@@ -2067,6 +2072,26 @@
       "accion": "Create series"
     }
   },
+  "consultaRuc": {
+    "consultando": "Checking SUNAT…",
+    "encontrado": "Found in SUNAT · {estado} · {condicion}",
+    "registraComo": "SUNAT has it registered as",
+    "usarNombre": "Use this name",
+    "noEncontrado": "This RUC is not in the SUNAT registry, which is updated daily: if it was registered today, it may take a day to appear. SUNAT rejects documents to a RUC that does not exist, so confirm the number. You can type the details in manually.",
+    "sinPadron": "RUC lookup is not available right now: type the details in manually.",
+    "cupo": "You made many lookups in a row. Wait a moment to look it up again, or type the details in manually.",
+    "error": "SUNAT could not be checked. Retry or type the details in manually.",
+    "reintentar": "Check again",
+    "noEncontradoGeneral": "This RUC is not in the SUNAT registry, which is updated daily: if it was registered today, it may take a day to appear. Confirm the number or type the details in manually.",
+    "emisor": {
+      "noActivo": "This RUC is listed as {estado} at SUNAT. SUNAT may reject documents from an issuer that is not active: check the number before continuing.",
+      "noHabido": "This RUC is listed as not located (no habido) at SUNAT. SUNAT may reject documents from an issuer that is not located: update the tax address before issuing."
+    },
+    "observaciones": {
+      "noActivo": "The RUC is not active at SUNAT ({estado}). SUNAT will accept the document with an observation (4013).",
+      "noHabido": "The RUC is listed as not located (no habido) at SUNAT. SUNAT will accept the document with an observation (4014)."
+    }
+  },
   "onboarding": {
     "titulo": "Set up your company",
     "subtitulo": "We need this information to issue documents on your behalf.",
@@ -2756,6 +2781,9 @@
         "topeSinDocumento": "A receipt over S/ {tope}.00 (or in another currency) identifies the buyer with their document.",
         "corrijaAjustes": "Fix the highlighted discounts, charges or taxes before issuing.",
         "vencimientoAnterior": "The due date cannot be earlier than the issue date.",
+        "sinCliente": "The customer is missing: type their RUC or pick them from your saved customers.",
+        "clienteSinResolver": "Pick a customer from the list or type their full RUC (11 digits) or, on a receipt, their DNI (8). If they are not there, use “Enter manually”.",
+        "nombreDelCliente": "The customer's name must have at least 3 characters: fix it in their details.",
         "esperaVencida": "The server took too long to respond while issuing",
         "conexionCortada": "The connection dropped while issuing",
         "reintentar": "{causa}. Issue again without changing anything: if the {nombre} had already been issued, you will see the same one, not a duplicate."
@@ -2777,7 +2805,6 @@
       "ayudaTipoCambio": "Soles per 1 {moneda}; goes on the PDF and the sales ledger, not to SUNAT",
       "comprador": "Buyer",
       "cliente": "Customer",
-      "guardarCliente": "Save to my customers when issuing",
       "documentoComprador": "Buyer’s document",
       "sinDocumentoAyuda": "SUNAT allows it up to a total of S/ {tope}.00; in another currency, using the exchange rate.",
       "numeroDocumento": "Document number",
@@ -2799,8 +2826,6 @@
       "ayudaCorreo": "If you turned on automatic sending, they get the PDF and the XML once SUNAT accepts it",
       "placeholderCorreo": "purchasing@customer.com",
       "tipoOperacion": "Operation type",
-      "formaPago": "Payment terms",
-      "alContado": "Cash",
       "alCredito": "Credit (installments)",
       "incoterm": "Incoterm",
       "ayudaIncoterm": "Incoterms 2020; required by Customs, not validated by SUNAT",
@@ -2808,7 +2833,8 @@
       "paisUso": "Country where the service is used",
       "ayudaPaisUso": "Where the service is used or enjoyed (3098); other than Peru",
       "detraccionCheck": "Operation subject to detraction (SPOT)",
-      "avisoDetraccion": "This invoice exceeds S/ 700.00. If it is a service subject to SPOT, check detraction.",
+      "avisoDetraccion": "This invoice exceeds S/ 700.00. If it is a service subject to SPOT, add detraction.",
+      "activarDetraccion": "Add detraction",
       "percepcionCheck": "Operation with IGV perception",
       "retencionCheck": "The customer withholds IGV (withholding agent)",
       "items": "Items",
@@ -2856,6 +2882,32 @@
       "anticipoAyuda": "It is issued like any {nombre}. When you deliver the good or service, choose this advance payment under “Deduct advance payments” on the final {nombre} to settle it.",
       "descontarAnticipos": "Deduct advance payments",
       "datosAdicionales": "Additional data: dispatch guides, related documents and notes",
+      "agregar": "Add:",
+      "extras": {
+        "credito": "Credit",
+        "detraccion": "Detraction",
+        "percepcion": "Perception",
+        "retencion": "Withholding",
+        "operacion": "Operation type",
+        "masOpciones": "More options",
+        "anticipos": "Advance payments",
+        "referencias": "References",
+        "correo": "Email"
+      },
+      "quitarExtra": "Remove “{extra}”",
+      "masOpcionesEnEmpresa": "More options in Company → Issuing",
+      "clienteSinNombre": "No name yet: type it in “Edit details”",
+      "editarDatosCliente": "Edit details",
+      "cambiarCliente": "Change",
+      "sinDocumentoCorto": "No document",
+      "placeholderClienteFactura": "RUC or business name",
+      "placeholderClienteBoleta": "DNI, RUC or name",
+      "placeholderClienteExportacion": "Name of a saved customer",
+      "ayudaClienteFactura": "With the full RUC, the business name and address come from the SUNAT registry.",
+      "ayudaClienteBoleta": "Left empty, the receipt goes to “Clientes varios” (up to S/ {tope}.00). After a DNI, press Enter.",
+      "ayudaClienteExportacion": "Pick a saved customer or enter their foreign document manually.",
+      "ingresarAMano": "Enter manually",
+      "descartarDatosCliente": "Discard details",
       "verPlan": "View plan and usage",
       "totales": {
         "gravado": "Taxable",
@@ -2874,7 +2926,8 @@
       "totalAPagar": "Total to pay",
       "loCalculaKhipu": "khipu calculates it",
       "emitiendo": "Issuing…",
-      "emitir": "Issue {nombre}"
+      "emitir": "Issue {nombre}",
+      "emitirConTotal": "Issue {nombre} · {total}"
     },
     "editores": {
       "ajuste": {
@@ -2962,7 +3015,7 @@
       "clientes": {
         "etiqueta": "Search a saved customer",
         "placeholder": "Search a saved customer by document or name",
-        "sinResultados": "No saved customer matches. Type it below and check the box to save it.",
+        "sinResultados": "No saved customer matches. Type their full RUC or DNI, or use “Enter manually”.",
         "fallo": "Your customers could not be searched; type it in manually.",
         "encontradoUno": "customer found",
         "encontradoVarios": "customers found"
@@ -2974,21 +3027,6 @@
         "fallo": "Your products could not be searched; type it in manually.",
         "encontradoUno": "product found",
         "encontradoVarios": "products found"
-      }
-    },
-    "consultaRuc": {
-      "consultando": "Checking SUNAT…",
-      "encontrado": "Found in SUNAT · {estado} · {condicion}",
-      "registraComo": "SUNAT has it registered as",
-      "usarNombre": "Use this name",
-      "noEncontrado": "This RUC is not in the SUNAT registry, which is updated daily: if it was registered today, it may take a day to appear. SUNAT rejects documents to a RUC that does not exist, so confirm the number. You can type the details in manually.",
-      "sinPadron": "RUC lookup is not available right now: type the details in manually.",
-      "cupo": "You made many lookups in a row. Wait a moment to look it up again, or type the details in manually.",
-      "error": "SUNAT could not be checked. Retry or type the details in manually.",
-      "reintentar": "Check again",
-      "observaciones": {
-        "noActivo": "The RUC is not active at SUNAT ({estado}). SUNAT will accept the document with an observation (4013).",
-        "noHabido": "The RUC is listed as not located (no habido) at SUNAT. SUNAT will accept the document with an observation (4014)."
       }
     },
     "vistaPrevia": {
@@ -3351,6 +3389,13 @@
         "desactivado": "Off",
         "errorTitulo": "The preference could not be loaded",
         "errorTexto": "Try again in a few minutes."
+      },
+      "emision": {
+        "titulo": "Issuing options",
+        "activadas": "Advanced",
+        "desactivadas": "Simple",
+        "errorTitulo": "The preference could not be loaded",
+        "errorTexto": "Try again in a few minutes."
       }
     },
     "secciones": {
@@ -3360,6 +3405,7 @@
         "sol": "SOL credentials",
         "pdf": "PDF",
         "correo": "Customer delivery",
+        "emision": "Issuing",
         "empresas": "Companies"
       },
       "pendiente": ", pending"
@@ -3406,6 +3452,8 @@
       "quitar": "Remove credentials"
     },
     "datosFiscales": {
+      "domicilioSunat": "SUNAT has this tax address registered for your RUC:",
+      "usarDomicilioSunat": "Use this address",
       "faltaDistrito": "Choose the district. Without a ubigeo, SUNAT does not accept the address (rule 4093) and the address is not saved.",
       "direccion": "Address",
       "direccionPlaceholder": "Av. Javier Prado Este 123 Of. 501",
@@ -3430,6 +3478,14 @@
       "casillaAyuda": "They receive the PDF, the signed XML and the SUNAT receipt (CDR) at the email you enter when issuing. A credit or debit note goes to the email of the document it modifies, and a receipt reported in the daily summary goes out when SUNAT accepts the summary. It applies to what is accepted from now on; when you turn it off, anything waiting to go out is no longer sent.",
       "activado": "Automatic delivery turned on.",
       "desactivado": "Automatic delivery turned off.",
+      "guardar": "Save preference"
+    },
+    "preferenciasEmision": {
+      "interruptor": "Show advanced options when issuing",
+      "interruptorAyuda": "Adds the operation type and export, advance payments, perception, withholding, «More options» and references to the issuing form. Off, the form stays simpler. Credit, detraction and the customer's email are always there.",
+      "soloAdmin": "Only an administrator can change it.",
+      "activadas": "Advanced options turned on.",
+      "desactivadas": "Advanced options turned off.",
       "guardar": "Save preference"
     },
     "nueva": {
@@ -3739,6 +3795,7 @@
       "nueva": "New guide",
       "experimentalTitulo": "Experimental feature",
       "experimentalTexto": "Sending guides to SUNAT is switched off until the operator turns it on after a controlled run, and SUNAT offers no test environment for the dispatch guide. Until then you can issue without sending to review the XML and the PDF; the guide stays signed and is sent later from its page.",
+      "sinSerieTitulo": "You don't have a guide series yet",
       "sinSerie": "To issue a guide you need a dispatch guide series (T### for the sender, V### for the carrier).",
       "crearSerie": "Create a series"
     },
@@ -4267,12 +4324,12 @@
       "ahorroAnual": "−2 months",
       "masUsado": "Most popular",
       "paraSiempre": "forever",
-      "porMes": "/month",
-      "alAno": "{monto} per year · 2 months free",
+      "porMes": "/month · IGV (VAT) included",
+      "alAno": "{monto} per year, IGV included · 2 months free",
       "empezarGratis": "Start for free",
       "elegir": "Choose {plan}",
       "pedirAcceso": "Request access",
-      "nota": "Documents count once SUNAT accepts them: rejections and retries don’t use up your plan.",
+      "nota": "Prices in soles, IGV (VAT) included. Documents count once SUNAT accepts them: rejections and retries don’t use up your plan.",
       "aMedida": "Need on-premise or a custom plan?",
       "escribenos": "Write to us",
       "limites": {
@@ -5683,7 +5740,6 @@
     "revelada": {
       "etiqueta": "Your API key",
       "aviso": "Save it somewhere safe now: <b>it won’t be shown again</b>. Only a hash is kept, so if you lose it you’ll have to revoke it and create another one.",
-      "copiada": "Copied",
       "copiar": "Copy"
     },
     "nueva": {

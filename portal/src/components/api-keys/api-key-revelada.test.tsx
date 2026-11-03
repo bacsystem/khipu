@@ -36,14 +36,14 @@ describe("ApiKeyRevelada", () => {
     expect(screen.queryByText(/no volverá a mostrarse/)).toBeNull();
   });
 
-  it("«Copiar» manda la llave al portapapeles y pasa a «Copiada»", async () => {
+  it("«Copiar» manda la llave al portapapeles y pasa a «Copiado» (texto fijo del BotonCopiar del DS)", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubPortapapeles(writeText);
     render(<ApiKeyRevelada apiKey="fk_abc123" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Copiar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Copiada" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copiado" })).toBeTruthy());
     expect(writeText).toHaveBeenCalledWith("fk_abc123");
   });
 

@@ -1,6 +1,12 @@
-import { ArrowLeftIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
-import Link from "next/link";
+import { ArrowSquareOutIcon, ChatTextIcon, DownloadSimpleIcon, FilesIcon, IdentificationCardIcon, PackageIcon, ShieldCheckIcon, TruckIcon } from "@phosphor-icons/react/dist/ssr";
+import { PESO_ICONO, type IconoComponente } from "khipu-design-system/lib/iconos";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { ListaDatos, type DatoLista } from "khipu-design-system/datos/lista-datos";
+import { EnlaceVolver } from "khipu-design-system/patrones/cabecera-pagina";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
+import { ChipCodigo } from "khipu-design-system/patrones/pill-estado";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
@@ -11,7 +17,9 @@ import type { Locale } from "@/i18n/config";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { enlaceDeConsultaSeguro, numeroDeGuia, obtenerGuia, type Guia, type PuntoDeGuia } from "@/lib/api/guias";
 import { ApiError } from "@/lib/api/types";
-import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { TITULO_REGISTRO } from "@/lib/detalle";
+import { ACCION_SECUNDARIA, CABECERA_TABLA, CONTENEDOR_PAGINA, TARJETA } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { formatearFecha, formatearPrecioUnitario } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 
@@ -22,23 +30,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type T = Mensajes["guias"]["detalle"];
 
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+/** Una sección de la ficha: tarjeta con la cabecera del design system y su contenido. */
+function Seccion({ titulo, icon, children }: { titulo: string; icon: IconoComponente; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className={ETIQUETA_DATO}>{etiqueta}</span>
-      <div className="text-control break-words text-foreground">{children}</div>
-    </div>
-  );
-}
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className={`${TARJETA} flex flex-col gap-3 p-4`}>
-      <h2 className={TITULO_SECCION}>{titulo}</h2>
-      {children}
+    <section className={TARJETA}>
+      <CabeceraSeccion icon={icon} titulo={titulo} />
+      <div className="flex flex-col gap-3 px-4 pb-4">{children}</div>
     </section>
   );
 }
+
+/** Quita las filas que no aplican a esta guía (`null`) antes de pasarlas a `ListaDatos`. */
+const filas = (datos: (DatoLista | null)[]): DatoLista[] => datos.filter((d): d is DatoLista => d !== null);
 
 /** Un punto del traslado: el establecimiento de la empresa si lo es, y si no su ubigeo y su dirección. */
 function Punto({ punto, t }: { punto: PuntoDeGuia; t: T }) {
@@ -80,66 +83,64 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
   const hora = g.hora_emision;
 
   return (
-    <div className="mx-auto grid w-full max-w-[1100px] min-w-0 grid-cols-1 gap-4">
-      <Link href="/guias" className="flex w-fit items-center gap-1.5 text-control text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon weight={PESO_ICONO} className="size-3.5" />
-        {t.volver}
-      </Link>
-
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-mono text-titulo-pagina font-semibold tracking-tight" data-testid="guia-numero">
-              {numero}
-            </span>
-            <EstadoGuiaBadge estado={g.estado} />
-          </div>
-          <span className="text-control text-muted-foreground">{messages.guias.tipos[g.tipo]}</span>
-          <span className="text-control text-muted-foreground">
-            {hora ? interpolar(t.emitida, { fecha: formatearFecha(g.fecha_emision, locale), hora }) : interpolar(t.emitidaSinHora, { fecha: formatearFecha(g.fecha_emision, locale) })}
-          </span>
-        </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <EnlaceVolver href="/guias">{t.volver}</EnlaceVolver>
         <GuiaAcciones guia={g} />
-      </header>
+      </div>
+
+      <section className={cn(TARJETA, "flex flex-col gap-1 p-4")}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className={TITULO_REGISTRO}>{messages.guias.tipos[g.tipo]}</h2>
+          <span data-testid="guia-numero">
+            <ChipCodigo>{numero}</ChipCodigo>
+          </span>
+          <EstadoGuiaBadge estado={g.estado} />
+        </div>
+        <span className="text-control text-muted-foreground">
+          {hora ? interpolar(t.emitida, { fecha: formatearFecha(g.fecha_emision, locale), hora }) : interpolar(t.emitidaSinHora, { fecha: formatearFecha(g.fecha_emision, locale) })}
+        </span>
+      </section>
 
       <AvisoExperimental />
 
-      <Seccion titulo={t.estadoAnteSunat}>
+      <Seccion titulo={t.estadoAnteSunat} icon={ShieldCheckIcon}>
         <p className="text-control text-muted-foreground" data-testid="guia-estado-ayuda">
           {messages.guias.estadoAyuda[g.estado]}
         </p>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {g.ticket ? (
-            <Dato etiqueta={t.ticket}>
-              <span className="font-mono text-control">{g.ticket}</span>
-            </Dato>
-          ) : null}
-          {g.fecha_recepcion ? <Dato etiqueta={t.recepcion}>{g.fecha_recepcion.replace("T", " ")}</Dato> : null}
-          <Dato etiqueta={t.intentos}>{g.intentos}</Dato>
-          <Dato etiqueta={t.consultasTicket}>{g.consultas_ticket}</Dato>
-        </div>
+        <ListaDatos
+          columnas={2}
+          datos={filas([
+            g.ticket ? { etiqueta: t.ticket, valor: g.ticket, mono: true } : null,
+            g.fecha_recepcion ? { etiqueta: t.recepcion, valor: g.fecha_recepcion.replace("T", " "), mono: true } : null,
+            { etiqueta: t.intentos, valor: g.intentos, mono: true },
+            { etiqueta: t.consultasTicket, valor: g.consultas_ticket, mono: true },
+          ])}
+        />
         {g.ultimo_error ? (
-          <div className="rounded-lg border border-destructive-border bg-destructive-suave p-3 text-control text-destructive-texto" data-testid="guia-ultimo-error">
-            <strong className="block text-etiqueta">{t.ultimoError}</strong>
-            <span className="break-words">{g.ultimo_error}</span>
-            {g.reintento_automatico !== undefined ? (
-              <span className="mt-1 block text-control opacity-80">{g.reintento_automatico ? t.reintentoAutomatico : t.sinReintentoAutomatico}</span>
-            ) : null}
+          <div data-testid="guia-ultimo-error">
+            <Alerta tono="error" titulo={t.ultimoError}>
+              <span className="break-words">{g.ultimo_error}</span>
+              {g.reintento_automatico !== undefined ? (
+                <span className="mt-1 block opacity-80">{g.reintento_automatico ? t.reintentoAutomatico : t.sinReintentoAutomatico}</span>
+              ) : null}
+            </Alerta>
           </div>
         ) : null}
         {g.cdr ? (
-          <div className="rounded-lg border border-border bg-muted p-3 text-control" data-testid="guia-cdr">
-            <strong className="block text-etiqueta text-muted-foreground">{t.constancia}</strong>
-            <span>
-              <span className="font-mono">{g.cdr.codigo}</span> · {g.cdr.descripcion}
-            </span>
-            {g.cdr.observaciones && g.cdr.observaciones.length > 0 ? (
-              <ul className="mt-2 list-disc pl-5 text-control text-muted-foreground">
-                {g.cdr.observaciones.map((o) => (
-                  <li key={o}>{o}</li>
-                ))}
-              </ul>
-            ) : null}
+          <div data-testid="guia-cdr">
+            <Alerta tono="info" titulo={t.constancia}>
+              <span>
+                <span className="font-mono">{g.cdr.codigo}</span> · {g.cdr.descripcion}
+              </span>
+              {g.cdr.observaciones && g.cdr.observaciones.length > 0 ? (
+                <ul className="mt-2 list-disc pl-5">
+                  {g.cdr.observaciones.map((o) => (
+                    <li key={o}>{o}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </Alerta>
           </div>
         ) : null}
         {enlaceDeConsultaSeguro(g.enlace_consulta) ? (
@@ -150,121 +151,147 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
         ) : null}
       </Seccion>
 
-      <Seccion titulo={t.destinatario}>
-        <Dato etiqueta={t.destinatario}>
-          <span className="font-medium">{g.destinatario.nombre}</span>
-          <span className="block font-mono text-etiqueta text-muted-foreground">
-            {g.destinatario.tipo_doc} · {g.destinatario.num_doc}
-          </span>
-        </Dato>
-        {g.remitente ? (
-          <Dato etiqueta={t.remitente}>
-            <span className="font-medium">{g.remitente.nombre}</span>
-            <span className="block font-mono text-etiqueta text-muted-foreground">
-              {g.remitente.tipo_doc} · {g.remitente.num_doc}
-            </span>
-          </Dato>
-        ) : null}
-      </Seccion>
-
-      <Seccion titulo={t.traslado}>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {g.motivo ? (
-            <Dato etiqueta={t.motivo}>
-              <span className="font-mono">{g.motivo}</span>
-              {g.descripcion_motivo ? <span> · {g.descripcion_motivo}</span> : null}
-            </Dato>
-          ) : null}
-          {g.modalidad ? <Dato etiqueta={t.modalidad}>{(t.modalidades as Record<string, string>)[g.modalidad] ?? g.modalidad}</Dato> : null}
-          <Dato etiqueta={t.fechaInicio}>{formatearFecha(envio.fecha_inicio, locale)}</Dato>
-          <Dato etiqueta={t.pesoBruto}>
-            <span className="font-mono">
-              {formatearPrecioUnitario(envio.peso_bruto, locale)} {envio.unidad_peso}
-            </span>
-          </Dato>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Dato etiqueta={t.partida}>
-            <Punto punto={envio.partida} t={t} />
-          </Dato>
-          <Dato etiqueta={t.llegada}>
-            <Punto punto={envio.llegada} t={t} />
-          </Dato>
-        </div>
-        {g.transportista ? (
-          <Dato etiqueta={t.transportista}>
-            <span className="font-medium">{g.transportista.razon_social}</span>
-            <span className="block font-mono text-etiqueta text-muted-foreground">
-              {[interpolar(t.ruc, { ruc: g.transportista.ruc }), g.transportista.registro_mtc ? interpolar(t.registroMtc, { registro: g.transportista.registro_mtc }) : null].filter(Boolean).join(" · ")}
-            </span>
-          </Dato>
-        ) : null}
-        {g.registro_mtc ? <Dato etiqueta={t.transportista}>{interpolar(t.registroMtc, { registro: g.registro_mtc })}</Dato> : null}
-        {envio.vehiculos.length > 0 ? (
-          <Dato etiqueta={t.vehiculos}>
-            <ul className="flex flex-wrap gap-x-4 gap-y-1">
-              {envio.vehiculos.map((v) => (
-                <li key={v.placa} className="font-mono">
-                  {v.placa}
-                  {v.principal ? <span className="ml-1 font-sans text-etiqueta text-muted-foreground">({t.principal})</span> : null}
-                </li>
-              ))}
-            </ul>
-          </Dato>
-        ) : null}
-        {envio.conductores.length > 0 ? (
-          <Dato etiqueta={t.conductores}>
-            <ul className="flex flex-col gap-1">
-              {envio.conductores.map((c) => (
-                <li key={`${c.tipo_doc}-${c.num_doc}`}>
-                  {c.nombres} {c.apellidos}
-                  <span className="ml-1 font-mono text-etiqueta text-muted-foreground">
-                    {c.tipo_doc} · {c.num_doc} · {interpolar(t.licencia, { licencia: c.licencia })}
-                    {c.principal ? ` · ${t.principal}` : ""}
+      <Seccion titulo={t.destinatario} icon={IdentificationCardIcon}>
+        <ListaDatos
+          columnas={2}
+          datos={filas([
+            {
+              etiqueta: t.destinatario,
+              valor: (
+                <>
+                  <span className="font-medium">{g.destinatario.nombre}</span>
+                  <span className="block font-mono text-etiqueta text-muted-foreground">
+                    {g.destinatario.tipo_doc} · {g.destinatario.num_doc}
                   </span>
-                </li>
-              ))}
-            </ul>
-          </Dato>
-        ) : null}
-        {envio.indicadores.length > 0 ? (
-          <Dato etiqueta={t.indicadores}>
-            <ul className="list-disc pl-5">
-              {envio.indicadores.map((i) => (
-                <li key={i}>{(t.indicadoresNombres as Record<string, string>)[i] ?? i}</li>
-              ))}
-            </ul>
-          </Dato>
-        ) : null}
+                </>
+              ),
+            },
+            g.remitente
+              ? {
+                  etiqueta: t.remitente,
+                  valor: (
+                    <>
+                      <span className="font-medium">{g.remitente.nombre}</span>
+                      <span className="block font-mono text-etiqueta text-muted-foreground">
+                        {g.remitente.tipo_doc} · {g.remitente.num_doc}
+                      </span>
+                    </>
+                  ),
+                }
+              : null,
+          ])}
+        />
       </Seccion>
 
-      <Seccion titulo={t.bienes}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-control">
-            <thead>
-              <tr className="border-b border-border text-etiqueta text-muted-foreground">
-                <th className="py-1.5 pr-3 font-semibold">{t.bienesCabeceras.codigo}</th>
-                <th className="py-1.5 pr-3 font-semibold">{t.bienesCabeceras.descripcion}</th>
-                <th className="py-1.5 pr-3 font-semibold">{t.bienesCabeceras.unidad}</th>
-                <th className="py-1.5 text-right font-semibold">{t.bienesCabeceras.cantidad}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {g.items.map((i, n) => (
-                <tr key={`${i.codigo ?? ""}-${n}`} className="border-b border-border/60">
-                  <td className="py-1.5 pr-3 font-mono text-control text-muted-foreground">{i.codigo ?? "—"}</td>
-                  <td className="py-1.5 pr-3">{i.descripcion}</td>
-                  <td className="py-1.5 pr-3 font-mono text-control">{i.unidad}</td>
-                  <td className="py-1.5 text-right font-mono">{formatearPrecioUnitario(i.cantidad, locale)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Seccion titulo={t.traslado} icon={TruckIcon}>
+        <ListaDatos
+          columnas={2}
+          datos={filas([
+            g.motivo
+              ? {
+                  etiqueta: t.motivo,
+                  valor: (
+                    <>
+                      <span className="font-mono">{g.motivo}</span>
+                      {g.descripcion_motivo ? <span> · {g.descripcion_motivo}</span> : null}
+                    </>
+                  ),
+                }
+              : null,
+            g.modalidad ? { etiqueta: t.modalidad, valor: (t.modalidades as Record<string, string>)[g.modalidad] ?? g.modalidad } : null,
+            { etiqueta: t.fechaInicio, valor: formatearFecha(envio.fecha_inicio, locale) },
+            { etiqueta: t.pesoBruto, valor: `${formatearPrecioUnitario(envio.peso_bruto, locale)} ${envio.unidad_peso}`, mono: true },
+            { etiqueta: t.partida, valor: <Punto punto={envio.partida} t={t} /> },
+            { etiqueta: t.llegada, valor: <Punto punto={envio.llegada} t={t} /> },
+            g.transportista
+              ? {
+                  etiqueta: t.transportista,
+                  valor: (
+                    <>
+                      <span className="font-medium">{g.transportista.razon_social}</span>
+                      <span className="block font-mono text-etiqueta text-muted-foreground">
+                        {[interpolar(t.ruc, { ruc: g.transportista.ruc }), g.transportista.registro_mtc ? interpolar(t.registroMtc, { registro: g.transportista.registro_mtc }) : null].filter(Boolean).join(" · ")}
+                      </span>
+                    </>
+                  ),
+                }
+              : null,
+            g.registro_mtc ? { etiqueta: t.transportista, valor: interpolar(t.registroMtc, { registro: g.registro_mtc }) } : null,
+            envio.vehiculos.length > 0
+              ? {
+                  etiqueta: t.vehiculos,
+                  valor: (
+                    <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                      {envio.vehiculos.map((v) => (
+                        <li key={v.placa} className="font-mono">
+                          {v.placa}
+                          {v.principal ? <span className="ml-1 font-sans text-etiqueta text-muted-foreground">({t.principal})</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ),
+                }
+              : null,
+            envio.conductores.length > 0
+              ? {
+                  etiqueta: t.conductores,
+                  valor: (
+                    <ul className="flex flex-col gap-1">
+                      {envio.conductores.map((c) => (
+                        <li key={`${c.tipo_doc}-${c.num_doc}`}>
+                          {c.nombres} {c.apellidos}
+                          <span className="ml-1 font-mono text-etiqueta text-muted-foreground">
+                            {c.tipo_doc} · {c.num_doc} · {interpolar(t.licencia, { licencia: c.licencia })}
+                            {c.principal ? ` · ${t.principal}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ),
+                }
+              : null,
+            envio.indicadores.length > 0
+              ? {
+                  etiqueta: t.indicadores,
+                  valor: (
+                    <ul className="list-disc pl-5">
+                      {envio.indicadores.map((i) => (
+                        <li key={i}>{(t.indicadoresNombres as Record<string, string>)[i] ?? i}</li>
+                      ))}
+                    </ul>
+                  ),
+                }
+              : null,
+          ])}
+        />
       </Seccion>
+
+      <section className={CONTENEDOR_TABLA}>
+        <CabeceraSeccion icon={PackageIcon} titulo={t.bienes} className="px-2" />
+        <Table className="text-control">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={CABECERA_TABLA}>{t.bienesCabeceras.codigo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.bienesCabeceras.descripcion}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.bienesCabeceras.unidad}</TableHead>
+              <TableHead className={cn(CABECERA_TABLA, "text-right")}>{t.bienesCabeceras.cantidad}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {g.items.map((i, n) => (
+              <TableRow key={`${i.codigo ?? ""}-${n}`}>
+                <TableCell className="px-3 py-2 font-mono text-muted-foreground">{i.codigo ?? "—"}</TableCell>
+                <TableCell className="px-3 py-2 whitespace-normal">{i.descripcion}</TableCell>
+                <TableCell className="px-3 py-2 font-mono">{i.unidad}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono">{formatearPrecioUnitario(i.cantidad, locale)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
 
       {g.documentos_relacionados.length > 0 ? (
-        <Seccion titulo={t.documentos}>
+        <Seccion titulo={t.documentos} icon={FilesIcon}>
           <ul className="flex flex-col gap-1 text-control">
             {g.documentos_relacionados.map((d) => (
               <li key={`${d.tipo}-${d.numero}`}>
@@ -280,13 +307,13 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
       ) : null}
 
       {g.observaciones ? (
-        <Seccion titulo={t.observacionesDeLaGuia}>
+        <Seccion titulo={t.observacionesDeLaGuia} icon={ChatTextIcon}>
           <p className="text-control break-words">{g.observaciones}</p>
         </Seccion>
       ) : null}
 
       {g.enlaces ? (
-        <Seccion titulo={t.descargas}>
+        <Seccion titulo={t.descargas} icon={DownloadSimpleIcon}>
           <div className="flex flex-wrap gap-2" data-testid="guia-descargas">
             <a href={`/api/proxy/guias-remision/${encodeURIComponent(g.id)}/xml`} className={ACCION_SECUNDARIA}>
               <DownloadSimpleIcon weight={PESO_ICONO} className="size-4" />

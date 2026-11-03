@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
 import { porPaginaValido } from "khipu-design-system/lib/paginacion";
@@ -6,6 +5,8 @@ import { AvisoExperimental } from "@/components/guias/aviso-experimental";
 import { GuiasTable } from "@/components/guias/guias-table";
 import { filtrosDeGuiasDesdeParams, listarGuias } from "@/lib/api/guias";
 import { getServerSession } from "@/lib/session-server";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -23,12 +24,7 @@ export default async function GuiasPage({
 
   if (!access || !empresaId) {
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
@@ -39,7 +35,7 @@ export default async function GuiasPage({
   const { datos, total } = await listarGuias(access, empresaId, { ...filtros, pagina: paginaNum, porPagina });
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
+    <div className={CONTENEDOR_PAGINA}>
       {/* El título de la página (h1) y «Nueva guía» los pone la barra superior. */}
       <AvisoExperimental />
       <GuiasTable datos={datos} total={total} pagina={paginaNum} porPagina={porPagina} filtros={filtros} />

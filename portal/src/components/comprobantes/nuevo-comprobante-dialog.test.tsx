@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { fechaElegida } from "@/test/fecha-de-prueba";
+import { opcionesDe } from "@/test/select-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pedirDuplicado } from "@/lib/comprobantes/duplicar";
 import { NuevoComprobanteDialog } from "./nuevo-comprobante-dialog";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/lib/use-preferencias-de-emision", () => ({ usePreferenciasDeEmision: () => ({ opcionesAvanzadas: true, cargando: false }) }));
 
 /** Una empresa que puede emitir: con certificado y credenciales SOL (C2). */
 const LISTA_PARA_EMITIR = { tiene_certificado: true, certificado_vigencia_hasta: null, tiene_credenciales_sol: true };
@@ -280,14 +282,14 @@ describe("NuevoComprobanteDialog", () => {
 
     render(<NuevoComprobanteDialog />);
     await abrir();
-    expect(screen.getByRole("option", { name: /F001/ })).toBeInTheDocument();
-    expect(screen.getByLabelText("RUC")).toBeInTheDocument();
+    expect(screen.getByLabelText("Serie")).toHaveTextContent(/F001/);
+    expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
 
-    await waitFor(() => expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument());
-    expect(screen.queryByRole("option", { name: /F001/ })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Documento del comprador")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Serie")).toHaveTextContent(/B001 · último emitido N\.º 9/));
+    expect(await opcionesDe(screen.getByLabelText("Serie"))).toEqual(["B001 · último emitido N.º 9"]);
+    expect(screen.getByLabelText("Comprador")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
   });
 
@@ -300,7 +302,7 @@ describe("NuevoComprobanteDialog", () => {
     await abrir();
 
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("option", { name: /B001 · último emitido N\.º 9/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Serie")).toHaveTextContent(/B001 · último emitido N\.º 9/);
     expect(screen.getByRole("button", { name: "Emitir boleta" })).toBeInTheDocument();
     expect(screen.queryByText("No tienes series de factura")).not.toBeInTheDocument();
     // La factura sigue a un clic: abrir en Boleta no esconde la otra opción.
@@ -397,9 +399,9 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("f-1");
 
-    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20554198211"));
-    expect(screen.getByLabelText("Razón social")).toHaveValue("CLIENTE SAC");
-    expect(screen.getByLabelText("Moneda")).toHaveValue("USD");
+    await waitFor(() => expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("RUC 20554198211"));
+    expect(screen.getByTestId("tarjeta-cliente-nombre")).toHaveTextContent("CLIENTE SAC");
+    expect(screen.getByLabelText("Moneda")).toHaveTextContent("(USD)");
     expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
     expect(await fechaElegida("Fecha de emisión")).toBe(new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }));
   });
@@ -412,16 +414,16 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     });
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("b-1");
-    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    await waitFor(() => expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("DNI 44781209"));
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
 
     // Cerrar y abrir con el botón es un comprobante nuevo, no la copia. La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
-    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByTestId("tarjeta-cliente")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
     await waitFor(() => expect(screen.getByLabelText("Serie")).toBeInTheDocument());
-    expect(screen.getByLabelText("RUC")).toHaveValue("");
+    expect(screen.getByLabelText("Cliente")).toHaveValue("");
   });
 
   /** #319: Escape en la lista del buscador de clientes cierra la lista, no el diálogo que la contiene. */
@@ -435,7 +437,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     render(<NuevoComprobanteDialog />);
     await abrir();
 
-    const buscador = screen.getByLabelText("Buscar un cliente guardado");
+    const buscador = screen.getByLabelText("Cliente");
     fireEvent.change(buscador, { target: { value: "pacif" } });
     await screen.findByRole("option", { name: /PESQUERA/ });
     fireEvent.keyDown(buscador, { key: "Escape" });
@@ -444,7 +446,7 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     expect(screen.getByLabelText("Serie")).toBeInTheDocument();
   });
 
-  it("una boleta sin documento se copia sin documento y con el nombre habitual del comprador", async () => {
+  it("una boleta sin documento se copia como «Clientes varios»: el campo del comprador vacío, sin tarjeta", async () => {
     stubFetch((url) => {
       if (url.includes("/facturas/b-2")) return sobre({ ...FACTURA, id: "b-2", tipo: "03", serie: "B001", moneda: "PEN", receptor: { tipo_doc: "-", num_doc: "-", razon_social: "CLIENTES VARIOS", direccion: null } });
       if (url.includes("/series")) return sobre(SERIES_FB);
@@ -452,8 +454,10 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     });
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("b-2");
-    await waitFor(() => expect(screen.getByLabelText("Documento del comprador")).toHaveValue("-"));
-    expect(screen.getByLabelText("Nombre del comprador")).toHaveValue("CLIENTES VARIOS");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByLabelText("Comprador")).toHaveValue("");
+    expect(screen.queryByTestId("tarjeta-cliente")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Descripción")).toHaveValue("Soporte mensual");
   });
 
   /** Revisión de #323 (H1): dos pedidos seguidos o un diálogo abierto a mano mientras tanto no se pisan con una copia que llega tarde. */
@@ -468,10 +472,10 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("f-a");
     pedirDuplicado("f-b");
-    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue("20100066603"));
+    await waitFor(() => expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("RUC 20100066603"));
     resolverA(sobre(FACTURA));
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByLabelText("RUC")).toHaveValue("20100066603");
+    expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("RUC 20100066603");
   });
 
   it("abrir «Nuevo comprobante» a mano mientras la copia viaja la anula: lo escrito no se pierde", async () => {
@@ -484,10 +488,10 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("f-1");
     await abrir();
-    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20131312955" } });
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "20131312955" } });
     resolver(sobre(FACTURA));
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByLabelText("RUC")).toHaveValue("20131312955");
+    expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("RUC 20131312955");
   });
 
   it("avisa lo que no se copió del comprobante original", async () => {
@@ -510,11 +514,11 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     });
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("b-1");
-    await waitFor(() => expect(screen.getByLabelText("Número de documento")).toHaveValue("44781209"));
+    await waitFor(() => expect(screen.getByTestId("tarjeta-cliente-documento")).toHaveTextContent("DNI 44781209"));
     expect(screen.getByRole("button", { name: "Boleta" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
-    await waitFor(() => expect(screen.queryByLabelText("Número de documento")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByTestId("tarjeta-cliente")).not.toBeInTheDocument());
     fallar = true;
     pedirDuplicado("b-1");
     expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
@@ -530,43 +534,44 @@ describe("NuevoComprobanteDialog — duplicar (#323)", () => {
     render(<NuevoComprobanteDialog />);
     pedirDuplicado("f-9");
     expect(await screen.findByText("No se pudo copiar el comprobante")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText("RUC")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByLabelText("Cliente")).toHaveValue(""));
   });
 });
 
 describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
-  const preparar = () => stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
+  // #557: lo escrito va al campo «Cliente», que busca en los guardados: la búsqueda responde vacía.
+  const preparar = () => stubFetch((url) => (url.includes("/series") ? sobre(SERIES) : url.includes("/api/proxy/clientes?") ? sobre([]) : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" })));
   const esc = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
 
   it("Esc con datos pide confirmación: seguir editando conserva todo, descartar cierra", async () => {
     preparar();
     render(<NuevoComprobanteDialog />);
     await abrir();
-    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Pesquera" } });
 
     esc();
     expect(await screen.findByTestId("confirmar-cierre")).toHaveTextContent("¿Descartar lo que escribiste?");
-    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+    expect(screen.getByLabelText("Cliente")).toHaveValue("Pesquera");
 
     fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
     expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("RUC")).toHaveValue("20554198211");
+    expect(screen.getByLabelText("Cliente")).toHaveValue("Pesquera");
 
     esc();
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
-    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText("Cliente")).not.toBeInTheDocument());
 
     // Al volver a abrir es un comprobante nuevo.
     await abrir();
-    expect(screen.getByLabelText("RUC")).toHaveValue("");
+    expect(screen.getByLabelText("Cliente")).toHaveValue("");
   });
 
   it("«Seguir editando» devuelve el foco al campo donde estaba el usuario", async () => {
     preparar();
     render(<NuevoComprobanteDialog />);
     await abrir();
-    const ruc = screen.getByLabelText("RUC");
-    fireEvent.change(ruc, { target: { value: "20554198211" } });
+    const ruc = screen.getByLabelText("Cliente");
+    fireEvent.change(ruc, { target: { value: "Pesquera" } });
     ruc.focus();
     esc();
     fireEvent.click(await screen.findByRole("button", { name: "Seguir editando" }));
@@ -578,7 +583,7 @@ describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
     render(<NuevoComprobanteDialog />);
     await abrir();
     esc();
-    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText("Cliente")).not.toBeInTheDocument());
     expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
 
     await abrir();
@@ -591,9 +596,9 @@ describe("NuevoComprobanteDialog — descartar lo escrito (#117)", () => {
     preparar();
     render(<NuevoComprobanteDialog />);
     await abrir();
-    fireEvent.change(screen.getByLabelText("RUC"), { target: { value: "20554198211" } });
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Pesquera" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    await waitFor(() => expect(screen.queryByLabelText("RUC")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText("Cliente")).not.toBeInTheDocument());
     expect(screen.queryByTestId("confirmar-cierre")).not.toBeInTheDocument();
   });
 });

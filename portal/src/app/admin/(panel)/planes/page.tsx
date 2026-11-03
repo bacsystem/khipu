@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PlanesTabla } from "@/components/admin/planes-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { listarPlanesAdmin } from "@/lib/api/admin-planes";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -24,21 +27,22 @@ export default async function AdminPlanesPage() {
 
   const t = messages.admin.planes;
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{t.titulo}</h1>
-        <p className="max-w-3xl text-cuerpo text-muted-foreground">{t.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={t.titulo} descripcion={t.descripcion} />
 
       {planes ? (
         <PlanesTabla planes={planes} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{t.error}</span>
-          <Link href="/admin/planes" className="font-medium underline">
-            {t.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href="/admin/planes" className="font-medium underline">
+              {t.reintentar}
+            </Link>
+          }
+        >
+          {t.error}
+        </Alerta>
       )}
     </div>
   );

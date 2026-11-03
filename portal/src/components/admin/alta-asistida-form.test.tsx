@@ -1,10 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { elegirOpcion } from "@/test/select-de-prueba";
+import es from "@/messages/es.json";
+import { DE_BAJA, TIENDAS } from "@/test/padron-de-prueba";
+import { consultarRuc } from "@/lib/api/consulta-ruc";
 import { AltaAsistidaForm } from "./alta-asistida-form";
+
+// La consulta al padrón (#575) va aparte: estas pruebas cuentan los pedidos del alta, y la consulta no debe gastarles el `fetch` de prueba.
+vi.mock("@/lib/api/consulta-ruc", async (original) => ({
+  ...(await original<typeof import("@/lib/api/consulta-ruc")>()),
+  consultarRuc: vi.fn(async () => ({ tipo: "sin-padron" as const })),
+}));
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.mocked(consultarRuc).mockClear();
 });
 
 const CREADA = {
@@ -78,8 +89,8 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
 
     expect(pasoActual()).toBe("1");
-    expect((screen.getByLabelText("Entorno") as HTMLSelectElement).value).toBe("BETA");
-    expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("01");
+    expect(screen.getByLabelText("Entorno")).toHaveTextContent("Beta (pruebas)");
+    expect(screen.getByLabelText("Tipo de comprobante")).toHaveTextContent("Factura");
     expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("F001");
   });
 
@@ -203,8 +214,8 @@ describe("AltaAsistidaForm", () => {
     const fetch = stubFetch(sobre(201, { estado: "exito", datos: { ...CREADA, serie: { tipo: "03", serie: "B002" } } }));
     render(<AltaAsistidaForm />);
     llenarValido({ telefono: "987-654-321" });
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
     llenar("Serie", "b002");
 
     await enviar();
@@ -297,10 +308,10 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     const serie = () => (screen.getByLabelText("Serie") as HTMLInputElement).value;
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
     await waitFor(() => expect(serie()).toBe("B001"));
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "01" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Factura");
     await waitFor(() => expect(serie()).toBe("F001"));
   });
 
@@ -308,9 +319,9 @@ describe("AltaAsistidaForm", () => {
     render(<AltaAsistidaForm />);
     llenar("Serie", "B002");
 
-    fireEvent.change(screen.getByLabelText("Tipo de comprobante"), { target: { value: "03" } });
+    await elegirOpcion(screen.getByLabelText("Tipo de comprobante"), "Boleta");
 
-    await waitFor(() => expect((screen.getByLabelText("Tipo de comprobante") as HTMLSelectElement).value).toBe("03"));
+    await waitFor(() => expect(screen.getByLabelText("Tipo de comprobante")).toHaveTextContent("Boleta"));
     expect((screen.getByLabelText("Serie") as HTMLInputElement).value).toBe("B002");
   });
 
@@ -421,5 +432,44 @@ describe("AltaAsistidaForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     expect(alTerminar).toHaveBeenCalledTimes(1);
+  });
+
+  describe("el RUC en el padrón de SUNAT (#575)", () => {
+    const ruc = () => screen.getByLabelText("RUC") as HTMLInputElement;
+    const razon = () => screen.getByLabelText("Razón social") as HTMLInputElement;
+
+    it("consulta por la ruta del backoffice y rellena la razón social vacía", async () => {
+      vi.mocked(consultarRuc).mockResolvedValueOnce({ tipo: "encontrado", contribuyente: TIENDAS });
+      render(<AltaAsistidaForm />);
+
+      llenar("RUC", TIENDAS.ruc);
+
+      await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
+      expect(consultarRuc).toHaveBeenCalledWith(TIENDAS.ruc, "admin");
+      expect(screen.getByTestId("consulta-ruc")).toHaveAttribute("data-estado", "encontrado");
+    });
+
+    it("no pisa la razón social escrita, y avisa como emisor si el RUC no está activo", async () => {
+      vi.mocked(consultarRuc).mockResolvedValueOnce({ tipo: "encontrado", contribuyente: DE_BAJA });
+      render(<AltaAsistidaForm />);
+      llenar("Razón social", "QUISPE MAMANI");
+
+      llenar("RUC", DE_BAJA.ruc);
+
+      await screen.findByText(es.consultaRuc.usarNombre);
+      expect(razon().value).toBe("QUISPE MAMANI");
+      expect(screen.getByTestId("aviso-ruc-emisor-0")).toHaveTextContent("BAJA DE OFICIO");
+    });
+
+    it("un RUC incompleto o con el dígito verificador mal no se consulta", async () => {
+      render(<AltaAsistidaForm />);
+
+      llenar("RUC", "2010006660");
+      llenar("RUC", "20100066604");
+
+      await new Promise((r) => setTimeout(r, 20));
+      expect(consultarRuc).not.toHaveBeenCalled();
+      expect(ruc().value).toBe("20100066604");
+    });
   });
 });

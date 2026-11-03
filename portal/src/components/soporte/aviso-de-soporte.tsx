@@ -3,6 +3,7 @@
 import { EyeIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRef, useState } from "react";
+import { Banner } from "khipu-design-system/feedback/banner";
 import { interpolar } from "@/i18n/mensajes";
 import { apiRequest } from "@/lib/api/browser";
 import { ACCION_SECUNDARIA } from "@/lib/estilos";
@@ -47,21 +48,25 @@ export function AvisoDeSoporte({
   }
 
   return (
-    <div role="region" aria-label={t.region} data-testid="aviso-de-soporte" className="sticky top-0 z-40 border-b border-warning-border bg-warning px-4 py-2 text-warning-foreground">
-      <div className="mx-auto flex max-w-[1520px] flex-wrap items-center gap-x-4 gap-y-1.5">
-        <EyeIcon className="size-4 shrink-0" aria-hidden="true" />
-        <p className="min-w-0 flex-1 text-control">
-          <strong className="font-semibold">{t.titulo}.</strong> {interpolar(t.descripcion, { email, hasta: formatearFechaHora(hasta, locale) })}
-        </p>
-        {error ? (
-          <span role="alert" className="text-etiqueta font-medium text-destructive">
-            {t.error}
-          </span>
-        ) : null}
-        <button type="button" onClick={salir} disabled={saliendo} data-testid="salir-de-soporte" className={ACCION_SECUNDARIA}>
-          {saliendo ? t.saliendo : t.salir}
-        </button>
-      </div>
+    <div role="region" aria-label={t.region} data-testid="aviso-de-soporte" className="sticky top-0 z-40">
+      <Banner
+        tono="aviso"
+        icon={EyeIcon}
+        accion={
+          <div className="flex items-center gap-3">
+            {error ? (
+              <span role="alert" className="text-etiqueta font-medium text-destructive">
+                {t.error}
+              </span>
+            ) : null}
+            <button type="button" onClick={salir} disabled={saliendo} data-testid="salir-de-soporte" className={ACCION_SECUNDARIA}>
+              {saliendo ? t.saliendo : t.salir}
+            </button>
+          </div>
+        }
+      >
+        <strong className="font-semibold">{t.titulo}.</strong> {interpolar(t.descripcion, { email, hasta: formatearFechaHora(hasta, locale) })}
+      </Banner>
     </div>
   );
 }

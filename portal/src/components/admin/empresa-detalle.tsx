@@ -1,10 +1,21 @@
+import {
+  ClockCounterClockwiseIcon,
+  FilePdfIcon,
+  HashIcon,
+  IdentificationCardIcon,
+  KeyIcon,
+  PlugsConnectedIcon,
+  ReceiptIcon,
+  StorefrontIcon,
+  TrayArrowUpIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { CambiarEntorno, ProbarConexion, RevocarApiKey } from "@/components/admin/acciones-de-empresa";
 import { CertificadoEtiqueta, Etiqueta } from "@/components/admin/etiquetas";
 import { CABECERA_FILA, Seccion, Vacio } from "@/components/admin/seccion";
 import { EstadoBadge } from "@/components/comprobantes/estado-badge";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 import { Tabs } from "khipu-design-system/navegacion/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
@@ -12,18 +23,10 @@ import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import type { DomicilioEmpresa, EmpresaDetalleAdmin } from "@/lib/api/admin-empresa-detalle";
 import { estadoCertificadoDeEmpresa } from "@/lib/api/admin-empresas";
 import { plantillasPdf } from "@/lib/api/empresas";
-import { CABECERA_TABLA, ETIQUETA_DATO } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
+import { cn } from "@/lib/utils";
 import { formatearFecha, formatearFechaHora, formatearMonto } from "@/lib/formato";
 import type { Mensajes } from "@/i18n/mensajes";
-
-function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className={ETIQUETA_DATO}>{etiqueta}</dt>
-      <dd className="mt-0.5 text-control break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 /** «—» o lo que diga el catálogo cuando un dato no está. */
 function SinDato() {
@@ -44,29 +47,32 @@ function Fiscales({ e }: { e: EmpresaDetalleAdmin }) {
   const t = useMessages().admin.empresaDetalle;
   const f = t.fiscales;
   return (
-    <Seccion titulo={f.titulo} id="empresa-fiscales">
-      <dl className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Dato etiqueta={f.razonSocial}>{e.razon_social}</Dato>
-        <Dato etiqueta={f.nombreComercial}>{e.nombre_comercial ?? <SinDato />}</Dato>
-        <Dato etiqueta={f.ruc}>
-          <span className="font-mono">{e.ruc}</span>
-        </Dato>
-        <Dato etiqueta={f.domicilio}>
-          {e.domicilio ? (
-            <>
-              <span data-testid="domicilio">{direccion(e.domicilio)}</span>
-              <span className="block font-mono text-etiqueta text-muted-foreground">
-                {f.ubigeo} {e.domicilio.ubigeo}
-                {e.domicilio.codigo_establecimiento ? ` · ${e.domicilio.codigo_establecimiento}` : ""}
-              </span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">{f.sinDomicilio}</span>
-          )}
-        </Dato>
-        <Dato etiqueta={f.detracciones}>{e.cuenta_detracciones ? <span className="font-mono">{e.cuenta_detracciones}</span> : <SinDato />}</Dato>
-        <Dato etiqueta={f.padron}>{e.padron_tasa_especial_igv ? f.si : f.no}</Dato>
-      </dl>
+    <Seccion titulo={f.titulo} id="empresa-fiscales" icon={IdentificationCardIcon}>
+      <ListaDatos
+        columnas={2}
+        className="px-4 pt-1 pb-4"
+        datos={[
+          { etiqueta: f.razonSocial, valor: e.razon_social },
+          { etiqueta: f.nombreComercial, valor: e.nombre_comercial ?? <SinDato /> },
+          { etiqueta: f.ruc, valor: e.ruc, mono: true },
+          {
+            etiqueta: f.domicilio,
+            valor: e.domicilio ? (
+              <>
+                <span data-testid="domicilio">{direccion(e.domicilio)}</span>
+                <span className="block font-mono text-etiqueta text-muted-foreground">
+                  {f.ubigeo} {e.domicilio.ubigeo}
+                  {e.domicilio.codigo_establecimiento ? ` · ${e.domicilio.codigo_establecimiento}` : ""}
+                </span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">{f.sinDomicilio}</span>
+            ),
+          },
+          { etiqueta: f.detracciones, valor: e.cuenta_detracciones ? <span className="font-mono">{e.cuenta_detracciones}</span> : <SinDato /> },
+          { etiqueta: f.padron, valor: e.padron_tasa_especial_igv ? f.si : f.no },
+        ]}
+      />
     </Seccion>
   );
 }
@@ -75,16 +81,18 @@ function Conexion({ e }: { e: EmpresaDetalleAdmin }) {
   const t = useMessages().admin.empresaDetalle;
   const c = t.conexion;
   return (
-    <Seccion titulo={c.titulo} id="empresa-conexion">
-      <div className="grid gap-3 p-4">
-        <dl className="flex flex-wrap gap-x-8 gap-y-3">
-          <Dato etiqueta={c.certificado}>
-            <CertificadoEtiqueta estado={estadoCertificadoDeEmpresa(e)} />
-          </Dato>
-          <Dato etiqueta={c.sol}>
-            <Etiqueta tono={e.tiene_credenciales_sol ? "ok" : "neutro"}>{e.tiene_credenciales_sol ? c.solCargadas : c.solSinCargar}</Etiqueta>
-          </Dato>
-        </dl>
+    <Seccion titulo={c.titulo} id="empresa-conexion" icon={PlugsConnectedIcon}>
+      <div className="grid gap-3 px-4 pt-1 pb-4">
+        <ListaDatos
+          columnas={2}
+          datos={[
+            { etiqueta: c.certificado, valor: <CertificadoEtiqueta estado={estadoCertificadoDeEmpresa(e)} /> },
+            {
+              etiqueta: c.sol,
+              valor: <Etiqueta tono={e.tiene_credenciales_sol ? "ok" : "neutro"}>{e.tiene_credenciales_sol ? c.solCargadas : c.solSinCargar}</Etiqueta>,
+            },
+          ]}
+        />
         <p className="text-etiqueta text-muted-foreground">{c.nota}</p>
         <ProbarConexion empresaId={e.id} tieneSol={e.tiene_credenciales_sol} />
       </div>
@@ -97,7 +105,7 @@ function Series({ series }: { series: EmpresaDetalleAdmin["series"] }) {
   const t = messages.admin.empresaDetalle;
   const s = t.series;
   return (
-    <Seccion titulo={s.titulo} id="empresa-series" tabla>
+    <Seccion titulo={s.titulo} id="empresa-series" icon={HashIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -133,7 +141,7 @@ function Establecimientos({ establecimientos }: { establecimientos: EmpresaDetal
   const t = useMessages().admin.empresaDetalle;
   const s = t.establecimientos;
   return (
-    <Seccion titulo={s.titulo} id="empresa-establecimientos" tabla>
+    <Seccion titulo={s.titulo} id="empresa-establecimientos" icon={StorefrontIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -166,7 +174,7 @@ function ApiKeys({ empresaId, razonSocial, keys }: { empresaId: string; razonSoc
   const t = useMessages().admin.empresaDetalle;
   const k = t.apiKeys;
   return (
-    <Seccion titulo={k.titulo} id="empresa-api-keys" tabla>
+    <Seccion titulo={k.titulo} id="empresa-api-keys" icon={KeyIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -209,21 +217,26 @@ function Pdf({ pdf }: { pdf: EmpresaDetalleAdmin["pdf"] }) {
   const t = messages.admin.empresaDetalle;
   const p = t.pdf;
   return (
-    <Seccion titulo={p.titulo} id="empresa-pdf">
-      <dl className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Dato etiqueta={p.plantilla}>{nombreDePlantilla(pdf.plantilla, messages)}</Dato>
-        <Dato etiqueta={p.color}>
-          <span className="inline-flex items-center gap-2 font-mono">
-            <span className="inline-block size-3.5 rounded-sm border border-border" style={{ backgroundColor: pdf.color_primario }} aria-hidden="true" />
-            {pdf.color_primario}
-          </span>
-        </Dato>
-        <Dato etiqueta={p.logo}>
-          <Etiqueta tono={pdf.tiene_logo ? "ok" : "neutro"}>{pdf.tiene_logo ? p.conLogo : p.sinLogo}</Etiqueta>
-        </Dato>
-        <Dato etiqueta={p.pie}>{pdf.pie_de_pagina ?? <SinDato />}</Dato>
-        <Dato etiqueta={p.observaciones}>{pdf.observaciones_por_defecto ?? <SinDato />}</Dato>
-      </dl>
+    <Seccion titulo={p.titulo} id="empresa-pdf" icon={FilePdfIcon}>
+      <ListaDatos
+        columnas={2}
+        className="px-4 pt-1 pb-4"
+        datos={[
+          { etiqueta: p.plantilla, valor: nombreDePlantilla(pdf.plantilla, messages) },
+          {
+            etiqueta: p.color,
+            valor: (
+              <span className="inline-flex items-center gap-2 font-mono">
+                <span className="inline-block size-3.5 rounded-sm border border-border" style={{ backgroundColor: pdf.color_primario }} aria-hidden="true" />
+                {pdf.color_primario}
+              </span>
+            ),
+          },
+          { etiqueta: p.logo, valor: <Etiqueta tono={pdf.tiene_logo ? "ok" : "neutro"}>{pdf.tiene_logo ? p.conLogo : p.sinLogo}</Etiqueta> },
+          { etiqueta: p.pie, valor: pdf.pie_de_pagina ?? <SinDato /> },
+          { etiqueta: p.observaciones, valor: pdf.observaciones_por_defecto ?? <SinDato /> },
+        ]}
+      />
     </Seccion>
   );
 }
@@ -233,7 +246,7 @@ function Comprobantes({ comprobantes }: { comprobantes: EmpresaDetalleAdmin["com
   const t = useMessages().admin.empresaDetalle;
   const c = t.comprobantes;
   return (
-    <Seccion titulo={c.titulo} id="empresa-comprobantes" tabla>
+    <Seccion titulo={c.titulo} id="empresa-comprobantes" icon={ReceiptIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -299,7 +312,7 @@ function Eventos({ eventos }: { eventos: EmpresaDetalleAdmin["eventos"] }) {
   const t = messages.admin.empresaDetalle;
   const v = t.eventos;
   return (
-    <Seccion titulo={v.titulo} id="empresa-eventos" tabla>
+    <Seccion titulo={v.titulo} id="empresa-eventos" icon={ClockCounterClockwiseIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -332,7 +345,7 @@ function Outbox({ outbox }: { outbox: EmpresaDetalleAdmin["outbox"] }) {
   const t = useMessages().admin.empresaDetalle;
   const o = t.outbox;
   return (
-    <Seccion titulo={o.titulo} id="empresa-outbox" tabla>
+    <Seccion titulo={o.titulo} id="empresa-outbox" icon={TrayArrowUpIcon} tabla>
       <Table>
         <TableHeader>
           <TableRow className={CABECERA_FILA}>
@@ -385,41 +398,47 @@ export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
     { id: "envios", etiqueta: p.envios, contador: empresa.outbox.total },
   ];
   return (
-    <div className="grid min-w-0 gap-6" data-testid="empresa-detalle">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-cuerpo">
-          <Dato etiqueta={t.fiscales.ruc}>
-            <span className="font-mono">{empresa.ruc}</span>
-          </Dato>
-          <Dato etiqueta={t.cuenta}>
-            {empresa.cuenta_id ? (
-              <Link href={hrefDetalleCuenta(empresa.cuenta_id)} className="text-primary hover:underline">
-                {empresa.cuenta_nombre}
-              </Link>
-            ) : (
-              <span className="text-muted-foreground">{t.sinCuenta}</span>
-            )}
-          </Dato>
-          <Dato etiqueta={t.fiscales.entorno}>
-            <Etiqueta tono={empresa.entorno === "PRODUCCION" ? "ok" : "neutro"}>
-              {empresa.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
-            </Etiqueta>
-          </Dato>
-          <Dato etiqueta={t.alta}>{formatearFechaHora(empresa.creada_en, locale)}</Dato>
-        </dl>
+    <div className="grid min-w-0 gap-3" data-testid="empresa-detalle">
+      <section className={cn(TARJETA, "flex flex-wrap items-start justify-between gap-4 p-4")} aria-label={empresa.razon_social}>
+        <ListaDatos
+          columnas={2}
+          className="min-w-0 flex-1 basis-96"
+          datos={[
+            { etiqueta: t.fiscales.ruc, valor: empresa.ruc, mono: true },
+            {
+              etiqueta: t.cuenta,
+              valor: empresa.cuenta_id ? (
+                <Link href={hrefDetalleCuenta(empresa.cuenta_id)} className="text-primary hover:underline">
+                  {empresa.cuenta_nombre}
+                </Link>
+              ) : (
+                <span className="text-muted-foreground">{t.sinCuenta}</span>
+              ),
+            },
+            {
+              etiqueta: t.fiscales.entorno,
+              valor: (
+                <Etiqueta tono={empresa.entorno === "PRODUCCION" ? "ok" : "neutro"}>
+                  {empresa.entorno === "PRODUCCION" ? messages.admin.empresas.produccion : messages.admin.empresas.beta}
+                </Etiqueta>
+              ),
+            },
+            { etiqueta: t.alta, valor: formatearFechaHora(empresa.creada_en, locale) },
+          ]}
+        />
         <CambiarEntorno empresaId={empresa.id} razonSocial={empresa.razon_social} entorno={empresa.entorno} />
-      </div>
+      </section>
       <Tabs<Pestana>
         items={pestanas}
         paneles={{
           datos: (
-            <div className="grid gap-6">
+            <div className="grid gap-3">
               <Fiscales e={empresa} />
               <Conexion e={empresa} />
             </div>
           ),
           emision: (
-            <div className="grid gap-6">
+            <div className="grid gap-3">
               <Series series={empresa.series} />
               <Establecimientos establecimientos={empresa.establecimientos} />
               <Pdf pdf={empresa.pdf} />
@@ -427,7 +446,7 @@ export function EmpresaDetalle({ empresa }: { empresa: EmpresaDetalleAdmin }) {
           ),
           apiKeys: <ApiKeys empresaId={empresa.id} razonSocial={empresa.razon_social} keys={empresa.api_keys} />,
           comprobantes: (
-            <div className="grid gap-6">
+            <div className="grid gap-3">
               <Comprobantes comprobantes={empresa.comprobantes} />
               <Eventos eventos={empresa.eventos} />
             </div>

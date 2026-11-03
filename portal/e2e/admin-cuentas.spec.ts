@@ -2,6 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin, menuAdmin } from "./admin-sesion";
 import { esperarHidratacion } from "./hidratacion";
 
+/** La búsqueda de la barra (sin botón: se aplica sola tras una pausa al escribir). */
+const buscador = (page: Page) => page.getByLabel("Buscar por correo, nombre, RUC o razón social");
+
 // El mock (src/mocks/data.ts) siembra 12 cuentas: 10 en la primera página y, las dos más antiguas, Luna y Ana, en la segunda.
 
 const filas = (page: Page) => page.locator("tbody tr");
@@ -68,8 +71,7 @@ test("busca por razón social y encuentra la cuenta aunque esté en la segunda p
   await page.goto("/admin/cuentas");
   await esperarHidratacion(page, "#buscar-cuentas");
 
-  await page.getByRole("searchbox").fill("ferreter");
-  await page.getByRole("searchbox").press("Enter");
+  await buscador(page).fill("ferreter");
 
   await expect(page).toHaveURL(/q=ferreter/);
   await expect(filas(page)).toHaveCount(1);
@@ -83,8 +85,7 @@ test("las tildes no importan: «panadería sol sac» encuentra PANADERIA SOL SAC
   await page.goto("/admin/cuentas");
   await esperarHidratacion(page, "#buscar-cuentas");
 
-  await page.getByRole("searchbox").fill("panadería sol sac");
-  await page.getByRole("searchbox").press("Enter");
+  await buscador(page).fill("panadería sol sac");
 
   await expect(page.getByText("ana@sol.pe")).toBeVisible();
   await expect(filas(page)).toHaveCount(1);
@@ -95,30 +96,27 @@ test("el RUC se busca por prefijo, no por un fragmento interno", async ({ page }
   await page.goto("/admin/cuentas");
   await esperarHidratacion(page, "#buscar-cuentas");
 
-  await page.getByRole("searchbox").fill("2010004");
-  await page.getByRole("searchbox").press("Enter");
+  await buscador(page).fill("2010004");
   await expect(page.getByText("ana@sol.pe")).toBeVisible();
   await expect(filas(page)).toHaveCount(1);
 
-  await page.getByRole("searchbox").fill("0047");
-  await page.getByRole("searchbox").press("Enter");
+  await buscador(page).fill("0047");
   await expect(page.getByText("No hay cuentas con esos filtros.")).toBeVisible();
 });
 
-test("sin resultados lo dice y «Quitar filtros» vuelve al listado completo", async ({ page }) => {
+test("sin resultados lo dice y «Limpiar» vuelve al listado completo", async ({ page }) => {
   await entrarComoAdmin(page);
   await page.goto("/admin/cuentas");
   await esperarHidratacion(page, "#buscar-cuentas");
 
-  await page.getByRole("searchbox").fill("no-existe");
-  await page.getByRole("searchbox").press("Enter");
+  await buscador(page).fill("no-existe");
   await expect(page.getByText("No hay cuentas con esos filtros.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await page.getByRole("link", { name: "Limpiar" }).click();
 
   await expect(page).toHaveURL(/\/admin\/cuentas$/);
   await expect(filas(page)).toHaveCount(10);
-  await expect(page.getByRole("searchbox")).toHaveValue("");
+  await expect(buscador(page)).toHaveValue("");
 });
 
 test("la URL con la búsqueda es compartible: abrirla directo ya muestra lo filtrado", async ({ page }) => {
@@ -128,5 +126,5 @@ test("la URL con la búsqueda es compartible: abrirla directo ya muestra lo filt
 
   await expect(filas(page)).toHaveCount(1);
   await expect(page.getByText("luis@luna.pe")).toBeVisible();
-  await expect(page.getByRole("searchbox")).toHaveValue("luna");
+  await expect(buscador(page)).toHaveValue("luna");
 });

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
+import { abrirDatosDelCliente } from "./cliente";
 
 // Los tests corren en paralelo contra el mismo mock en memoria: los que crean un cliente usan un documento propio y las aserciones van por fila, no por conteos globales.
 test.beforeEach(async ({ page }) => {
@@ -39,7 +41,7 @@ test("#319 crea un cliente, rechaza el mismo documento dos veces, lo edita y lo 
 
   await page.getByTestId("nuevo-cliente").click();
   const dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("Documento").selectOption("1");
+  await elegirOpcion(dialogo.getByLabel("Documento"), "DNI");
   await dialogo.getByLabel("Número").fill(dni);
   await dialogo.getByLabel("Nombre").fill("MARÍA TORRES VEGA");
   await dialogo.getByLabel("Correo").fill("maria@torres.pe");
@@ -50,7 +52,7 @@ test("#319 crea un cliente, rechaza el mismo documento dos veces, lo edita y lo 
 
   // El mismo documento otra vez: el backend contesta 409 y el formulario lo dice sin cerrarse.
   await page.getByTestId("nuevo-cliente").click();
-  await dialogo.getByLabel("Documento").selectOption("1");
+  await elegirOpcion(dialogo.getByLabel("Documento"), "DNI");
   await dialogo.getByLabel("Número").fill(dni);
   await dialogo.getByLabel("Nombre").fill("OTRA PERSONA");
   await dialogo.getByRole("button", { name: "Guardar cliente" }).click();
@@ -71,48 +73,57 @@ test("#319 editar un cliente del exterior conserva su país", async ({ page }) =
   await page.goto("/clientes");
   await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
   const dialogo = page.getByRole("dialog");
-  await expect(dialogo.getByLabel("País")).toHaveValue("DE");
+  // El país es un combo con búsqueda (#555): su campo muestra el nombre, no el código.
+  await expect(dialogo.getByLabel("País")).toHaveValue("Alemania");
   await dialogo.getByLabel("Dirección").fill("Berlín, Alemania");
   await dialogo.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(fila(page, "Berlín, Alemania")).toBeVisible();
 
   await fila(page, "ANNA MÜLLER").getByTestId("editar-cliente").click();
-  await expect(page.getByRole("dialog").getByLabel("País")).toHaveValue("DE");
+  await expect(page.getByRole("dialog").getByLabel("País")).toHaveValue("Alemania");
 });
 
 test("#319 «Nuevo comprobante» busca entre los clientes guardados y rellena al comprador", async ({ page }) => {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
 
-  await dialogo.getByLabel("Buscar un cliente guardado").fill("pacifico");
+  // #557: el buscador es el campo «Cliente». Un DNI no sirve para una factura: no se aplica (no hay tarjeta) y se dice por qué.
+  await dialogo.getByLabel("Cliente").fill("juan");
+  await dialogo.getByRole("option", { name: /JUAN PÉREZ/ }).click();
+  await expect(dialogo.getByTestId("aviso-cliente-guardado")).toContainText("la factura necesita un cliente con RUC");
+  await expect(dialogo.getByTestId("tarjeta-cliente")).toHaveCount(0);
+
+  // Uno con RUC sí: la tarjeta dice quién es, y sus datos están en «Editar datos».
+  await dialogo.getByLabel("Cliente").fill("pacifico");
   await dialogo.getByRole("option", { name: /PESQUERA PACÍFICO/ }).click();
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).toHaveText("PESQUERA PACÍFICO S.A.C.");
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText("RUC 20601234565");
+  await expect(dialogo.getByTestId("tarjeta-cliente-direccion")).toHaveText("Av. Argentina 2450, Callao");
+  await expect(dialogo.getByTestId("aviso-cliente-guardado")).toHaveCount(0);
+  await abrirDatosDelCliente(dialogo);
   await expect(dialogo.getByLabel("RUC")).toHaveValue("20601234565");
   await expect(dialogo.getByLabel("Razón social")).toHaveValue("PESQUERA PACÍFICO S.A.C.");
   await expect(dialogo.getByLabel(/Dirección/)).toHaveValue("Av. Argentina 2450, Callao");
 
-  // Un DNI no sirve para una factura: no se aplica y se dice por qué.
-  await dialogo.getByLabel("Buscar un cliente guardado").fill("juan");
-  await dialogo.getByRole("option", { name: /JUAN PÉREZ/ }).click();
-  await expect(dialogo.getByTestId("aviso-cliente-guardado")).toContainText("la factura necesita un cliente con RUC");
-  await expect(dialogo.getByLabel("RUC")).toHaveValue("20601234565");
-
-  // En una boleta sí.
+  // En una boleta, el DNI sí (el campo se llama «Comprador»).
   await dialogo.getByRole("button", { name: "Boleta" }).click();
-  await dialogo.getByLabel("Buscar un cliente guardado").fill("juan");
+  await dialogo.getByLabel("Comprador").fill("juan");
   await dialogo.getByRole("option", { name: /JUAN PÉREZ/ }).click();
-  await expect(dialogo.getByLabel("Razón social").or(dialogo.getByLabel("Nombre"))).toHaveValue("JUAN PÉREZ GÓMEZ");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).toHaveText("JUAN PÉREZ GÓMEZ");
 });
 
 test("#319 al emitir guarda al comprador nuevo en «Clientes»", async ({ page }) => {
   const nombre = `CLIENTE DE PRUEBA ${Date.now()} S.A.C.`;
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
+  await abrirDatosDelCliente(dialogo);
   await dialogo.getByLabel("RUC").fill("20554198211");
   await dialogo.getByLabel("Razón social").fill(nombre);
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
   await dialogo.getByLabel(/Precio unit\./).fill("100");
-  await expect(dialogo.getByRole("checkbox", { name: "Guardar en mis clientes al emitir" })).toBeChecked();
+  // #557: sin casilla, el comprador con documento se guarda siempre.
+  await expect(dialogo.getByRole("checkbox", { name: /Guardar en mis clientes/ })).toHaveCount(0);
   // El guardado es un pedido aparte, después de emitir: se espera su respuesta antes de salir de la página, o la navegación lo abortaría.
   const guardado = page.waitForResponse((r) => r.url().includes("/api/proxy/clientes/documento/6/20554198211") && r.request().method() === "PUT");
   await dialogo.getByRole("button", { name: "Emitir factura" }).click();

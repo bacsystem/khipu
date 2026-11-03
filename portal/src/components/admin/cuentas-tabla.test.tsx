@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CuentaAdmin } from "@/lib/api/admin-cuentas";
+import { buscarEnListado } from "@/test/busqueda-de-prueba";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { CuentasTabla } from "./cuentas-tabla";
 
 const push = vi.fn();
@@ -26,6 +28,8 @@ const SUSPENDIDA: CuentaAdmin = { ...ANA, id: "c3", nombre: "Bodega Sur", email:
 
 const SIN_FILTROS = { pagina: 1, porPagina: 10 };
 
+const buscador = () => screen.getByLabelText("Buscar por correo, nombre, RUC o razón social") as HTMLInputElement;
+
 describe("CuentasTabla estado (#182)", () => {
   it("cada cuenta dice si está activa o suspendida", () => {
     render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
@@ -45,14 +49,15 @@ describe("CuentasTabla estado (#182)", () => {
     expect(screen.getByText("Activa").className).not.toContain("text-destructive");
   });
 
-  it("la fila de una cuenta suspendida se distingue, y la de una activa no", () => {
+  it("la fila de una cuenta suspendida se distingue por su pill, sin teñir la fila", () => {
     render(<CuentasTabla datos={[ANA, SUSPENDIDA]} total={2} params={SIN_FILTROS} />);
 
     const filas = screen.getAllByRole("row").slice(1);
     expect(filas[0].getAttribute("data-estado-cuenta")).toBe("ACTIVA");
-    expect(filas[0].className).not.toContain("bg-destructive");
     expect(filas[1].getAttribute("data-estado-cuenta")).toBe("SUSPENDIDA");
-    expect(filas[1].className).toContain("bg-destructive");
+    // La fila no se tiñe (un tinte fuera de los tokens del DS): la `PillEstado` roja de la fila dice el estado.
+    expect(filas[1].className).not.toContain("bg-destructive");
+    expect(within(filas[1]).getByText("Suspendida").className).toContain("bg-destructive-suave");
   });
 
   it("una cuenta suspendida sigue en el listado y enlazada a su detalle, para poder reactivarla", () => {
@@ -109,21 +114,20 @@ describe("CuentasTabla", () => {
     render(<CuentasTabla datos={[]} total={0} params={SIN_FILTROS} />);
 
     expect(screen.getByText("Todavía no hay cuentas.")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Quitar filtros" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Limpiar" })).toBeNull();
   });
 
   it("sin resultados con una búsqueda: lo dice y ofrece quitarla", () => {
     render(<CuentasTabla datos={[]} total={0} params={{ q: "nadie", pagina: 1, porPagina: 10 }} />);
 
     expect(screen.getByText("No hay cuentas con esos filtros.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/cuentas");
+    expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/cuentas");
   });
 
-  it("buscar manda a la primera página con la búsqueda recortada y conserva el tamaño de página", () => {
+  it("buscar, tras la pausa y sin botón, manda a la primera página con la búsqueda recortada y conserva el tamaño de página", () => {
     render(<CuentasTabla datos={[ANA]} total={30} params={{ pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "  ana " } });
-    fireEvent.submit(screen.getByRole("search"));
+    buscarEnListado(buscador(), "  ana ");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=ana&por_pagina=20");
   });
@@ -131,7 +135,22 @@ describe("CuentasTabla", () => {
   it("el buscador arranca con la búsqueda de la URL", () => {
     render(<CuentasTabla datos={[ANA]} total={1} params={{ q: "sol", pagina: 1, porPagina: 10 }} />);
 
-    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("sol");
+    expect(buscador().value).toBe("sol");
+  });
+
+  it("la barra es la del design system: búsqueda y filtros en una zona de búsqueda, sin botón «Buscar»", () => {
+    render(<CuentasTabla datos={[ANA]} total={1} params={SIN_FILTROS} />);
+
+    expect(screen.getByRole("search", { name: "Filtrar cuentas" }).contains(buscador())).toBe(true);
+    expect(screen.queryByRole("button", { name: "Buscar" })).toBeNull();
+  });
+
+  it("vaciar la búsqueda la quita de la URL", () => {
+    render(<CuentasTabla datos={[ANA]} total={1} params={{ q: "sol", pagina: 1, porPagina: 10 }} />);
+
+    buscarEnListado(buscador(), "");
+
+    expect(push).toHaveBeenCalledWith("/admin/cuentas");
   });
 });
 
@@ -156,31 +175,31 @@ describe("CuentasTabla bajas (#201)", () => {
     expect(screen.getByRole("link", { name: "Cafetería Norte" }).getAttribute("href")).toBe("/admin/cuentas/c4");
   });
 
-  it("el selector muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
+  it("el selector muestra lo que dice la URL y, sin nada, «Sin las dadas de baja»", () => {
     const { unmount } = render(<CuentasTabla datos={[ANA]} total={1} params={SIN_FILTROS} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Sin las dadas de baja");
     unmount();
 
     render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", ...SIN_FILTROS }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Solo las dadas de baja");
   });
 
   /**
    * Cambiar el filtro cambia el conjunto: seguir en la página 3 de otro conjunto es una página que ya no existe. La página lo corrige
    * redirigiendo a la última, pero eso solo tapa el error cuando el resultado cabe en una sola página; por eso el selector manda siempre a la 1.
    */
-  it("elegir un valor desde la página 3 navega a la primera y conserva la búsqueda y el tamaño de página", () => {
+  it("elegir un valor desde la página 3 navega a la primera y conserva la búsqueda y el tamaño de página", async () => {
     render(<CuentasTabla datos={[ANA]} total={120} params={{ q: "sol", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Con las dadas de baja");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol&bajas=INCLUIDAS&por_pagina=20");
   });
 
-  it("volver a «Ocultar» quita el filtro de la URL y deja la búsqueda", () => {
+  it("volver a «Sin las dadas de baja» quita el filtro de la URL y deja la búsqueda", async () => {
     render(<CuentasTabla datos={[DE_BAJA]} total={5} params={{ q: "sol", bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Sin las dadas de baja");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=sol");
   });
@@ -188,8 +207,7 @@ describe("CuentasTabla bajas (#201)", () => {
   it("buscar conserva el filtro de bajas", () => {
     render(<CuentasTabla datos={[DE_BAJA]} total={1} params={{ bajas: "SOLO", pagina: 2, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "norte" } });
-    fireEvent.submit(screen.getByRole("search"));
+    buscarEnListado(buscador(), "norte");
 
     expect(push).toHaveBeenCalledWith("/admin/cuentas?q=norte&bajas=SOLO&por_pagina=20");
   });
@@ -212,13 +230,13 @@ describe("CuentasTabla bajas (#201)", () => {
     render(<CuentasTabla datos={[]} total={0} params={{ bajas: "SOLO", pagina: 1, porPagina: 20 }} />);
 
     expect(screen.getByText("No hay cuentas con esos filtros.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/cuentas?por_pagina=20");
+    expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/cuentas?por_pagina=20");
   });
 
   it("sin filtros y sin cuentas no ofrece quitar nada", () => {
     render(<CuentasTabla datos={[]} total={0} params={SIN_FILTROS} />);
 
     expect(screen.getByText("Todavía no hay cuentas.")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Quitar filtros" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Limpiar" })).toBeNull();
   });
 });

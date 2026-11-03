@@ -60,6 +60,13 @@ describe("AvisoBoletaSinInformar", () => {
   it("es un aviso accesible", () => {
     render(<AvisoBoletaSinInformar aviso={aviso("solo-resumen", 1)} que="boleta" />);
 
-    expect(screen.getByRole("status")).toBe(screen.getByTestId("aviso-boleta-sin-informar"));
+    // La `Alerta` del DS pone el rol; el `data-testid` va en el envoltorio que lleva la fase.
+    expect(screen.getByTestId("aviso-boleta-sin-informar")).toContainElement(screen.getByRole("status"));
+  });
+
+  it("las fases urgentes son una alerta de error", () => {
+    render(<AvisoBoletaSinInformar aviso={aviso("fuera-de-plazo", -3)} que="boleta" />);
+
+    expect(screen.getByTestId("aviso-boleta-sin-informar")).toContainElement(screen.getByRole("alert"));
   });
 });

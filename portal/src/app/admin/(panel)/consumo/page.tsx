@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ConsumoTabla } from "@/components/admin/consumo-tabla";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { hrefConsumo, hrefSiFueraDeRango, listarConsumoDeCuentas, paramsConsumoDesdeUrl } from "@/lib/api/admin-consumo";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -31,21 +34,22 @@ export default async function AdminConsumoPage({ searchParams }: { searchParams:
   if (corregida) redirect(corregida);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{messages.admin.consumo.titulo}</h1>
-        <p className="text-cuerpo text-muted-foreground">{messages.admin.consumo.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={messages.admin.consumo.titulo} descripcion={messages.admin.consumo.descripcion} />
 
       {resultado.pagina ? (
         <ConsumoTabla datos={resultado.pagina.datos} total={resultado.pagina.total} params={params} />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{messages.admin.consumo.error}</span>
-          <Link href={hrefConsumo(params)} className="font-medium underline">
-            {messages.admin.consumo.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefConsumo(params)} className="font-medium underline">
+              {messages.admin.consumo.reintentar}
+            </Link>
+          }
+        >
+          {messages.admin.consumo.error}
+        </Alerta>
       )}
     </div>
   );

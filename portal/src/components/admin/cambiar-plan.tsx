@@ -1,22 +1,24 @@
 "use client";
 
-import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
+import { ArrowsLeftRightIcon, HourglassIcon, WarningIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { limiteEnPalabras, precioEnSoles, type PlanAdmin } from "@/lib/api/admin-planes";
 import type { PrevisualizacionDePlanAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { validarCambioDePlan, type ErroresDeCambioDePlan } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaDeLima, formatearMes } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Previa = { estado: "ninguna" } | { estado: "calculando" } | { estado: "lista"; datos: PrevisualizacionDePlanAdmin } | { estado: "error"; mensaje: string };
 
@@ -128,35 +130,23 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
         <CabeceraDialogo icon={ArrowsLeftRightIcon} titulo={<>{t.titulo.replace("{cuenta}", cuentaNombre)}</>} descripcion={t.descripcion} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="cambiar-plan-plan" className={ETIQUETA_CAMPO}>
-              {t.plan}
-            </label>
-            <select
+          <Campo id="cambiar-plan-plan" etiqueta={t.plan} error={errores.planId}>
+            <SelectCampo
               id="cambiar-plan-plan"
-              value={planId}
-              onChange={(e) => void elegir(e.target.value)}
-              aria-invalid={errores.planId ? true : undefined}
-              className={cn(SELECT_NATIVO, "w-full")}
-            >
-              <option value="">{t.elegir}</option>
-              {planes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} — {precioEnSoles(p.precio_mensual, messages, locale)}
-                  {p.id === planActualId ? t.planActual : ""}
-                </option>
-              ))}
-            </select>
-            {errores.planId ? <span className="text-control text-destructive">{errores.planId}</span> : null}
-          </div>
+              opciones={[
+                { value: "", label: t.elegir },
+                ...planes.map((p) => ({ value: p.id, label: `${p.nombre} — ${precioEnSoles(p.precio_mensual, messages, locale)}${p.id === planActualId ? t.planActual : ""}` })),
+              ]}
+              valor={planId}
+              onCambio={(v) => void elegir(v)}
+              invalido={Boolean(errores.planId)}
+            />
+          </Campo>
 
           {previa.estado === "ninguna" ? null : <Efecto previa={previa} />}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cambiar-plan-hasta" className={ETIQUETA_CAMPO}>
-                {t.pagadoHasta}
-              </label>
+            <Campo id="cambiar-plan-hasta" etiqueta={t.pagadoHasta} error={errores.pagadoHasta} ayuda={t.pagadoHastaAyuda}>
               <EntradaFecha
                 id="cambiar-plan-hasta"
                 valor={pagadoHasta}
@@ -169,15 +159,12 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 etiquetaLimpiar={messages.comun.quitarFecha}
                 placeholder={messages.comun.elegirFecha}
                 invalido={Boolean(errores.pagadoHasta)}
-                describidoPor={errores.pagadoHasta ? "cambiar-plan-hasta-error" : undefined}
+                describidoPor={errores.pagadoHasta ? "cambiar-plan-hasta-error" : "cambiar-plan-hasta-ayuda"}
               />
-              {errores.pagadoHasta ? <span id="cambiar-plan-hasta-error" className="text-control text-destructive">{errores.pagadoHasta}</span> : <span className={AYUDA_CAMPO}>{t.pagadoHastaAyuda}</span>}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cambiar-plan-gracia" className={ETIQUETA_CAMPO}>
-                {t.gracia}
-              </label>
-              <input
+            </Campo>
+            {/* `Entrada` y no `StepperNumerico`: los días viajan como texto a `validarCambioDePlan`, que explica qué está mal en vez de recortarlo. */}
+            <Campo id="cambiar-plan-gracia" etiqueta={t.gracia} error={errores.gracia} ayuda={t.graciaAyuda}>
+              <Entrada
                 id="cambiar-plan-gracia"
                 value={gracia}
                 onChange={(e) => {
@@ -187,11 +174,10 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="0"
-                aria-invalid={errores.gracia ? true : undefined}
-                className={CAMPO}
+                invalido={Boolean(errores.gracia)}
+                aria-describedby={errores.gracia ? "cambiar-plan-gracia-error" : "cambiar-plan-gracia-ayuda"}
               />
-              {errores.gracia ? <span className="text-control text-destructive">{errores.gracia}</span> : <span className={AYUDA_CAMPO}>{t.graciaAyuda}</span>}
-            </div>
+            </Campo>
           </div>
 
           {error ? (
@@ -205,16 +191,17 @@ export function CambiarPlan({ cuentaId, cuentaNombre, planActualId, planes, hoy 
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
-          <button
-            type="button"
-            disabled={enviando || previa.estado !== "lista"}
+          <BotonAsync
+            pendiente={enviando}
+            disabled={previa.estado !== "lista"}
             onClick={confirmar}
             data-testid="cambiar-plan-confirmar"
+            icon={<ArrowsLeftRightIcon className="size-4" />}
+            textoPendiente={t.enviando}
             className={BOTON_PRIMARIO}
           >
-            <ArrowsLeftRightIcon className="size-4" />
-            {enviando ? t.enviando : t.confirmar}
-          </button>
+            {t.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>
@@ -228,15 +215,20 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
   const t = messages.admin.planDeCuenta.dialogo;
   if (previa.estado === "calculando")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-        {t.calculando}
-      </p>
+      <div data-testid="cambiar-plan-previa" role="status">
+        <Aviso tono="neutro" icon={HourglassIcon}>
+          {t.calculando}
+        </Aviso>
+      </div>
     );
   if (previa.estado === "error")
     return (
-      <p data-testid="cambiar-plan-previa" role="status" className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-control text-destructive">
-        {previa.mensaje || t.errorPrevia}
-      </p>
+      // El `Aviso` del DS no lleva rol ni `data-testid`: los conserva el envoltorio.
+      <div data-testid="cambiar-plan-previa" role="status">
+        <Aviso tono="peligro" icon={WarningIcon}>
+          {previa.mensaje || t.errorPrevia}
+        </Aviso>
+      </div>
     );
 
   const d = previa.datos;
@@ -248,7 +240,10 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
     .replace("{plan}", d.plan_nuevo.nombre)
     .replace("{limite}", limiteEnPalabras(limite, messages));
   return (
-    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status" className="grid gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
+    // El `Aviso` neutro del DS; el rol, el `data-testid` y los `data-*` quedan en el envoltorio.
+    <div data-testid="cambiar-plan-previa" data-direccion={d.direccion} data-efecto={d.efecto} role="status">
+      <Aviso tono="neutro" icon={ArrowsLeftRightIcon}>
+      <div className="grid gap-1.5">
       <p className="font-medium">{t.direcciones[d.direccion]}</p>
       <p>{inmediato ? t.efectoInmediato : t.efectoCicloSiguiente.replace("{fecha}", formatearFechaDeLima(d.aplica_desde, locale)).replace("{actual}", d.plan_actual.nombre)}</p>
       <p>{consumo}</p>
@@ -266,6 +261,8 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
           {inmediato ? t.superaInmediato : t.superaBajada}
         </p>
       ) : null}
+      </div>
+      </Aviso>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { FunnelIcon, MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { FunnelIcon, TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,12 +9,14 @@ import { useState } from "react";
 import { DescartarComprobante } from "@/components/admin/descartar-comprobante";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { ReintentarEnvio } from "@/components/admin/reintentar-envio";
+import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
+import { LimpiarFiltros } from "@/components/compartidos/limpiar-filtros";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleComprobante } from "@/lib/api/admin-comprobante";
 import { hrefDetalleEmpresa } from "@/lib/api/admin-empresa-detalle";
 import { CLASES_DE_ERROR, hrefErrores, MAX_BUSQUEDA, type ClaseDeError, type ErrorDeEmision, type ParamsErrores } from "@/lib/api/admin-errores";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { CABECERA_TABLA, CONTROL_FILTRO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 import { faultEnPalabras } from "@/lib/errores-formato";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -40,15 +43,15 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
   const ultimo = (params.pagina - 1) * params.porPagina + errores.length;
   const conFiltros = Boolean(params.clase || params.empresa || params.q);
 
-  function buscar(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const texto = String(new FormData(e.currentTarget).get("q") ?? "").trim().slice(0, MAX_BUSQUEDA);
+  /** Buscar vuelve a la primera página y conserva la clase y la empresa; en blanco quita la búsqueda. */
+  function buscar(valor: string) {
+    const texto = valor.trim().slice(0, MAX_BUSQUEDA);
     router.push(hrefErrores({ ...params, q: texto || undefined, pagina: 1 }));
   }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         <nav aria-label={t.vistas} className={SEGMENTADO}>
           {[undefined, ...CLASES_DE_ERROR].map((clase) => (
             <Link
@@ -62,41 +65,37 @@ export function ColaDeErroresTabla({ errores, total, params }: { errores: ErrorD
           ))}
         </nav>
 
-        <form onSubmit={buscar} role="search" className="flex items-end gap-2">
-          <div className="grid gap-1">
-            <label htmlFor="errores-q" className="text-etiqueta font-medium text-muted-foreground">
-              {t.buscar}
-            </label>
-            <input id="errores-q" name="q" type="search" key={params.q ?? ""} defaultValue={params.q ?? ""} maxLength={MAX_BUSQUEDA} placeholder={t.buscarPlaceholder} className={cn(CAMPO, "w-64")} />
-          </div>
-          <button type="submit" className={ACCION_SECUNDARIA}>
-            <MagnifyingGlassIcon weight="bold" className="size-4" />
-            {t.botonBuscar}
-          </button>
-        </form>
-
-        {params.empresa ? (
-          <span data-testid="errores-empresa-filtrada" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-control">
-            {t.soloUnaEmpresa}
-            <Link href={hrefErrores({ ...params, empresa: undefined, pagina: 1 })} className="font-medium text-primary hover:underline">
-              {t.verTodas}
-            </Link>
-          </span>
-        ) : null}
-
-        {conFiltros ? (
-          <Link href={hrefErrores({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-control text-primary hover:underline">
-            {t.quitarFiltros}
-          </Link>
-        ) : null}
+        {/* La barra de filtros del design system (§12), la misma del portal del cliente: la búsqueda se aplica tras una pausa, sin botón. */}
+        <div role="search" aria-label={t.barraDeFiltros} className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
+          {params.empresa ? (
+            // El filtro por empresa llega desde una fila («Solo una empresa»): una píldora más de la barra, que se quita con «Ver todas».
+            <span data-testid="errores-empresa-filtrada" className={cn(CONTROL_FILTRO, "inline-flex items-center gap-2 px-3")}>
+              {t.soloUnaEmpresa}
+              <Link href={hrefErrores({ ...params, empresa: undefined, pagina: 1 })} className="text-primary underline-offset-2 hover:underline">
+                {t.verTodas}
+              </Link>
+            </span>
+          ) : null}
+          <BusquedaDelListado
+            id="errores-q"
+            etiqueta={t.buscar}
+            ayuda={t.buscar}
+            placeholder={t.buscarPlaceholder}
+            valor={params.q ?? ""}
+            onCambio={buscar}
+            ancho="w-full sm:w-64"
+            maxLength={MAX_BUSQUEDA}
+          />
+          {conFiltros ? <LimpiarFiltros href={hrefErrores({ pagina: 1, porPagina: params.porPagina })}>{t.quitarFiltros}</LimpiarFiltros> : null}
+        </div>
       </div>
 
       {params.clase ? <p className="text-control text-muted-foreground">{t.ayudaClase[params.clase]}</p> : null}
 
       {resultado ? (
-        <p data-testid="errores-resultado" role="status" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control">
-          {resultado}
-        </p>
+        <div data-testid="errores-resultado">
+          <Alerta tono="info">{resultado}</Alerta>
+        </div>
       ) : null}
 
       <div className={CONTENEDOR_TABLA}>

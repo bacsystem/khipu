@@ -5,12 +5,15 @@ import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
+import { SelectDeFiltro } from "@/components/compartidos/select-de-filtro";
+import { ProgresoLineal } from "khipu-design-system/feedback/progreso";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import {
   FILTROS_DE_CONSUMO,
   hrefConsumo,
+  mesesParaElegir,
   mesValido,
   ORDENES_DE_CONSUMO,
   type ConsumoDeCuentas,
@@ -19,9 +22,8 @@ import {
   type OrdenDeConsumo,
   type ParamsConsumo,
 } from "@/lib/api/admin-consumo";
-import { CABECERA_TABLA, CAMPO, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
-import { formatearFecha, ultimoDiaCubierto } from "@/lib/formato";
-import { cn } from "@/lib/utils";
+import { CABECERA_TABLA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
+import { formatearFecha, formatearMes, hoyLima, ultimoDiaCubierto } from "@/lib/formato";
 
 const TONO_DEL_PLAN: Record<EstadoDelPlan, Tono> = { VIGENTE: "ok", EN_GRACIA: "aviso", VENCIDA: "error" };
 
@@ -36,9 +38,14 @@ function BarraDeUso({ cuenta }: { cuenta: CuentaConsumo }) {
   const columnas = useMessages().admin.consumo.columnas;
   const pct = Math.min(cuenta.porcentaje ?? 0, 100);
   return (
-    <div role="progressbar" aria-label={columnas.uso} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
-      <div style={{ width: `${pct}%` }} className={cn("h-full rounded-full", alTope(cuenta) ? "bg-destructive" : cuenta.en_alerta ? "bg-warning-foreground" : "bg-primary")} />
-    </div>
+    // El nombre accesible va en la etiqueta del DS, solo para el lector de pantalla: el porcentaje ya se lee al lado, en texto.
+    <ProgresoLineal
+      valor={pct}
+      tono={alTope(cuenta) ? "destructive" : cuenta.en_alerta ? "warning" : "primary"}
+      etiqueta={<span className="sr-only">{columnas.uso}</span>}
+      mostrarValor={false}
+      className="w-24 gap-0"
+    />
   );
 }
 
@@ -58,11 +65,13 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
   const ultimo = (params.pagina - 1) * params.porPagina + datos.cuentas.length;
 
+  // El mes en curso en hora de Lima, como lo resuelve el backend cuando no se pide mes.
+  const enCurso = hoyLima().slice(0, 7);
   const cambiar = (cambios: Partial<ParamsConsumo>) => router.push(hrefConsumo({ ...params, ...cambios, pagina: 1 }));
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         <nav aria-label={t.vistas} className={SEGMENTADO}>
           {FILTROS_DE_CONSUMO.map((f) => (
             <Link
@@ -76,30 +85,25 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           ))}
         </nav>
 
-        <div className="grid gap-1">
-          <label htmlFor="consumo-mes" className="text-etiqueta font-medium text-muted-foreground">
-            {t.mes}
-          </label>
-          <input
+        {/* La barra de filtros del design system (§12), la misma del portal del cliente: píldoras sin rótulo a la vista, cada una se aplica al cambiarla. */}
+        <div role="search" aria-label={t.barraDeFiltros} className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
+          <SelectDeFiltro
             id="consumo-mes"
-            type="month"
-            value={datos.mes}
-            onChange={(e) => cambiar({ mes: mesValido(e.target.value) })}
-            className={cn(CAMPO, "w-40")}
+            etiqueta={t.mes}
+            opciones={mesesParaElegir(enCurso, datos.mes).map((m) => ({ value: m, label: formatearMes(m, locale) }))}
+            valor={datos.mes}
+            // El mes en curso es no pedir mes (el backend lo resuelve en hora de Lima): la URL queda limpia, como al entrar.
+            onCambio={(m) => cambiar({ mes: m === enCurso ? undefined : mesValido(m) })}
+            className="min-w-32"
           />
-        </div>
-
-        <div className="grid gap-1">
-          <label htmlFor="consumo-orden" className="text-etiqueta font-medium text-muted-foreground">
-            {t.orden}
-          </label>
-          <select id="consumo-orden" value={params.orden} onChange={(e) => cambiar({ orden: e.target.value as OrdenDeConsumo })} className={cn(CAMPO, "w-auto")}>
-            {ORDENES_DE_CONSUMO.map((o) => (
-              <option key={o} value={o}>
-                {t.ordenes[o]}
-              </option>
-            ))}
-          </select>
+          <SelectDeFiltro
+            id="consumo-orden"
+            etiqueta={t.orden}
+            opciones={ORDENES_DE_CONSUMO.map((o) => ({ value: o, label: t.ordenes[o] }))}
+            valor={params.orden}
+            onCambio={(v) => cambiar({ orden: v as OrdenDeConsumo })}
+            className="min-w-52"
+          />
         </div>
       </div>
 
@@ -122,7 +126,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
           </TableHeader>
           <TableBody className="text-control">
             {datos.cuentas.map((c) => (
-              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta} className={cn(c.en_alerta && "*:bg-warning/40")}>
+              <TableRow key={c.cuenta_id} data-alerta={c.en_alerta}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.cuenta_id)} className="font-medium text-foreground hover:text-primary hover:underline">

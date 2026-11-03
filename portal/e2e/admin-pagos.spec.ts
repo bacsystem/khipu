@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrarComoAdmin } from "./admin-sesion";
 import { elegirFecha, fechaEsElegible } from "./fecha";
+import { elegirOpcion } from "./combo";
 
 // El mock (src/mocks/handlers.ts) guarda los pagos y el plan de cada cuenta en memoria, y las specs de la corrida lo comparten en paralelo. Por eso:
 //   · Los tests que solo miran usan cuentas sembradas que nadie anota: «Cliente 03» (12 pagos) y «Cuenta Nueva» (sin pagos, plan Gratis).
@@ -40,11 +41,12 @@ async function abrir(page: Page, n: number) {
   await expect(page.getByTestId("registrar-pago-dialogo")).toBeVisible();
 }
 
+/** `medio` es el texto visible del combo («Yape», «Transferencia»…). */
 async function llenar(page: Page, v: { hasta: string; monto?: string; medio?: string; referencia?: string; nota?: string; fecha?: string; desde?: string }) {
   if (v.desde) await elegirFecha(page.getByLabel("Periodo desde"), v.desde);
   await elegirFecha(page.getByLabel("Periodo hasta (inclusive)"), v.hasta);
   await page.getByLabel("Monto (S/)").fill(v.monto ?? "29.00");
-  await page.getByLabel("Medio de pago").selectOption(v.medio ?? "YAPE");
+  await elegirOpcion(page.getByLabel("Medio de pago"), v.medio ?? "Yape");
   if (v.fecha) await elegirFecha(page.getByLabel("Fecha de pago"), v.fecha);
   if (v.referencia) await page.getByLabel("Referencia").fill(v.referencia);
   if (v.nota) await page.getByLabel("Nota").fill(v.nota);
@@ -102,7 +104,7 @@ test("una cuenta sin pagos lo dice", async ({ page }) => {
 test("registrar un pago lo agrega al historial con lo que se escribió, cierra el modal y no mueve el vencimiento si no se pide", async ({ page }) => {
   const ref = referencia("BCP");
   await abrir(page, FERRETERIA);
-  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", monto: "45.50", medio: "TRANSFERENCIA", fecha: enDias(-1), referencia: ref, nota: "Pagó por el BCP" });
+  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", monto: "45.50", medio: "Transferencia", fecha: enDias(-1), referencia: ref, nota: "Pagó por el BCP" });
 
   await page.getByTestId("registrar-pago-confirmar").click();
 
@@ -157,12 +159,12 @@ test("el mismo pago repetido (mismo medio y referencia) se rechaza con su motivo
 test("el mismo número de operación por otro medio sí se anota", async ({ page }) => {
   const ref = referencia("MED");
   await abrir(page, FERRETERIA);
-  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", medio: "YAPE", referencia: ref });
+  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", medio: "Yape", referencia: ref });
   await page.getByTestId("registrar-pago-confirmar").click();
   await expect(fila(page, ref)).toHaveCount(1);
 
   await page.getByTestId("registrar-pago").click();
-  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", medio: "PLIN", referencia: ref });
+  await llenar(page, { desde: "2026-09-01", hasta: "2026-09-30", medio: "Plin", referencia: ref });
   await page.getByTestId("registrar-pago-confirmar").click();
 
   await expect(fila(page, ref)).toHaveCount(2);

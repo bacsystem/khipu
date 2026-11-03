@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Comprobante } from "@/lib/api/facturas";
 import { hoyLima, sumarDias } from "@/lib/formato";
@@ -52,8 +53,10 @@ function stubApi() {
 const notasEnviadas = (fetch: ReturnType<typeof stubApi>) =>
   fetch.mock.calls.filter(([url]) => String(url).includes("/notas")).map(([, init]) => JSON.parse(String(init?.body)));
 
-const codigosDeMotivo = () => within(screen.getByLabelText(/Motivo/)).getAllByRole("option").map((o) => (o as HTMLOptionElement).value).filter(Boolean);
-const seriesOfrecidas = () => within(screen.getByLabelText("Serie")).getAllByRole("option").map((o) => (o as HTMLOptionElement).value);
+/** Los códigos de los motivos ofrecidos (la opción «Seleccione» no tiene código). */
+const codigosDeMotivo = async () => (await opcionesDe(screen.getByLabelText(/Motivo/))).map((o) => o.split(" · ")[0]).filter((c) => /^\d+$/.test(c));
+const seriesOfrecidas = () => opcionesDe(screen.getByLabelText("Serie"));
+const elegirMotivo = (codigo: string) => elegirOpcion(screen.getByLabelText(/Motivo/), new RegExp(`^${codigo} · `));
 
 afterEach(() => {
   cleanup();
@@ -66,9 +69,9 @@ describe("NotaForm sobre una boleta (#294)", () => {
     render(<NotaForm factura={documento("03")} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
 
-    expect(seriesOfrecidas()).toEqual(["BC01"]);
-    fireEvent.change(screen.getByLabelText("Tipo de nota"), { target: { value: "08" } });
-    expect(seriesOfrecidas()).toEqual(["BD01"]);
+    expect(await seriesOfrecidas()).toEqual(["BC01"]);
+    await elegirOpcion(screen.getByLabelText("Tipo de nota"), "Nota de débito (08)");
+    expect(await seriesOfrecidas()).toEqual(["BD01"]);
   });
 
   it("no ofrece los motivos que SUNAT rechaza sobre una boleta: 13 (3259) ni 04, 05 y 08 (4367)", async () => {
@@ -76,7 +79,7 @@ describe("NotaForm sobre una boleta (#294)", () => {
     render(<NotaForm factura={documento("03")} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
 
-    expect(codigosDeMotivo()).toEqual(["01", "02", "03", "06", "07", "09", "10"]);
+    expect(await codigosDeMotivo()).toEqual(["01", "02", "03", "06", "07", "09", "10"]);
   });
 
   it("emite contra la boleta con la serie B y sin datos del comprador: la nota toma el de la boleta, aun «sin documento»", async () => {
@@ -84,7 +87,7 @@ describe("NotaForm sobre una boleta (#294)", () => {
     render(<NotaForm factura={documento("03")} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
 
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la venta" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
 
@@ -109,8 +112,8 @@ describe("NotaForm sobre una factura", () => {
     render(<NotaForm factura={documento("01")} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
 
-    expect(seriesOfrecidas()).toEqual(["FC01"]);
-    expect(codigosDeMotivo()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "13"]);
+    expect(await seriesOfrecidas()).toEqual(["FC01"]);
+    expect(await codigosDeMotivo()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "13"]);
   });
 });
 
@@ -121,7 +124,7 @@ describe("NotaForm — bolsas del ICBPER (#354)", () => {
     const bolsas = { codigo: null, descripcion: "Bolsa", unidad: "NIU", cantidad: 5, precio_unitario: 0.6, tipo_afectacion_igv: "10", precio_venta: 3, icbper: 2.5 };
     render(<NotaForm factura={documento("03", { items: [bolsas] as unknown as Comprobante["items"] })} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    await elegirMotivo("07");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió bolsas" } });
     const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
 
@@ -141,7 +144,7 @@ describe("NotaForm — bolsas del ICBPER (#354)", () => {
     const kilos = { codigo: null, descripcion: "Arroz", unidad: "KGM", cantidad: 5, precio_unitario: 4.72, tipo_afectacion_igv: "10", precio_venta: 23.6 };
     render(<NotaForm factura={documento("01", { items: [kilos] as unknown as Comprobante["items"] })} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    await elegirMotivo("07");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolvió arroz" } });
     fireEvent.change(screen.getByLabelText("Cantidad de Arroz en la nota"), { target: { value: "2.5" } });
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
@@ -157,7 +160,7 @@ describe("NotaForm — factura con anticipos que cubren el total (H3, revisión 
     stubApi();
     render(<NotaForm factura={conAnticipos(0)} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     expect(screen.getByText(/no hay nota posible.*baja/)).toBeInTheDocument();
     expect(screen.queryByText(/ajuste las cantidades para que la nota no supere ese importe/)).not.toBeInTheDocument();
   });
@@ -166,7 +169,7 @@ describe("NotaForm — factura con anticipos que cubren el total (H3, revisión 
     stubApi();
     render(<NotaForm factura={conAnticipos(5)} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     expect(screen.getByText(/ajuste las cantidades para que la nota no supere ese importe/)).toBeInTheDocument();
     expect(screen.queryByText(/no hay nota posible/)).not.toBeInTheDocument();
   });
@@ -184,7 +187,7 @@ describe("NotaForm — factura con un descuento que no afecta la base (#393)", (
     stubApi();
     render(<NotaForm factura={conDescuento01()} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     expect(screen.getByText(/descuento que no afecta la base del IGV/)).toBeInTheDocument();
     expect(screen.getByLabelText("Cantidad de Pan en la nota")).toBeInTheDocument();
   });
@@ -193,7 +196,7 @@ describe("NotaForm — factura con un descuento que no afecta la base (#393)", (
     const fetch = stubApi();
     render(<NotaForm factura={conDescuento01()} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la operación" } });
     fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
@@ -225,7 +228,7 @@ describe("NotaForm — Idempotency-Key (#355)", () => {
   async function completar(tipoDoc: "01" | "03") {
     render(<NotaForm factura={documento(tipoDoc)} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "01" } });
+    await elegirMotivo("01");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Anulación de la venta" } });
   }
 
@@ -279,12 +282,17 @@ describe("NotaForm — Idempotency-Key (#355)", () => {
   });
 });
 
+/** El descuento y el cargo propios van en un `Acordeon` del DS, cerrado mientras están vacíos: se abre como lo haría el usuario. */
+function abrirAjustes() {
+  fireEvent.click(screen.getByRole("button", { name: "Descuento global y cargo de la nota" }));
+}
+
 describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", () => {
   async function parcial(factura = documento("01")) {
     const fetch = stubApi();
     render(<NotaForm factura={factura} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    await elegirMotivo("07");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolución parcial" } });
     fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "2" } });
     return fetch;
@@ -337,9 +345,10 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
 
   it("el descuento global y el cargo de una nota parcial viajan siempre afectando la base del IGV", async () => {
     const fetch = await parcial();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
-    fireEvent.change(screen.getByLabelText("Cargo global de la nota: tipo"), { target: { value: "monto" } });
+    await elegirOpcion(screen.getByLabelText("Cargo global de la nota: tipo"), "Monto");
     // No se ofrece «reduce la base / paga IGV»: SUNAT no admite lo contrario en una nota.
     expect(screen.queryByText("Reduce la base del IGV")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Emitir nota de crédito" }));
@@ -349,6 +358,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
 
   it("un descuento mal escrito no deja emitir", async () => {
     const fetch = await parcial();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "abc" } });
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
     expect(notasEnviadas(fetch)).toHaveLength(0);
@@ -362,7 +372,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
     const emisible = (dias: number) => fechaEsElegible("Fecha de emisión", sumarDias(hoy, dias));
 
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "10" } });
+    await elegirMotivo("10");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Otros conceptos" } });
     fireEvent.change(screen.getByLabelText("Concepto"), { target: { value: "Ajuste comercial" } });
     fireEvent.change(screen.getByLabelText(/Importe/), { target: { value: "5" } });
@@ -371,7 +381,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     await elegirFecha("Fecha de emisión", sumarDias(hoy, -5));
     expect(screen.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
 
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    await elegirMotivo("07");
     expect(await emisible(-7)).toBe(true);
     expect(await emisible(-8)).toBe(false);
   });
@@ -389,7 +399,7 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
       stubApi();
       const { unmount } = render(<NotaForm factura={documento("01", { fecha_emision: sumarDias(hoy, -1), items: [...items] })} series={SERIES} />);
       await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-      fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+      await elegirMotivo("07");
       expect(screen.queryByTestId("nota-ajustes") !== null, nombre).toBe(ofrece);
       unmount();
     }
@@ -403,11 +413,12 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     stubApi();
     render(<NotaForm factura={factura} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "07" } });
+    await elegirMotivo("07");
     fireEvent.change(screen.getByLabelText("Sustento"), { target: { value: "Devolución" } });
     fireEvent.change(screen.getByLabelText("Cantidad de Pan en la nota"), { target: { value: "2" } });
     const emitir = screen.getByRole("button", { name: "Emitir nota de crédito" });
     expect(emitir).toBeDisabled();
+    abrirAjustes();
     fireEvent.change(screen.getByLabelText("Cargo global de la nota: valor"), { target: { value: "5" } });
     expect(emitir).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Descuento global de la nota: valor"), { target: { value: "50" } });
@@ -419,9 +430,9 @@ describe("NotaForm — fecha, observaciones, descuento y cargo propios (#314)", 
     stubApi();
     render(<NotaForm factura={documento("01")} series={SERIES} />);
     await waitFor(() => expect(screen.getByLabelText(/Motivo/)).toBeEnabled());
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "06" } });
+    await elegirMotivo("06");
     expect(screen.queryByTestId("nota-ajustes")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: "09" } });
+    await elegirMotivo("09");
     expect(screen.queryByTestId("nota-ajustes")).not.toBeInTheDocument();
   });
 });

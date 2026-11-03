@@ -2,6 +2,22 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.1.0] - 2026-11-02
+
+Una emisión más simple y todo el portal con el design system. Trae **una migración (V72)**, que solo agrega una columna con valor por defecto: igual conviene respaldar la base antes de desplegar.
+
+### Added
+- Padrón de RUC de SUNAT en todos los formularios con RUC (#575): onboarding, empresa nueva, alta asistida del backoffice, clientes, destinatario/remitente y transportista de las guías rellenan la razón social (y la dirección donde aplica) sin pisar lo escrito, y avisan si el RUC propio no está activo o no está habido; Datos fiscales sugiere el domicilio del padrón. La consulta funciona sin empresa elegida (cupo por cuenta) y desde el backoffice (`GET /v1/admin/consultas/ruc/{ruc}`, cupo por administrador).
+- Ajuste por empresa «Mostrar opciones avanzadas al emitir» (Empresa → Emisión, `GET/PUT /v1/empresa/preferencias-emision`, #560): apagado, el modal de emisión queda en lo esencial; encendido, ofrece los «+» de tipo de operación, crédito, detracción, percepción, retención, anticipos y referencias.
+
+### Changed
+- Modal de emisión (#557): lo esencial primero (serie, cliente, ítems y totales) y lo poco frecuente a pedido, en bloques que se agregan con «+» y se quitan con la ✕. El cliente es un solo campo que busca entre los guardados o acepta un documento nuevo.
+- Todo el portal y el backoffice con el design system (v0.5.9): combos del DS en vez de `<select>` nativos (#555), pills de estado y avisos (#562), el formulario de guías con la `Entrada` del DS (#575), cabeceras, páginas de detalle y tablas (#567), barras de filtros del backoffice con el patrón del cliente (#564), acciones, controles, Empresa y la portada (#569), y el gráfico del inicio con el `GraficoBarras` del DS (#511).
+- Dependabot abre sus PR contra `develop` y no propone versiones mayores (#558).
+
+### Fixed
+- La suite e2e completa vuelve a pasar en paralelo (#502): cada spec que modifica datos usa su propia cuenta del mock.
+
 ## [1.0.0] - 2026-11-01
 
 Primera versión para vender: 166 PRs desde la 0.2.1 (detalle en la PR de release #493 y en cada PR). Trae **47 migraciones de base (V25 → V71)**: respaldar la base antes de desplegar.

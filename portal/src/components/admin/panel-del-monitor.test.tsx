@@ -132,7 +132,8 @@ describe("PanelDelMonitor (#195)", () => {
   it("la tabla por hora trae lo mismo que el gráfico, en hora de Lima", () => {
     render(<PanelDelMonitor inicial={monitor()} />);
 
-    const filas = within(screen.getByText("Ver los números por hora").closest("details") as HTMLElement).getAllByRole("row");
+    fireEvent.click(screen.getByRole("button", { name: "Ver los números por hora" }));
+    const filas = within(screen.getByTestId("monitor-tabla-horas")).getAllByRole("row");
     expect(filas).toHaveLength(25);
     const ultima = within(filas[24]).getAllByRole("cell").map((c) => c.textContent);
     expect(ultima).toEqual(["10:00", "117", "97", "10", "5", "2", "3"]);
@@ -176,7 +177,8 @@ describe("PanelDelMonitor (#195)", () => {
     render(<PanelDelMonitor inicial={monitor({ outbox: { pendientes: 5, vencidos: 3, mas_viejo_desde: "2026-10-15T12:00:00Z", vencido_hace_segundos: 3900, alerta: true } })} />);
 
     const alerta = screen.getByTestId("monitor-alerta");
-    expect(alerta.getAttribute("role")).toBe("alert");
+    // La `Alerta` de error del DS pone el rol; el `data-testid` va en su envoltorio.
+    expect(within(alerta).getByRole("alert")).toBeTruthy();
     expect(alerta.textContent).toContain("El envío a SUNAT parece detenido");
     expect(alerta.textContent).toContain("Hay 3 envíos vencidos y el que más espera lleva 1 h 5 min.");
   });

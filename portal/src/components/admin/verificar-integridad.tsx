@@ -1,6 +1,8 @@
 "use client";
 
-import { CheckCircleIcon, ShieldCheckIcon, WarningIcon } from "@phosphor-icons/react";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -123,22 +125,31 @@ export function VerificarIntegridad({ hoy }: { hoy: string }) {
           />
           {errores.hasta ? <span id="integridad-hasta-error" className="text-control text-destructive">{errores.hasta}</span> : <span className={AYUDA_CAMPO}>{t.ayudaRango.replace("{max}", String(MAX_DIAS_DE_INTEGRIDAD))}</span>}
         </div>
-        <button type="submit" disabled={verificando} data-testid="integridad-verificar" className={cn(BOTON_PRIMARIO, "mt-6")}>
-          <ShieldCheckIcon className="size-4" />
-          {verificando ? t.verificando : t.verificar}
-        </button>
+        <BotonAsync
+          type="submit"
+          pendiente={verificando}
+          data-testid="integridad-verificar"
+          className={cn(BOTON_PRIMARIO, "mt-6")}
+          icon={<ShieldCheckIcon weight="bold" className="size-4" />}
+          textoPendiente={t.verificando}
+        >
+          {t.verificar}
+        </BotonAsync>
       </form>
 
       <div role="status" aria-live="polite" className="grid min-w-0 gap-4">
         {fase.estado === "verificando" ? (
-          <p data-testid="integridad-aviso" className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control text-muted-foreground">
-            {t.avisoVerificando}
-          </p>
+          <div data-testid="integridad-aviso">
+            <Alerta tono="info">{t.avisoVerificando}</Alerta>
+          </div>
         ) : null}
         {fase.estado === "error" ? (
-          <p data-testid="integridad-error" role="alert" className="rounded-lg border border-destructive-border bg-destructive-suave px-3 py-2.5 text-cuerpo text-destructive-texto">
-            {t.error} {fase.mensaje}
-          </p>
+          // La `Alerta` de error del DS pone `role="alert"`; el `data-testid` va en el envoltorio.
+          <div data-testid="integridad-error">
+            <Alerta tono="error">
+              {t.error} {fase.mensaje}
+            </Alerta>
+          </div>
         ) : null}
         {fase.estado === "listo" ? <Resultado informe={fase.informe} /> : null}
       </div>
@@ -155,20 +166,12 @@ function Resultado({ informe }: { informe: InformeDeIntegridad }) {
   const tipos = [...new Set(informe.problemas.map((p) => p.tipo))];
   return (
     <section data-testid="integridad-resultado" data-limpio={limpio} className="grid min-w-0 gap-3">
-      <div
-        className={cn(
-          "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-cuerpo",
-          limpio ? "border-success-border bg-success text-success-foreground" : "border-warning-border bg-warning text-warning-foreground",
-        )}
-      >
-        {limpio ? <CheckCircleIcon className="mt-0.5 size-4 shrink-0" /> : <WarningIcon className="mt-0.5 size-4 shrink-0" />}
-        <div className="grid gap-0.5">
-          <p data-testid="integridad-verificados">{verificados}</p>
-          <p data-testid="integridad-hallazgo" className="font-medium">
-            {hallazgo}
-          </p>
-        </div>
-      </div>
+      <Alerta tono={limpio ? "ok" : "aviso"}>
+        <p data-testid="integridad-verificados">{verificados}</p>
+        <p data-testid="integridad-hallazgo" className="font-medium">
+          {hallazgo}
+        </p>
+      </Alerta>
 
       {limpio ? null : (
         <>

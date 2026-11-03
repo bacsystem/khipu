@@ -5,11 +5,14 @@ import { ArrowLeftIcon, ArrowRightIcon, UserPlusIcon } from "@phosphor-icons/rea
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { type FieldErrors, type UseFormRegisterReturn, useForm } from "react-hook-form";
+import { Controller, type FieldErrors, type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Pasos } from "khipu-design-system/navegacion/pasos";
 import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 import { IconoSeccion } from "khipu-design-system/patrones/cabecera-seccion";
@@ -17,8 +20,7 @@ import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dia
 import type { AltaAsistidaCreada } from "@/lib/api/admin-alta";
 import { apiRequest, noSeSabeSiLlego } from "@/lib/api/browser";
 import type { ApiEnvelope } from "@/lib/api/types";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
 import type { Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -125,6 +127,7 @@ export function AltaAsistidaForm({
   const intento = useRef<Intento | null>(null);
   const {
     register,
+    control,
     handleSubmit,
     reset,
     trigger,
@@ -135,6 +138,14 @@ export function AltaAsistidaForm({
     formState: { errors, isSubmitting },
   } = useForm<Valores, unknown, Salida>({ resolver: zodResolver(schema), defaultValues: VALORES_INICIALES });
   useEffect(() => alCambiarEnvio?.(isSubmitting), [isSubmitting, alCambiarEnvio]);
+
+  // #575: el RUC se consulta en el padrón de SUNAT por la ruta del backoffice (todavía no hay empresa) y se rellena la razón social si está vacía.
+  const razonSocial = watch("razon_social");
+  const padron = useAutocompletadoDelPadron({
+    ruc: watch("ruc"),
+    origen: "admin",
+    campos: [{ valor: razonSocial, poner: (v) => setValue("razon_social", v, { shouldValidate: Boolean(errors.razon_social) }), dato: (c) => c.razon_social }],
+  });
 
   async function onSubmit(values: Salida) {
     setError(null);
@@ -220,8 +231,7 @@ export function AltaAsistidaForm({
   }
 
   /** H2: si la serie es la sugerida (o está vacía), cambia con el tipo; una que el administrador escribió no se toca. */
-  function cambiarTipo(e: ChangeEvent<HTMLSelectElement>) {
-    const nuevo = e.target.value as Valores["tipo"];
+  function cambiarTipo(nuevo: Valores["tipo"]) {
     const serie = getValues("serie").toUpperCase().trim();
     if (serie === "" || Object.values(SERIE_SUGERIDA).includes(serie)) setValue("serie", SERIE_SUGERIDA[nuevo], { shouldValidate: Boolean(errors.serie) });
   }
@@ -244,22 +254,56 @@ export function AltaAsistidaForm({
         <fieldset hidden={paso !== 1} className="grid gap-4">
           <legend className="sr-only">{t.seccionEmpresa}</legend>
           <CampoDeTexto id="alta-ruc" etiqueta={t.ruc} inputMode="numeric" maxLength={11} filtrar={soloDigitos} mono registro={register("ruc")} error={errors.ruc?.message} />
+          <EstadoConsultaRuc
+            contexto="emisor"
+            consultando={padron.consultando}
+            resultado={padron.resultado}
+            nombreActual={razonSocial}
+            onReintentar={padron.reintentar}
+            onUsarNombre={(n) => padron.usarDato(0, n)}
+            className="-mt-2"
+          />
           <CampoDeTexto id="alta-razon-social" etiqueta={t.razonSocial} registro={register("razon_social")} error={errors.razon_social?.message} />
           <Campo id="alta-entorno" etiqueta={t.entorno}>
-            <select id="alta-entorno" {...register("entorno")} className={cn(SELECT_NATIVO, "w-full")}>
-              <option value="BETA">{t.entornoBeta}</option>
-              <option value="PRODUCCION">{t.entornoProduccion}</option>
-            </select>
+            <Controller
+              control={control}
+              name="entorno"
+              render={({ field }) => (
+                <SelectCampo
+                  id="alta-entorno"
+                  opciones={[
+                    { value: "BETA", label: t.entornoBeta },
+                    { value: "PRODUCCION", label: t.entornoProduccion },
+                  ]}
+                  valor={field.value}
+                  onCambio={field.onChange}
+                />
+              )}
+            />
           </Campo>
         </fieldset>
 
         <fieldset hidden={paso !== 2} className="grid gap-4">
           <legend className="sr-only">{t.seccionSerie}</legend>
           <Campo id="alta-tipo" etiqueta={t.tipo}>
-            <select id="alta-tipo" {...register("tipo", { onChange: cambiarTipo })} className={cn(SELECT_NATIVO, "w-full")}>
-              <option value="01">{t.tipoFactura}</option>
-              <option value="03">{t.tipoBoleta}</option>
-            </select>
+            <Controller
+              control={control}
+              name="tipo"
+              render={({ field }) => (
+                <SelectCampo
+                  id="alta-tipo"
+                  opciones={[
+                    { value: "01", label: t.tipoFactura },
+                    { value: "03", label: t.tipoBoleta },
+                  ]}
+                  valor={field.value}
+                  onCambio={(v) => {
+                    field.onChange(v);
+                    cambiarTipo(v as Valores["tipo"]);
+                  }}
+                />
+              )}
+            />
           </Campo>
           <CampoDeTexto
             id="alta-serie"

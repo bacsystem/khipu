@@ -6,8 +6,8 @@ import { useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { interpolar } from "@/i18n/mensajes";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
-import { CONTROL_FILTRO, TARJETA } from "@/lib/estilos";
-import { usePanelDesplegable } from "@/lib/panel-desplegable";
+import { Popover, PopoverContent, PopoverTrigger } from "khipu-design-system/ui/popover";
+import { BOTON_PRIMARIO, CONTROL_FILTRO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /** Lo que admite una descarga por petición (`DescargaEnZip.MAXIMO` en la API). */
@@ -31,54 +31,46 @@ export function hrefDeDescarga(filtros: FiltrosComprobantes, elegidos: string[])
 export function DescargaMasiva({ filtros, total }: { filtros: FiltrosComprobantes; total: number }) {
   const t = useMessages().comprobantes.descargaMasiva;
   const locale = useLocale();
-  const { abierto, alternar, cerrar, ref } = usePanelDesplegable("descarga-masiva");
+  const [abierto, setAbierto] = useState(false);
   const [elegidos, setElegidos] = useState<string[]>(["pdf", "xml", "cdr"]);
   const href = hrefDeDescarga(filtros, elegidos);
   const motivo = total === 0 ? t.sinComprobantes : total > DESCARGA_MAXIMA ? interpolar(t.tope, { total, maximo: DESCARGA_MAXIMA }) : null;
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={alternar}
-        aria-expanded={abierto}
-        aria-controls="descarga-masiva-panel"
-        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}
-      >
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}>
         <DownloadSimpleIcon className="size-4" />
         {t.boton}
-      </button>
-      {abierto ? (
-        <div id="descarga-masiva-panel" className={cn(TARJETA, "absolute right-0 z-20 mt-2 grid w-72 gap-3 p-3 shadow-lg")} data-testid="descarga-masiva">
-          <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(locale === "en" ? "en-US" : "es-PE") })}</p>
-          <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-control font-medium">{t.archivosLegend}</legend>
-            {ARCHIVOS.map((a) => (
-              <Casilla
-                key={a}
-                id={`descarga-masiva-${a}`}
-                etiqueta={t.archivos[a]}
-                checked={elegidos.includes(a)}
-                onCheckedChange={(v) => setElegidos((prev) => (v ? [...prev, a] : prev.filter((x) => x !== a)))}
-              />
-            ))}
-          </fieldset>
-          {motivo ? (
-            <p role="status" className="text-control text-warning-foreground" data-testid="descarga-motivo">
-              {motivo}
-            </p>
-          ) : null}
-          {href && !motivo ? (
-            <a href={href} download onClick={cerrar} className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-control font-medium text-primary-foreground" data-testid="descarga-enlace">
-              {t.descargar}
-            </a>
-          ) : (
-            <span className="inline-flex h-control cursor-not-allowed items-center justify-center rounded-lg bg-muted px-3 text-control font-medium text-muted-foreground" aria-disabled="true">
-              {href ? t.descargar : t.elegirArchivo}
-            </span>
-          )}
-        </div>
-      ) : null}
-    </div>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="grid gap-3" data-testid="descarga-masiva">
+        <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(locale === "en" ? "en-US" : "es-PE") })}</p>
+        <fieldset className="grid gap-1.5">
+          <legend className={cn(ETIQUETA_CAMPO, "mb-1")}>{t.archivosLegend}</legend>
+          {ARCHIVOS.map((a) => (
+            <Casilla
+              key={a}
+              id={`descarga-masiva-${a}`}
+              etiqueta={t.archivos[a]}
+              checked={elegidos.includes(a)}
+              onCheckedChange={(v) => setElegidos((prev) => (v ? [...prev, a] : prev.filter((x) => x !== a)))}
+            />
+          ))}
+        </fieldset>
+        {motivo ? (
+          <p role="status" className="text-control text-warning-foreground" data-testid="descarga-motivo">
+            {motivo}
+          </p>
+        ) : null}
+        {href && !motivo ? (
+          <a href={href} download onClick={() => setAbierto(false)} className={BOTON_PRIMARIO} data-testid="descarga-enlace">
+            {t.descargar}
+          </a>
+        ) : (
+          <button type="button" disabled className={BOTON_PRIMARIO}>
+            {href ? t.descargar : t.elegirArchivo}
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

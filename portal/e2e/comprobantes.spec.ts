@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { elegirFecha, fechaElegida, fechaEsElegible } from "./fecha";
 import { esperarHidratacion } from "./hidratacion";
+import { elegirOpcion, esperarOpcion } from "./combo";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login?next=/comprobantes");
@@ -190,13 +191,13 @@ test("una nota parcial lleva su fecha, descuento global, cargo y observaciones, 
   await page.goto("/comprobantes/f-aceptada");
   await page.getByTestId("emitir-nota").click();
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución parcial con descuento");
   // Cantidad chica a propósito: los tests de este archivo comparten la factura y cada NC baja el tope de las siguientes.
   await form.getByLabel(/Cantidad de .* en la nota/).fill("0.05");
   await form.getByText("Descuento global y cargo de la nota").click();
   await form.getByLabel("Descuento global de la nota: valor").fill("2");
-  await form.getByLabel("Cargo global de la nota: tipo").selectOption("monto");
+  await elegirOpcion(form.getByLabel("Cargo global de la nota: tipo"), "Monto");
   await form.getByLabel("Cargo global de la nota: valor").fill("0.5");
   await form.getByLabel(/Observaciones/).fill("Devolución recibida en tienda.");
   // Desde el DS v0.5.0 la fecha es un calendario: arranca en un día elegido (hoy), no en un input con `max`.
@@ -249,8 +250,9 @@ test("duplicar desde la tabla abre «Nuevo comprobante» con el cliente, la mone
   await page.goto("/comprobantes?por_pagina=50"); // la F001-4 ya no cabe en la primera página de 10 tras lo que emiten los specs anteriores
   await page.getByRole("button", { name: "Duplicar F001-00000004" }).click();
   const dialogo = page.getByRole("dialog");
-  await expect(dialogo.getByLabel("RUC")).toHaveValue("20554198211");
-  await expect(dialogo.getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  // #557: el cliente copiado se ve en su tarjeta.
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText("RUC 20554198211");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).toHaveText("CORPORACION GRAFICA ANDINA S.A.C.");
   await expect(dialogo.getByLabel("Descripción")).toHaveValue("Soporte mensual");
   await expect(dialogo.getByLabel(/Precio unit\./)).toHaveValue(/236/);
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
@@ -269,7 +271,7 @@ test("duplicar desde la ficha de una factura abre el mismo diálogo, y una nota 
   // Un clic antes de hidratar se pierde: el diálogo escucha el pedido de duplicar (`alPedirDuplicado`) desde un useEffect. Corriendo detrás de otras specs fallaba.
   await esperarHidratacion(page, '[data-testid="duplicar"]');
   await page.getByTestId("duplicar").click();
-  await expect(page.getByRole("dialog").getByLabel("Razón social")).toHaveValue("CORPORACION GRAFICA ANDINA S.A.C.");
+  await expect(page.getByRole("dialog").getByTestId("tarjeta-cliente-nombre")).toHaveText("CORPORACION GRAFICA ANDINA S.A.C.");
   // La copia tiene datos: Esc pide confirmar antes de descartarla (#117).
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Descartar" }).click();
@@ -281,9 +283,9 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
   await page.getByTestId("emitir-nota").click();
   await expect(page).toHaveURL(/\/comprobantes\/f-aceptada\/nota/);
   const form = page.getByTestId("nota-form");
-  await expect(form.getByLabel("Serie")).toHaveValue("FC01");
+  await esperarOpcion(form.getByLabel("Serie"), "FC01");
   // Nota parcial (07): la tabla de ítems de la factura con la cantidad a devolver.
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await expect(form.getByRole("table")).toBeVisible();
   await form.getByLabel("Sustento").fill("Devolución parcial del servicio");
   // Las cantidades arrancan en 0 (antes venían al 100 % de la factura, y sobre esta —con anticipos— el 100 % de
@@ -325,7 +327,7 @@ test("emite una nota de crédito parcial desde la factura y la factura la lista"
 test("una nota de crédito 13 sale sin importe y una nota de débito con su concepto", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("13");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^13 · /);
   await expect(form.getByText(/importe 0/)).toBeVisible();
   await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
   // La NC 13 sin `forma_pago` es un 422 (3257) en el backend real; antes el mock la sintetizaba y este test pasaba
@@ -342,9 +344,9 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
   // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
   // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await expect(form.getByLabel("Serie")).toHaveValue("FD01");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await esperarOpcion(form.getByLabel("Serie"), "FD01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
   await form.getByLabel("Concepto").fill("Intereses por mora");
   await form.getByLabel(/Importe con IGV/).fill("59");
@@ -357,7 +359,7 @@ test("una nota de crédito 13 sale sin importe y una nota de débito con su conc
 async function notaLista(page: import("@playwright/test").Page) {
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución parcial");
   await form.getByLabel(/Cantidad de .* en la nota/).fill("0.1");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeEnabled();
@@ -370,11 +372,13 @@ async function notaLista(page: import("@playwright/test").Page) {
 
 test("nota: Enter en cualquier control no emite; solo el botón", async ({ page }) => {
   const { form, posts } = await notaLista(page);
-  // Cinco controles, cinco notas reales en la auditoría. Los `<select>` incluidos: Chromium emite desde uno cerrado.
+  // Cinco controles, cinco notas reales en la auditoría. Los combos incluidos (antes `<select>`, desde los que Chromium emitía estando cerrados):
+  // Enter en uno abre su lista, que se cierra con Escape antes de pasar al siguiente.
   for (const campo of ["Tipo de nota", "Serie", /Motivo/, "Sustento", /Cantidad de .* en la nota/]) {
     await form.getByLabel(campo).focus();
     await page.waitForTimeout(120);
     await page.keyboard.press("Enter");
+    if (await page.getByRole("listbox").count()) await page.keyboard.press("Escape");
   }
   await page.waitForTimeout(400);
   expect(posts).toEqual([]);
@@ -429,7 +433,7 @@ test("nota parcial: muestra el importe contra el tope y bloquea si lo supera (32
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
   // 07 y no 09: el catálogo 09 del mock solo trae 01/07/13. Para el tope da igual: cualquier motivo parcial.
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución por ítem");
   // f-aceptada: un ítem de 141.60 con anticipo regularizado → total 123.00. El 100 % del ítem supera el tope.
   await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
@@ -451,7 +455,7 @@ test("nota parcial: las cantidades arrancan en 0 aunque el 100 % quepa en el top
   // porque el 100 % supera el tope y el botón queda deshabilitado por eso; acá solo lo deshabilita el 0 inicial.
   await page.goto("/comprobantes/f-obs/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución por ítem");
   await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 0.00");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
@@ -465,10 +469,18 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   // (2642/3107) con el correlativo consumido; «13» sobre una factura al contado viola 3260.
   await page.goto("/comprobantes/f-obs/nota"); // interna, al contado
   const form = page.getByTestId("nota-form");
-  const codigos = async () => (await form.getByLabel(/Motivo/).locator("option").allTextContents()).map((t) => t.slice(0, 2)).filter((c) => /^\d\d$/.test(c));
+  const codigos = async () => {
+    await form.getByLabel(/Motivo/).click();
+    // Se espera a que la lista tenga sus opciones: leerlas apenas se abre puede devolver una lista vacía.
+    await expect(page.getByRole("listbox").getByRole("option").first()).toBeVisible();
+    const textos = await page.getByRole("listbox").getByRole("option").allTextContents();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox")).toHaveCount(0);
+    return textos.map((t) => t.trim().slice(0, 2)).filter((c) => /^\d\d$/.test(c));
+  };
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   expect(await codigos()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]);
-  await form.getByLabel("Tipo de nota").selectOption("08");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
   expect(await codigos()).toEqual(["01", "02", "03", "13"]); // el 13 de la ND (penalidades) no depende de la forma de pago
 
   await page.goto("/comprobantes/f-aceptada/nota"); // interna, al crédito
@@ -479,7 +491,7 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
   expect(await codigos()).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"]);
   // ND 13 sobre exportación no tiene salida: la penalidad va inafecta (3507) y la exportación exige 40 (2642).
-  await form.getByLabel("Tipo de nota").selectOption("08");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
   expect(await codigos()).toEqual(["01", "02", "03", "11"]);
 
   await page.goto("/comprobantes/f-ivap/nota"); // IVAP (afectación 17), al contado
@@ -488,7 +500,7 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci�
   // ofrecían 01 y 07 y salían numeradas. El 13 escaparía (línea gravada de importe 0) pero esta es al contado.
   expect(await codigos()).toEqual(["12"]);
   // ND sobre IVAP: ídem (fila 206); el 13 escapa porque va con 30.
-  await form.getByLabel("Tipo de nota").selectOption("08");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
   expect(await codigos()).toEqual(["12", "13"]);
 });
 
@@ -498,8 +510,8 @@ test("nota de débito 12 sobre una factura IVAP: la línea sale con afectación 
   // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
   // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await form.getByLabel(/Motivo/).selectOption("12");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^12 · /);
   await form.getByLabel("Sustento").fill("Ajuste del precio del arroz");
   await form.getByLabel("Concepto").fill("Diferencia de precio");
   await form.getByLabel(/Importe con IVAP/).fill("10.4");
@@ -550,8 +562,8 @@ test("nota de débito sobre una exportación: la línea sale con afectación 40,
   // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
   // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Intereses por mora de 30 días");
   await form.getByLabel("Concepto").fill("Intereses por mora");
   await form.getByLabel(/Importe sin IGV, exportación/).fill("59");
@@ -564,7 +576,7 @@ test("nota de débito sobre una exportación: la línea sale con afectación 40,
 test("NC 13: una cuota en blanco o vencida antes de la factura no deja emitir", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada/nota"); // al crédito, emitida el 2026-09-01
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("13");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^13 · /);
   await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
   const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
   await expect(boton).toBeEnabled(); // las cuotas de la factura vienen precargadas y son válidas
@@ -633,8 +645,8 @@ test("nota de débito 13 (penalidades): la línea sale inafecta, 30 (SUNAT 3507)
   // «Motivo» se habilita cuando cargan los catálogos, es decir, después de hidratar: elegir el tipo antes de eso
   // cambia el DOM pero no el estado de React, que lo devuelve a 07 (medido: 3 tests de ND rojos bajo carga).
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await form.getByLabel(/Motivo/).selectOption("13");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^13 · /);
   await form.getByLabel("Sustento").fill("Penalidad por entrega tardía");
   await form.getByLabel("Concepto").fill("Penalidad contractual");
   // La etiqueta ya no promete «con IGV»: las penalidades son inafectas.
@@ -650,7 +662,7 @@ test("nota de débito 13 (penalidades): la línea sale inafecta, 30 (SUNAT 3507)
 test("nota parcial y total sobre exportación: el importe no es 0.00 y el tope bloquea también la nota total", async ({ page }) => {
   await page.goto("/comprobantes/f-export/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución por ítem");
   await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
   // Con `calcularTotales` (que no entiende la afectación 40) acá decía «$ 0.00» y el tope era inerte.
@@ -674,14 +686,14 @@ test("nota parcial y total sobre exportación: el importe no es 0.00 y el tope b
     }).catch(() => null),
   );
   await page.goto("/comprobantes/f-export/nota");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución por ítem");
   await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
   await expect(form.getByTestId("nota-importe").getByRole("alert")).toContainText("Supera el tope");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
 
   // Nota TOTAL (01) sobre una factura ya acreditada: antes decía «copia la factura ($ 100.00)» y dejaba emitir.
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   const total = form.getByTestId("nota-total");
   await expect(total).toContainText("ya acreditado");
   await expect(total.getByRole("alert")).toContainText("Supera el tope");
@@ -691,7 +703,7 @@ test("nota parcial y total sobre exportación: el importe no es 0.00 y el tope b
 test("NC 13: el neto pendiente viaja redondeado a 2 decimales, no en punto flotante (3250/3319)", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("13");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^13 · /);
   await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
   // 10.1 + 20.2 = 30.299999999999997 en JS; el backend real exige hasta 2 decimales y que la suma sea el pendiente.
   await form.getByLabel("Monto de la cuota 1").fill("10.1");
@@ -715,7 +727,7 @@ test("nota: Enter sobre «Cancelar» (un enlace) sigue navegando; la guarda solo
 test("NC 13: una cuota con más de 2 decimales no deja emitir (3253)", async ({ page }) => {
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("13");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^13 · /);
   await form.getByLabel("Sustento").fill("Reprogramación de cuotas");
   const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
   await expect(boton).toBeEnabled();
@@ -947,7 +959,7 @@ test("NC parcial: los cargos de línea y el ISC de la factura viajan con la form
   // por menos del total, para no gastar el tope 3286 que comparten los workers.
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución parcial con flete");
   const importe = page.getByTestId("nota-importe");
   // Con la cantidad facturada el importe es el precio de venta del backend, flete incluido (no 1180 de precio × cantidad).
@@ -1001,7 +1013,7 @@ test("NC total (01) sobre una factura con anticipos se pide por ítems: copiar l
   // f-aceptada regularizó un anticipo (bruto 141.60, neto 123). La guarda `!conAnticipos` existía sin test.
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await expect(form.getByTestId("nota-total")).toHaveCount(0);
   await expect(form.getByText(/regularizó anticipos \(neto S\/ 123\.00\)/)).toBeVisible();
   await expect(form.getByLabel(/Cantidad de .* en la nota/)).toBeVisible();
@@ -1013,13 +1025,13 @@ test("nota: si falla solo un catálogo, la otra pestaña funciona y «Reintentar
   await page.goto("/comprobantes/f-aceptada/nota");
   const form = page.getByTestId("nota-form");
   await expect(form.getByRole("alert")).toContainText("No se pudieron cargar los motivos");
-  await form.getByLabel("Tipo de nota").selectOption("08");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
   await expect(form.getByLabel(/Motivo/)).toBeEnabled(); // el 10 sí cargó
   // Antes: en esta pestaña la alerta quedaba pegada y «Reintentar» desaparecía (su condición miraba solo la pestaña actual).
   caido = false;
   await form.getByRole("button", { name: "Reintentar" }).click();
   await expect(form.getByRole("alert")).toHaveCount(0);
-  await form.getByLabel("Tipo de nota").selectOption("07");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de crédito (07)");
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
 });
 
@@ -1027,7 +1039,7 @@ test("NC parcial: la cantidad se limita a 10 decimales (2025)", async ({ page })
   // Sobre f-cargos (sin POST): f-obs la anula el test de baja que corre en paralelo y /nota redirige a la ficha.
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   const cantidad = form.getByLabel("Cantidad de Gaseosa 500 ml en la nota");
   await cantidad.fill("0.12345678901");
   await expect(cantidad).toHaveValue("0.123456789");
@@ -1154,12 +1166,12 @@ test("NC total sobre una factura con redondeo: la nota copia el redondeo y sale 
   }, [new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" })]);
   expect(r.status, r.texto).toBe(422);
   expect(r.texto).toContain("3286");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución");
   await form.getByLabel(/Cantidad de .* en la nota/).fill("1");
   await expect(form.getByTestId("nota-importe")).toContainText("Importe de la nota: S/ 118.44");
   await expect(form.getByTestId("nota-importe").getByRole("alert")).toContainText("Supera el tope");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await expect(form.getByTestId("nota-total")).toContainText("copia los ítems, el descuento global y los cargos de la factura F001-9 (S/ 118.00)");
   await expect(form.getByTestId("nota-total").getByRole("alert")).toHaveCount(0);
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
@@ -1175,8 +1187,8 @@ test("ND: el importe admite hasta 2 decimales (2025)", async ({ page }) => {
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Intereses");
   await form.getByLabel("Concepto").fill("Intereses por mora");
   const boton = form.getByRole("button", { name: "Emitir nota de débito" });
@@ -1202,7 +1214,7 @@ test("NC parcial: una cantidad tan chica que el cargo de línea redondea a 0.00 
   // 0.0004 de 10 mesas con cargo 47 del 10 %: base 0.04, cargo 0.00 → `Cargo.montoSobre` lanza 2955. Viajaba y el mock daba 201.
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución mínima");
   await form.getByLabel("Cantidad de Mesa de trabajo en la nota").fill("0.0004");
   await expect(form.getByRole("button", { name: "Emitir nota de crédito" })).toBeDisabled();
@@ -1236,7 +1248,7 @@ test("ND: el concepto se corta a 500 caracteres en el cliente (2027)", async ({ 
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
   await form.getByLabel("Concepto").fill("x".repeat(501));
   await expect(form.getByLabel("Concepto")).toHaveValue("x".repeat(500));
 });
@@ -1304,7 +1316,7 @@ test("NC por importe (09 disminución en el valor): una sola línea por el monto
   // Catálogo 09: 04/05/08/09/10 acreditan un importe, no unidades. Antes solo existía la parcial por cantidades.
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("09");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^09 · /);
   await form.getByLabel("Sustento").fill("Acuerdo comercial por demora en la entrega");
   await expect(form.getByRole("table")).toHaveCount(0); // sin tabla de ítems
   await form.getByLabel("Concepto").fill("Descuento por demora en la entrega");
@@ -1327,7 +1339,7 @@ test("NC por importe (09 disminución en el valor): una sola línea por el monto
 test("NC por importe sobre una exportación: la línea sale con afectación 40 y la etiqueta lo dice", async ({ page }) => {
   await page.goto("/comprobantes/f-export/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("04");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^04 · /);
   await form.getByLabel("Sustento").fill("Descuento global acordado");
   await form.getByLabel("Concepto").fill("Descuento global");
   await form.getByLabel(/Importe sin IGV, exportación/).fill("10");
@@ -1343,7 +1355,7 @@ test("NC 10 «Otros conceptos» no tiene tope por importe total (3286 exime al m
   // entra en el acumulado. Con f-cargos compartida, otros dos tests que leen su tope fallaban con 2 workers (recert #10).
   await page.goto("/comprobantes/f-otros-conceptos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("10");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^10 · /);
   await form.getByLabel("Sustento").fill("Ajuste por otros conceptos");
   await form.getByLabel("Concepto").fill("Otros conceptos");
   await form.getByLabel(/Importe con IGV/).fill("1500");
@@ -1363,7 +1375,7 @@ test("NC por importe sobre una exportación con cargo sin IGV: el tope es la bas
   // backend ni en el mock (quitarlo dejaba todo verde).
   await page.goto("/comprobantes/f-export-cargo/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("09");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^09 · /);
   await form.getByLabel("Sustento").fill("Disminución acordada");
   await form.getByLabel("Concepto").fill("Disminución en el valor");
   const importe = form.getByTestId("nota-importe");
@@ -1388,12 +1400,12 @@ test("NC por importe sobre una exportación con cargo sin IGV: el tope es la bas
 test("nota: avisa por qué el botón está deshabilitado con concepto corto o sin cantidades", async ({ page }) => {
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución");
   await expect(form.getByRole("status").filter({ hasText: "cantidad mayor que 0" })).toBeVisible();
   await form.getByLabel("Cantidad de Gaseosa 500 ml en la nota").fill("1");
   await expect(form.getByRole("status").filter({ hasText: "cantidad mayor que 0" })).toHaveCount(0);
-  await form.getByLabel(/Motivo/).selectOption("09");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^09 · /);
   await form.getByLabel("Concepto").fill("ab");
   await expect(form.getByRole("status").filter({ hasText: "al menos 3 caracteres" })).toBeVisible();
   await form.getByLabel("Concepto").fill("abc");
@@ -1403,7 +1415,7 @@ test("nota: avisa por qué el botón está deshabilitado con concepto corto o si
 test("NC por importe sobre una factura exonerada: la línea sale exonerada (20) y la etiqueta lo dice", async ({ page }) => {
   await page.goto("/comprobantes/f-exonerada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("05");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^05 · /);
   await form.getByLabel("Sustento").fill("Descuento por ítem acordado");
   await form.getByLabel("Concepto").fill("Descuento libros");
   await form.getByLabel(/Importe exonerado, sin IGV/).fill("20");
@@ -1418,7 +1430,7 @@ test("NC por importe: el tope real es el del tributo (3503) cuando queda por deb
   // (el resto es ISC). Recert #7: el formulario mostraba el total como tope, el mock daba 201 y el backend 422.
   await page.goto("/comprobantes/f-isc/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("09");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^09 · /);
   await form.getByLabel("Sustento").fill("Disminución acordada");
   await form.getByLabel("Concepto").fill("Disminución en el valor");
   const importe = form.getByTestId("nota-importe");
@@ -1447,7 +1459,7 @@ test("NC 12 sobre una factura IVAP se emite: el mock reparte la base en gravado 
   // Recert #8: con el fixture {gravado: 0, igv: 4} y el 3503 sin IVAP, el mock rechazaba TODA NC sobre f-ivap.
   await page.goto("/comprobantes/f-ivap/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("12");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^12 · /);
   await form.getByLabel("Sustento").fill("Ajuste IVAP");
   // Por el total (104): con 1 unidad el IVAP (0.40) entraba en la +1 del 3503 y una mutación «IVAP al cubo del IGV» sobrevivía.
   await form.getByLabel(/Cantidad de .* en la nota/).fill("10");
@@ -1461,11 +1473,11 @@ test("NC 12 sobre una factura IVAP se emite: el mock reparte la base en gravado 
 test("NC 02 (anulación por error en el RUC) es una nota total, como 01 y 06", async ({ page }) => {
   await page.goto("/comprobantes/f-cargos/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("02");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^02 · /);
   await expect(form.getByTestId("nota-total")).toContainText("copia los ítems");
-  await form.getByLabel(/Motivo/).selectOption("06");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^06 · /);
   await expect(form.getByTestId("nota-total")).toContainText("copia los ítems");
-  await form.getByLabel(/Motivo/).selectOption("03");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^03 · /);
   await expect(form.getByRole("table")).toBeVisible(); // 03 corrige por ítem
 });
 
@@ -1473,8 +1485,8 @@ test("ND 12 sobre IVAP: un importe de 0.07 a 0.12 deja el IVAP en 0.00 (3111) y 
   await page.goto("/comprobantes/f-ivap/nota");
   const form = page.getByTestId("nota-form");
   await expect(form.getByLabel(/Motivo/)).toBeEnabled();
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await form.getByLabel(/Motivo/).selectOption("12");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^12 · /);
   await form.getByLabel("Sustento").fill("Ajuste mínimo");
   await form.getByLabel("Concepto").fill("Ajuste de precio");
   const boton = form.getByRole("button", { name: "Emitir nota de débito" });
@@ -1507,7 +1519,7 @@ test("NC parcial con una línea gratuita: la bonificación no bloquea la nota, y
   // entera con un consejo imposible («sube la cantidad»). SUNAT exige justamente valor unitario 0 en una línea 9996 (2640).
   await page.goto("/comprobantes/f-exonerada/nota");
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("07");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^07 · /);
   await form.getByLabel("Sustento").fill("Devolución con bonificación");
   const boton = form.getByRole("button", { name: "Emitir nota de crédito" });
   // Solo la gratuita: la nota no acreditaría nada → 2062.
@@ -1566,8 +1578,8 @@ test("#294: NC total sobre una boleta con serie B, y su baja va en el resumen di
   await expect(page).toHaveURL(/\/comprobantes\/b-aceptada\/nota/);
   await expect(page.getByRole("link", { name: "Volver a la boleta" })).toBeVisible();
   const form = page.getByTestId("nota-form");
-  await expect(form.getByLabel("Serie")).toHaveValue("BC01");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await esperarOpcion(form.getByLabel("Serie"), "BC01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Anulación de la venta");
   const peticion = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/api/proxy/notas"));
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
@@ -1603,11 +1615,14 @@ test("#294: sobre una boleta «sin documento» la nota toma ese comprador y no o
   const form = page.getByTestId("nota-form");
   const motivo = form.getByLabel(/Motivo/);
   await expect(motivo).toBeEnabled();
-  const codigos = await motivo.locator("option").evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  await motivo.click();
+  const codigos = (await page.getByRole("listbox").getByRole("option").allTextContents()).map((t) => t.trim().slice(0, 2)).filter((c) => /^\d\d$/.test(c));
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   for (const c of ["04", "05", "08", "13"]) expect(codigos, c).not.toContain(c);
   expect(codigos).toEqual(expect.arrayContaining(["01", "06", "07", "09"]));
-  await form.getByLabel("Tipo de nota").selectOption("08");
-  await expect(form.getByLabel("Serie")).toHaveValue("BD01");
+  await elegirOpcion(form.getByLabel("Tipo de nota"), "Nota de débito (08)");
+  await esperarOpcion(form.getByLabel("Serie"), "BD01");
 });
 
 test("#294: el mock de POST /v1/notas sobre boletas rechaza lo que el backend rechaza: 3259, 4367 y serie F (1001)", async ({ page }) => {

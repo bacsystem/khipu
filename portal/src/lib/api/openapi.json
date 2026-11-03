@@ -27,6 +27,10 @@
       "description": "Envío automático del comprobante a su cliente: con la preferencia activada, cuando SUNAT acepta un comprobante emitido con\n`cliente.email` (una nota hereda el de su comprobante), khipu le manda a ese correo el PDF, el XML firmado y el CDR. Sale poco después\nde la aceptación, una sola vez por comprobante, y si el servidor de correo falla se reintenta hasta 5 veces en unas 2 horas y media.\nUna boleta informada en un resumen diario sale cuando SUNAT acepta el resumen. El resultado se ve en `envio_al_cliente` al consultar\nel comprobante (`GET /v1/facturas/{id}`). Apagada por defecto."
     },
     {
+      "name": "Preferencias de emisión",
+      "description": "Cómo se emite desde el portal: con `opciones_avanzadas` apagada (por defecto) el modal de emisión ofrece solo lo habitual (crédito, detracción\ny correo); encendida, también el tipo de operación/exportación, anticipos, percepción, retención, más opciones y referencias. No cambia la API:\nun integrador puede enviar cualquier campo con o sin ella."
+    },
+    {
       "name": "Autenticación (backoffice)",
       "description": "Sesión del panel de administración de la plataforma. No es la misma sesión que la del portal de clientes."
     },
@@ -196,6 +200,67 @@
             "description": "OK"
           }
         }
+      }
+    },
+    "/v1/empresa/preferencias-emision": {
+      "get": {
+        "tags": [
+          "Preferencias de emisión"
+        ],
+        "summary": "Ver las preferencias de emisión",
+        "operationId": "verPreferenciasDeEmision",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePreferenciasDeEmision"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Preferencias de emisión"
+        ],
+        "summary": "Guardar las preferencias de emisión",
+        "description": "Solo un administrador de la cuenta (`403 ROL_INSUFICIENTE` para los demás roles).",
+        "operationId": "guardarPreferenciasDeEmision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenciasDeEmisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePreferenciasDeEmision"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
       }
     },
     "/v1/empresa/personalizacion-pdf": {
@@ -6040,7 +6105,7 @@
           "Consultas"
         ],
         "summary": "Consultar un RUC en el padrón de SUNAT",
-        "description": "Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).\n`actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si\nno es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo\n(60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL.",
+        "description": "Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).\n`actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si\nno es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo\n(60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL. Desde el portal también responde sin `X-Empresa` (una cuenta que todavía no\nregistra su primera empresa), con el mismo cupo contado por cuenta.",
         "operationId": "consultarRuc",
         "parameters": [
           {
@@ -6784,6 +6849,39 @@
         }
       }
     },
+    "/v1/admin/consultas/ruc/{ruc}": {
+      "get": {
+        "tags": [
+          "Administración de la plataforma"
+        ],
+        "summary": "Consultar un RUC en el padrón de SUNAT (backoffice)",
+        "description": "Lo mismo que `GET /v1/consultas/ruc/{ruc}`, para el backoffice: razón social, estado, condición y domicilio fiscal del padrón reducido. Mismos errores\n(`400 PARAMETRO_INVALIDO`, `404 NO_ENCONTRADO`, `503 PADRON_NO_CARGADO`, `429 DEMASIADAS_CONSULTAS`) y el mismo cupo, contado por administrador.",
+        "operationId": "consultarRucAdmin",
+        "parameters": [
+          {
+            "name": "ruc",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 20100066603
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePadronRucResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/configuracion/plantillas": {
       "get": {
         "tags": [
@@ -7155,6 +7253,74 @@
           "actualizado_en": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PreferenciasDeEmisionRequest": {
+        "required": [
+          "opciones_avanzadas"
+        ],
+        "type": "object",
+        "properties": {
+          "opciones_avanzadas": {
+            "type": "boolean",
+            "description": "Si el modal de emisión del portal ofrece las opciones avanzadas: tipo de operación/exportación, anticipos, percepción, retención, más opciones y referencias. Crédito, detracción y correo se ofrecen siempre. Solo cambia lo que muestra el portal; la API acepta los mismos campos",
+            "example": true
+          }
+        }
+      },
+      "ApiResponsePreferenciasDeEmision": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string",
+            "description": "\"exito\" o \"error\"",
+            "example": "exito"
+          },
+          "datos": {
+            "$ref": "#/components/schemas/PreferenciasDeEmision"
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Mensaje legible, presente solo en error",
+            "example": "null"
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código de error, presente solo en error",
+            "example": "null"
+          },
+          "errores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "description": "Errores de validación por campo, presente solo en VALIDACION",
+              "example": "null",
+              "items": {
+                "type": "string",
+                "description": "Errores de validación por campo, presente solo en VALIDACION",
+                "example": "null"
+              }
+            },
+            "description": "Errores de validación por campo, presente solo en VALIDACION",
+            "example": "null"
+          },
+          "avisos": {
+            "type": "array",
+            "description": "Lo que SUNAT observará aunque acepte el comprobante (por ahora 4013 y 4014, sobre el RUC del comprador); ausente si no hay nada que avisar",
+            "items": {
+              "$ref": "#/components/schemas/Aviso"
+            }
+          }
+        }
+      },
+      "PreferenciasDeEmision": {
+        "type": "object",
+        "properties": {
+          "opciones_avanzadas": {
+            "type": "boolean",
+            "description": "Si el modal de emisión del portal ofrece las opciones avanzadas: tipo de operación/exportación, anticipos, percepción, retención, más opciones y referencias. Crédito, detracción y correo se ofrecen siempre. Solo cambia lo que muestra el portal; la API acepta los mismos campos",
+            "example": false
           }
         }
       },

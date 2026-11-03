@@ -18,6 +18,7 @@ type Namespace = keyof Mensajes;
 const BASE = [
   "aceptarTerminos",
   "auth",
+  "consultaRuc",
   "cuentaSuspendida",
   "errores",
   "legal",
@@ -46,6 +47,7 @@ export const TEXTOS_DE_CLIENTE = {
     "equipo",
     "establecimientos",
     "guias",
+    "inicio",
     "nav",
     "productos",
     "referenciaTecnica",

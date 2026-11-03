@@ -1,6 +1,7 @@
 import { ReceiptIcon } from "@phosphor-icons/react/dist/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SinEmpresa } from "@/components/compartidos/sin-empresa";
 import { getLocale, getMessages } from "next-intl/server";
 import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { EstadoVacio } from "khipu-design-system/feedback/estado-vacio";
@@ -11,7 +12,7 @@ import { obtenerEmpresaActual } from "@/lib/api/empresas";
 import { emisionPorDia, resumirFacturas } from "@/lib/api/facturas";
 import { listarSeries } from "@/lib/api/series";
 import { hayPasosPendientes, pasosParaEmitir } from "@/lib/empresa/guia-emision";
-import { ACCION_SECUNDARIA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CONTENEDOR_PAGINA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { alertasDelPanel, esEmpresaNueva, mesEnCurso, mismoTramoDelMesAnterior, serieDiaria, sinLoQueYaDiceLaGuia, ventanaDeAtencion } from "@/lib/inicio/panel";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -47,12 +48,7 @@ export default async function InicioPage() {
   const t = messages.inicio;
   if (!access || !empresaId) {
     return (
-      <p className="text-cuerpo text-muted-foreground">
-        {t.sinEmpresa}{" "}
-        <Link href="/onboarding" className="text-primary hover:underline">
-          {t.configurarEmpresa}
-        </Link>
-      </p>
+      <SinEmpresa texto={t.sinEmpresa} accion={t.configurarEmpresa} />
     );
   }
 
@@ -80,7 +76,7 @@ export default async function InicioPage() {
   const sinEmision = esEmpresaNueva(series) && (resumen === null || resumen.emitidos === 0);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4" data-testid="panel-de-inicio">
+    <div className={CONTENEDOR_PAGINA} data-testid="panel-de-inicio">
       <p className="text-control text-muted-foreground" data-testid="panel-periodo">
         {mesEnPalabras(hoy, messages)}
         {empresa ? <span className="text-muted-foreground/80"> · {empresa.razon_social}</span> : null}

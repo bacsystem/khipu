@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { abrirPestana, entrarComoAdmin } from "./admin-sesion";
+import { elegirOpcion, esperarOpcion } from "./combo";
 
 // El mock (src/mocks/data.ts) siembra «Cliente 13» de baja, con una empresa, y nadie la muta: dar de baja o reponer una cuenta cambia lo que cuentan
 // las demás specs que corren a la vez (12 cuentas, 12 empresas), así que estas specs no mutan. El ciclo completo, con la bitácora, lo prueba el
@@ -22,7 +23,7 @@ test("por defecto las cuentas dadas de baja no salen, y el total las descuenta",
 
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*12/);
   await expect(page.getByText("Cliente 13", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Cuentas dadas de baja")).toHaveValue("");
+  await esperarOpcion(page.getByLabel("Cuentas dadas de baja"), "Sin las dadas de baja");
 });
 
 test("con «Solo las dadas de baja» salen únicamente esas, marcadas «De baja» y enlazadas a su detalle", async ({ page }) => {
@@ -32,12 +33,12 @@ test("con «Solo las dadas de baja» salen únicamente esas, marcadas «De baja�
   const fila = page.locator("tr", { hasText: "Cliente 13" });
   await expect(fila).toHaveAttribute("data-estado-cuenta", "BAJA");
   await expect(fila.getByText("De baja")).toBeVisible();
-  await expect(page.getByLabel("Cuentas dadas de baja")).toHaveValue("SOLO");
+  await esperarOpcion(page.getByLabel("Cuentas dadas de baja"), "Solo las dadas de baja");
   await fila.getByRole("link", { name: "Cliente 13" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/cuentas/${DE_BAJA}$`));
 });
 
-test("con «Incluir» salen las 13, mezcladas", async ({ page }) => {
+test("con «Con las dadas de baja» salen las 13, mezcladas", async ({ page }) => {
   await page.goto("/admin/cuentas?bajas=INCLUIDAS");
 
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*13/);
@@ -46,12 +47,12 @@ test("con «Incluir» salen las 13, mezcladas", async ({ page }) => {
 test("el selector cambia la URL y la lista sin perder lo que ya se había elegido", async ({ page }) => {
   await page.goto("/admin/cuentas?por_pagina=20");
 
-  await page.getByLabel("Cuentas dadas de baja").selectOption("SOLO");
+  await elegirOpcion(page.getByLabel("Cuentas dadas de baja"), "Solo las dadas de baja");
 
   await expect(page).toHaveURL(/bajas=SOLO/);
   await expect(page).toHaveURL(/por_pagina=20/);
   await expect(filas(page)).toHaveCount(1);
-  await page.getByLabel("Cuentas dadas de baja").selectOption("");
+  await elegirOpcion(page.getByLabel("Cuentas dadas de baja"), "Sin las dadas de baja");
   await expect(page).not.toHaveURL(/bajas=/);
   await expect(page.locator("body")).toContainText(/de\s*12/);
 });
@@ -60,7 +61,7 @@ test("la búsqueda no encuentra una cuenta de baja salvo que se pida verla", asy
   await page.goto("/admin/cuentas?q=Cliente 13");
   await expect(page.getByText("No hay cuentas con esos filtros.")).toBeVisible();
 
-  await page.getByLabel("Cuentas dadas de baja").selectOption("INCLUIDAS");
+  await elegirOpcion(page.getByLabel("Cuentas dadas de baja"), "Con las dadas de baja");
 
   await expect(page).toHaveURL(/q=Cliente\+13/);
   await expect(filas(page)).toHaveCount(1);
@@ -71,7 +72,7 @@ test("un valor de bajas que no existe se ignora en vez de romper el listado", as
   await page.goto("/admin/cuentas?bajas=TODAS");
 
   await expect(page.locator("body")).toContainText(/de\s*12/);
-  await expect(page.getByLabel("Cuentas dadas de baja")).toHaveValue("");
+  await esperarOpcion(page.getByLabel("Cuentas dadas de baja"), "Sin las dadas de baja");
 });
 
 // --- listado de empresas --------------------------------------------------------------------------------------------------------------
@@ -92,7 +93,7 @@ test("con «Solo las dadas de baja» sale la empresa, con la marca «De baja» j
   await expect(fila.getByRole("link", { name: "Cliente 13", exact: true })).toBeVisible();
 });
 
-test("«Incluir» suma esa empresa a las demás", async ({ page }) => {
+test("«Con las dadas de baja» suma esa empresa a las demás", async ({ page }) => {
   await page.goto("/admin/empresas?bajas=INCLUIDAS");
 
   await expect(page.locator("body")).toContainText(/Mostrando\s*1–10\s*de\s*13/);

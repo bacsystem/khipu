@@ -1030,7 +1030,7 @@ anterior, y la clave foránea a `usuario` no borra en cascada: un `DELETE` de un
 aceptar** antes de dejarlos usar el panel. Lo mismo pasa con los usuarios que crea el alta asistida: el administrador no acepta por el cliente.
 
 **Los textos actuales son un borrador sin revisión legal.** Mientras `REVISADO_POR_LEGAL` sea `false`, las dos páginas lo dicen arriba de todo. Los datos
-entre corchetes (`[RUC por completar]`, domicilio, correo de contacto, inscripción del banco de datos ante la ANPD) también son del dueño.
+entre corchetes que quedan (correo de contacto, inscripción del banco de datos ante la ANPD) también son del dueño; el RUC y el domicilio fiscal ya están, tal como figuran en SUNAT.
 
 **Cómo publicar una versión nueva** (todo en el mismo commit, y desplegar los dos servicios):
 

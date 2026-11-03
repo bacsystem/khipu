@@ -4,6 +4,7 @@ import { MegaphoneIcon, XIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { DialogoDeAccion } from "@/components/admin/dialogo-de-accion";
 import type { BannerConfigurado } from "@/lib/api/admin-configuracion";
@@ -14,13 +15,17 @@ import {
   DIAS_MAX_DE_AVISO,
   estadoDelAviso,
   limaAInstante,
+  partirFechaHora,
   TEXTO_DE_AVISO_MAX,
+  unirFechaHora,
   valoresDeAviso,
   valoresNuevoAviso,
   type ErroresDeAviso,
   type ValoresDeAviso,
 } from "@/lib/configuracion-formulario";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { BOTON_PRIMARIO, TARJETA } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaHora } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -110,72 +115,29 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       </div>
 
       <div className="grid max-w-xl gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="aviso-texto" className={ETIQUETA_CAMPO}>
-            {t.texto}
-          </label>
-          <input
+        <Campo id="aviso-texto" etiqueta={t.texto} error={errores.texto} ayuda={t.textoAyuda.replace("{max}", String(TEXTO_DE_AVISO_MAX))}>
+          <Entrada
             id="aviso-texto"
             data-testid="aviso-texto"
             value={valores.texto}
             maxLength={TEXTO_DE_AVISO_MAX}
             onChange={(e) => poner("texto", e.target.value)}
             autoComplete="off"
-            aria-invalid={errores.texto ? true : undefined}
-            aria-describedby={errores.texto ? "aviso-texto-error" : undefined}
-            className={CAMPO}
+            invalido={Boolean(errores.texto)}
+            aria-describedby={errores.texto ? "aviso-texto-error" : "aviso-texto-ayuda"}
           />
-          {errores.texto ? (
-            <span id="aviso-texto-error" className="text-control text-destructive">
-              {errores.texto}
-            </span>
-          ) : (
-            <span className={AYUDA_CAMPO}>{t.textoAyuda.replace("{max}", String(TEXTO_DE_AVISO_MAX))}</span>
-          )}
-        </div>
+        </Campo>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="aviso-desde" className={ETIQUETA_CAMPO}>
-              {t.desde}
-            </label>
-            <input
-              id="aviso-desde"
-              data-testid="aviso-desde"
-              type="datetime-local"
-              value={valores.desde}
-              onChange={(e) => poner("desde", e.target.value)}
-              aria-invalid={errores.desde ? true : undefined}
-              aria-describedby={errores.desde ? "aviso-desde-error" : undefined}
-              className={CAMPO}
-            />
-            {errores.desde ? (
-              <span id="aviso-desde-error" className="text-control text-destructive">
-                {errores.desde}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="aviso-hasta" className={ETIQUETA_CAMPO}>
-              {t.hasta}
-            </label>
-            <input
-              id="aviso-hasta"
-              data-testid="aviso-hasta"
-              type="datetime-local"
-              value={valores.hasta}
-              onChange={(e) => poner("hasta", e.target.value)}
-              aria-invalid={errores.hasta ? true : undefined}
-              aria-describedby={errores.hasta ? "aviso-hasta-error" : undefined}
-              className={CAMPO}
-            />
-            {errores.hasta ? (
-              <span id="aviso-hasta-error" className="text-control text-destructive">
-                {errores.hasta}
-              </span>
-            ) : (
-              <span className={AYUDA_CAMPO}>{t.hastaAyuda.replace("{dias}", String(DIAS_MAX_DE_AVISO))}</span>
-            )}
-          </div>
+          <FechaYHora id="aviso-desde" etiqueta={t.desde} etiquetaHora={t.horaDesde} valor={valores.desde} onCambio={(v) => poner("desde", v)} error={errores.desde} />
+          <FechaYHora
+            id="aviso-hasta"
+            etiqueta={t.hasta}
+            etiquetaHora={t.horaHasta}
+            valor={valores.hasta}
+            onCambio={(v) => poner("hasta", v)}
+            error={errores.hasta}
+            ayuda={t.hastaAyuda.replace("{dias}", String(DIAS_MAX_DE_AVISO))}
+          />
         </div>
       </div>
 
@@ -195,10 +157,9 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={enviando} onClick={publicar} data-testid="aviso-publicar" className={BOTON_PRIMARIO}>
-          <MegaphoneIcon className="size-4" />
-          {enviando ? t.publicando : banner ? t.reemplazar : t.publicar}
-        </button>
+        <BotonAsync pendiente={enviando} onClick={publicar} data-testid="aviso-publicar" icon={<MegaphoneIcon className="size-4" />} textoPendiente={t.publicando} className={BOTON_PRIMARIO}>
+          {banner ? t.reemplazar : t.publicar}
+        </BotonAsync>
         {banner ? (
           <DialogoDeAccion
             testId="aviso-retirar"
@@ -218,5 +179,57 @@ export function FormularioDeAviso({ banner, ahora, alResultado }: { banner: Bann
         ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * Una fecha y hora de Lima del aviso: la fecha del design system (su calendario) y la hora al lado. El design system no tiene fecha y hora en un solo campo, y el
+ * `datetime-local` del navegador no se puede estilizar. El valor sigue siendo el texto «2026-10-15T22:00» de siempre ({@link unirFechaHora}): lo que se envía no cambia.
+ */
+function FechaYHora({
+  id,
+  etiqueta,
+  etiquetaHora,
+  valor,
+  onCambio,
+  error,
+  ayuda,
+}: {
+  id: string;
+  etiqueta: string;
+  etiquetaHora: string;
+  valor: string;
+  onCambio: (valor: string) => void;
+  error?: string;
+  ayuda?: string;
+}) {
+  const messages = useMessages();
+  const { fecha, hora } = partirFechaHora(valor);
+  const describidoPor = error ? `${id}-error` : ayuda ? `${id}-ayuda` : undefined;
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error} ayuda={ayuda}>
+      <div className="flex gap-2">
+        <EntradaFecha
+          id={id}
+          valor={fecha}
+          onCambio={(f) => onCambio(unirFechaHora(f, hora))}
+          placeholder={messages.comun.elegirFecha}
+          invalido={Boolean(error)}
+          describidoPor={describidoPor}
+          className="flex-1"
+        />
+        <Entrada
+          id={`${id}-hora`}
+          data-testid={`${id}-hora`}
+          type="time"
+          value={hora}
+          onChange={(e) => onCambio(unirFechaHora(fecha, e.target.value))}
+          aria-label={etiquetaHora}
+          invalido={Boolean(error)}
+          aria-describedby={describidoPor}
+          className="w-28 tabular-nums"
+        />
+      </div>
+    </Campo>
   );
 }

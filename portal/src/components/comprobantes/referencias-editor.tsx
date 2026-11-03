@@ -3,10 +3,11 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { AreaTexto, Campo } from "khipu-design-system/formularios/campo";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { errorDeReferencias, MAX_DOCUMENTO, MAX_OBSERVACIONES, MAX_ORDEN_COMPRA, tiposDeDocumento as tiposDeDocumentoDe, tiposDeGuia, type ReferenciasForm } from "@/lib/comprobantes/referencias";
-import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 
@@ -32,11 +33,14 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
         <legend className="mb-1 text-control font-medium">{t.guias}</legend>
         {valor.guias.map((g, i) => (
           <div key={i} className="flex items-start gap-2">
-            <select aria-label={interpolar(t.tipoGuia, { n: i + 1 })} value={g.tipo} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(SELECT_NATIVO, "w-[230px] shrink-0")}>
-              {tiposDeGuia(messages).map((g) => (
-                <option key={g.codigo} value={g.codigo}>{g.etiqueta}</option>
-              ))}
-            </select>
+            <SelectCampo
+              id={`nc-guia-tipo-${i}`}
+              etiqueta={interpolar(t.tipoGuia, { n: i + 1 })}
+              valor={g.tipo}
+              onCambio={(v) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, tipo: v } : x)) })}
+              opciones={tiposDeGuia(messages).map((g) => ({ value: g.codigo, label: g.etiqueta }))}
+              className="w-[230px] shrink-0"
+            />
             <input aria-label={interpolar(t.numeroGuia, { n: i + 1 })} value={g.numero} onChange={(e) => set({ guias: valor.guias.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} placeholder="T001-123" className={cn(CAMPO, "font-mono")} />
             <Button type="button" aria-label={interpolar(t.quitarGuia, { n: i + 1 })} onClick={() => set({ guias: valor.guias.filter((_, j) => j !== i) })} variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
               <TrashIcon className="size-4" />
@@ -53,11 +57,14 @@ export function ReferenciasEditor({ valor, onCambio, boleta }: { valor: Referenc
         <legend className="mb-1 text-control font-medium">{t.documentos}</legend>
         {valor.documentos.map((d, i) => (
           <div key={i} className="flex items-start gap-2">
-            <select aria-label={interpolar(t.tipoDocumento, { n: i + 1 })} value={d.tipo} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} className={cn(SELECT_NATIVO, "w-[230px] shrink-0")}>
-              {tiposDeDocumento.map((x) => (
-                <option key={x.codigo} value={x.codigo}>{x.etiqueta}</option>
-              ))}
-            </select>
+            <SelectCampo
+              id={`nc-doc-tipo-${i}`}
+              etiqueta={interpolar(t.tipoDocumento, { n: i + 1 })}
+              valor={d.tipo}
+              onCambio={(v) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, tipo: v } : x)) })}
+              opciones={tiposDeDocumento.map((x) => ({ value: x.codigo, label: x.etiqueta }))}
+              className="w-[230px] shrink-0"
+            />
             <input aria-label={interpolar(t.numeroDocumento, { n: i + 1 })} value={d.numero} onChange={(e) => set({ documentos: valor.documentos.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)) })} maxLength={MAX_DOCUMENTO + 10} placeholder="SCOP-8841203" className={cn(CAMPO, "font-mono")} />
             <Button type="button" aria-label={interpolar(t.quitarDocumento, { n: i + 1 })} onClick={() => set({ documentos: valor.documentos.filter((_, j) => j !== i) })} variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
               <TrashIcon className="size-4" />

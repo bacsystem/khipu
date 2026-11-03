@@ -1,10 +1,8 @@
-import { WarningIcon } from "@phosphor-icons/react/dist/ssr";
-import { PESO_ICONO } from "khipu-design-system/lib/iconos";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { useLocale, useMessages } from "next-intl";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import type { AvisoDePlazo } from "@/lib/comprobantes/plazo";
 import { formatearFecha } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 /** «queda 1 día» / «quedan 3 días». */
 function cuantoQueda(dias: number, t: Mensajes["comprobantes"]["avisoBoleta"]): string {
@@ -22,27 +20,15 @@ export function AvisoBoletaSinInformar({ aviso, que }: { aviso: AvisoDePlazo; qu
   const urgente = aviso.fase === "ultimo-dia-resumen" || aviso.fase === "fuera-de-plazo";
   const limite = formatearFecha(aviso.limite, useLocale());
   return (
-    <section
-      role="status"
-      data-testid="aviso-boleta-sin-informar"
-      data-fase={aviso.fase}
-      data-urgente={urgente}
-      className={cn(
-        "flex items-start gap-3 rounded-xl border p-4 text-cuerpo",
-        urgente ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-warning-border bg-warning text-warning-foreground",
-      )}
-    >
-      <WarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0" />
-      <div className="space-y-1">
-        <p className="font-semibold">{interpolar(t.titulo, { que: messages.comprobantes.estadoBaja.que[que] })}</p>
-        <p className="text-control leading-relaxed">
-          {aviso.fase === "ultimo-dia-individual" ? interpolar(t.ultimoDiaIndividual, { limite }) : null}
-          {aviso.fase === "solo-resumen" ? interpolar(t.soloResumen, { limite, queda: cuantoQueda(aviso.diasRestantes, t) }) : null}
-          {aviso.fase === "ultimo-dia-resumen" ? interpolar(t.ultimoDiaResumen, { limite }) : null}
-          {aviso.fase === "fuera-de-plazo" ? interpolar(t.fueraDePlazo, { limite }) : null}{" "}
-          {t.enviala}
-        </p>
-      </div>
+    // La fase va en el envoltorio: la `Alerta` del DS no lleva atributos propios (y pone el rol: `status`, o `alert` si es urgente).
+    <section data-testid="aviso-boleta-sin-informar" data-fase={aviso.fase} data-urgente={urgente}>
+      <Alerta tono={urgente ? "error" : "aviso"} titulo={interpolar(t.titulo, { que: messages.comprobantes.estadoBaja.que[que] })}>
+        {aviso.fase === "ultimo-dia-individual" ? interpolar(t.ultimoDiaIndividual, { limite }) : null}
+        {aviso.fase === "solo-resumen" ? interpolar(t.soloResumen, { limite, queda: cuantoQueda(aviso.diasRestantes, t) }) : null}
+        {aviso.fase === "ultimo-dia-resumen" ? interpolar(t.ultimoDiaResumen, { limite }) : null}
+        {aviso.fase === "fuera-de-plazo" ? interpolar(t.fueraDePlazo, { limite }) : null}{" "}
+        {t.enviala}
+      </Alerta>
     </section>
   );
 }

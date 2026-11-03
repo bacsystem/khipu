@@ -1,19 +1,20 @@
 "use client";
 
-import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
 import { EstadoCuentaEtiqueta } from "@/components/admin/etiquetas";
 import { FiltroDeBajas } from "@/components/admin/filtro-de-bajas";
+import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
+import { LimpiarFiltros } from "@/components/compartidos/limpiar-filtros";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import { hrefDetalleCuenta } from "@/lib/api/admin-cuenta-detalle";
 import { hrefCuentas, type CuentaAdmin, type ParamsCuentas } from "@/lib/api/admin-cuentas";
-import { ACCION_SECUNDARIA, CABECERA_TABLA, CAMPO } from "@/lib/estilos";
+import { MAX_BUSQUEDA } from "@/lib/api/admin-errores";
+import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaHora } from "@/lib/formato";
-import { cn } from "@/lib/utils";
 
 /**
  * Listado de cuentas del backoffice (#180), paginado y filtrado en el servidor: buscar, paginar y cambiar las filas por
@@ -25,47 +26,35 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
   const locale = useLocale();
   const columnas = messages.admin.cuentas.columnas;
   const router = useRouter();
-  const buscador = useRef<HTMLInputElement>(null);
+  const t = messages.admin.cuentas;
 
   const ultimaPagina = Math.max(1, Math.ceil(total / params.porPagina));
   const primero = total === 0 ? 0 : (params.pagina - 1) * params.porPagina + 1;
   const ultimo = (params.pagina - 1) * params.porPagina + datos.length;
   const hayFiltros = Boolean(params.q || params.bajas);
 
-  function buscar(e: React.FormEvent) {
-    e.preventDefault();
-    const q = buscador.current?.value.trim();
+  /** Buscar vuelve a la primera página y conserva el filtro de bajas y el tamaño de página. */
+  function buscar(texto: string) {
+    const q = texto.trim();
     router.push(hrefCuentas({ q: q ? q : undefined, bajas: params.bajas, pagina: 1, porPagina: params.porPagina }));
   }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        {/* `key`: al cambiar la búsqueda (p. ej. «Quitar filtros») el campo se vuelve a montar con el valor de la URL. */}
-        <form key={params.q ?? ""} role="search" onSubmit={buscar} className="flex w-full max-w-xl items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70" />
-            <input
-              ref={buscador}
-              id="buscar-cuentas"
-              type="search"
-              name="q"
-              defaultValue={params.q ?? ""}
-              placeholder={messages.admin.cuentas.buscar}
-              aria-label={messages.admin.cuentas.buscar}
-              className={cn(CAMPO, "pl-9")}
-            />
-          </div>
-          <button type="submit" className={ACCION_SECUNDARIA}>
-            {messages.admin.cuentas.botonBuscar}
-          </button>
-        </form>
+      {/* La barra de filtros del design system (§12), la misma del portal del cliente: cada filtro se aplica al cambiarlo, la búsqueda tras una pausa. */}
+      <div role="search" aria-label={t.barraDeFiltros} className="flex flex-wrap items-center justify-end gap-2.5">
+        <BusquedaDelListado
+          id="buscar-cuentas"
+          etiqueta={t.buscar}
+          ayuda={t.buscar}
+          placeholder={t.buscar}
+          valor={params.q ?? ""}
+          onCambio={buscar}
+          ancho="w-full sm:w-96"
+          maxLength={MAX_BUSQUEDA}
+        />
         <FiltroDeBajas valor={params.bajas} onCambio={(bajas) => router.push(hrefCuentas({ ...params, bajas, pagina: 1 }))} />
-        {hayFiltros ? (
-          <Link href={hrefCuentas({ pagina: 1, porPagina: params.porPagina })} className="pb-2 text-etiqueta text-primary hover:underline">
-            {messages.admin.cuentas.quitarFiltros}
-          </Link>
-        ) : null}
+        {hayFiltros ? <LimpiarFiltros href={hrefCuentas({ pagina: 1, porPagina: params.porPagina })}>{t.quitarFiltros}</LimpiarFiltros> : null}
       </div>
 
       <div className={CONTENEDOR_TABLA}>
@@ -82,7 +71,7 @@ export function CuentasTabla({ datos, total, params }: { datos: CuentaAdmin[]; t
           </TableHeader>
           <TableBody className="text-control">
             {datos.map((c) => (
-              <TableRow key={c.id} data-estado-cuenta={c.estado} className={cn(c.estado === "SUSPENDIDA" && "*:bg-destructive/5")}>
+              <TableRow key={c.id} data-estado-cuenta={c.estado}>
                 <TableCell className="py-2 pr-3 pl-4">
                   <div className="flex flex-col">
                     <Link href={hrefDetalleCuenta(c.id)} className="font-medium text-foreground hover:text-primary hover:underline">

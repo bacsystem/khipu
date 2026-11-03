@@ -1,6 +1,6 @@
 "use client";
 
-import { FileMinusIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { FileMinusIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages, useTranslations } from "next-intl";
@@ -11,14 +11,20 @@ import { apiRequest, noSeSabeSiLlego, seVencioLaEspera } from "@/lib/api/browser
 import type { CatalogoSunat } from "@/lib/api/catalogos";
 import type { Comprobante } from "@/lib/api/facturas";
 import type { Serie } from "@/lib/api/series";
-import { AreaTexto } from "khipu-design-system/formularios/campo";
+import { AreaTexto, Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Acordeon } from "khipu-design-system/navegacion/acordeon";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { guardarAvisosDeEmision } from "@/lib/comprobantes/avisos-de-emision";
 import { AJUSTE_VACIO, ajusteAApi, errorDeAjuste, type AjusteForm } from "@/lib/comprobantes/ajustes";
 import { fechaMinimaDeNota } from "@/lib/comprobantes/plazo";
 import { afectacionPredominante, importeLineaNota, impuestoRedondeaACero, itemParaNota, lineaRedondeaACero, tieneDescuentoQueNoAfectaLaBase, topePorTributo } from "@/lib/comprobantes/notas";
 import { redondear } from "@/lib/comprobantes/totales";
-import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CABECERA_TABLA } from "@/lib/estilos";
 import { formatearMonto, formatearNumero, hoyLima, sumarDias } from "@/lib/formato";
 import { sinEnvioImplicito } from "@/lib/formularios";
 import { CABECERA_IDEMPOTENCIA, intentoPara, type Intento } from "@/lib/idempotencia";
@@ -320,22 +326,21 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
 
   return (
     <form onSubmit={onSubmit} onKeyDown={sinEnvioImplicito} className="space-y-5" data-testid="nota-form">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-tipo" className={ETIQUETA_CAMPO}>{t.tipoNota}</label>
-          <select id="nota-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={cn(SELECT_NATIVO, "w-full")}>
-            <option value="07">{t.tipoNC}</option>
-            <option value="08">{t.tipoND}</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-serie" className={ETIQUETA_CAMPO}>{t.serie}</label>
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
+        <Campo id="nota-tipo" etiqueta={t.tipoNota}>
+          <SelectCampo
+            id="nota-tipo"
+            valor={tipo}
+            onCambio={(v) => setTipo(v as Tipo)}
+            opciones={[
+              { value: "07", label: t.tipoNC },
+              { value: "08", label: t.tipoND },
+            ]}
+          />
+        </Campo>
+        <Campo id="nota-serie" etiqueta={t.serie}>
           {seriesDelTipo.length ? (
-            <select id="nota-serie" value={serie} onChange={(e) => setSerie(e.target.value)} className={cn(SELECT_NATIVO, "w-full font-mono")}>
-              {seriesDelTipo.map((s) => (
-                <option key={s.serie} value={s.serie}>{s.serie}</option>
-              ))}
-            </select>
+            <SelectCampo id="nota-serie" valor={serie} onCambio={setSerie} opciones={seriesDelTipo.map((s) => ({ value: s.serie, label: s.serie }))} mono />
           ) : (
             <p className="text-control leading-relaxed text-destructive">
               {interpolar(t.sinSeries, { nota: esNc ? t.notaCredito : t.notaDebito, documentos: t.documentoPlural[claseDocumento] })}{" "}
@@ -343,50 +348,67 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
               {interpolar(t.sinSeriesEjemplo, { ejemplo: `${letraSerie}${esNc ? "C01" : "D01"}` })}
             </p>
           )}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-motivo" className={ETIQUETA_CAMPO}>{interpolar(t.motivo, { catalogo: esNc ? "09" : "10" })}</label>
-          <select id="nota-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")} disabled={!catalogos[tipo]}>
-            <option value="">{catalogos[tipo] ? t.seleccione : messages.comun.cargando}</option>
-            {motivos.map((m) => (
-              <option key={m.codigo} value={m.codigo}>{m.codigo} · {m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}</option>
-            ))}
-          </select>
-        </div>
+        </Campo>
+        <Campo id="nota-motivo" etiqueta={interpolar(t.motivo, { catalogo: esNc ? "09" : "10" })}>
+          <SelectCampo
+            id="nota-motivo"
+            valor={motivo}
+            onCambio={setMotivo}
+            disabled={!catalogos[tipo]}
+            opciones={[
+              { value: "", label: catalogos[tipo] ? t.seleccione : messages.comun.cargando },
+              ...motivos.map((m) => ({ value: m.codigo, label: `${m.codigo} · ${m.descripcion.length > 70 ? `${m.descripcion.slice(0, 70)}…` : m.descripcion}` })),
+            ]}
+          />
+        </Campo>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="nota-descripcion" className={ETIQUETA_CAMPO}>{t.sustento}</label>
-        <input id="nota-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} placeholder={t.sustentoPlaceholder} className={CAMPO} />
-        <span className={AYUDA_CAMPO}>{t.sustentoAyuda}</span>
-      </div>
+      <Campo id="nota-descripcion" etiqueta={t.sustento} ayuda={t.sustentoAyuda}>
+        <Entrada id="nota-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} placeholder={t.sustentoPlaceholder} aria-describedby="nota-descripcion-ayuda" />
+      </Campo>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nota-fecha" className={ETIQUETA_CAMPO}>{t.fecha}</label>
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
+        <Campo id="nota-fecha" etiqueta={t.fecha} ayuda={interpolar(t.fechaAyuda, { documento, fecha: factura.fecha_emision })}>
           <EntradaFecha id="nota-fecha" valor={fecha} onCambio={(v) => setFecha(v || hoy)} min={[factura.fecha_emision, fechaMinimaDeNota({ tipo, sobreBoleta, motivo }, hoy)].sort().at(-1)} max={hoy} variante="filtro" />
-          <span className={AYUDA_CAMPO}>{interpolar(t.fechaAyuda, { documento, fecha: factura.fecha_emision })}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <label htmlFor="nota-observaciones" className={ETIQUETA_CAMPO}>{t.observaciones} <span className="font-normal normal-case text-muted-foreground">{t.opcional}</span></label>
-          <AreaTexto id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} />
-          <span className={AYUDA_CAMPO}>{interpolar(t.observacionesAyuda, { n: observaciones.length })}</span>
-        </div>
+        </Campo>
+        {/* «(opcional)» va en la etiqueta y no con la prop `opcional` de `Campo`, que lo escribe fijo en castellano. */}
+        <Campo
+          id="nota-observaciones"
+          className="sm:col-span-2"
+          etiqueta={<>{t.observaciones} <span className="font-normal normal-case text-muted-foreground">{t.opcional}</span></>}
+          ayuda={interpolar(t.observacionesAyuda, { n: observaciones.length })}
+        >
+          <AreaTexto id="nota-observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} maxLength={1000} aria-describedby="nota-observaciones-ayuda" />
+        </Campo>
       </div>
 
       {esParcial && admiteAjustesPropios ? (
-        <details className="rounded-lg border border-border px-3 py-2" data-testid="nota-ajustes" open={descuentoGlobal.valor !== "" || cargoGlobal.valor !== ""}>
-          <summary className="cursor-pointer text-control font-medium">{t.ajustes.titulo}</summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
-            <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
-          </div>
-          <p className={cn(AYUDA_CAMPO, "mt-2")}>{interpolar(t.ajustes.ayuda, { documento })}</p>
-        </details>
+        <div data-testid="nota-ajustes">
+          <Acordeon
+            defaultAbiertos={descuentoGlobal.valor !== "" || cargoGlobal.valor !== "" ? ["ajustes"] : []}
+            items={[
+              {
+                id: "ajustes",
+                titulo: t.ajustes.titulo,
+                contenido: (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <AjusteEditor id="nota-desc-global" etiqueta={t.ajustes.descuento} clase="descuento" valor={descuentoGlobal} onCambio={setDescuentoGlobal} sinOpcionDeBase />
+                      <AjusteEditor id="nota-cargo-global" etiqueta={t.ajustes.cargo} clase="cargo" valor={cargoGlobal} onCambio={setCargoGlobal} sinOpcionDeBase />
+                    </div>
+                    <p className={cn(AYUDA_CAMPO, "mt-2")}>{interpolar(t.ajustes.ayuda, { documento })}</p>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </div>
       ) : null}
 
       {esTotal ? (
-        <div className={cn("rounded-lg border px-3 py-2 text-control leading-relaxed", superaTope ? "border-destructive/50 bg-destructive/5 text-destructive" : "border-border bg-muted text-muted-foreground")} data-testid="nota-total">
+        // La `Alerta` del DS pone el rol (`alert` si supera el tope); el `data-testid` va en el envoltorio.
+        <div data-testid="nota-total">
+          <Alerta tono={superaTope ? "error" : "info"}>
           <p>
             {tr.rich("totalCopia", {
               b: (c) => <strong className="text-foreground">{c}</strong>,
@@ -401,29 +423,31 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
             <p className="mt-1" data-testid="nota-importe">
               {t.importe}: <span className="font-mono tabular-nums">{monto(importeNota)}</span>. {t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>
               {acreditado > 0 ? interpolar(t.yaAcreditadoOtras, { monto: monto(acreditado) }) : ""}.
-              {superaTope ? <span role="alert" className="block">{interpolar(t.superaTopeTotal, { tope: monto(tope) })}</span> : null}
+              {superaTope ? <span className="block">{interpolar(t.superaTopeTotal, { tope: monto(tope) })}</span> : null}
             </p>
           ) : null}
+          </Alerta>
         </div>
       ) : null}
 
       {esParcial ? (
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-left text-etiqueta">
-            <thead>
-              <tr className="border-b border-border/70 bg-muted font-mono text-etiqueta text-muted-foreground">
-                <th className="px-3 py-2 font-medium">{interpolar(t.thItem, { documento })}</th>
-                <th className="w-24 px-3 py-2 text-right font-medium">{t.thFacturado}</th>
-                <th className="w-32 px-3 py-2 text-right font-medium">{t.thCantidad}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
+        <div className={CONTENEDOR_TABLA}>
+          <Table className="text-control">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={CABECERA_TABLA}>{interpolar(t.thItem, { documento })}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-24 text-right")}>{t.thFacturado}</TableHead>
+                <TableHead className={cn(CABECERA_TABLA, "w-32 text-right")}>{t.thCantidad}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {factura.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="px-3 py-2 text-foreground">{item.descripcion}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad, locale)} {item.unidad}</td>
-                  <td className="px-3 py-2 text-right">
-                    <input
+                <TableRow key={idx}>
+                  <TableCell className="px-3 py-2 whitespace-normal text-foreground">{item.descripcion}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{formatearNumero(item.cantidad, locale)} {item.unidad}</TableCell>
+                  <TableCell className="px-3 py-2 text-right">
+                    {/* `Entrada` y no `StepperNumerico`: el stepper no recibe `aria-label` (la celda no tiene etiqueta visible). */}
+                    <Entrada
                       type="number"
                       min={0}
                       max={Number(item.cantidad)}
@@ -432,13 +456,14 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
                       aria-label={interpolar(t.ariaCantidad, { item: item.descripcion })}
                       // Hasta 10 decimales (2025): con 11 el backend rechazaba después. Y entre 0 y lo facturado.
                       onChange={(e) => setCantidades((c) => c.map((v, i) => (i === idx ? Math.min(Number(item.cantidad), Math.max(0, Number(Number(e.target.value).toFixed(10)))) : v)))}
-                      className={cn(CAMPO, "w-28 text-right font-mono")}
+                      mono
+                      className="w-28 text-right"
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <p className={cn(AYUDA_CAMPO, "border-t border-border/60 px-3 py-2")}>
             {conAnticipos && MOTIVOS_NC_TOTAL.has(motivo)
               ? factura.totales.total > 0
@@ -475,7 +500,8 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
           {cuotas.map((q, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
               <span className="w-20 font-mono text-etiqueta text-muted-foreground">{interpolar(t.cuotaId, { n: String(i + 1).padStart(3, "0") })}</span>
-              <input type="number" min={0.01} step="0.01" value={q.monto} aria-label={interpolar(t.montoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} className={cn(CAMPO, "w-32 font-mono")} />
+              {/* `Entrada` y no `EntradaMonto`: esta redondea a 2 decimales en silencio (aquí un tercero se avisa y bloquea, 3253) y no recibe `aria-label`. */}
+              <Entrada type="number" min={0.01} step="0.01" value={q.monto} aria-label={interpolar(t.montoCuota, { n: i + 1 })} onChange={(e) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, monto: e.target.value } : c)))} mono className="w-32" />
               <label htmlFor={`nota-cuota-vencimiento-${i}`} className="sr-only">{interpolar(t.vencimientoCuota, { n: i + 1 })}</label>
               <EntradaFecha id={`nota-cuota-vencimiento-${i}`} valor={q.vencimiento} min={sumarDias(factura.fecha_emision, 1)} onCambio={(v) => setCuotas((cs) => cs.map((c, j) => (j === i ? { ...c, vencimiento: v } : c)))} className="w-40" />
               <button type="button" aria-label={interpolar(t.quitarCuota, { n: i + 1 })} onClick={() => setCuotas((cs) => cs.filter((_, j) => j !== i))} className="text-control text-muted-foreground hover:text-destructive">{t.quitar}</button>
@@ -488,25 +514,29 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       {lineaPropia ? (
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_180px]">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="nd-descripcion" className={ETIQUETA_CAMPO}>{t.concepto}</label>
+            <Campo id="nd-descripcion" etiqueta={t.concepto}>
               {/* Hasta 500 como el sustento (2027, `Item`): la recert #4 midió 501 caracteres viajando y un 422 evitable. */}
-              <input id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder={esNc ? t.placeholderNc : t.placeholderNd} className={CAMPO} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="nd-importe" className={ETIQUETA_CAMPO}>{etiquetaImporte} ({factura.moneda})</label>
-              <input id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} className={cn(CAMPO, "font-mono")} />
-            </div>
+              <Entrada id="nd-descripcion" value={nd.descripcion} onChange={(e) => setNd({ ...nd, descripcion: e.target.value })} maxLength={500} placeholder={esNc ? t.placeholderNc : t.placeholderNd} />
+            </Campo>
+            {/* `Entrada` y no `EntradaMonto`, como en las cuotas: un importe con 3 decimales se avisa y bloquea (2025), no se redondea en silencio. */}
+            <Campo id="nd-importe" etiqueta={`${etiquetaImporte} (${factura.moneda})`}>
+              <Entrada id="nd-importe" type="number" min={0.01} step="0.01" value={nd.importe} onChange={(e) => setNd({ ...nd, importe: e.target.value })} mono />
+            </Campo>
           </div>
           {esImporte ? (
-            <div className={cn("flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border px-3 py-2 text-control", superaTope ? "text-destructive" : "text-muted-foreground")} data-testid="nota-importe">
+            // Como en la nota total: el rol lo pone la `Alerta` (`alert` si supera el tope) y el `data-testid` va en el envoltorio.
+            <div data-testid="nota-importe">
+              <Alerta tono={superaTope ? "error" : "info"}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span>
                 {t.importe}: <strong className="font-mono tabular-nums">{monto(importeNota)}</strong>
               </span>
               <span>
                 {exentoDeTope ? t.sinTope : <>{t.tope}: <span className="font-mono tabular-nums">{monto(tope)}</span>{limitaTributo ? interpolar(t.topePorTributo, { concepto: conceptoTributo, documento, monto: monto(topeTributo) }) : ""}{acreditado > 0 ? interpolar(t.topeMenosAcreditado, { monto: monto(acreditado) }) : ""}</>}
               </span>
-              {superaTope ? <span role="alert" className="basis-full">{interpolar(t.superaTopeImporte, { regla: limitaTributo ? t.reglaTributo : "3286" })}</span> : null}
+              {superaTope ? <span className="basis-full">{interpolar(t.superaTopeImporte, { regla: limitaTributo ? t.reglaTributo : "3286" })}</span> : null}
+              </div>
+              </Alerta>
             </div>
           ) : null}
         </div>
@@ -530,10 +560,17 @@ export function NotaForm({ factura, series }: { factura: Comprobante; series: Se
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!listo || enviando} aria-describedby={avisoDecimales ? "nota-aviso-decimales" : undefined} className={BOTON_PRIMARIO}>
-          {enviando ? <PaperPlaneTiltIcon className="size-4 animate-pulse" /> : <FileMinusIcon className="size-4" />}
-          {enviando ? t.emitiendo : interpolar(t.emitir, { nota: esNc ? t.notaCredito : t.notaDebito })}
-        </button>
+        <BotonAsync
+          type="submit"
+          pendiente={enviando}
+          disabled={!listo}
+          icon={<FileMinusIcon className="size-4" />}
+          textoPendiente={t.emitiendo}
+          aria-describedby={avisoDecimales ? "nota-aviso-decimales" : undefined}
+          className={BOTON_PRIMARIO}
+        >
+          {interpolar(t.emitir, { nota: esNc ? t.notaCredito : t.notaDebito })}
+        </BotonAsync>
         <Link href={`/comprobantes/${factura.id}`} className={BOTON_SECUNDARIO}>{messages.comun.cancelar}</Link>
         {/* El cambio de texto del botón no se anuncia; esto sí. */}
         <span role="status" className="sr-only">{enviando ? t.emitiendo : ""}</span>

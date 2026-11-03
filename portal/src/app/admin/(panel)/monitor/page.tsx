@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { getMessages } from "next-intl/server";
+import { CabeceraPagina } from "khipu-design-system/patrones/cabecera-pagina";
 import { redirect } from "next/navigation";
 import { PanelDelMonitor } from "@/components/admin/panel-del-monitor";
 import { getAdminServerSession } from "@/lib/admin-session-server";
 import { obtenerMonitor, type MonitorDeEmision } from "@/lib/api/admin-monitor";
+import { CONTENEDOR_PAGINA } from "@/lib/estilos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -23,11 +25,8 @@ export default async function AdminMonitorPage() {
   const inicial: MonitorDeEmision | null = await obtenerMonitor(access).catch(() => null);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <h1 className="font-heading text-titulo-pagina">{messages.admin.monitor.titulo}</h1>
-        <p className="max-w-3xl text-cuerpo text-muted-foreground">{messages.admin.monitor.descripcion}</p>
-      </div>
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina titulo={messages.admin.monitor.titulo} descripcion={messages.admin.monitor.descripcion} />
       <PanelDelMonitor inicial={inicial} />
     </div>
   );

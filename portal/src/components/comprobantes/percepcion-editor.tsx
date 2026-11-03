@@ -2,9 +2,10 @@
 
 import { useLocale, useMessages } from "next-intl";
 import { Campo } from "khipu-design-system/formularios/campo";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { errorDePercepcion, regimenes, type PercepcionForm } from "@/lib/comprobantes/percepcion";
-import { AYUDA_CAMPO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, CAMPO } from "@/lib/estilos";
 import { formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -33,16 +34,15 @@ export function PercepcionEditor({
   const error = errorDePercepcion(valor, { moneda, alCredito }, messages);
   const set = (cambio: Partial<PercepcionForm>) => onCambio({ ...valor, ...cambio });
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="percepcion-form">
+    <div className="grid gap-3" data-testid="percepcion-form">
       <div className="grid items-start gap-4 sm:grid-cols-[1fr_180px]">
         <Campo id="nc-per-regimen" etiqueta={t.percepcion.regimen} ayuda={t.percepcion.regimenAyuda}>
-          <select id="nc-per-regimen" value={valor.regimen} onChange={(e) => set({ regimen: e.target.value })} className={cn(SELECT_NATIVO, "w-full")}>
-            {regimenes(messages).map((r) => (
-              <option key={r.codigo} value={r.codigo}>
-                {r.codigo} · {r.etiqueta} ({r.tasa} %)
-              </option>
-            ))}
-          </select>
+          <SelectCampo
+            id="nc-per-regimen"
+            valor={valor.regimen}
+            onCambio={(v) => set({ regimen: v })}
+            opciones={regimenes(messages).map((r) => ({ value: r.codigo, label: `${r.codigo} · ${r.etiqueta} (${r.tasa} %)` }))}
+          />
         </Campo>
         <Campo id="nc-per-base" etiqueta={t.percepcion.base} opcional ayuda={t.percepcion.baseAyuda}>
           <input id="nc-per-base" value={valor.base} onChange={(e) => set({ base: e.target.value })} inputMode="decimal" placeholder="0.00" className={cn(CAMPO, "font-mono tabular-nums")} />

@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { CONTENEDOR_TABLA } from "khipu-design-system/patrones/pie-tabla";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
+import { CABECERA_TABLA } from "@/lib/estilos";
 import { IndiceActivo } from "@/components/developers/guia/indice-activo";
 import { cn } from "@/lib/utils";
 
@@ -27,21 +31,13 @@ export function Codigo({ children }: { children: ReactNode }) {
  * es propio del portal— en vez de aquel evita bifurcar un archivo vendorizado que hoy es idéntico al de upstream.
  */
 export function NotaProsa({ tono = "info", children }: { tono?: "info" | "aviso"; children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border px-3 py-2.5 text-control leading-relaxed",
-        tono === "aviso" ? "border-warning-border bg-warning text-warning-foreground" : "border-accent-border bg-accent/60 text-accent-foreground",
-      )}
-    >
-      {children}
-    </div>
-  );
+  // La `Alerta` del DS con su tinte; solo se elige el tono.
+  return <Alerta tono={tono}>{children}</Alerta>;
 }
 
 export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className={CONTENEDOR_TABLA}>
       {/*
         La primera columna NO lleva `whitespace-nowrap`. Con él, una celda que enumera varios códigos
         —«DESCUENTO_INVALIDO / CARGO_INVALIDO / DETRACCION_INVALIDA / …»— no podía cortarse y estiraba la columna a
@@ -49,28 +45,28 @@ export function Tabla({ cabeceras, filas }: { cabeceras: string[]; filas: ReactN
         tira y el resto en blanco. Sin él, el corte ocurre en los espacios y ningún código se parte, porque el guion
         bajo no es un punto de corte. Medido en la página de errores: la tabla pasó de 6511 a 4191 px de alto.
       */}
-      <table className="w-full text-control">
-        <thead>
-          <tr className="border-b border-border/60 bg-muted">
+      <Table className="text-control">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
             {cabeceras.map((c) => (
-              <th key={c} className="px-3 py-2 text-left text-etiqueta font-semibold text-muted-foreground/80">
+              <TableHead key={c} className={CABECERA_TABLA}>
                 {c}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {filas.map((f, i) => (
-            <tr key={i} className="border-b border-border/60 align-top last:border-0">
+            <TableRow key={i}>
               {f.map((c, k) => (
-                <td key={k} className={cn("px-3 py-3 align-top leading-relaxed", k === 0 && "font-mono text-foreground")}>
+                <TableCell key={k} className={cn("py-3 align-top leading-relaxed whitespace-normal", k === 0 && "font-mono text-foreground")}>
                   {c}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

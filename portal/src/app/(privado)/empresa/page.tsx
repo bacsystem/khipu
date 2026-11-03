@@ -1,5 +1,5 @@
 import { FormulariosDeEscritura } from "@/lib/solo-lectura";
-import { ArrowSquareOutIcon, BuildingsIcon, CertificateIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOutIcon, BookOpenIcon, BuildingsIcon, CertificateIcon, CheckIcon, CloudIcon, EnvelopeSimpleIcon, FileLockIcon, KeyIcon, PaletteIcon, QuestionIcon, SealCheckIcon, ShieldWarningIcon, SlidersHorizontalIcon } from "@phosphor-icons/react/dist/ssr";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -12,19 +12,23 @@ import { GuiaParaEmitir } from "@/components/empresa/guia-para-emitir";
 import { NuevaEmpresaDialog } from "@/components/empresa/nueva-empresa-dialog";
 import { PersonalizacionPdfForm } from "@/components/empresa/personalizacion-pdf-form";
 import { SeccionesEmpresa } from "@/components/empresa/secciones-empresa";
-import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf, obtenerPreferenciaDeEnvioAlCliente } from "@/lib/api/empresas";
+import { listarEmpresas, obtenerEmpresaActual, obtenerPersonalizacionPdf, obtenerPreferenciaDeEnvioAlCliente, obtenerPreferenciasDeEmision } from "@/lib/api/empresas";
 import { EnvioAlClienteForm } from "@/components/empresa/envio-al-cliente-form";
+import { PreferenciasEmisionForm } from "@/components/empresa/preferencias-emision-form";
 import { listarSeries } from "@/lib/api/series";
 import { pasosParaEmitir } from "@/lib/empresa/guia-emision";
 import { seccionesPendientes, seccionInicial } from "@/lib/empresa/secciones";
-import { ACCION_SECUNDARIA, ETIQUETA_DATO, TARJETA, TITULO_SECCION } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CONTENEDOR_PAGINA, TARJETA } from "@/lib/estilos";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { diasEntre, formatearFecha, formatearFechaHora, hoyLima } from "@/lib/formato";
 import { getServerSession } from "@/lib/session-server";
 import { cn } from "@/lib/utils";
 import { Metrica } from "@/components/compartidos/metrica";
 import { interpolar } from "@/i18n/mensajes";
-import { FilaMetricas } from "khipu-design-system/patrones/metricas";
+import { AyudaMetrica, FilaMetricas, Punto } from "khipu-design-system/patrones/metricas";
+import { CabeceraSeccion, PieSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { Chip, PillEstado } from "khipu-design-system/patrones/pill-estado";
+import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
@@ -36,55 +40,6 @@ function diasHasta(iso: string): number {
   return diasEntre(hoyLima(), iso);
 }
 
-function Punto({ tono }: { tono: "ok" | "aviso" | "error" | "neutro" }) {
-  return (
-    <span
-      className={cn(
-        "size-1.5 shrink-0 rounded-full",
-        tono === "ok" && "bg-success-solid",
-        tono === "aviso" && "bg-warning-solid",
-        tono === "error" && "bg-destructive",
-        tono === "neutro" && "bg-muted-foreground/50",
-      )}
-    />
-  );
-}
-
-function Dato({ etiqueta, children, pendiente }: { etiqueta: string; children?: React.ReactNode; pendiente?: string }) {
-  return (
-    <div className="min-w-0">
-      <span className={cn(ETIQUETA_DATO, "mb-1")}>{etiqueta}</span>
-      {pendiente ? (
-        // Lo que falta se dice a la vista, no con un «—» y la explicación escondida en un tooltip (C6).
-        <span className="inline-flex h-control w-full items-center rounded-lg border border-dashed border-border bg-muted/50 px-3 text-control text-muted-foreground">
-          {pendiente}
-        </span>
-      ) : (
-        <span className="inline-flex h-control w-full items-center rounded-lg border border-border bg-muted px-3 font-mono text-control font-medium text-foreground">
-          {children}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Pill({ tono, children }: { tono: "ok" | "aviso" | "error" | "neutro"; children: React.ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-etiqueta font-medium whitespace-nowrap",
-        tono === "ok" && "border-success-border bg-success text-success-foreground",
-        tono === "aviso" && "border-warning-border bg-warning text-warning-foreground",
-        tono === "error" && "border-destructive/30 bg-destructive-suave text-destructive-texto",
-        tono === "neutro" && "border-border bg-secondary text-muted-foreground",
-      )}
-    >
-      <Punto tono={tono} />
-      {children}
-    </span>
-  );
-}
-
 export default async function EmpresaPage({ searchParams }: { searchParams: Promise<{ seccion?: string }> }) {
   const { access, empresaId } = await getServerSession();
   const messages = await getMessages();
@@ -94,12 +49,14 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
   if (!access) redirect("/login");
   if (!empresaId) redirect("/onboarding");
 
-  const [empresa, empresas, personalizacion, envioAlCliente, series, { seccion }] = await Promise.all([
+  const [empresa, empresas, personalizacion, envioAlCliente, preferenciasEmision, series, { seccion }] = await Promise.all([
     obtenerEmpresaActual(access, empresaId),
     listarEmpresas(access),
     obtenerPersonalizacionPdf(access, empresaId),
     // #325: si no carga, la pestaña lo dice y el resto de la página sigue.
     obtenerPreferenciaDeEnvioAlCliente(access, empresaId).catch(() => null),
+    // Igual: si las preferencias de emisión no cargan, su pestaña lo dice y el resto sigue.
+    obtenerPreferenciasDeEmision(access, empresaId).catch(() => null),
     // Solo alimenta la guía: si no carga, la página sigue y la guía no afirma nada de las series.
     listarSeries(access, empresaId).catch(() => null),
     searchParams,
@@ -127,23 +84,18 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           : { tono: "ok", texto: ec.vigente };
 
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-3">
+    <div className={CONTENEDOR_PAGINA}>
       <FilaMetricas>
         <Metrica
           etiqueta={tm.estadoCertificado} icono={CertificateIcon} tono={estadoCert.tono} texto
           ayuda={
             vigencia ? (
-              <>
-                <span className="truncate">{interpolar(tm.venceEl, { fecha: formatearFecha(vigencia, locale) })}</span>
-                <span className="text-muted-foreground/40">·</span>
-                <span className={cn("shrink-0 font-mono", dias !== null && dias < 0 && "text-destructive")}>
-                  {dias !== null && dias < 0 ? interpolar(tm.haceDias, { dias: Math.abs(dias) }) : interpolar(tm.diasRestantes, { dias: String(dias) })}
-                </span>
-              </>
-            ) : empresa.tiene_certificado ? (
-              tm.sinFechaDeVigencia
+              <AyudaMetrica tono={estadoCert.tono}>
+                {interpolar(tm.venceEl, { fecha: formatearFecha(vigencia, locale) })} ·{" "}
+                {dias !== null && dias < 0 ? interpolar(tm.haceDias, { dias: Math.abs(dias) }) : interpolar(tm.diasRestantes, { dias: String(dias) })}
+              </AyudaMetrica>
             ) : (
-              tm.cargaTuP12
+              <AyudaMetrica tono={estadoCert.tono}>{empresa.tiene_certificado ? tm.sinFechaDeVigencia : tm.cargaTuP12}</AyudaMetrica>
             )
           }
         >
@@ -164,15 +116,11 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           etiqueta={tm.credencialesSol} icono={KeyIcon} tono={rechazoSol ? "error" : empresa.tiene_credenciales_sol ? "ok" : "aviso"} texto
           ayuda={
             rechazoSol ? (
-              <span className="flex items-center gap-1 text-destructive">
-                <Punto tono="error" />
-                {tm.solNoAceptadas}
-              </span>
+              <AyudaMetrica tono="error">{tm.solNoAceptadas}</AyudaMetrica>
             ) : (
-              <span className={cn("flex items-center gap-1", empresa.tiene_credenciales_sol ? "text-success-foreground" : "text-warning-foreground")}>
-                <Punto tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"} />
+              <AyudaMetrica tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"}>
                 {empresa.tiene_credenciales_sol ? tm.solConfiguradas : tm.solPendientes}
-              </span>
+              </AyudaMetrica>
             )
           }
         >
@@ -218,126 +166,120 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
         empresas={empresas.length}
         paneles={{
           datos: (
-          <section className={cn(TARJETA, "p-5")}>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <BuildingsIcon weight={PESO_ICONO} className="size-4" />
-                {t.datos.titulo}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Dato etiqueta={t.datos.rucRegistrado}>
-                  {empresa.ruc}
-                  <SealCheckIcon weight={PESO_ICONO} className="ml-auto size-4 text-success-solid" aria-label={t.datos.rucValidado} />
-                </Dato>
-              </div>
-              <div className="sm:col-span-2">
-                <Dato etiqueta={messages.empresa.comun.razonSocial}>{empresa.razon_social}</Dato>
-              </div>
-              <div className="sm:col-span-2">
-                {domicilio ? (
-                  <Dato etiqueta={t.datos.domicilioRegistrado}>
-                    <span className="truncate font-sans" data-testid="domicilio-actual">
-                      {domicilio.direccion}
-                      {domicilio.urbanizacion ? `, ${domicilio.urbanizacion}` : ""} · {domicilio.distrito}, {domicilio.provincia}, {domicilio.departamento} ({domicilio.ubigeo})
-                    </span>
-                  </Dato>
-                ) : (
-                  <Dato etiqueta={t.datos.domicilioRegistrado} pendiente={t.datos.domicilioPendiente} />
-                )}
-              </div>
-            </div>
-            <div className="mt-4 border-t border-border/60 pt-4">
-              <p className="mb-3 text-control leading-relaxed text-muted-foreground">
-                {t.datos.ayuda}
-              </p>
-              <FormulariosDeEscritura permiso="configurar">
-              <DatosFiscalesForm
-                domicilio={domicilio}
-                cuentaDetracciones={empresa.cuenta_detracciones ?? null}
-                nombreComercial={empresa.nombre_comercial ?? null}
-                padronTasaEspecialIgv={empresa.padron_tasa_especial_igv ?? false}
+          <section className={TARJETA}>
+            <CabeceraSeccion icon={BuildingsIcon} titulo={t.datos.titulo} />
+            <div className="px-4 pb-4">
+              <ListaDatos
+                datos={[
+                  {
+                    etiqueta: t.datos.rucRegistrado,
+                    valor: (
+                      <span className="inline-flex items-center gap-1.5">
+                        {empresa.ruc}
+                        <SealCheckIcon weight={PESO_ICONO} className="size-4 text-success-solid" aria-label={t.datos.rucValidado} />
+                      </span>
+                    ),
+                    mono: true,
+                  },
+                  { etiqueta: messages.empresa.comun.razonSocial, valor: empresa.razon_social },
+                  {
+                    etiqueta: t.datos.domicilioRegistrado,
+                    // Lo que falta se dice a la vista, no con un «—» y la explicación escondida en un tooltip (C6).
+                    valor: domicilio ? (
+                      <span data-testid="domicilio-actual">
+                        {domicilio.direccion}
+                        {domicilio.urbanizacion ? `, ${domicilio.urbanizacion}` : ""} · {domicilio.distrito}, {domicilio.provincia}, {domicilio.departamento} ({domicilio.ubigeo})
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{t.datos.domicilioPendiente}</span>
+                    ),
+                  },
+                ]}
               />
-              </FormulariosDeEscritura>
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <p className="mb-3 text-control leading-relaxed text-muted-foreground">{t.datos.ayuda}</p>
+                <FormulariosDeEscritura permiso="configurar">
+                  <DatosFiscalesForm
+                    ruc={empresa.ruc}
+                    domicilio={domicilio}
+                    cuentaDetracciones={empresa.cuenta_detracciones ?? null}
+                    nombreComercial={empresa.nombre_comercial ?? null}
+                    padronTasaEspecialIgv={empresa.padron_tasa_especial_igv ?? false}
+                  />
+                </FormulariosDeEscritura>
+              </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 font-mono text-etiqueta text-muted-foreground">
+            <PieSeccion className="justify-between">
               <span className="inline-flex items-center gap-1.5">
                 <CloudIcon weight={PESO_ICONO} className="size-3.5" />
                 {t.datos.envioDirecto}
               </span>
-              <span title={t.datos.codigoLocalAyuda}>
+              <span title={t.datos.codigoLocalAyuda} className="font-mono">
                 {interpolar(t.datos.codigoLocal, { codigo: domicilio?.codigo_establecimiento ?? "—" })}
               </span>
-            </div>
+            </PieSeccion>
           </section>
           ),
           sol: (
           <div className="flex flex-col gap-4">
-          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <KeyIcon weight={PESO_ICONO} className="size-4" />
-                {t.sol.titulo}
-              </div>
-              {rechazoSol ? (
-                <Pill tono="error">{t.sol.rechazadas}</Pill>
-              ) : (
-                <Pill tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"}>{empresa.tiene_credenciales_sol ? t.sol.configuradas : t.sol.pendientes}</Pill>
-              )}
-            </div>
+          <section className={TARJETA}>
+            <CabeceraSeccion
+              icon={KeyIcon}
+              titulo={t.sol.titulo}
+              derecha={
+                rechazoSol ? (
+                  <PillEstado tono="error">{t.sol.rechazadas}</PillEstado>
+                ) : (
+                  <PillEstado tono={empresa.tiene_credenciales_sol ? "ok" : "aviso"}>{empresa.tiene_credenciales_sol ? t.sol.configuradas : t.sol.pendientes}</PillEstado>
+                )
+              }
+            />
+            <div className="px-4 pb-4">
             {/* #107: SUNAT no acepta las credenciales y los envíos de la empresa quedaron esperando; se dice por qué y que se reanudan solos. */}
             {rechazoSol ? (
-              <div className="mt-4" data-testid="credenciales-sol-rechazadas">
+              <div className="mb-4" data-testid="credenciales-sol-rechazadas">
                 <Alerta tono="error" titulo={t.sol.rechazoTitulo}>
                   {interpolar(t.sol.rechazoTexto, { desde: formatearFechaHora(rechazoSol.desde, locale), motivo: rechazoSol.motivo })}
                 </Alerta>
               </div>
             ) : null}
-            <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-accent-border bg-accent/60 p-3">
-              <ShieldWarningIcon weight={PESO_ICONO} className="mt-0.5 size-4 shrink-0 text-accent-foreground" />
-              <p className="text-control leading-relaxed text-accent-foreground">
-                {t.sol.secundarioAntes} <strong className="font-semibold">{t.sol.secundario}</strong> {t.sol.secundarioDespues}
-              </p>
-            </div>
+            <Alerta tono="info" icon={ShieldWarningIcon}>
+              {t.sol.secundarioAntes} <strong className="font-semibold">{t.sol.secundario}</strong> {t.sol.secundarioDespues}
+            </Alerta>
             <div className="mt-4">
               <FormulariosDeEscritura permiso="configurar">
               <CredencialesSolForm configuradas={empresa.tiene_credenciales_sol} />
               </FormulariosDeEscritura>
             </div>
+            </div>
           </section>
           {/* #318: opcionales. Sirven para consultar la validez por la API REST de SUNAT (también en beta), no para emitir. */}
-          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="credenciales-api-sunat">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <KeyIcon weight={PESO_ICONO} className="size-4" />
-                {t.api.titulo}
+          <section className={TARJETA} data-testid="credenciales-api-sunat">
+            <CabeceraSeccion
+              icon={KeyIcon}
+              titulo={t.api.titulo}
+              derecha={<PillEstado tono={empresa.tiene_credenciales_api_sunat ? "ok" : "neutro"}>{empresa.tiene_credenciales_api_sunat ? t.sol.configuradas : t.api.opcionales}</PillEstado>}
+            />
+            <div className="px-4 pb-4">
+              <p className="text-control leading-relaxed text-muted-foreground">{t.api.texto}</p>
+              <div className="mt-4">
+                <FormulariosDeEscritura permiso="configurar">
+                <CredencialesApiSunatForm configuradas={empresa.tiene_credenciales_api_sunat ?? false} />
+                </FormulariosDeEscritura>
               </div>
-              <Pill tono={empresa.tiene_credenciales_api_sunat ? "ok" : "neutro"}>{empresa.tiene_credenciales_api_sunat ? t.sol.configuradas : t.api.opcionales}</Pill>
-            </div>
-            <p className="mt-4 text-control leading-relaxed text-muted-foreground">
-              {t.api.texto}
-            </p>
-            <div className="mt-4">
-              <FormulariosDeEscritura permiso="configurar">
-              <CredencialesApiSunatForm configuradas={empresa.tiene_credenciales_api_sunat ?? false} />
-              </FormulariosDeEscritura>
             </div>
           </section>
           </div>
           ),
           empresas: (
-          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")}>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <BuildingsIcon weight={PESO_ICONO} className="size-4" />
-                {t.empresas.titulo}
-              </div>
-              <span className="font-mono text-etiqueta text-muted-foreground">
-                {interpolar(empresas.length === 1 ? t.empresas.uno : t.empresas.varios, { n: empresas.length })}
-              </span>
-            </div>
-            <p className="mt-3 text-control leading-relaxed text-muted-foreground">
+          <section className={TARJETA}>
+            <CabeceraSeccion
+              icon={BuildingsIcon}
+              titulo={t.empresas.titulo}
+              derecha={<Chip>{interpolar(empresas.length === 1 ? t.empresas.uno : t.empresas.varios, { n: empresas.length })}</Chip>}
+            />
+            <div className="px-4 pb-4">
+            <p className="text-control leading-relaxed text-muted-foreground">
               {t.empresas.texto}
             </p>
             <ul className="mt-3 divide-y divide-border/60 overflow-hidden rounded-lg border border-border/80">
@@ -367,9 +309,9 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                         <KeyIcon weight={PESO_ICONO} className={cn("size-4", e.tiene_credenciales_sol ? "text-success-solid" : "text-muted-foreground/40")} />
                       </span>
                       {activa ? (
-                        <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-etiqueta font-medium text-primary">
+                        <Chip className="ml-1">
                           <CheckIcon weight="bold" className="size-3" /> {t.empresas.activa}
-                        </span>
+                        </Chip>
                       ) : null}
                     </div>
                   </li>
@@ -382,40 +324,43 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
                 className={ACCION_SECUNDARIA}
               />
             </div>
+            </div>
           </section>
           ),
           certificado: (
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-          <section className={cn(TARJETA, "p-5 lg:col-span-7")}>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <FileLockIcon weight={PESO_ICONO} className="size-4" />
-                {t.certificado.titulo}
+          <section className={cn(TARJETA, "lg:col-span-7")}>
+            <CabeceraSeccion icon={FileLockIcon} titulo={t.certificado.titulo} derecha={<Punto tono={estadoCert.tono} />} />
+            <div className="px-4 pb-4">
+              <ListaDatos
+                datos={[
+                  {
+                    etiqueta: <span title={t.certificado.archivoAyuda}>{t.certificado.archivoCargado}</span>,
+                    valor: <span className={empresa.tiene_certificado ? undefined : "text-muted-foreground"}>{empresa.tiene_certificado ? t.certificado.siCifrado : t.certificado.no}</span>,
+                    mono: true,
+                  },
+                  {
+                    etiqueta: t.certificado.fechaExpiracion,
+                    valor: (
+                      <span className={cn("font-medium", dias !== null && dias < 0 && "text-destructive")}>
+                        {vigencia ? formatearFecha(vigencia, locale) : empresa.tiene_certificado ? t.certificado.sinFecha : t.certificado.noAplica}
+                      </span>
+                    ),
+                    mono: true,
+                  },
+                ]}
+              />
+              <div className="mt-4">
+                <FormulariosDeEscritura permiso="configurar">
+                <CertificadoForm tieneCertificado={empresa.tiene_certificado} />
+                </FormulariosDeEscritura>
               </div>
-              <Punto tono={estadoCert.tono} />
-            </div>
-            <dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg border border-border/80 bg-muted p-3.5 font-mono text-control">
-              <div className="flex items-center justify-between gap-3" title={t.certificado.archivoAyuda}>
-                <dt className="text-muted-foreground">{t.certificado.archivoCargado}</dt>
-                <dd className={empresa.tiene_certificado ? "text-foreground" : "text-muted-foreground"}>{empresa.tiene_certificado ? t.certificado.siCifrado : t.certificado.no}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">{t.certificado.fechaExpiracion}</dt>
-                <dd className={cn("font-medium", dias !== null && dias < 0 ? "text-destructive" : "text-foreground")}>
-                  {vigencia ? formatearFecha(vigencia, locale) : empresa.tiene_certificado ? t.certificado.sinFecha : t.certificado.noAplica}
-                </dd>
-              </div>
-            </dl>
-            <div className="mt-4">
-              <FormulariosDeEscritura permiso="configurar">
-              <CertificadoForm tieneCertificado={empresa.tiene_certificado} />
-              </FormulariosDeEscritura>
             </div>
           </section>
 
-          <section className={cn(TARJETA, "p-5 lg:col-span-5")}>
-            <div className={cn(TITULO_SECCION, "border-b border-border/60 pb-3")}>{t.recursos.titulo}</div>
-            <ul className="mt-3 grid grid-cols-1 gap-2 text-control">
+          <section className={cn(TARJETA, "lg:col-span-5")}>
+            <CabeceraSeccion icon={BookOpenIcon} titulo={t.recursos.titulo} />
+            <ul className="grid grid-cols-1 gap-2 px-4 pb-4 text-control">
               <li>
                 <a
                   href="https://cpe.sunat.gob.pe/"
@@ -445,33 +390,27 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
           </div>
           ),
           pdf: (
-      <section className={cn(TARJETA, "p-5")} id="personalizacion">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-          <div className={TITULO_SECCION}>
-            <PaletteIcon weight={PESO_ICONO} className="size-4" />
-            {t.pdf.titulo}
-          </div>
-          <span className="text-control text-muted-foreground">{t.pdf.ayuda}</span>
-        </div>
-        <div className="mt-4">
-          <FormulariosDeEscritura permiso="configurar">
-          <PersonalizacionPdfForm inicial={personalizacion} />
-          </FormulariosDeEscritura>
-        </div>
-      </section>
+          <section className={TARJETA} id="personalizacion">
+            <CabeceraSeccion icon={PaletteIcon} titulo={t.pdf.titulo} subtitulo={t.pdf.ayuda} />
+            <div className="px-4 pb-4">
+              <FormulariosDeEscritura permiso="configurar">
+              <PersonalizacionPdfForm inicial={personalizacion} />
+              </FormulariosDeEscritura>
+            </div>
+          </section>
           ),
           correo: (
-          <section className={cn(TARJETA, "p-5 lg:max-w-4xl")} data-testid="seccion-envio-al-cliente">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-              <div className={TITULO_SECCION}>
-                <EnvelopeSimpleIcon weight={PESO_ICONO} className="size-4" />
-                {t.correo.titulo}
-              </div>
-              {envioAlCliente ? (
-                <Pill tono={envioAlCliente.enviar_automaticamente ? "ok" : "neutro"}>{envioAlCliente.enviar_automaticamente ? t.correo.activado : t.correo.desactivado}</Pill>
-              ) : null}
-            </div>
-            <div className="mt-4">
+          <section className={TARJETA} data-testid="seccion-envio-al-cliente">
+            <CabeceraSeccion
+              icon={EnvelopeSimpleIcon}
+              titulo={t.correo.titulo}
+              derecha={
+                envioAlCliente ? (
+                  <PillEstado tono={envioAlCliente.enviar_automaticamente ? "ok" : "neutro"}>{envioAlCliente.enviar_automaticamente ? t.correo.activado : t.correo.desactivado}</PillEstado>
+                ) : null
+              }
+            />
+            <div className="px-4 pb-4">
               {envioAlCliente ? (
                 <FormulariosDeEscritura permiso="configurar">
                   <EnvioAlClienteForm inicial={envioAlCliente} />
@@ -479,6 +418,32 @@ export default async function EmpresaPage({ searchParams }: { searchParams: Prom
               ) : (
                 <Alerta tono="error" titulo={t.correo.errorTitulo}>
                   {t.correo.errorTexto}
+                </Alerta>
+              )}
+            </div>
+          </section>
+          ),
+          emision: (
+          <section className={TARJETA} data-testid="seccion-preferencias-emision">
+            <CabeceraSeccion
+              icon={SlidersHorizontalIcon}
+              titulo={t.emision.titulo}
+              derecha={
+                preferenciasEmision ? (
+                  <PillEstado tono={preferenciasEmision.opciones_avanzadas ? "ok" : "neutro"}>
+                    {preferenciasEmision.opciones_avanzadas ? t.emision.activadas : t.emision.desactivadas}
+                  </PillEstado>
+                ) : null
+              }
+            />
+            <div className="px-4 pb-4">
+              {preferenciasEmision ? (
+                <FormulariosDeEscritura permiso="configurar">
+                  <PreferenciasEmisionForm inicial={preferenciasEmision} />
+                </FormulariosDeEscritura>
+              ) : (
+                <Alerta tono="error" titulo={t.emision.errorTitulo}>
+                  {t.emision.errorTexto}
                 </Alerta>
               )}
             </div>

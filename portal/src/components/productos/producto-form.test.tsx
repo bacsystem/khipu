@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { ProductoForm } from "./producto-form";
 
 const sobre = (datos: unknown, status = 200) => new Response(JSON.stringify({ estado: status < 400 ? "exito" : "error", datos, mensaje: status < 400 ? null : "x", codigo: status < 400 ? null : "ITEM_INVALIDO", errores: null }), { status });
@@ -50,9 +51,15 @@ describe("ProductoForm (#320)", () => {
     const alGuardar = vi.fn();
     render(<ProductoForm onGuardado={alGuardar} />);
     fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "  Consultoría  " } });
-    await waitFor(() => expect(screen.getByLabelText("Unidad de medida").querySelectorAll("option")).toHaveLength(2));
-    fireEvent.change(screen.getByLabelText("Unidad de medida"), { target: { value: "ZZ" } });
-    fireEvent.change(screen.getByLabelText("Afectación del IGV"), { target: { value: "20" } });
+    const unidad = screen.getByRole("combobox", { name: "Unidad de medida" });
+    // Hasta que llega el catálogo 03 solo está la unidad actual (NIU, sin descripción).
+    await waitFor(() => expect(unidad).toHaveTextContent("NIU · Unidad (bienes)"));
+    expect(await opcionesDe(unidad)).toEqual(["NIU · Unidad (bienes)", "ZZ · Unidad (servicios)"]);
+    await elegirOpcion(unidad, "ZZ · Unidad (servicios)");
+    expect(unidad).toHaveTextContent("ZZ · Unidad (servicios)");
+    const afectacion = screen.getByRole("combobox", { name: "Afectación del IGV" });
+    await elegirOpcion(afectacion, /^20 · /);
+    expect(afectacion).toHaveTextContent(/^20 · /);
     fireEvent.change(screen.getByLabelText(/Precio unit\./), { target: { value: "118.5" } });
     fireEvent.blur(screen.getByLabelText(/Precio unit\./));
 

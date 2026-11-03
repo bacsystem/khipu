@@ -125,7 +125,6 @@ test("buscar un cliente por su razón social, sin tildes ni mayúsculas, filtra 
   await abrir(page, "/admin/errores?clase=FUERA_DE_PLAZO");
 
   await page.getByLabel("Buscar cliente").fill("PANADERIA sol");
-  await page.getByRole("button", { name: "Buscar" }).click();
 
   await expect(page).toHaveURL(/q=PANADERIA\+sol|q=PANADERIA%20sol/);
   await expect(page).toHaveURL(/clase=FUERA_DE_PLAZO/);
@@ -137,11 +136,9 @@ test("buscar por RUC lo trae por su prefijo, y un fragmento interno no trae nada
   await abrir(page, "/admin/errores");
 
   await page.getByLabel("Buscar cliente").fill("2010000040");
-  await page.getByRole("button", { name: "Buscar" }).click();
   await expect(page.getByTestId("errores-fila")).toHaveCount(4);
 
   await page.getByLabel("Buscar cliente").fill("00004");
-  await page.getByRole("button", { name: "Buscar" }).click();
   await expect(page.getByTestId("errores-vacio")).toHaveText("Ningún comprobante con problema coincide con la búsqueda.");
 });
 
@@ -149,7 +146,6 @@ test("buscar por el nombre de la cuenta también filtra", async ({ page }) => {
   await abrir(page, "/admin/errores?clase=ERROR_DE_FORMATO");
 
   await page.getByLabel("Buscar cliente").fill("ferreteria luna");
-  await page.getByRole("button", { name: "Buscar" }).click();
 
   await expect(fila(page, 501, "20100055121")).toBeVisible();
   await expect(page.getByTestId("errores-fila")).toHaveCount(1);
@@ -166,7 +162,7 @@ test("ver solo una empresa desde una fila filtra por ella y «Ver todas» lo qui
   await expect(page.getByTestId("errores-empresa-filtrada")).toHaveCount(0);
   await esperarHidratacion(page, "#errores-q");
   await page.getByLabel("Buscar cliente").fill("integrador");
-  await page.getByRole("button", { name: "Buscar" }).click();
+  await expect(page).toHaveURL(/q=integrador/);
   await fila(page, 401, "20100066611").getByTestId("errores-filtrar-empresa").click();
   await expect(page).toHaveURL(new RegExp(`empresa_id=${empresa(101)}`));
   await esperarFilas(page, ["20100066611-01-F001-401"]);
@@ -180,13 +176,13 @@ test("una empresa de integración, sin cuenta, igual aparece", async ({ page }) 
   await expect(f).toContainText("20100066611");
 });
 
-test("quitar filtros vuelve a la lista completa", async ({ page }) => {
+test("«Limpiar» vuelve a la lista completa", async ({ page }) => {
   await abrir(page, `/admin/errores?clase=ERROR_DE_FORMATO&empresa_id=${EMPRESA_4}&q=cliente`);
 
-  await page.getByRole("link", { name: "Quitar filtros" }).click();
+  await page.getByRole("link", { name: "Limpiar" }).click();
 
   await expect(page).toHaveURL(/\/admin\/errores$/);
-  await expect(page.getByRole("link", { name: "Quitar filtros" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Limpiar" })).toHaveCount(0);
 });
 
 // --- la página ------------------------------------------------------------------------------------------------------------------------------

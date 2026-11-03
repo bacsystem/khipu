@@ -1,6 +1,7 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { backendFetch } from "./client";
 import { tenantHeaders } from "./tenant";
+import type { PreferenciasDeEmision } from "./preferencias-emision";
 
 export type Entorno = "BETA" | "PRODUCCION";
 
@@ -99,4 +100,9 @@ export type CuerpoDeEnvioAlCliente = { enviar_automaticamente: boolean };
 
 export function obtenerPreferenciaDeEnvioAlCliente(access: string, empresaId: string) {
   return backendFetch<PreferenciaDeEnvioAlCliente>("/v1/empresa/envio-al-cliente", { headers: tenantHeaders(access, empresaId) });
+}
+
+/** Las preferencias de emisión (si el modal ofrece las opciones avanzadas), desde el servidor. Desde el navegador: `@/lib/api/preferencias-emision`. */
+export function obtenerPreferenciasDeEmision(access: string, empresaId: string) {
+  return backendFetch<PreferenciasDeEmision>("/v1/empresa/preferencias-emision", { headers: tenantHeaders(access, empresaId) });
 }

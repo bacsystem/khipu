@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import { CalendarIcon, InfoIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -9,14 +9,16 @@ import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dia
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
@@ -102,30 +104,22 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
   function campoDeNumero(campo: CampoDeNumero, etiqueta: string, ilimitado?: "documentosIlimitado" | "usuariosIlimitado" | "apiKeysIlimitado") {
     const marcado = ilimitado ? valores[ilimitado] : false;
     return (
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={`plan-${id}-${campo}`} className={ETIQUETA_CAMPO}>
-          {etiqueta}
-        </label>
-        <input
+      // `Entrada` y no `StepperNumerico`: el valor viaja como texto a `validarPlan`, que explica qué está mal en vez de recortarlo.
+      <Campo id={`plan-${id}-${campo}`} etiqueta={etiqueta} error={errores[campo]}>
+        <Entrada
           id={`plan-${id}-${campo}`}
           value={marcado ? "" : valores[campo]}
           onChange={(e) => poner(campo, e.target.value)}
           disabled={marcado}
           inputMode="numeric"
           autoComplete="off"
-          aria-invalid={errores[campo] ? true : undefined}
+          invalido={Boolean(errores[campo])}
           aria-describedby={errores[campo] ? `plan-${id}-${campo}-error` : undefined}
-          className={CAMPO}
         />
         {ilimitado ? (
           <Casilla id={`plan-${id}-${campo}-ilimitado`} etiqueta={f.ilimitado} checked={marcado} onCheckedChange={(v) => poner(ilimitado, v)} />
         ) : null}
-        {errores[campo] ? (
-          <span id={`plan-${id}-${campo}-error`} className="text-control text-destructive">
-            {errores[campo]}
-          </span>
-        ) : null}
-      </div>
+      </Campo>
     );
   }
 
@@ -142,64 +136,47 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
         <CabeceraDialogo icon={Icono} titulo={<>{plan ? f.tituloEditar.replace("{nombre}", plan.nombre) : f.tituloNuevo}</>} descripcion={edicion ? f.descripcionEditar : f.descripcionNuevo} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
+          <Aviso tono="neutro" icon={InfoIcon}>
             <ul className="grid list-disc gap-1 pl-4">
               {efectos.map((efecto) => (
                 <li key={efecto}>{efecto}</li>
               ))}
             </ul>
-          </div>
+          </Aviso>
           {programado ? (
-            <p data-testid="plan-hay-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-control text-warning-foreground">
-              {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
-            </p>
+            <div data-testid="plan-hay-programado">
+              <Aviso tono="aviso" icon={CalendarIcon}>
+                {f.hayProgramado.replace("{fecha}", formatearFechaDeLima(programado.aplica_desde, locale))}
+              </Aviso>
+            </div>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`plan-${id}-nombre`} className={ETIQUETA_CAMPO}>
-              {f.nombre}
-            </label>
-            <input
+          <Campo id={`plan-${id}-nombre`} etiqueta={f.nombre} error={errores.nombre}>
+            <Entrada
               id={`plan-${id}-nombre`}
               value={valores.nombre}
               onChange={(e) => poner("nombre", e.target.value)}
               maxLength={NOMBRE_MAX}
               placeholder={f.nombreEjemplo}
               autoComplete="off"
-              aria-invalid={errores.nombre ? true : undefined}
+              invalido={Boolean(errores.nombre)}
               aria-describedby={errores.nombre ? `plan-${id}-nombre-error` : undefined}
-              className={CAMPO}
               autoFocus
             />
-            {errores.nombre ? (
-              <span id={`plan-${id}-nombre-error`} className="text-control text-destructive">
-                {errores.nombre}
-              </span>
-            ) : null}
-          </div>
+          </Campo>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`plan-${id}-precio`} className={ETIQUETA_CAMPO}>
-              {f.precio}
-            </label>
-            <input
+          {/* `Entrada` y no `EntradaMonto`: el precio viaja como texto a `validarPlan` (que avisa de un formato inválido) y `EntradaMonto` lo redondearía en silencio. */}
+          <Campo id={`plan-${id}-precio`} etiqueta={f.precio} error={errores.precio} ayuda={f.precioAyuda}>
+            <Entrada
               id={`plan-${id}-precio`}
               value={valores.precio}
               onChange={(e) => poner("precio", e.target.value)}
               inputMode="decimal"
               autoComplete="off"
-              aria-invalid={errores.precio ? true : undefined}
-              aria-describedby={errores.precio ? `plan-${id}-precio-error` : undefined}
-              className={CAMPO}
+              invalido={Boolean(errores.precio)}
+              aria-describedby={errores.precio ? `plan-${id}-precio-error` : `plan-${id}-precio-ayuda`}
             />
-            {errores.precio ? (
-              <span id={`plan-${id}-precio-error`} className="text-control text-destructive">
-                {errores.precio}
-              </span>
-            ) : (
-              <span className={AYUDA_CAMPO}>{f.precioAyuda}</span>
-            )}
-          </div>
+          </Campo>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {campoDeNumero("documentos", f.documentos, "documentosIlimitado")}
@@ -230,10 +207,9 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {f.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={guardar} data-testid="plan-guardar" className={BOTON_PRIMARIO}>
-            <Icono className="size-4" />
-            {enviando ? (edicion ? f.guardando : f.creando) : edicion ? f.guardar : f.crear}
-          </button>
+          <BotonAsync pendiente={enviando} onClick={guardar} data-testid="plan-guardar" icon={<Icono className="size-4" />} textoPendiente={edicion ? f.guardando : f.creando} className={BOTON_PRIMARIO}>
+            {edicion ? f.guardar : f.crear}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>

@@ -15,7 +15,7 @@ export function RetencionEditor({ valor, onCambio, moneda, montoCalculado }: { v
   const t = messages.comprobantes.editores;
   const error = errorDeRetencion(valor, messages);
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="retencion-form">
+    <div className="grid gap-3" data-testid="retencion-form">
       <Campo id="nc-ret-porcentaje" etiqueta={t.retencion.porcentaje} ayuda={t.retencion.ayuda}>
         <input
           id="nc-ret-porcentaje"

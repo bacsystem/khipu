@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import type { Establecimiento } from "@/lib/api/establecimientos";
@@ -27,8 +27,11 @@ describe("EstablecimientosTable según el rol", () => {
           <EstablecimientosTable establecimientos={[anexo]} series={[]} />
         </SoloLectura>,
       );
-      const baja = screen.getByTestId("baja-establecimiento-0001") as HTMLButtonElement;
-      expect(baja.disabled).toBe(deshabilitado);
+      // La confirmación en línea del DS no recibe `disabled`: la apaga el `fieldset` que lleva el testid y el título.
+      const baja = screen.getByTestId("baja-establecimiento-0001") as HTMLFieldSetElement;
+      const boton = within(baja).getByRole("button");
+      if (deshabilitado) expect(boton).toBeDisabled();
+      else expect(boton).toBeEnabled();
       if (deshabilitado) expect(baja.title).toBe("Solo un administrador de la cuenta puede cambiar la configuración.");
     });
   }
@@ -51,6 +54,6 @@ describe("EstablecimientosTable según el rol", () => {
         <EstablecimientosTable establecimientos={[anexo]} series={[]} />
       </SoloLectura>,
     );
-    expect((screen.getByTestId("baja-establecimiento-0001") as HTMLButtonElement).disabled).toBe(true);
+    expect(within(screen.getByTestId("baja-establecimiento-0001")).getByRole("button")).toBeDisabled();
   });
 });

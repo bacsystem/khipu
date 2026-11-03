@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { registrarYVerificar } from "./registro-sesion";
+import { elegirOpcion } from "./combo";
 
 /** Un RUC válido (módulo 11) y distinto en cada corrida: el mock no deja repetir RUC en toda la plataforma. */
 function rucUnico(): string {
@@ -15,6 +16,9 @@ function rucUnico(): string {
  * se cargan desde la propia guía y el avance cambia sin recargar a mano → siguen domicilio y series → con todo listo desaparece.
  */
 test("la guía acompaña a la empresa nueva hasta que puede emitir y entonces desaparece", async ({ page }) => {
+  // #502: un flujo largo (registro, alta de empresa, varias páginas que el dev server compila la primera vez) que con 4 workers sobre el mismo servidor pasa
+  // de los 30 s aunque solo tarde 8-30 s. `slow` triplica el tope; no esconde un fallo, que igual llega al `expect` que no se cumple.
+  test.slow();
   await registrarYVerificar(page, { email: `guia${Date.now()}@ejemplo.pe`, nombre: "Guía SAC", celular: "987654325" });
   await page.getByLabel("RUC").fill(rucUnico());
   await page.getByLabel("Razón social").fill("GUIA SAC");
@@ -68,9 +72,9 @@ test("la guía acompaña a la empresa nueva hasta que puede emitir y entonces de
 
   const form = page.getByTestId("datos-fiscales");
   await expect(form.getByLabel("Departamento")).toBeEnabled();
-  await form.getByLabel("Departamento").selectOption("LIMA");
-  await form.getByLabel("Provincia").selectOption("LIMA");
-  await form.getByLabel("Distrito").selectOption({ label: "MIRAFLORES" });
+  await elegirOpcion(form.getByLabel("Departamento"), "LIMA");
+  await elegirOpcion(form.getByLabel("Provincia"), "LIMA");
+  await elegirOpcion(form.getByLabel("Distrito"), "MIRAFLORES");
   await form.getByLabel("Dirección").fill("Av. Larco 345 Of. 12");
   await form.getByRole("button", { name: "Guardar datos fiscales" }).click();
   await expect(form.getByText("Datos fiscales actualizados", { exact: false })).toBeVisible();

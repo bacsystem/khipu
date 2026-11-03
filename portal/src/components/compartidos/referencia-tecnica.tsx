@@ -5,15 +5,16 @@ import { useMessages } from "next-intl";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { cn } from "@/lib/utils";
-import { TARJETA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, BOTON_PRIMARIO, CABECERA_TABLA, TARJETA } from "@/lib/estilos";
 import { CabeceraDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { ChipCodigo } from "khipu-design-system/patrones/pill-estado";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 
 type Icono = typeof BookOpenIcon;
 
 export type CampoReferencia = { campo: string; tipo: string; descripcion: string; clave?: boolean };
 
-const ICONO = "flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary";
-const TH = "px-4 py-2 text-left text-etiqueta font-semibold text-muted-foreground/80";
 
 /**
  * Modal "Referencia técnica" de una sección del portal: disparador, cabecera, rejilla de dos columnas
@@ -38,10 +39,7 @@ export function ReferenciaTecnicaDialog({
   return (
     <Dialog open={abierto} onOpenChange={setAbierto}>
       <DialogTrigger
-        className={
-          className ??
-          "inline-flex h-control items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-control font-medium text-foreground/80 shadow-xs transition-colors hover:bg-muted hover:text-foreground"
-        }
+        className={className ?? ACCION_SECUNDARIA}
       >
         <BookOpenIcon className="size-4" />
         {t.abrir}
@@ -57,11 +55,7 @@ export function ReferenciaTecnicaDialog({
 
         <div className={cn("flex flex-wrap items-center gap-2 border-t border-border/60 px-5 py-3", pie ? "justify-between" : "justify-end")}>
           {pie}
-          <button
-            type="button"
-            onClick={() => setAbierto(false)}
-            className="inline-flex h-control items-center rounded-lg bg-foreground px-3.5 text-control font-medium text-background shadow-xs transition-colors hover:bg-foreground/90"
-          >
+          <button type="button" onClick={() => setAbierto(false)} className={BOTON_PRIMARIO}>
             {t.entendido}
           </button>
         </div>
@@ -86,16 +80,7 @@ export function SeccionReferencia({
 }) {
   return (
     <section className={TARJETA}>
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-border/60 px-4 py-3">
-        <div className={ICONO}>
-          <IconoSeccion className="size-4" />
-        </div>
-        <div className="flex min-w-0 flex-1 basis-48 flex-col">
-          <h4 className="text-cuerpo font-semibold text-foreground">{titulo}</h4>
-          <span className="font-mono text-etiqueta text-muted-foreground">{subtitulo}</span>
-        </div>
-        {accion}
-      </div>
+      <CabeceraSeccion icon={IconoSeccion} titulo={titulo} subtitulo={subtitulo} derecha={accion} />
       {children}
     </section>
   );
@@ -106,32 +91,32 @@ export function TablaCampos({ campos, etiquetaClave, nota }: { campos: CampoRefe
   const t = useMessages().referenciaTecnica;
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-control">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted">
-              <th className={TH}>{t.campo}</th>
-              <th className={TH}>{t.tipo}</th>
-              <th className={TH}>{t.descripcion}</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="px-2 pb-1">
+        <Table className="text-control">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={CABECERA_TABLA}>{t.campo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.tipo}</TableHead>
+              <TableHead className={CABECERA_TABLA}>{t.descripcion}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {campos.map((c) => (
-              <tr key={c.campo} className="border-b border-border/60 last:border-0">
-                <td className="px-4 py-2 whitespace-nowrap">
+              <TableRow key={c.campo}>
+                <TableCell>
                   <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-foreground">
                     {c.campo}
                     {c.clave ? <KeyIcon className="size-3 text-warning-solid" aria-label={etiquetaClave ?? t.clavePrimaria} /> : null}
                   </span>
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap">
-                  <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-etiqueta font-medium text-primary">{c.tipo}</span>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{c.descripcion}</td>
-              </tr>
+                </TableCell>
+                <TableCell>
+                  <ChipCodigo>{c.tipo}</ChipCodigo>
+                </TableCell>
+                <TableCell className="whitespace-normal text-muted-foreground">{c.descripcion}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       {nota ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-muted/60 px-4 py-2 font-mono text-etiqueta text-muted-foreground">{nota}</div>

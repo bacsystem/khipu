@@ -6,6 +6,8 @@ import {
   hrefExportacionConsumo,
   hrefSiFueraDeRango,
   listarConsumoDeCuentas,
+  MESES_A_ELEGIR,
+  mesesParaElegir,
   paramsConsumoDesdeUrl,
   queryConsumo,
   queryExportacion,
@@ -168,5 +170,32 @@ describe("exportarConsumoDeCuentas", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>Bad gateway</html>", { status: 502 })));
 
     await expect(exportarConsumoDeCuentas("jwt-admin", base)).rejects.toMatchObject({ status: 502, codigo: "ERROR_DE_COMUNICACION", message: "API communication error" });
+  });
+});
+
+describe("mesesParaElegir", () => {
+  it("el mes en curso y los anteriores, del más reciente al más antiguo, dos años en total", () => {
+    const meses = mesesParaElegir("2026-11", undefined);
+
+    expect(meses).toHaveLength(MESES_A_ELEGIR);
+    expect(meses.slice(0, 3)).toEqual(["2026-11", "2026-10", "2026-09"]);
+    expect(meses.at(-1)).toBe("2024-12");
+  });
+
+  it("cruza el cambio de año sin saltarse ni repetir meses", () => {
+    expect(mesesParaElegir("2026-02", undefined, 4)).toEqual(["2026-02", "2026-01", "2025-12", "2025-11"]);
+  });
+
+  it("un mes elegido dentro de la ventana no se repite", () => {
+    expect(mesesParaElegir("2026-11", "2026-09", 3)).toEqual(["2026-11", "2026-10", "2026-09"]);
+  });
+
+  it("un mes elegido fuera de la ventana (más viejo o futuro) se agrega en su lugar: el selector siempre muestra lo que se mide", () => {
+    expect(mesesParaElegir("2026-11", "2020-03", 2)).toEqual(["2026-11", "2026-10", "2020-03"]);
+    expect(mesesParaElegir("2026-11", "2027-01", 2)).toEqual(["2027-01", "2026-11", "2026-10"]);
+  });
+
+  it("un mes elegido que no es AAAA-MM se ignora", () => {
+    expect(mesesParaElegir("2026-11", "2026-13", 2)).toEqual(["2026-11", "2026-10"]);
   });
 });

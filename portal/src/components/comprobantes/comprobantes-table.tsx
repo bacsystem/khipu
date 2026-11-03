@@ -30,6 +30,8 @@ import {
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Spinner } from "khipu-design-system/feedback/spinner";
+import { Chip } from "khipu-design-system/patrones/pill-estado";
 import { sePuedeDuplicar } from "@/lib/comprobantes/duplicar";
 import { BusquedaDelListado } from "@/components/compartidos/busqueda-del-listado";
 import { DescargaMasiva } from "./descarga-masiva";
@@ -249,7 +251,7 @@ export function ComprobantesTable({
             title={t.refrescar}
             className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
           >
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", isFetching && "animate-spin")} />
+            {isFetching ? <Spinner aria-label={t.refrescar} /> : <ArrowClockwiseIcon weight="bold" className="size-4" />}
           </button>
         </div>
       </div>
@@ -291,9 +293,7 @@ export function ComprobantesTable({
                         </Link>
                         <BotonCopiar texto={numeroCompleto} titulo={t.copiarNumero} className="opacity-0 group-hover:opacity-100" />
                         {c.moneda !== "PEN" ? (
-                          <span className="rounded border border-warning-border bg-warning px-1.5 py-0.5 font-mono text-etiqueta font-medium text-warning-foreground">
-                            {c.moneda}
-                          </span>
+                          <Chip className="font-mono">{c.moneda}</Chip>
                         ) : null}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1 text-etiqueta text-muted-foreground/80">

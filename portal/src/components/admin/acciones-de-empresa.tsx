@@ -1,5 +1,6 @@
 "use client";
 
+import { Aviso } from "khipu-design-system/patrones/cabecera-dialogo";
 import { ArrowsLeftRightIcon, KeyIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRef, useState } from "react";
@@ -108,7 +109,10 @@ export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tie
         </p>
       ) : null}
       {resultado ? (
-        <div role="status" data-testid="resultado-conexion" data-resultado={resultado.resultado} className="grid gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-control">
+        // El `Aviso` neutro del DS (la pill dice el resultado); el rol y los `data-*` quedan en el envoltorio.
+        <div role="status" data-testid="resultado-conexion" data-resultado={resultado.resultado}>
+          <Aviso tono="neutro" icon={PlugsConnectedIcon}>
+          <div className="grid gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <Etiqueta tono={TONO_DEL_RESULTADO[resultado.resultado]}>{t.conexion.resultados[resultado.resultado]}</Etiqueta>
             <span className="text-etiqueta text-muted-foreground">
@@ -129,6 +133,8 @@ export function ProbarConexion({ empresaId, tieneSol }: { empresaId: string; tie
               ) : null}
             </dl>
           ) : null}
+          </div>
+          </Aviso>
         </div>
       ) : null}
     </div>

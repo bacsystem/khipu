@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
@@ -32,9 +33,9 @@ test("guarda el domicilio fiscal eligiendo el ubigeo en cascada y la cuenta de d
   const form = page.getByTestId("datos-fiscales");
   // El catálogo 13 se carga al abrir; departamento → provincia → distrito.
   await expect(form.getByLabel("Departamento")).toBeEnabled();
-  await form.getByLabel("Departamento").selectOption("LIMA");
-  await form.getByLabel("Provincia").selectOption("LIMA");
-  await form.getByLabel("Distrito").selectOption({ label: "MIRAFLORES" });
+  await elegirOpcion(form.getByLabel("Departamento"), "LIMA");
+  await elegirOpcion(form.getByLabel("Provincia"), "LIMA");
+  await elegirOpcion(form.getByLabel("Distrito"), "MIRAFLORES");
   await expect(form.getByText("Ubigeo 150122 (catálogo 13)")).toBeVisible();
   await form.getByLabel("Dirección").fill("Av. Larco 345 Of. 12");
   await form.getByLabel(/Cuenta de detracciones/).fill("00-000-123456");

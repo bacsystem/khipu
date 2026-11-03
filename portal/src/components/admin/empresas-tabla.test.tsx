@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmpresaAdmin } from "@/lib/api/admin-empresas";
+import { buscarEnListado } from "@/test/busqueda-de-prueba";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { EmpresasTabla } from "./empresas-tabla";
 
 const push = vi.fn();
@@ -28,11 +30,10 @@ const ANDINA: EmpresaAdmin = {
 };
 
 describe("EmpresasTabla — buscar (H17)", () => {
-  it("buscar desde la página 3 va a la primera, con lo escrito recortado y los filtros que había", () => {
+  it("buscar desde la página 3 va a la primera, tras la pausa y sin botón, con lo escrito recortado y los filtros que había", () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar por RUC o razón social" }), { target: { value: "  andina " } });
-    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    buscarEnListado(screen.getByLabelText("Buscar por RUC o razón social"), "  andina ");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&q=andina&por_pagina=20");
   });
@@ -40,8 +41,27 @@ describe("EmpresasTabla — buscar (H17)", () => {
   it("muestra la búsqueda de la URL y cuenta como un filtro que se puede quitar", () => {
     render(<EmpresasTabla datos={[]} total={0} params={{ q: "andina", pagina: 1, porPagina: 10 }} />);
 
-    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("andina");
-    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/empresas");
+    expect((screen.getByLabelText("Buscar por RUC o razón social") as HTMLInputElement).value).toBe("andina");
+    expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/empresas");
+  });
+});
+
+describe("EmpresasTabla — la barra de filtros del design system", () => {
+  it("búsqueda y píldoras en una zona de búsqueda, sin rótulos a la vista ni botón «Buscar»", () => {
+    render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ pagina: 1, porPagina: 10 }} />);
+
+    const barra = within(screen.getByRole("search", { name: "Filtrar empresas" }));
+    expect(barra.getByRole("combobox", { name: "Entorno" })).toHaveTextContent("Todos los entornos");
+    expect(barra.getByRole("combobox", { name: "Certificado" })).toHaveTextContent("Todos los certificados");
+    expect(barra.getByRole("combobox", { name: "Cuentas dadas de baja" })).toHaveTextContent("Sin las dadas de baja");
+    expect(screen.queryByText("Entorno", { selector: "label" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Buscar" })).toBeNull();
+  });
+
+  it("«Limpiar» es el discreto del portal del cliente", () => {
+    render(<EmpresasTabla datos={[]} total={0} params={{ entorno: "BETA", pagina: 1, porPagina: 10 }} />);
+
+    expect(screen.getByRole("link", { name: "Limpiar" }).className).toContain("text-muted-foreground");
   });
 });
 
@@ -51,26 +71,26 @@ describe("EmpresasTabla (#185)", () => {
    * redirigiendo a la última, pero eso solo tapa el error cuando el resultado cabe en una sola página; con un conjunto que sigue teniendo
    * varias, el administrador se quedaría en una página que no pidió. Por eso el selector manda siempre a la 1.
    */
-  it("elegir un entorno desde la página 3 navega a la primera, con el tamaño de página que tenía", () => {
+  it("elegir un entorno desde la página 3 navega a la primera, con el tamaño de página que tenía", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&por_pagina=20");
   });
 
-  it("elegir un estado de certificado desde la página 3 navega a la primera y conserva el entorno elegido", () => {
+  it("elegir un estado de certificado desde la página 3 navega a la primera y conserva el entorno elegido", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", pagina: 3, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Certificado"), { target: { value: "VENCIDO" } });
+    await elegirOpcion(screen.getByLabelText("Certificado"), "Vencido");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&certificado=VENCIDO");
   });
 
-  it("volver a «Todos» quita ese filtro de la URL y deja el otro", () => {
+  it("volver a «Todos» quita ese filtro de la URL y deja el otro", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={5} params={{ entorno: "BETA", certificado: "VENCIDO", pagina: 1, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Todos los entornos");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?certificado=VENCIDO");
   });
@@ -87,21 +107,21 @@ describe("EmpresasTabla (#185)", () => {
     render(<EmpresasTabla datos={[]} total={0} params={{ entorno: "BETA", pagina: 1, porPagina: 20 }} />);
 
     expect(screen.getByText("No hay empresas con esos filtros.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/empresas?por_pagina=20");
+    expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/empresas?por_pagina=20");
   });
 
   it("sin filtros y sin empresas dice que todavía no hay ninguna, sin ofrecer quitar nada", () => {
     render(<EmpresasTabla datos={[]} total={0} params={{ pagina: 1, porPagina: 10 }} />);
 
     expect(screen.getByText("Todavía no hay empresas.")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Quitar filtros" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Limpiar" })).toBeNull();
   });
 
   it("los selectores muestran los filtros de la URL", () => {
     render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ entorno: "PRODUCCION", certificado: "POR_VENCER", pagina: 1, porPagina: 10 }} />);
 
-    expect((screen.getByLabelText("Entorno") as HTMLSelectElement).value).toBe("PRODUCCION");
-    expect((screen.getByLabelText("Certificado") as HTMLSelectElement).value).toBe("POR_VENCER");
+    expect(screen.getByLabelText("Entorno")).toHaveTextContent("Producción");
+    expect(screen.getByLabelText("Certificado")).toHaveTextContent("Por vencer");
   });
 
   it("la fila trae el estado del certificado y los días que le quedan", () => {
@@ -114,27 +134,27 @@ describe("EmpresasTabla (#185)", () => {
 
   // --- #201: baja lógica de la cuenta ----------------------------------------------------------------------------------------------
 
-  it("el selector de bajas muestra lo que dice la URL y, sin nada, «Ocultar»", () => {
+  it("el selector de bajas muestra lo que dice la URL y, sin nada, «Sin las dadas de baja»", () => {
     const { unmount } = render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ pagina: 1, porPagina: 10 }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Sin las dadas de baja");
     unmount();
 
     render(<EmpresasTabla datos={[ANDINA]} total={1} params={{ bajas: "SOLO", pagina: 1, porPagina: 10 }} />);
-    expect((screen.getByLabelText("Cuentas dadas de baja") as HTMLSelectElement).value).toBe("SOLO");
+    expect(screen.getByLabelText("Cuentas dadas de baja")).toHaveTextContent("Solo las dadas de baja");
   });
 
-  it("elegir un valor desde la página 3 navega a la primera y conserva los otros filtros", () => {
+  it("elegir un valor desde la página 3 navega a la primera y conserva los otros filtros", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ entorno: "BETA", certificado: "VENCIDO", pagina: 3, porPagina: 20 }} />);
 
-    fireEvent.change(screen.getByLabelText("Cuentas dadas de baja"), { target: { value: "INCLUIDAS" } });
+    await elegirOpcion(screen.getByLabelText("Cuentas dadas de baja"), "Con las dadas de baja");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=BETA&certificado=VENCIDO&bajas=INCLUIDAS&por_pagina=20");
   });
 
-  it("cambiar el entorno conserva el filtro de bajas", () => {
+  it("cambiar el entorno conserva el filtro de bajas", async () => {
     render(<EmpresasTabla datos={[ANDINA]} total={120} params={{ bajas: "SOLO", pagina: 3, porPagina: 10 }} />);
 
-    fireEvent.change(screen.getByLabelText("Entorno"), { target: { value: "PRODUCCION" } });
+    await elegirOpcion(screen.getByLabelText("Entorno"), "Producción");
 
     expect(push).toHaveBeenCalledWith("/admin/empresas?entorno=PRODUCCION&bajas=SOLO");
   });
@@ -157,7 +177,7 @@ describe("EmpresasTabla (#185)", () => {
     render(<EmpresasTabla datos={[]} total={0} params={{ bajas: "SOLO", pagina: 1, porPagina: 20 }} />);
 
     expect(screen.getByText("No hay empresas con esos filtros.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Quitar filtros" }).getAttribute("href")).toBe("/admin/empresas?por_pagina=20");
+    expect(screen.getByRole("link", { name: "Limpiar" }).getAttribute("href")).toBe("/admin/empresas?por_pagina=20");
   });
 
   it("una empresa de una cuenta de baja lo dice junto a su cuenta, y una en servicio no", () => {

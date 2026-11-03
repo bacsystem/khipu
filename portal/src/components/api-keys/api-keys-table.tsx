@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowClockwiseIcon, KeyIcon, ProhibitIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, KeyIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useLocale, useMessages } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "khipu-design-system/ui/select";
 import { CONTENEDOR_TABLA, FilaVacia, PieTabla } from "khipu-design-system/patrones/pie-tabla";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 import type { ApiKeyResumen } from "@/lib/api/api-keys";
 import { apiRequest } from "@/lib/api/browser";
@@ -17,88 +18,45 @@ import { POR_PAGINA_DEFECTO } from "khipu-design-system/lib/paginacion";
 import { cn } from "@/lib/utils";
 import { CABECERA_TABLA, CONTROL_FILTRO } from "@/lib/estilos";
 import { useSinPermisoDeConfigurar } from "@/lib/solo-lectura";
+import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
+import { ConfirmacionEnLinea } from "khipu-design-system/patrones/confirmacion-en-linea";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 
 const TODAS = "todas";
 
-const ACCION =
-  "inline-flex h-control items-center gap-1 rounded-lg px-2.5 text-control font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60";
-
 function Estado({ activa }: { activa: boolean }) {
   const t = useMessages().apiKeys.tabla;
-  return activa ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success px-2.5 py-0.5 font-mono text-etiqueta font-medium text-success-foreground">
-      <span className="size-1.5 rounded-full bg-success-solid" />
-      {t.activa}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-0.5 font-mono text-etiqueta font-medium text-muted-foreground">
-      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-      {t.revocada}
-    </span>
-  );
+  return activa ? <PillEstado tono="ok">{t.activa}</PillEstado> : <PillEstado tono="neutro">{t.revocada}</PillEstado>;
 }
 
 /** Acciones de una fila: "Revocar" pide confirmación en línea antes de llamar a la API (es irreversible). */
 function Acciones({ apiKey }: { apiKey: ApiKeyResumen }) {
   const soloLectura = useSinPermisoDeConfigurar();
-  const messages = useMessages();
-  const t = messages.apiKeys.tabla;
+  const t = useMessages().apiKeys.tabla;
   const mensajeError = useMensajeError();
   const router = useRouter();
-  const [confirmando, setConfirmando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [revocando, startTransition] = useTransition();
 
   if (!apiKey.activa) return <span className="text-etiqueta text-muted-foreground/60">—</span>;
 
-  function revocar() {
-    setError(null);
-    startTransition(async () => {
-      const res = await apiRequest<null>(`/api/proxy/empresa/api-keys/${apiKey.id}`, { method: "DELETE" });
-      if (res.estado !== "exito") {
-        setError(mensajeError(res.codigo));
-        return;
-      }
-      setConfirmando(false);
-      router.refresh();
-    });
+  async function revocar() {
+    const res = await apiRequest<null>(`/api/proxy/empresa/api-keys/${apiKey.id}`, { method: "DELETE" });
+    if (res.estado !== "exito") return mensajeError(res.codigo);
+    router.refresh();
   }
 
+  // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
+  // La confirmación del DS no recibe `disabled`: sin permiso la apaga el `fieldset`, que lleva el título.
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center justify-end gap-1">
-        {confirmando ? (
-          <>
-            <span className="mr-1 text-etiqueta text-muted-foreground">{t.confirmarRevocar}</span>
-            <button type="button" disabled={revocando} onClick={revocar} className={cn(ACCION, "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90")}>
-              {revocando ? <ArrowClockwiseIcon weight="bold" className="size-3.5 animate-spin" /> : <ProhibitIcon className="size-3.5" />}
-              {t.siRevocar}
-            </button>
-            <button
-              type="button"
-              disabled={revocando}
-              onClick={() => setConfirmando(false)}
-              className={cn(ACCION, "border border-border bg-card text-foreground/80 hover:bg-muted")}
-            >
-              {messages.comun.cancelar}
-            </button>
-          </>
-        ) : (
-          // Sin «Regenerar» deshabilitado (C6): para rotar una llave se crea otra con «Crear API key» y se revoca esta.
-          <button type="button" disabled={soloLectura !== null} title={soloLectura ?? undefined} onClick={() => setConfirmando(true)} className={cn(ACCION, "text-destructive-texto hover:bg-destructive-suave")}>
-            <ProhibitIcon className="size-3.5" />
-            {t.revocar}
-          </button>
-        )}
-      </div>
-      {error ? <span className="text-etiqueta text-destructive">{error}</span> : null}
-    </div>
+    <fieldset disabled={soloLectura !== null} title={soloLectura ?? undefined} className="m-0 min-w-0 border-0 p-0">
+      <ConfirmacionEnLinea etiqueta={t.revocar} pregunta={t.confirmarRevocar} confirmar={t.siRevocar} onConfirmar={revocar} />
+    </fieldset>
   );
 }
 
 export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
   const locale = useLocale();
-  const t = useMessages().apiKeys.tabla;
+  const messages = useMessages();
+  const t = messages.apiKeys.tabla;
   const itemsEstado: Record<string, string> = { [TODAS]: t.filtro.todas, activa: t.filtro.activas, revocada: t.filtro.revocadas };
   const router = useRouter();
   const [refrescando, startTransition] = useTransition();
@@ -126,48 +84,48 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <KeyIcon className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-cuerpo font-semibold text-foreground">{t.titulo}</h2>
-            <p className="truncate font-mono text-etiqueta text-muted-foreground">{t.subtitulo}</p>
-          </div>
-        </div>
+      <CabeceraSeccion
+        icon={KeyIcon}
+        titulo={t.titulo}
+        subtitulo={t.subtitulo}
+        conBorde={false}
+        className="p-0"
+        derecha={
+          <>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Select
-            items={itemsEstado}
-            value={estado}
-            onValueChange={(v) => {
-              setEstado(v ?? TODAS);
-              setPagina(1);
-            }}
-          >
-            <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
-                <SelectItem key={valor} value={valor}>
-                  {etiqueta}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Select
+                items={itemsEstado}
+                value={estado}
+                onValueChange={(v) => {
+                  setEstado(v ?? TODAS);
+                  setPagina(1);
+                }}
+              >
+                <SelectTrigger className={cn(CONTROL_FILTRO, "w-auto min-w-36 pl-3")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(itemsEstado).map(([valor, etiqueta]) => (
+                    <SelectItem key={valor} value={valor}>
+                      {etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <button
-            type="button"
-            onClick={() => startTransition(() => router.refresh())}
-            title={t.refrescar}
-            className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
-          >
-            <ArrowClockwiseIcon weight="bold" className={cn("size-4", refrescando && "animate-spin")} />
-          </button>
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => startTransition(() => router.refresh())}
+                title={t.refrescar}
+                className={cn(CONTROL_FILTRO, "inline-flex size-control items-center justify-center text-muted-foreground transition-colors hover:text-foreground")}
+              >
+                {refrescando ? <Spinner aria-label={messages.comun.cargando} /> : <ArrowClockwiseIcon weight="bold" className="size-4" />}
+              </button>
+            </div>
+          </>
+        }
+      />
 
       <div className={cn(CONTENEDOR_TABLA, refrescando && "opacity-60")}>
         <Table>
@@ -207,7 +165,7 @@ export function ApiKeysTable({ apiKeys }: { apiKeys: ApiKeyResumen[] }) {
                 <TableCell className="px-4 py-2 whitespace-nowrap">
                   <Estado activa={k.activa} />
                 </TableCell>
-                <TableCell className="py-2 pr-4 pl-2 text-right">
+                <TableCell className="py-2 pr-4 pl-2 text-right whitespace-normal">
                   <Acciones apiKey={k} />
                 </TableCell>
               </TableRow>

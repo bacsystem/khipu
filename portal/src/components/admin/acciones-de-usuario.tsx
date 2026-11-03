@@ -1,6 +1,6 @@
 "use client";
 
-import { EnvelopeSimpleOpenIcon, EyeIcon, KeyIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, EnvelopeSimpleOpenIcon, EyeIcon, KeyIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -14,7 +14,7 @@ import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 type Tipo = "restablecer" | "verificar";
 
@@ -38,10 +38,12 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
   const [error, setError] = useState<string | null>(null);
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
   const alertaRef = useRef<HTMLParagraphElement>(null);
+  const hechoRef = useRef<HTMLDivElement>(null);
   // Un ref, no el estado: dos clics en el mismo tick leen el `enviando` viejo del closure y mandarían dos correos.
   const enviandoRef = useRef(false);
   useEffect(() => {
-    if (error || enviadoA) alertaRef.current?.focus();
+    if (error) alertaRef.current?.focus();
+    else if (enviadoA) hechoRef.current?.focus();
   }, [error, enviadoA]);
 
   function cambiarAbierto(valor: boolean) {
@@ -86,15 +88,20 @@ function AccionDeAcceso({ tipo, cuentaId, usuarioId, correo }: { tipo: Tipo; cue
 
         <div className="grid gap-4 px-5 py-4">
           {enviadoA ? (
-            <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-success-foreground outline-none" role="status" data-testid="acceso-hecho">
-              {textos.hecho.replace("{correo}", enviadoA)}
-            </p>
+            // El `Aviso` del DS no lleva ref ni rol: el envoltorio recibe el foco y conserva `role="status"`.
+            <div ref={hechoRef} tabIndex={-1} className="outline-none" role="status" data-testid="acceso-hecho">
+              <Aviso tono="ok" icon={CheckCircleIcon}>
+                {textos.hecho.replace("{correo}", enviadoA)}
+              </Aviso>
+            </div>
           ) : (
-            <ul className="grid list-disc gap-1 rounded-lg border border-border bg-muted/50 py-2.5 pr-3 pl-7 text-control leading-relaxed text-foreground">
-              {textos.efectos.map((efecto) => (
-                <li key={efecto}>{efecto}</li>
-              ))}
-            </ul>
+            <Aviso tono="neutro" icon={Icono}>
+              <ul className="grid list-disc gap-1 pl-4">
+                {textos.efectos.map((efecto) => (
+                  <li key={efecto}>{efecto}</li>
+                ))}
+              </ul>
+            </Aviso>
           )}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">

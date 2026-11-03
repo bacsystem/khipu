@@ -339,6 +339,8 @@ export const db = {
   /** #325: las empresas con el envío automático al cliente activado, y el envío de cada comprobante (por id) que salió al aceptarse. */
   envioAutomaticoPorEmpresa: new Set<string>(),
   enviosAlCliente: new Map<string, EnvioAlCliente>(),
+  /** Las empresas con «Mostrar opciones avanzadas al emitir» encendida (apagada por defecto, como la columna `tenant.opciones_avanzadas_emision`). */
+  opcionesAvanzadasPorEmpresa: new Set<string>(),
   sesionesPorToken: new Map<string, Sesion>(),
   /** `segundoFactor`: si ya configuró la app de autenticación (#177). El mock no guarda estado del 2FA: ver los handlers. */
   administradoresPorEmail: new Map<string, { administrador: Administrador; password: string; segundoFactor: boolean }>(),
@@ -406,6 +408,7 @@ export function resetDb() {
   db.correos.length = 0;
   db.envioAutomaticoPorEmpresa.clear();
   db.enviosAlCliente.clear();
+  db.opcionesAvanzadasPorEmpresa.clear();
   db.sesionesPorToken.clear();
   db.administradoresPorEmail.clear();
   db.clavesEmision.clear();
@@ -594,6 +597,18 @@ export function resetDb() {
     },
   ]);
   db.seriesPorEmpresa.set("e-sol-rechazada", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
+  // #502: la de `establecimientos.spec.ts`, que registra el anexo 0003 con su serie y da de baja el 0002. Cuenta propia: hecho sobre la demo, dejaba a
+  // `guias-emision.spec.ts` (y a una segunda corrida del mismo spec) con anexos que no esperaba. Como la demo, sin domicilio fiscal y con el 0002.
+  const anexos: Usuario = { id: "u-anexos", cuenta_id: "c-anexos", email: "anexos@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(anexos.email, { usuario: anexos, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(anexos.cuenta_id, "Anexos Demo");
+  db.empresasPorCuenta.set(anexos.cuenta_id, [
+    { id: "e-anexos", ruc: "20600000056", razon_social: "Anexos Demo SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-anexos", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
+  db.establecimientosPorEmpresa.set("e-anexos", [
+    { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
+  ]);
   // Un cliente que ya usó los 30 documentos de octubre de su plan Gratis (#18): no emite más hasta el mes siguiente. Cuenta propia: el consumo de la demo no cambia.
   const enElTope: Usuario = { id: "u-en-el-tope", cuenta_id: "c-en-el-tope", email: "tope@example.com", rol: "ADMIN", correo_verificado: true };
   db.usuariosPorEmail.set(enElTope.email, { usuario: enElTope, password: "Passw0rd1" });

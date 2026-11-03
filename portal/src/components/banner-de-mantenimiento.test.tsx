@@ -15,7 +15,8 @@ describe("BannerDeMantenimiento (#199)", () => {
   it("es un aviso de estado, anunciado a quien usa lector de pantalla", () => {
     render(<BannerDeMantenimiento texto="x" hasta="2026-10-16T04:00:00Z" />);
 
-    expect(screen.getByRole("status")).toBe(screen.getByTestId("banner-de-mantenimiento"));
+    // El rol lo pone el `Banner` del DS; el `data-testid` va en su envoltorio.
+    expect(screen.getByTestId("banner-de-mantenimiento")).toContainElement(screen.getByRole("status"));
   });
 
   /** El texto lo escribe un administrador y lo ve todo cliente: se muestra como texto, nunca se interpreta como HTML. */
@@ -30,7 +31,7 @@ describe("BannerDeMantenimiento (#199)", () => {
   it("usa el tono de aviso, no el de error", () => {
     render(<BannerDeMantenimiento texto="x" hasta="2026-10-16T04:00:00Z" />);
 
-    const clases = screen.getByTestId("banner-de-mantenimiento").className;
+    const clases = screen.getByRole("status").className;
     expect(clases).toContain("bg-warning");
     expect(clases).not.toContain("destructive");
   });

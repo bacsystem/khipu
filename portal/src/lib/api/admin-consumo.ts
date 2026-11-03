@@ -51,6 +51,25 @@ export function mesValido(texto: string | undefined): string | undefined {
   return texto !== undefined && MES.test(texto) ? texto : undefined;
 }
 
+/** Cuántos meses ofrece el selector de mes de la pantalla, contando el mes en curso: dos años. */
+export const MESES_A_ELEGIR = 24;
+
+/**
+ * Los meses del selector (#193), del más reciente al más antiguo: el mes en curso y los anteriores, `cantidad` en total. El design system no tiene un selector de mes y un
+ * `<input type="month">` no se puede estilizar (en Safari ni siquiera existe), así que es una lista. Si el mes que se mide (`elegido`, de la URL o el que respondió el backend)
+ * queda fuera de esa ventana, se agrega en su lugar: el selector siempre muestra lo que la tabla está midiendo.
+ */
+export function mesesParaElegir(enCurso: string, elegido: string | undefined, cantidad = MESES_A_ELEGIR): string[] {
+  const [anio, mes] = enCurso.split("-").map(Number);
+  const meses = Array.from({ length: cantidad }, (_, i) => {
+    const fecha = new Date(Date.UTC(anio, mes - 1 - i, 1));
+    return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+  if (elegido && mesValido(elegido) && !meses.includes(elegido)) meses.push(elegido);
+  // `AAAA-MM` se ordena bien como texto.
+  return meses.sort().reverse();
+}
+
 function enumDesdeUrl<T extends string>(valores: readonly T[], texto: string | undefined, defecto: T): T {
   return valores.find((v) => v === texto) ?? defecto;
 }

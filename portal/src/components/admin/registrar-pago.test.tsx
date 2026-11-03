@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { elegirFecha, fechaElegida, fechaEsElegible } from "@/test/fecha-de-prueba";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { RegistrarPago } from "./registrar-pago";
 
 const refresh = vi.fn();
@@ -39,7 +40,7 @@ function abrir(plan: PlanDeCuentaAdmin | null = EMPRENDE) {
   fireEvent.click(screen.getByTestId("registrar-pago"));
 }
 
-const campo = (etiqueta: string | RegExp) => screen.getByLabelText(etiqueta) as HTMLInputElement | HTMLSelectElement;
+const campo = (etiqueta: string | RegExp) => screen.getByLabelText(etiqueta) as HTMLInputElement;
 const escribir = (etiqueta: string | RegExp, valor: string) => fireEvent.change(campo(etiqueta), { target: { value: valor } });
 /** La casilla del design system (base-ui): un `role="checkbox"` con `aria-checked` y `aria-disabled`, no un `<input>`. */
 const casillaExtender = () => screen.getByRole("checkbox", { name: "Extender el vencimiento del plan hasta el final del periodo" });
@@ -53,7 +54,7 @@ const nota = () => screen.getByTestId("registrar-pago-extender-nota").textConten
 async function llenar(hasta = "2026-11-20") {
   await elegirFecha("Periodo hasta (inclusive)", hasta);
   escribir("Monto (S/)", "29.00");
-  escribir("Medio de pago", "YAPE");
+  await elegirOpcion(campo("Medio de pago"), "Yape");
 }
 
 describe("RegistrarPago", () => {
@@ -83,7 +84,7 @@ describe("RegistrarPago", () => {
   it("ofrece los siete medios de pago", async () => {
     abrir();
 
-    const opciones = [...(campo("Medio de pago") as HTMLSelectElement).options].map((o) => o.textContent);
+    const opciones = await opcionesDe(campo("Medio de pago"));
     expect(opciones).toEqual(["Elige el medio", "Transferencia", "Depósito", "Yape", "Plin", "Tarjeta", "Efectivo", "Otro"]);
   });
 
@@ -227,7 +228,7 @@ describe("RegistrarPago", () => {
 
     await elegirFecha("Periodo hasta (inclusive)", "2026-11-20");
     escribir("Monto (S/)", "29");
-    escribir("Medio de pago", "YAPE");
+    await elegirOpcion(campo("Medio de pago"), "Yape");
     expect(screen.queryByText("Indica desde cuándo cubre el pago.")).toBeNull();
     expect(screen.queryByText("Indica hasta cuándo cubre el pago.")).toBeNull();
     expect(screen.queryByText("Escribe el monto.")).toBeNull();
@@ -247,7 +248,7 @@ describe("RegistrarPago", () => {
     await elegirFecha("Periodo desde", "2026-11-01");
     await elegirFecha("Periodo hasta (inclusive)", "2026-10-01");
     escribir("Monto (S/)", "29");
-    escribir("Medio de pago", "YAPE");
+    await elegirOpcion(campo("Medio de pago"), "Yape");
     fireEvent.click(screen.getByTestId("registrar-pago-confirmar"));
     expect(screen.getByText("El periodo no puede terminar antes de empezar.")).toBeTruthy();
 
@@ -397,7 +398,7 @@ describe("RegistrarPago", () => {
 
     expect(await fechaElegida("Periodo hasta (inclusive)")).toBeNull();
     expect(campo("Monto (S/)").value).toBe("");
-    expect(campo("Medio de pago").value).toBe("");
+    expect(campo("Medio de pago")).toHaveTextContent("Elige el medio");
     expect(campo("Referencia").value).toBe("");
     expect(await fechaElegida("Periodo desde")).toBe("2026-10-21");
     expect(await fechaElegida("Fecha de pago")).toBe(HOY);

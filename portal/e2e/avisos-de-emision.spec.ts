@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { elegirOpcion } from "./combo";
 
 /**
  * #382: `POST /v1/facturas` y `POST /v1/notas` devuelven `avisos` (4013 RUC no activo, 4014 RUC no habido) cuando SUNAT va a observar el comprobante por el comprador, y el portal los
@@ -18,9 +19,11 @@ test.beforeEach(async ({ page }) => {
 async function emitirFactura(page: Page, ruc: string) {
   await page.getByRole("button", { name: "Nuevo comprobante" }).click();
   const dialogo = page.getByRole("dialog");
-  await dialogo.getByLabel("RUC").fill(ruc);
+  // #557: el RUC se escribe en el campo «Cliente»; completo, se toma como documento y la tarjeta muestra al cliente.
+  await dialogo.getByLabel("Cliente").fill(ruc);
+  await expect(dialogo.getByTestId("tarjeta-cliente-documento")).toHaveText(`RUC ${ruc}`);
   // La consulta del padrón (#379) rellena el nombre; se espera a que lo haga para no competir con el autorrelleno.
-  await expect(dialogo.getByLabel("Razón social")).not.toHaveValue("");
+  await expect(dialogo.getByTestId("tarjeta-cliente-nombre")).not.toContainText("Sin nombre");
   await dialogo.getByLabel("Descripción").fill("Consultoría");
   await dialogo.getByLabel("Cantidad").fill("1");
   await dialogo.getByLabel(/Precio unit\./).fill("1000");
@@ -60,7 +63,7 @@ test("la nota de crédito sobre esa factura también muestra los avisos en su fi
   await page.goto(`${page.url()}/nota`);
 
   const form = page.getByTestId("nota-form");
-  await form.getByLabel(/Motivo/).selectOption("01");
+  await elegirOpcion(form.getByLabel(/Motivo/), /^01 · /);
   await form.getByLabel("Sustento").fill("Anulación de la operación");
   await form.getByRole("button", { name: "Emitir nota de crédito" }).click();
 

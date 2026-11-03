@@ -3,14 +3,18 @@
 import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
-import { Campo } from "khipu-design-system/formularios/campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
 import { listarPaises } from "@/lib/comprobantes/paises";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { Combobox } from "khipu-design-system/formularios/combobox";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 import { avisarQueCambiaronLosClientes } from "./eventos";
 
 
@@ -26,11 +30,21 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [direccion, setDireccion] = useState(existente?.direccion ?? "");
   const [pais, setPais] = useState(existente?.pais ?? "");
   const locale = useLocale();
-  const paises = useMemo(() => listarPaises(locale), [locale]);
+  const itemsPais = useMemo(() => [{ value: "", label: t.sinPais }, ...listarPaises(locale).map((p) => ({ value: p.codigo, label: p.nombre }))], [locale, t.sinPais]);
   const [email, setEmail] = useState(existente?.email ?? "");
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #575: con un RUC completo se consulta el padrón de SUNAT y se rellenan el nombre y la dirección vacíos. Al editar, solo si el RUC cambió: abrir un cliente
+  // guardado no gasta una consulta.
+  const padron = useAutocompletadoDelPadron({
+    ruc: numDoc,
+    activa: tipoDoc === "6" && numDoc !== (existente?.num_doc ?? ""),
+    campos: [
+      { valor: razon, poner: setRazon, dato: (c) => c.razon_social },
+      { valor: direccion, poner: setDireccion, dato: (c) => c.direccion },
+    ],
+  });
 
   const documento = DOCUMENTOS_DE_CLIENTE.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_DE_CLIENTE[0];
   const errorDoc = errorDeDocumento(tipoDoc, numDoc, messages);
@@ -65,24 +79,18 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="cliente-form">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[220px_1fr]">
         <Campo id="cli-tipo-doc" etiqueta={t.documento}>
-          <select
+          <SelectCampo
             id="cli-tipo-doc"
-            value={tipoDoc}
-            onChange={(e) => {
-              setTipoDoc(e.target.value);
+            valor={tipoDoc}
+            onCambio={(v) => {
+              setTipoDoc(v);
               setNumDoc("");
             }}
-            className={cn(SELECT_NATIVO, "w-full")}
-          >
-            {DOCUMENTOS_DE_CLIENTE.map((d) => (
-              <option key={d.codigo} value={d.codigo}>
-                {d.etiqueta}
-              </option>
-            ))}
-          </select>
+            opciones={DOCUMENTOS_DE_CLIENTE.map((d) => ({ value: d.codigo, label: d.etiqueta }))}
+          />
         </Campo>
         <Campo id="cli-num-doc" etiqueta={t.numero} error={intento ? errorDoc : null} ayuda={documento.titulo}>
-          <input
+          <Entrada
             id="cli-num-doc"
             key={tipoDoc}
             value={numDoc}
@@ -90,28 +98,41 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             inputMode={documento.codigo === "1" || documento.codigo === "6" ? "numeric" : "text"}
             placeholder={documento.ejemplo}
             autoFocus={!existente}
-            className={cn(CAMPO, "font-mono tabular-nums")}
+            invalido={intento && !!errorDoc}
+            aria-describedby={intento && errorDoc ? "cli-num-doc-error" : "cli-num-doc-ayuda"}
+            mono
+            className="tabular-nums"
           />
         </Campo>
       </div>
+      <EstadoConsultaRuc
+        consultando={padron.consultando}
+        resultado={padron.resultado}
+        nombreActual={razon}
+        onReintentar={padron.reintentar}
+        onUsarNombre={(n) => padron.usarDato(0, n)}
+        className="-mt-2"
+      />
       <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? t.razonSocial : t.nombre} error={intento ? errorNombre : null}>
-        <input id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} className={CAMPO} />
+        <Entrada id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} invalido={intento && !!errorNombre} aria-describedby={intento && errorNombre ? "cli-razon-error" : undefined} />
       </Campo>
       <Campo id="cli-direccion" etiqueta={t.direccion} opcional>
-        <input id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} className={CAMPO} />
+        <Entrada id="cli-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={300} />
       </Campo>
       <Campo id="cli-pais" etiqueta={t.pais} opcional ayuda={t.paisAyuda}>
-        <select id="cli-pais" value={pais} onChange={(e) => setPais(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-          <option value="">{t.sinPais}</option>
-          {paises.map((p) => (
-            <option key={p.codigo} value={p.codigo}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        {/* Unos 250 países: se escribe para buscar. «Sin país» sigue siendo una opción más, la primera de la lista. */}
+        <Combobox
+          id="cli-pais"
+          valor={pais}
+          onCambio={(v) => setPais(v ?? "")}
+          items={itemsPais}
+          placeholder={t.sinPais}
+          vacio={messages.comun.sinResultados}
+          etiquetaAbrir={messages.comun.abrirOpciones}
+        />
       </Campo>
       <Campo id="cli-email" etiqueta={t.correo} opcional error={intento ? errorCorreo : null} ayuda={t.correoAyuda}>
-        <input id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} className={CAMPO} />
+        <Entrada id="cli-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={150} invalido={intento && !!errorCorreo} aria-describedby={intento && errorCorreo ? "cli-email-error" : "cli-email-ayuda"} />
       </Campo>
 
       {error ? (
@@ -126,10 +147,9 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? t.guardando : existente ? t.guardarCambios : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {existente ? t.guardarCambios : t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

@@ -1,4 +1,6 @@
+import { CalendarIcon, PackageIcon } from "@phosphor-icons/react/dist/ssr";
 import { useLocale, useMessages } from "next-intl";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { CambiarPlan } from "@/components/admin/cambiar-plan";
 import { Etiqueta, type Tono } from "@/components/admin/etiquetas";
 import { Seccion } from "@/components/admin/seccion";
@@ -24,8 +26,8 @@ export function PlanDeCuenta({ cuentaId, cuentaNombre, plan, planes, hoy }: { cu
   const t = messages.admin.planDeCuenta;
   const l = plan.plan.limites;
   return (
-    <Seccion titulo={t.titulo} id="detalle-plan">
-      <div data-testid="plan-de-cuenta" className="grid gap-3 p-4">
+    <Seccion titulo={t.titulo} id="detalle-plan" icon={PackageIcon}>
+      <div data-testid="plan-de-cuenta" className="grid gap-3 px-4 pt-1 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -51,9 +53,11 @@ export function PlanDeCuenta({ cuentaId, cuentaNombre, plan, planes, hoy }: { cu
         </p>
 
         {plan.programado ? (
-          <p data-testid="plan-programado" className="rounded-lg border border-warning-border bg-warning px-3 py-2 text-control text-warning-foreground">
-            {t.programado.replace("{plan}", plan.programado.plan.nombre).replace("{fecha}", formatearFechaDeLima(plan.programado.aplica_desde, locale)).replace("{actual}", plan.plan.nombre)}
-          </p>
+          <div data-testid="plan-programado">
+            <Alerta tono="aviso" icon={CalendarIcon}>
+              {t.programado.replace("{plan}", plan.programado.plan.nombre).replace("{fecha}", formatearFechaDeLima(plan.programado.aplica_desde, locale)).replace("{actual}", plan.plan.nombre)}
+            </Alerta>
+          </div>
         ) : null}
       </div>
     </Seccion>

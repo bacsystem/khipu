@@ -4,11 +4,15 @@ import { PlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { apiRequest } from "@/lib/api/browser";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 
 export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () => void; onCancelar?: () => void }) {
   const router = useRouter();
@@ -21,6 +25,8 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
   const [entorno, setEntorno] = useState<Entorno>("BETA");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #575: con el RUC completo se consulta el padrón de SUNAT y se rellena la razón social si está vacía.
+  const padron = useAutocompletadoDelPadron({ ruc, campos: [{ valor: razonSocial, poner: setRazonSocial, dato: (c) => c.razon_social }] });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -47,12 +53,9 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nueva-ruc" className={ETIQUETA_CAMPO}>
-            {tc.ruc}
-          </label>
-          <input
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+        <Campo id="nueva-ruc" etiqueta={tc.ruc} ayuda={t.rucAyuda}>
+          <Entrada
             id="nueva-ruc"
             value={ruc}
             onChange={(e) => setRuc(e.target.value.replace(/\D/g, "").slice(0, 11))}
@@ -61,35 +64,35 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
             placeholder="20123456786"
             required
             autoFocus
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="nueva-ruc-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.rucAyuda}</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nuevo-entorno" className={ETIQUETA_CAMPO}>
-            {tc.entornoSunat}
-          </label>
-          <select id="nuevo-entorno" value={entorno} onChange={(e) => setEntorno(e.target.value as Entorno)} className={cn(SELECT_NATIVO, "w-full")}>
-            <option value="BETA">{t.beta}</option>
-            <option value="PRODUCCION">{t.produccion}</option>
-          </select>
-          <span className={AYUDA_CAMPO}>{t.entornoAyuda}</span>
-        </div>
+        </Campo>
+        <Campo id="nuevo-entorno" etiqueta={tc.entornoSunat} ayuda={t.entornoAyuda}>
+          <SelectCampo
+            id="nuevo-entorno"
+            valor={entorno}
+            onCambio={(v) => setEntorno(v as Entorno)}
+            opciones={[
+              { value: "BETA", label: t.beta },
+              { value: "PRODUCCION", label: t.produccion },
+            ]}
+          />
+        </Campo>
       </div>
+      <EstadoConsultaRuc
+        contexto="emisor"
+        consultando={padron.consultando}
+        resultado={padron.resultado}
+        nombreActual={razonSocial}
+        onReintentar={padron.reintentar}
+        onUsarNombre={(n) => padron.usarDato(0, n)}
+        className="-mt-2"
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="nueva-razon" className={ETIQUETA_CAMPO}>
-          {tc.razonSocial}
-        </label>
-        <input
-          id="nueva-razon"
-          value={razonSocial}
-          onChange={(e) => setRazonSocial(e.target.value)}
-          placeholder={t.razonSocialPlaceholder}
-          required
-          className={CAMPO}
-        />
-      </div>
+      <Campo id="nueva-razon" etiqueta={tc.razonSocial}>
+        <Entrada id="nueva-razon" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} placeholder={t.razonSocialPlaceholder} required />
+      </Campo>
 
       {error ? <p className="text-cuerpo text-destructive">{error}</p> : null}
 
@@ -99,10 +102,9 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button type="submit" disabled={enviando} className={BOTON_PRIMARIO}>
-          <PlusIcon weight="bold" className="size-4" />
-          {enviando ? t.registrando : t.registrar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<PlusIcon weight="bold" className="size-4" />} textoPendiente={t.registrando} className={BOTON_PRIMARIO}>
+          {t.registrar}
+        </BotonAsync>
       </div>
     </form>
   );

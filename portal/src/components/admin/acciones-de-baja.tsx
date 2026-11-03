@@ -9,10 +9,12 @@ import type { BajaDeCuentaAdmin } from "@/lib/api/admin-baja";
 import { MOTIVO_MAX, type EstadoCuentaAdmin } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 /**
  * Dar de baja o reponer una cuenta (#201). Pide confirmación en un modal que dice el efecto antes de enviar (el mismo `Dialog` y el mismo patrón que
@@ -74,6 +76,13 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
   }
 
   const Icono = deBaja ? ArchiveIcon : ArchiveIcon;
+  const efectos = (
+    <ul className="grid list-disc gap-1 pl-4">
+      {textos.efectos.map((efecto) => (
+        <li key={efecto}>{efecto}</li>
+      ))}
+    </ul>
+  );
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
@@ -85,34 +94,32 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
         <CabeceraDialogo icon={Icono} tono={deBaja ? "ok" : "neutro"} titulo={textos.titulo} descripcion={textos.descripcion.replace("{nombre}", nombre)} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-control leading-relaxed text-foreground">
-            {deBaja ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />}
-            <ul className="grid list-disc gap-1 pl-4">
-              {textos.efectos.map((efecto) => (
-                <li key={efecto}>{efecto}</li>
-              ))}
-            </ul>
-          </div>
+          {/* Dar de baja pide atención (el `Aviso` ámbar del DS); reponerla no pesa: `Aviso` neutro. */}
+          <Aviso tono={deBaja ? "neutro" : "aviso"} icon={deBaja ? ArchiveIcon : WarningIcon}>
+            {efectos}
+          </Aviso>
 
           {deBaja ? null : (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="baja-motivo" className={ETIQUETA_CAMPO}>
-                {t.darDeBaja.motivo}
-              </label>
-              <input
+            <Campo
+              id="baja-motivo"
+              etiqueta={t.darDeBaja.motivo}
+              ayuda={
+                <>
+                  {t.darDeBaja.motivoAyuda}
+                  {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
+                </>
+              }
+            >
+              <Entrada
                 id="baja-motivo"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.darDeBaja.motivoEjemplo}
-                className={CAMPO}
+                aria-describedby="baja-motivo-ayuda"
                 autoFocus
               />
-              <span className={AYUDA_CAMPO}>
-                {t.darDeBaja.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
-              </span>
-            </div>
+            </Campo>
           )}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
@@ -125,10 +132,9 @@ export function AccionesDeBaja({ id, nombre, estado }: { id: string; nombre: str
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="baja-confirmar" className={BOTON_PRIMARIO}>
-            <Icono className="size-4" />
-            {enviando ? textos.enviando : textos.confirmar}
-          </button>
+          <BotonAsync pendiente={enviando} onClick={confirmar} data-testid="baja-confirmar" icon={<Icono className="size-4" />} textoPendiente={textos.enviando} className={BOTON_PRIMARIO}>
+            {textos.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>

@@ -6,9 +6,11 @@ import { useMessages } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api/browser";
 import type { Establecimiento } from "@/lib/api/establecimientos";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { cn } from "@/lib/utils";
 
 /**
  * Ocho dígitos: la regla 1001 de SUNAT define el ID del comprobante como `[FB][A-Z0-9]{3}-[0-9]{1,8}`. Pasado ese
@@ -91,26 +93,13 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="tipo-serie" className={ETIQUETA_CAMPO}>
-          {t.tipoComprobante}
-        </label>
-        <select id="tipo-serie" value={tipo} onChange={(e) => setTipo(e.target.value)} className={cn(SELECT_NATIVO, "w-full")}>
-          {TIPOS.map((codigo) => (
-            <option key={codigo} value={codigo}>
-              {t.tipos[codigo]}
-            </option>
-          ))}
-        </select>
-        <span className={AYUDA_CAMPO}>{t.catalogo}</span>
-      </div>
+      <Campo id="tipo-serie" etiqueta={t.tipoComprobante} ayuda={t.catalogo}>
+        <SelectCampo id="tipo-serie" valor={tipo} onCambio={setTipo} opciones={TIPOS.map((codigo) => ({ value: codigo, label: t.tipos[codigo] }))} />
+      </Campo>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="serie" className={ETIQUETA_CAMPO}>
-            {t.codigoSerie}
-          </label>
-          <input
+        <Campo id="serie" etiqueta={t.codigoSerie} ayuda={t.codigoAyuda}>
+          <Entrada
             id="serie"
             value={serie}
             onChange={(e) => setSerie(e.target.value.toUpperCase())}
@@ -118,16 +107,14 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             maxLength={4}
             required
             autoFocus
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="serie-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.codigoAyuda}</span>
-        </div>
+        </Campo>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="correlativo" className={ETIQUETA_CAMPO}>
-            {t.ultimoNumero}
-          </label>
-          <input
+        {/* `Entrada` y no `StepperNumerico`: el valor viaja como texto a `correlativoValido`, que avisa de «1e30» o «3.5» en vez de recortarlos. */}
+        <Campo id="correlativo" etiqueta={t.ultimoNumero} ayuda={t.ultimoNumeroAyuda}>
+          <Entrada
             id="correlativo"
             type="number"
             min={0}
@@ -135,34 +122,23 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             step={1}
             value={correlativo}
             onChange={(e) => setCorrelativo(e.target.value)}
-            className={cn(CAMPO, "font-mono")}
+            mono
+            aria-describedby="correlativo-ayuda"
           />
-          <span className={AYUDA_CAMPO}>{t.ultimoNumeroAyuda}</span>
-        </div>
+        </Campo>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="serie-establecimiento" className={ETIQUETA_CAMPO}>
-          {t.establecimiento}
-        </label>
-        <select
+      <Campo id="serie-establecimiento" etiqueta={t.establecimiento} ayuda={t.establecimientoAyuda}>
+        <SelectCampo
           id="serie-establecimiento"
-          value={establecimiento}
-          onChange={(e) => setEstablecimiento(e.target.value)}
-          className={cn(SELECT_NATIVO, "w-full")}
-          data-testid="serie-establecimiento"
-        >
-          <option value="0000">{t.domicilioFiscal}</option>
-          {(establecimientos ?? [])
-            .filter((e) => !e.principal)
-            .map((e) => (
-              <option key={e.codigo} value={e.codigo}>
-                {e.codigo} · {e.nombre}
-              </option>
-            ))}
-        </select>
-        <span className={AYUDA_CAMPO}>{t.establecimientoAyuda}</span>
-      </div>
+          valor={establecimiento}
+          onCambio={setEstablecimiento}
+          opciones={[
+            { value: "0000", label: t.domicilioFiscal },
+            ...(establecimientos ?? []).filter((e) => !e.principal).map((e) => ({ value: e.codigo, label: `${e.codigo} · ${e.nombre}` })),
+          ]}
+        />
+      </Campo>
 
       {/* Una casilla «Activa» fija y deshabilitada no decidía nada (C6): toda serie nueva nace activa, y se dice así. */}
       <p className={AYUDA_CAMPO}>{t.seCreaActiva}</p>
@@ -179,14 +155,9 @@ export function NuevaSerieForm({ onGuardado, onCancelar }: { onGuardado?: () => 
             {messages.comun.cancelar}
           </button>
         ) : null}
-        <button
-          type="submit"
-          disabled={enviando}
-          className={BOTON_PRIMARIO}
-        >
-          <FloppyDiskIcon className="size-4" />
-          {enviando ? t.guardando : t.guardar}
-        </button>
+        <BotonAsync type="submit" pendiente={enviando} icon={<FloppyDiskIcon className="size-4" />} textoPendiente={t.guardando} className={BOTON_PRIMARIO}>
+          {t.guardar}
+        </BotonAsync>
       </div>
     </form>
   );

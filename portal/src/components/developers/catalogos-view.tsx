@@ -1,6 +1,5 @@
 "use client";
 
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useMemo, useState } from "react";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -8,7 +7,9 @@ import type { CatalogoSunat } from "@/lib/api/catalogos";
 import { useSeccionActiva } from "@/lib/seccion-activa";
 import { cn } from "@/lib/utils";
 import { Rico } from "./guia/rico";
-import { TARJETA } from "@/lib/estilos";
+import { CABECERA_TABLA, TARJETA } from "@/lib/estilos";
+import { Buscador } from "khipu-design-system/formularios/buscador";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
 
 /**
  * Qué campo de la API usa cada catálogo, para que el lector sepa dónde aplicarlo (la disponibilidad de cada caso la indica la guía): el texto
@@ -40,15 +41,8 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[200px_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
-        <div className="relative mb-3">
-          <MagnifyingGlassIcon weight="bold" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
-          <input
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            placeholder={t.buscarPlaceholder}
-            aria-label={t.buscarAria}
-            className="h-control w-full rounded-lg border border-border bg-muted pl-8 pr-2 text-control text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-card"
-          />
+        <div className="mb-3">
+          <Buscador etiqueta={t.buscarAria} valor={filtro} onCambio={setFiltro} placeholder={t.buscarPlaceholder} />
         </div>
         {/*
           La lista sigue al filtro: antes mostraba los 22 catálogos siempre, así que con una búsqueda puesta la mitad
@@ -98,31 +92,31 @@ export function CatalogosView({ catalogos }: { catalogos: CatalogoSunat[] }) {
                 </p>
               ) : null}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-control">
-                <thead>
-                  <tr className="border-b border-border/60 bg-muted">
+            <div className="px-2 pb-1">
+              <Table className="text-control">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
                     {c.columnas.map((col) => (
-                      <th key={col} className="px-4 py-2 text-left text-etiqueta font-semibold text-muted-foreground/80">
+                      <TableHead key={col} className={CABECERA_TABLA}>
                         {col}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {c.entradas.map((e) => (
-                    <tr key={e.codigo} className="border-b border-border/60 last:border-0">
-                      <td className="px-4 py-1.5 font-mono font-semibold whitespace-nowrap text-foreground">{e.codigo}</td>
-                      <td className={cn("px-4 py-1.5 text-muted-foreground", c.columnas.length === 2 && "w-full")}>{e.descripcion}</td>
+                    <TableRow key={e.codigo}>
+                      <TableCell className="py-1.5 font-mono font-semibold text-foreground">{e.codigo}</TableCell>
+                      <TableCell className={cn("py-1.5 whitespace-normal text-muted-foreground", c.columnas.length === 2 && "w-full")}>{e.descripcion}</TableCell>
                       {c.columnas.slice(2).map((col) => (
-                        <td key={col} className="px-4 py-1.5 font-mono text-control whitespace-nowrap text-muted-foreground">
+                        <TableCell key={col} className="py-1.5 font-mono text-control text-muted-foreground">
                           {e.extra[col] ?? "—"}
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </section>
         ))}

@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
 import { MEDIOS_DE_PAGO } from "@/lib/api/admin-pagos";
 import type { PlanDeCuentaAdmin } from "@/lib/api/admin-plan-de-cuenta";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { fechaValida } from "@/lib/cambio-de-plan";
-import { ACCION_PRINCIPAL, AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, SELECT_NATIVO } from "@/lib/estilos";
-import { cn } from "@/lib/utils";
+import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFecha, sumarDias, ultimoDiaCubierto } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -177,8 +179,9 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* `Entrada` y no `EntradaMonto`: el monto viaja como texto a la validación del pago, que explica un formato inválido en vez de redondearlo en silencio. */}
             <Campo id="registrar-pago-monto" etiqueta={t.monto} error={errores.monto} ayuda={t.montoAyuda}>
-              <input
+              <Entrada
                 id="registrar-pago-monto"
                 value={monto}
                 onChange={(e) => {
@@ -188,28 +191,22 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 inputMode="decimal"
                 autoComplete="off"
                 placeholder="29.00"
-                aria-invalid={errores.monto ? true : undefined}
-                className={CAMPO}
+                invalido={Boolean(errores.monto)}
+                aria-describedby={errores.monto ? "registrar-pago-monto-error" : "registrar-pago-monto-ayuda"}
               />
             </Campo>
             <Campo id="registrar-pago-medio" etiqueta={t.medio} error={errores.medio}>
-              <select
+              <SelectCampo
                 id="registrar-pago-medio"
-                value={medio}
-                onChange={(e) => {
-                  setMedio(e.target.value);
+                opciones={[{ value: "", label: t.elegirMedio }, ...MEDIOS_DE_PAGO.map((m) => ({ value: m, label: medios[m] }))]}
+                valor={medio}
+                onCambio={(v) => {
+                  setMedio(v);
                   limpiar("medio");
                 }}
-                aria-invalid={errores.medio ? true : undefined}
-                className={cn(SELECT_NATIVO, "w-full")}
-              >
-                <option value="">{t.elegirMedio}</option>
-                {MEDIOS_DE_PAGO.map((m) => (
-                  <option key={m} value={m}>
-                    {medios[m]}
-                  </option>
-                ))}
-              </select>
+                invalido={Boolean(errores.medio)}
+                describidoPor={errores.medio ? "registrar-pago-medio-error" : undefined}
+              />
             </Campo>
           </div>
 
@@ -229,7 +226,7 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
               />
             </Campo>
             <Campo id="registrar-pago-referencia" etiqueta={t.referencia} error={errores.referencia} ayuda={t.referenciaAyuda}>
-              <input
+              <Entrada
                 id="registrar-pago-referencia"
                 value={referencia}
                 onChange={(e) => {
@@ -237,14 +234,14 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                   limpiar("referencia");
                 }}
                 autoComplete="off"
-                aria-invalid={errores.referencia ? true : undefined}
-                className={CAMPO}
+                invalido={Boolean(errores.referencia)}
+                aria-describedby={errores.referencia ? "registrar-pago-referencia-error" : "registrar-pago-referencia-ayuda"}
               />
             </Campo>
           </div>
 
           <Campo id="registrar-pago-nota" etiqueta={t.nota} error={errores.nota}>
-            <input
+            <Entrada
               id="registrar-pago-nota"
               value={nota}
               onChange={(e) => {
@@ -252,8 +249,8 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
                 limpiar("nota");
               }}
               autoComplete="off"
-              aria-invalid={errores.nota ? true : undefined}
-              className={CAMPO}
+              invalido={Boolean(errores.nota)}
+              aria-describedby={errores.nota ? "registrar-pago-nota-error" : undefined}
             />
           </Campo>
 
@@ -275,25 +272,11 @@ export function RegistrarPago({ cuentaId, cuentaNombre, plan, hoy }: Props) {
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {t.cancelar}
           </button>
-          <button type="button" disabled={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" className={BOTON_PRIMARIO}>
-            <MoneyIcon className="size-4" />
-            {enviando ? t.enviando : t.confirmar}
-          </button>
+          <BotonAsync pendiente={enviando} onClick={confirmar} data-testid="registrar-pago-confirmar" icon={<MoneyIcon className="size-4" />} textoPendiente={t.enviando} className={BOTON_PRIMARIO}>
+            {t.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Un campo con su etiqueta, y debajo su error o, si no hay, su ayuda. */
-function Campo({ id, etiqueta, error, ayuda, children }: { id: string; etiqueta: string; error?: string; ayuda?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className={ETIQUETA_CAMPO}>
-        {etiqueta}
-      </label>
-      {children}
-      {error ? <span id={`${id}-error`} className="text-control text-destructive">{error}</span> : ayuda ? <span className={AYUDA_CAMPO}>{ayuda}</span> : null}
-    </div>
   );
 }

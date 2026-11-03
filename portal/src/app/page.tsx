@@ -6,13 +6,13 @@ import { Faq } from "@/components/landing/faq";
 import { Planes } from "@/components/landing/planes";
 import { tarjetasDePlanes } from "@/components/landing/planes-datos";
 import { SiteHeader } from "@/components/landing/site-header";
-import { Badge } from "khipu-design-system/ui/badge";
+import { PillEstado } from "khipu-design-system/patrones/pill-estado";
 import { Button } from "khipu-design-system/ui/button";
 import { contactoUrl, registroAbierto } from "@/lib/acceso";
 import { obtenerPlanesPublicados } from "@/lib/api/planes-publicados";
 import { getMessages } from "next-intl/server";
 import { TextosDeCliente } from "@/i18n/textos-de-cliente";
-import { TARJETA } from "@/lib/estilos";
+import { TARJETA_ELEVABLE } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 // Los textos están en `landing.*` de messages; acá queda solo el icono (y el código SUNAT) de cada tarjeta.
@@ -124,7 +124,7 @@ export default async function Home() {
             <p className="mt-2 max-w-2xl text-muted-foreground">{t.beneficios.descripcion}</p>
             <div className="mt-10 grid gap-5 sm:grid-cols-2">
               {BENEFICIOS.map((b) => (
-                <div key={b.clave} className="group rounded-xl border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]">
+                <div key={b.clave} className="group rounded-xl border border-border bg-background p-6 transition-[transform,box-shadow,border-color] duration-(--duracion-media) ease-salida hover:border-acento-borde hover:shadow-elevada motion-safe:hover:-translate-y-0.5">
                   <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento-texto dark:text-acento ring-1 ring-acento-borde" aria-hidden>
                     <b.icono className="size-[18px]" />
                   </span>
@@ -141,7 +141,7 @@ export default async function Home() {
           <p className="mt-2 max-w-2xl text-muted-foreground">{t.audiencia.descripcion}</p>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {AUDIENCIA.map((a) => (
-              <div key={a.clave} className={cn(TARJETA, "group p-6 transition-all duration-300 hover:-translate-y-1 hover:border-acento-borde hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]")}>
+              <div key={a.clave} className={cn(TARJETA_ELEVABLE, "group p-6 hover:border-acento-borde")}>
                 <span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-acento-suave text-acento-texto dark:text-acento ring-1 ring-acento-borde" aria-hidden>
                   <a.icono className="size-[18px]" />
                 </span>
@@ -170,9 +170,9 @@ export default async function Home() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{t.comprobantes.tipos[c.clave]}</p>
                     {c.disponible ? (
-                      <Badge className="mt-1 border-transparent bg-success text-success-foreground">{t.comprobantes.disponible}</Badge>
+                      <PillEstado tono="ok" className="mt-1">{t.comprobantes.disponible}</PillEstado>
                     ) : (
-                      <Badge className="mt-1 border-transparent bg-warning text-warning-foreground">{t.comprobantes.piloto}</Badge>
+                      <PillEstado tono="aviso" className="mt-1">{t.comprobantes.piloto}</PillEstado>
                     )}
                     {"nota" in c ? <p className="mt-1 text-xs text-muted-foreground">{t.comprobantes.notas[c.nota]}</p> : null}
                   </div>

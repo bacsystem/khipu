@@ -26,7 +26,7 @@ test("el menú muestra el plan y el consumo del mes, y lleva al detalle", async 
   await expect(page.getByText("Al día")).toBeVisible();
   await expect(page.getByText("No vence")).toBeVisible();
   await expect(page.getByTestId("consumo-del-mes")).toHaveText("20 / 30");
-  await expect(page.getByRole("meter", { name: "Consumo del tope del mes" })).toHaveAttribute("aria-valuenow", "67");
+  await expect(page.getByRole("progressbar", { name: "Consumo del tope del mes" })).toHaveAttribute("aria-valuenow", "67");
   await expect(page.getByText("30 documentos al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención")).toBeVisible();
 });
 
@@ -54,8 +54,9 @@ test("la página del plan muestra lo que se usa de API keys, usuarios y RUC cont
 
   for (const [clave, etiqueta] of [["apiKeys", "API keys activas"], ["usuarios", "Usuarios"], ["rucs", "Empresas (RUC)"]] as const) {
     const fila = page.getByTestId(`uso-${clave}`);
-    await expect(fila.getByText(etiqueta, { exact: true })).toBeVisible();
-    await expect(fila.getByRole("meter")).toBeVisible();
+    // La barra de progreso del design system repite la etiqueta en texto solo para lectores de pantalla (#567): la que se ve es la primera.
+    await expect(fila.getByText(etiqueta, { exact: true }).first()).toBeVisible();
+    await expect(fila.getByRole("progressbar")).toBeVisible();
     await expect(fila).toContainText(" / 1");
   }
   await expect(page.getByText(/Los años de retención son una referencia de tu plan/)).toBeVisible();

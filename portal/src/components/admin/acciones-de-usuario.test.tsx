@@ -91,7 +91,8 @@ describe("AccionesDeUsuario (#183)", () => {
     fireEvent.click(screen.getByTestId("acceso-confirmar"));
 
     // `text-success` es el token de FONDO verde: en modo oscuro es casi negro y el mensaje no se veía.
-    const clases = (await screen.findByTestId("acceso-hecho")).className.split(/\s+/);
+    // El color lo pone el `Aviso` verde del DS, dentro del envoltorio que lleva el `data-testid`.
+    const clases = ((await screen.findByTestId("acceso-hecho")).firstElementChild?.className ?? "").split(/\s+/);
     expect(clases).toContain("text-success-foreground");
     expect(clases).not.toContain("text-success");
   });

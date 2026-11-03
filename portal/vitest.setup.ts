@@ -34,4 +34,13 @@ vi.mock("@/i18n/textos-de-cliente", async (importOriginal) => ({
   TextosDeCliente: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+// jsdom no trae ResizeObserver y los gráficos del design system lo usan para medir su ancho: en las pruebas no hay layout, así que no observa nada.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 afterEach(() => fijarLocaleDePrueba("es"));

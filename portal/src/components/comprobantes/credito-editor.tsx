@@ -5,10 +5,11 @@ import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { Campo } from "khipu-design-system/formularios/campo";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { Button } from "khipu-design-system/ui/button";
 import { interpolar } from "@/i18n/mensajes";
 import { type CreditoForm, repartirEnCuotas, sumaDeCuotas } from "@/lib/comprobantes/credito";
-import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO, SELECT_NATIVO } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_SECUNDARIO, CAMPO } from "@/lib/estilos";
 import { formatearMonto, sumarDias } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,7 @@ export function CreditoEditor({
   const suma = sumaDeCuotas(credito.cuotas);
   const poner = (i: number, cambio: Partial<CreditoForm["cuotas"][number]>) => onCambio({ ...credito, cuotas: credito.cuotas.map((q, j) => (j === i ? { ...q, ...cambio } : q)) });
   return (
-    <div className="grid gap-3 rounded-xl border border-border px-3 py-3" data-testid="credito">
+    <div className="grid gap-3" data-testid="credito">
       <div className="grid items-start gap-3 sm:grid-cols-[200px_1fr]">
         <Campo id="nc-neto-pendiente" etiqueta={t.netoPendiente} ayuda={interpolar(t.netoPendienteAyuda, { total: formatearMonto(moneda, neto, locale) })}>
           <input
@@ -54,11 +55,12 @@ export function CreditoEditor({
         </Campo>
         <div className="flex flex-wrap items-end gap-2">
           <Campo id="nc-cuotas-n" etiqueta={t.repartirEn}>
-            <select id="nc-cuotas-n" value={n} onChange={(e) => setN(Number(e.target.value))} className={cn(SELECT_NATIVO, "w-full")}>
-              {Array.from({ length: 11 }, (_, i) => i + 2).map((v) => (
-                <option key={v} value={v}>{interpolar(t.cuotasIguales, { n: v })}</option>
-              ))}
-            </select>
+            <SelectCampo
+              id="nc-cuotas-n"
+              valor={String(n)}
+              onCambio={(v) => setN(Number(v))}
+              opciones={Array.from({ length: 11 }, (_, i) => i + 2).map((v) => ({ value: String(v), label: interpolar(t.cuotasIguales, { n: v }) }))}
+            />
           </Campo>
           <button type="button" className={BOTON_SECUNDARIO} onClick={() => onCambio({ ...credito, cuotas: repartirEnCuotas(pendiente, n, emision) })} disabled={!(pendiente > 0)}>
             {t.repartir}

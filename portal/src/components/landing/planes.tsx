@@ -77,8 +77,8 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
               className={cn(
                 "flex h-full flex-col p-6 transition-all duration-300",
                 p.destacado
-                  ? "border-acento-borde shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_32px_-12px_rgba(217,140,43,0.35)] lg:-translate-y-3"
-                  : "hover:-translate-y-1 hover:shadow-[0_1px_2px_rgba(16,35,31,0.04),0_12px_28px_-18px_rgba(16,35,31,0.35)]",
+                  ? "border-acento-borde shadow-elevada lg:-translate-y-3"
+                  : "hover:-translate-y-1 hover:shadow-elevada",
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -86,7 +86,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                   <h3 className="font-heading text-lg font-semibold">{p.nombre}</h3>
                   <p className="mt-0.5 text-control text-muted-foreground">{p.para}</p>
                 </div>
-                {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-[#1b1206]">{t.masUsado}</Badge> : null}
+                {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-acento-texto">{t.masUsado}</Badge> : null}
               </div>
 
               <p className="mt-5 flex items-baseline gap-1.5">

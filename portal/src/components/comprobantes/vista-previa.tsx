@@ -1,9 +1,11 @@
 "use client";
 
-import { CircleNotchIcon, DownloadSimpleIcon, FileCodeIcon, SealCheckIcon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon, FileCodeIcon, SealCheckIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
+import { Alerta } from "khipu-design-system/feedback/alerta";
+import { Spinner } from "khipu-design-system/feedback/spinner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "khipu-design-system/ui/sheet";
 import { interpolar } from "@/i18n/mensajes";
 import { formatearXml } from "@/lib/xml";
@@ -107,11 +109,13 @@ export function VistaPrevia({
           <div className="min-h-0 flex-1 overflow-auto bg-card">
             {!contenido || contenido.estado === "cargando" ? (
               <div className="flex h-40 items-center justify-center gap-2 text-etiqueta text-muted-foreground">
-                <CircleNotchIcon weight="bold" className="size-4 animate-spin" />
+                <Spinner aria-hidden role={undefined} aria-label={undefined} />
                 {t.cargando}
               </div>
             ) : contenido.estado === "error" ? (
-              <div className="m-5 rounded-lg border border-destructive-border bg-destructive-suave p-3 text-etiqueta text-destructive-texto">{contenido.mensaje}</div>
+              <Alerta tono="error" className="m-5">
+                {contenido.mensaje}
+              </Alerta>
             ) : (
               <pre className="px-5 py-4 font-mono text-etiqueta leading-relaxed break-all whitespace-pre-wrap text-foreground/90 tabular-nums">
                 {contenido.texto}

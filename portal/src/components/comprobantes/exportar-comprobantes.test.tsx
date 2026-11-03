@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { DescargaMasiva } from "./descarga-masiva";
 import { EXPORTACION_MAXIMA, ExportarComprobantes, hrefDeExportacion, nombreDelArchivo } from "./exportar-comprobantes";
 
@@ -27,7 +28,9 @@ describe("paneles de Exportar y Descargar ZIP (#321-M7)", () => {
     expect(screen.queryByTestId("exportar-comprobantes")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Descargar ZIP" }));
-    fireEvent.mouseDown(screen.getByText("afuera"));
+    expect(screen.getByTestId("descarga-masiva")).toBeInTheDocument();
+    // El `Popover` del DS (base-ui) cierra con el clic afuera, no con el mousedown.
+    fireEvent.click(screen.getByText("afuera"));
     expect(screen.queryByTestId("descarga-masiva")).not.toBeInTheDocument();
   });
 });
@@ -79,7 +82,10 @@ describe("ExportarComprobantes (#321)", () => {
     expect(screen.getByTestId("exportar-comprobantes")).toHaveTextContent("Para abrirlo en Excel");
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 
-    expect(await screen.findByRole("button", { name: "Exportando…" })).toBeDisabled();
+    // `BotonAsync`: deshabilitado, con el spinner y el texto de «en curso».
+    await waitFor(() => expect(screen.getByTestId("exportar-descargar")).toHaveTextContent("Exportando…"));
+    expect(screen.getByTestId("exportar-descargar")).toBeDisabled();
+    expect(screen.getByTestId("exportar-descargar")).toHaveAttribute("aria-busy", "true");
     expect(fetch.mock.calls[0][0]).toBe("/api/proxy/facturas/exportacion?desde=2026-09-01&formato=xlsx");
     soltar(new Response(new Blob(["PK"]), { status: 200, headers: { "content-disposition": 'attachment; filename="comprobantes-2026-09-01_2026-10-20.xlsx"' } }));
 
@@ -92,11 +98,28 @@ describe("ExportarComprobantes (#321)", () => {
     render(<ExportarComprobantes filtros={{}} total={1} />);
     abrir();
     fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
-    fireEvent.change(screen.getByLabelText("Separador"), { target: { value: "punto_y_coma" } });
+    // La lista del combo va en un portal, fuera del panel: el mousedown de un clic en ella no cierra el panel.
+    fireEvent.click(screen.getByLabelText("Separador"));
+    fireEvent.mouseDown(within(await screen.findByRole("listbox")).getByRole("option", { name: "Punto y coma" }));
+    expect(screen.getByTestId("exportar-comprobantes")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await elegirOpcion(screen.getByLabelText("Separador"), "Punto y coma");
+    expect(screen.getByLabelText("Separador")).toHaveTextContent("Punto y coma");
     fireEvent.click(screen.getByTestId("exportar-descargar"));
 
     await waitFor(() => expect(creadas).toEqual(["comprobantes.csv"]));
     expect(fetch.mock.calls[0][0]).toBe("/api/proxy/facturas/exportacion?formato=csv&separador=punto_y_coma");
+  });
+
+  it("después de usar el combo, Escape vuelve a cerrar el panel (la lista cerrada queda oculta en el DOM)", async () => {
+    stub(() => Promise.resolve(new Response("", { status: 200 })));
+    render(<ExportarComprobantes filtros={{}} total={1} />);
+    abrir();
+    fireEvent.click(screen.getByRole("radio", { name: /CSV/ }));
+    await elegirOpcion(screen.getByLabelText("Separador"), "Punto y coma");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("exportar-comprobantes")).not.toBeInTheDocument();
   });
 
   it("un error de la API se muestra y no baja nada", async () => {

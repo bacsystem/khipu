@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ResumenDeFacturas } from "@/lib/api/facturas";
 import { alertasDelPanel, serieDiaria } from "@/lib/inicio/panel";
@@ -77,31 +77,43 @@ describe("KpisDelMes (#24)", () => {
 describe("GraficoDeEmision (#24)", () => {
   const serie = serieDiaria({ dias: [{ fecha: "2026-10-02", emitidos: 2, facturado: [{ moneda: "PEN", total: 236 }] }, { fecha: "2026-10-04", emitidos: 4, facturado: [{ moneda: "PEN", total: 100 }, { moneda: "USD", total: 50.5 }] }] }, MES);
 
-  it("dibuja un SVG accesible con un día por punto, los vacíos sin barra, y su descripción", () => {
+  it("es el gráfico de barras del design system: nombrado por el título de la sección, con su descripción, un día por punto y los vacíos sin barra", () => {
     render(<GraficoDeEmision serie={serie} titulo="Emisión por día" />);
 
-    const svg = screen.getByRole("img", { name: /Emisión por día/ });
-    expect(svg.getAttribute("aria-labelledby")).toBe("grafico-emision-titulo grafico-emision-desc");
-    expect(screen.getByText(resumenDelGrafico(serie, es, "es"))).toBeTruthy();
+    const svg = screen.getByRole("img", { name: "Emisión por día" });
+    expect(svg.getAttribute("aria-labelledby")).toBe("grafico-emision-titulo");
+    const desc = document.getElementById(svg.getAttribute("aria-describedby") ?? "");
+    expect(desc?.textContent).toBe(resumenDelGrafico(serie, es, "es"));
     const dias = screen.getAllByTestId("grafico-emision-dia");
     expect(dias.map((d) => d.getAttribute("data-emitidos"))).toEqual(["0", "2", "0", "4", "0"]);
-    expect(dias.map((d) => d.querySelectorAll("rect").length)).toEqual([1, 2, 1, 2, 1]);
-    expect(screen.getByTestId("grafico-emision-maximo").textContent).toBe("4");
+    expect(dias.map((d) => d.getAttribute("data-fecha"))).toEqual(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"]);
+    expect(dias.map((d) => d.querySelectorAll("path").length)).toEqual([0, 1, 0, 1, 0]);
   });
 
-  it("la barra más alta llena el alto y las demás en proporción, con el color base del design system y hoy en el acento", () => {
+  it("va plano dentro de la tarjeta de la sección: el gráfico no trae otra tarjeta", () => {
     render(<GraficoDeEmision serie={serie} titulo="Emisión por día" />);
 
-    const barras = screen.getAllByTestId("grafico-emision-dia").map((d) => d.querySelectorAll("rect")[1]).filter(Boolean) as SVGRectElement[];
-    expect(barras.map((b) => b.getAttribute("height"))).toEqual(["50", "100"]);
-    expect(barras.every((b) => b.getAttribute("class")?.includes("fill-chart-base"))).toBe(true);
+    expect(screen.getByTestId("grafico-emision-grafico").firstElementChild?.className).not.toContain("rounded");
   });
 
-  it("hoy, el último día del mes en curso, lleva el acento de la paleta", () => {
-    render(<GraficoDeEmision serie={serieDiaria({ dias: [{ fecha: "2026-10-05", emitidos: 3, facturado: [{ moneda: "PEN", total: 10 }] }] }, MES)} titulo="Emisión por día" />);
+  it("las barras llevan el color base del design system y hoy, el último día, el acento de la paleta", () => {
+    render(<GraficoDeEmision serie={serieDiaria({ dias: [{ fecha: "2026-10-02", emitidos: 2, facturado: [] }, { fecha: "2026-10-05", emitidos: 3, facturado: [{ moneda: "PEN", total: 10 }] }] }, MES)} titulo="Emisión por día" />);
 
     const dias = screen.getAllByTestId("grafico-emision-dia");
-    expect(dias.at(-1)?.querySelectorAll("rect")[1]?.getAttribute("class")).toContain("fill-chart-destacado");
+    expect(dias[1].querySelector("path")?.getAttribute("fill")).toBe("var(--chart-base)");
+    expect(dias.at(-1)?.querySelector("path")?.getAttribute("fill")).toBe("var(--chart-destacado)");
+  });
+
+  it("rotula el primer día, cada cinco y hoy, y el eje solo con cantidades enteras", () => {
+    const doce = serieDiaria({ dias: [{ fecha: "2026-10-03", emitidos: 2, facturado: [] }] }, { desde: "2026-10-01", hasta: "2026-10-12" });
+    render(<GraficoDeEmision serie={doce} titulo="Emisión por día" />);
+
+    const rotulos = screen.getAllByTestId("grafico-emision-dia").map((d) => d.querySelector("text")?.textContent ?? "");
+    expect(rotulos).toEqual(["1", "", "", "", "5", "", "", "", "", "10", "", "12"]);
+    // Con un máximo de 2 la escala pasa por 0.5, 1.5…: esas líneas van sin número.
+    const eje = [...screen.getByRole("img", { name: "Emisión por día" }).querySelectorAll(":scope > g > text")].map((t) => t.textContent);
+    expect(eje.every((v) => v === "" || Number.isInteger(Number(v)))).toBe(true);
+    expect(eje).toContain("2");
   });
 
   it("cada día dice en su title lo emitido y lo facturado por moneda", () => {
@@ -116,6 +128,7 @@ describe("GraficoDeEmision (#24)", () => {
 
   it("trae la misma información como tabla, con una columna por moneda", () => {
     render(<GraficoDeEmision serie={serie} titulo="Emisión por día" />);
+    fireEvent.click(screen.getByRole("button", { name: "Ver como tabla" }));
 
     const tabla = screen.getByTestId("grafico-emision-tabla");
     expect(within(tabla).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Día", "Emitidos", "Facturado PEN", "Facturado USD"]);

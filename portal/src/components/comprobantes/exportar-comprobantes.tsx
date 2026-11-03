@@ -4,11 +4,13 @@ import { FileXlsIcon } from "@phosphor-icons/react";
 import { useLocale, useMessages } from "next-intl";
 import { useState } from "react";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
-import { CONTROL_FILTRO, SELECT_NATIVO, TARJETA } from "@/lib/estilos";
-import { usePanelDesplegable } from "@/lib/panel-desplegable";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { Popover, PopoverContent, PopoverTrigger } from "khipu-design-system/ui/popover";
+import { BOTON_PRIMARIO, CONTROL_FILTRO, ETIQUETA_CAMPO } from "@/lib/estilos";
 import { cn } from "@/lib/utils";
 
 /** Lo que admite una exportación por petición (`ExportacionDeComprobantes.MAXIMO` en la API). */
@@ -44,7 +46,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
   const locale = useLocale();
   const intl = locale === "en" ? "en-US" : "es-PE";
   const mensajeError = useMensajeError();
-  const { abierto, alternar, cerrar, ref } = usePanelDesplegable("exportar-comprobantes");
+  const [abierto, setAbierto] = useState(false);
   const [formato, setFormato] = useState<FormatoDeExportacion>("xlsx");
   const [separador, setSeparador] = useState<SeparadorCsv>("coma");
   const [exportando, setExportando] = useState(false);
@@ -71,7 +73,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
       a.remove();
       // El navegador ya tomó el archivo: liberar la URL después del clic, no antes.
       setTimeout(() => URL.revokeObjectURL(url), 0);
-      cerrar();
+      setAbierto(false);
     } catch {
       setError(t.errorRed);
     } finally {
@@ -79,60 +81,62 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
     }
   }
 
+  // El `Popover` del DS se cierra con Esc y con un clic afuera, y abrir el de «Descargar ZIP» cierra este (es un clic afuera). La lista del combo de separador
+  // es un popup anidado de base-ui: elegir en ella no cierra el panel.
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={alternar}
-        aria-expanded={abierto}
-        aria-controls="exportar-panel"
-        className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}
-      >
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger className={cn(CONTROL_FILTRO, "inline-flex items-center gap-1.5 px-3 text-control font-medium")}>
         <FileXlsIcon className="size-4" />
         {t.boton}
-      </button>
-      {abierto ? (
-        <div id="exportar-panel" className={cn(TARJETA, "absolute right-0 z-20 mt-2 grid w-72 gap-3 p-3 shadow-lg")} data-testid="exportar-comprobantes">
-          <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
-          <fieldset className="grid gap-1.5">
-            <legend className="mb-1 text-control font-medium">{t.formato}</legend>
-            <GrupoOpciones<FormatoDeExportacion>
-              nombre="formato-exportacion"
-              opciones={FORMATOS.map((f) => ({ valor: f, etiqueta: t.formatos[f].etiqueta, descripcion: t.formatos[f].ayuda }))}
-              valor={formato}
-              onCambio={setFormato}
-            />
-          </fieldset>
-          {formato === "csv" ? (
-            <label className="grid gap-1 text-control font-medium">
+      </PopoverTrigger>
+      <PopoverContent align="end" className="grid gap-3" data-testid="exportar-comprobantes">
+        <p className="text-control text-muted-foreground">{interpolar(t.descripcion, { total: total.toLocaleString(intl) })}</p>
+        <fieldset className="grid gap-1.5">
+          <legend className={cn(ETIQUETA_CAMPO, "mb-1")}>{t.formato}</legend>
+          <GrupoOpciones<FormatoDeExportacion>
+            nombre="formato-exportacion"
+            opciones={FORMATOS.map((f) => ({ valor: f, etiqueta: t.formatos[f].etiqueta, descripcion: t.formatos[f].ayuda }))}
+            valor={formato}
+            onCambio={setFormato}
+          />
+        </fieldset>
+        {formato === "csv" ? (
+          <div className="grid gap-1.5">
+            <label htmlFor="exportar-separador" className={ETIQUETA_CAMPO}>
               {t.separador}
-              <select value={separador} onChange={(e) => setSeparador(e.target.value as SeparadorCsv)} className={cn(SELECT_NATIVO, "w-full font-normal")}>
-                <option value="coma">{t.coma}</option>
-                <option value="punto_y_coma">{t.puntoYComa}</option>
-              </select>
             </label>
-          ) : null}
-          {motivo ? (
-            <p role="status" className="text-control text-warning-foreground" data-testid="exportar-motivo">
-              {motivo}
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="text-control text-destructive" data-testid="exportar-error">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={exportar}
-            disabled={exportando || motivo !== null}
-            className="inline-flex h-control items-center justify-center rounded-lg bg-primary px-3 text-control font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-            data-testid="exportar-descargar"
-          >
-            {exportando ? t.exportando : t.descargar}
-          </button>
-        </div>
-      ) : null}
-    </div>
+            <SelectCampo
+              id="exportar-separador"
+              valor={separador}
+              onCambio={(v) => setSeparador(v as SeparadorCsv)}
+              opciones={[
+                { value: "coma", label: t.coma },
+                { value: "punto_y_coma", label: t.puntoYComa },
+              ]}
+            />
+          </div>
+        ) : null}
+        {motivo ? (
+          <p role="status" className="text-control text-warning-foreground" data-testid="exportar-motivo">
+            {motivo}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-control text-destructive" data-testid="exportar-error">
+            {error}
+          </p>
+        ) : null}
+        <BotonAsync
+          pendiente={exportando}
+          onClick={exportar}
+          disabled={motivo !== null}
+          className={BOTON_PRIMARIO}
+          textoPendiente={t.exportando}
+          data-testid="exportar-descargar"
+        >
+          {t.descargar}
+        </BotonAsync>
+      </PopoverContent>
+    </Popover>
   );
 }

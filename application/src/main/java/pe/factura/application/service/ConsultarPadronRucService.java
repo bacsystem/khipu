@@ -9,11 +9,11 @@ import pe.factura.domain.tenant.Ruc;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.UUID;
 
 /**
  * Consulta del padrón reducido (#361). El padrón son los datos de 18 millones de contribuyentes, la mayoría personas naturales: la consulta responde de a un RUC y cada
  * empresa tiene un cupo, para que quien tenga una cuenta no pueda recorrerlo entero. El cupo se cuenta con los mismos contadores del login ({@link IntentosDeAccesoRepository}).
+ * Desde #575 también consulta una cuenta sin empresa (el onboarding) y el backoffice, cada uno con su propio cupo ({@link Solicitante}).
  */
 @RequiredArgsConstructor
 public class ConsultarPadronRucService implements ConsultarPadronRucUseCase {
@@ -28,14 +28,14 @@ public class ConsultarPadronRucService implements ConsultarPadronRucUseCase {
     private final IntentosDeAccesoRepository cupo;
     private final Clock clock;
 
-    @Override public Consulta consultar(UUID tenantId, String ruc) {
+    @Override public Consulta consultar(Solicitante solicitante, String ruc) {
         Ruc.exigirValido(ruc, "PARAMETRO_INVALIDO", "Consulta de RUC");
         var carga = padron.ultimaCargaExitosa()
                 .orElseThrow(() -> new DomainException("PADRON_NO_CARGADO", "El padrón de SUNAT todavía no está cargado: no se puede confirmar si el RUC existe"));
         var ahora = clock.instant();
         // Fuera de cualquier transacción y antes de buscar, como el login: la consulta que el cupo frena no toca el padrón.
-        if (!cupo.reservar("padron:min:" + tenantId, MAX_POR_MINUTO, ahora, VENTANA_MINUTO, VENTANA_MINUTO)
-                || !cupo.reservar("padron:dia:" + tenantId, MAX_POR_DIA, ahora, VENTANA_DIA, VENTANA_DIA)) {
+        if (!cupo.reservar("padron:min:" + solicitante.clave(), MAX_POR_MINUTO, ahora, VENTANA_MINUTO, VENTANA_MINUTO)
+                || !cupo.reservar("padron:dia:" + solicitante.clave(), MAX_POR_DIA, ahora, VENTANA_DIA, VENTANA_DIA)) {
             throw new DomainException("DEMASIADAS_CONSULTAS", "Se superó el máximo de consultas de RUC. Espera un momento antes de volver a consultar");
         }
         return padron.buscar(ruc)

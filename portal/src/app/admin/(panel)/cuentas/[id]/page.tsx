@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Alerta } from "khipu-design-system/feedback/alerta";
 import { getMessages } from "next-intl/server";
-import { ArrowLeftIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+import { EnvelopeSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+import { CabeceraPagina, EnlaceVolver } from "khipu-design-system/patrones/cabecera-pagina";
 import { PESO_ICONO } from "khipu-design-system/lib/iconos";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -13,7 +15,7 @@ import { listarPagosDeCuenta } from "@/lib/api/admin-pagos";
 import { obtenerPlanDeCuenta } from "@/lib/api/admin-plan-de-cuenta";
 import { listarPlanesAdmin } from "@/lib/api/admin-planes";
 import { ApiError } from "@/lib/api/types";
-import { ACCION_SECUNDARIA } from "@/lib/estilos";
+import { ACCION_SECUNDARIA, CONTENEDOR_PAGINA } from "@/lib/estilos";
 import { hoyLima } from "@/lib/formato";
 import { correoDeSoporte, soporteParaMostrar } from "@/lib/soporte";
 import { interpolar } from "@/i18n/mensajes";
@@ -60,23 +62,20 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
   const soporte = soporteParaMostrar();
   const t = messages.admin.detalle;
   return (
-    <div className="mx-auto grid w-full max-w-[1520px] min-w-0 grid-cols-1 gap-4">
-      <div className="grid gap-1">
-        <Link href="/admin/cuentas" className="inline-flex w-fit items-center gap-1 text-etiqueta text-primary hover:underline">
-          <ArrowLeftIcon weight={PESO_ICONO} className="size-3" />
-          {t.volver}
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-heading text-titulo-pagina">{resultado.cuenta?.nombre ?? messages.admin.cuentas.titulo}</h1>
-          {/* #250: el correo a soporte ya dice de qué cuenta se trata; solo nombre e id, nada sensible. */}
-          {resultado.cuenta && soporte.email ? (
+    <div className={CONTENEDOR_PAGINA}>
+      <CabeceraPagina
+        volver={<EnlaceVolver href="/admin/cuentas">{t.volver}</EnlaceVolver>}
+        titulo={resultado.cuenta?.nombre ?? messages.admin.cuentas.titulo}
+        acciones={
+          // #250: el correo a soporte ya dice de qué cuenta se trata; solo nombre e id, nada sensible.
+          resultado.cuenta && soporte.email ? (
             <a href={correoDeSoporte(soporte.email, interpolar(t.asuntoSoporte, { nombre: resultado.cuenta.nombre, id }))} className={ACCION_SECUNDARIA}>
               <EnvelopeSimpleIcon weight={PESO_ICONO} className="size-4" aria-hidden />
               {t.escribirASoporte}
             </a>
-          ) : null}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {resultado.cuenta ? (
         <CuentaDetalle
@@ -87,33 +86,45 @@ export default async function AdminCuentaPage({ params }: { params: Promise<{ id
               {plan ? (
                 <PlanDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} plan={plan.datos} planes={plan.planes} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-                  <span>{messages.admin.planDeCuenta.error}</span>
-                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                    {messages.admin.planDeCuenta.reintentar}
-                  </Link>
-                </div>
+                <Alerta
+                  tono="error"
+                  accion={
+                    <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                      {messages.admin.planDeCuenta.reintentar}
+                    </Link>
+                  }
+                >
+                  {messages.admin.planDeCuenta.error}
+                </Alerta>
               )}
               {pagos ? (
                 <PagosDeCuenta cuentaId={id} cuentaNombre={resultado.cuenta.nombre} pagos={pagos} plan={plan?.datos ?? null} hoy={hoyLima()} />
               ) : (
-                <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-                  <span>{messages.admin.pagos.error}</span>
-                  <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-                    {messages.admin.pagos.reintentar}
-                  </Link>
-                </div>
+                <Alerta
+                  tono="error"
+                  accion={
+                    <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+                      {messages.admin.pagos.reintentar}
+                    </Link>
+                  }
+                >
+                  {messages.admin.pagos.error}
+                </Alerta>
               )}
             </>
           }
         />
       ) : (
-        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive-border bg-destructive-suave px-4 py-3 text-cuerpo text-destructive-texto">
-          <span>{t.error}</span>
-          <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
-            {messages.admin.cuentas.reintentar}
-          </Link>
-        </div>
+        <Alerta
+          tono="error"
+          accion={
+            <Link href={hrefDetalleCuenta(id)} className="font-medium underline">
+              {messages.admin.cuentas.reintentar}
+            </Link>
+          }
+        >
+          {t.error}
+        </Alerta>
       )}
     </div>
   );

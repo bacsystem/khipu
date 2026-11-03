@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { elegirFecha, fechaElegida, fechaEsElegible, sumarDias } from "./fecha";
+import { elegirOpcion } from "./combo";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
@@ -16,14 +17,14 @@ async function llenarLoComun(page: Page) {
   await form.locator("#destinatario-nombre").fill("PESQUERA PACÍFICO S.A.C.");
   await form.locator("#guia-peso").fill("25,5");
   // Partida: la empresa del mock no cargó su domicilio fiscal, así que parte de una dirección.
-  await form.locator("#partida-departamento").selectOption("LIMA");
-  await form.locator("#partida-provincia").selectOption("LIMA");
-  await form.locator("#partida-distrito").selectOption({ label: "MIRAFLORES" });
+  await elegirOpcion(form.locator("#partida-departamento"), "LIMA");
+  await elegirOpcion(form.locator("#partida-provincia"), "LIMA");
+  await elegirOpcion(form.locator("#partida-distrito"), "MIRAFLORES");
   await form.locator("#partida-direccion").fill("Av. Larco 345, Miraflores");
   // Llegada: otra dirección, con el selector de ubigeo del catálogo 13.
-  await form.locator("#llegada-departamento").selectOption("LIMA");
-  await form.locator("#llegada-provincia").selectOption("LIMA");
-  await form.locator("#llegada-distrito").selectOption({ label: "SAN ISIDRO" });
+  await elegirOpcion(form.locator("#llegada-departamento"), "LIMA");
+  await elegirOpcion(form.locator("#llegada-provincia"), "LIMA");
+  await elegirOpcion(form.locator("#llegada-distrito"), "SAN ISIDRO");
   await form.locator("#llegada-direccion").fill("Calle Los Pinos 450");
   await form.locator("#guia-item-0-descripcion").fill("Laptop 15 pulgadas");
   await form.locator("#guia-item-0-cantidad").fill("2");
@@ -53,13 +54,16 @@ test("una empresa sin domicilio fiscal parte de una dirección: no se le ofrece 
   await expect(form.locator("#partida-departamento")).toBeVisible();
   // El anexo 0002 sí existe: se puede elegir, y la lista no trae el 0000.
   await form.locator("fieldset", { has: page.locator("#partida-departamento") }).getByRole("radio", { name: "Un establecimiento de mi empresa" }).check();
-  await expect(form.locator("#partida-establecimiento option")).toHaveText(["0002 · Tienda Miraflores"]);
+  // El combo del design system (#555): sus opciones están en la lista que abre, no en `<option>`.
+  await form.locator("#partida-establecimiento").click();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveText(["0002 · Tienda Miraflores"]);
+  await page.keyboard.press("Escape");
 });
 
 test("los documentos relacionados que son comprobantes piden serie-número y el RUC de quien los emitió", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-motivo").selectOption("01");
+  await elegirOpcion(form.locator("#guia-motivo"), /^01 · /);
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
   await form.getByRole("button", { name: "Agregar" }).last().click();
@@ -74,7 +78,7 @@ test("los documentos relacionados que son comprobantes piden serie-número y el 
 test("emite una guía remitente en transporte privado: la valida sin numerar, la emite firmada y abre su ficha", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-motivo").selectOption("01");
+  await elegirOpcion(form.locator("#guia-motivo"), /^01 · /);
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
 
@@ -94,7 +98,7 @@ test("emite una guía remitente en transporte privado: la valida sin numerar, la
 test("en transporte público pide la empresa de transporte y no los vehículos ni los conductores", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-motivo").selectOption("01");
+  await elegirOpcion(form.locator("#guia-motivo"), /^01 · /);
   await llenarLoComun(page);
   await form.getByRole("radio", { name: /Transporte público/ }).check();
   await expect(form.locator("#guia-placa-0")).toHaveCount(0);
@@ -113,16 +117,16 @@ test("en transporte público pide la empresa de transporte y no los vehículos n
 test("una guía transportista (serie V) pide al remitente y su registro MTC, y solo ofrece direcciones", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-serie").selectOption("V001");
+  await elegirOpcion(form.locator("#guia-serie"), /^V001 · /);
   // La transportista no tiene motivo ni modalidad; sí remitente y registro MTC.
   await expect(form.locator("#guia-motivo")).toHaveCount(0);
   await expect(form.locator("#remitente-num")).toBeVisible();
   await expect(form.getByRole("radio", { name: "Un establecimiento de mi empresa" })).toHaveCount(0);
 
   await llenarLoComun(page);
-  await form.locator("#partida-departamento").selectOption("CALLAO");
-  await form.locator("#partida-provincia").selectOption("CALLAO");
-  await form.locator("#partida-distrito").selectOption({ label: "CALLAO" });
+  await elegirOpcion(form.locator("#partida-departamento"), "CALLAO");
+  await elegirOpcion(form.locator("#partida-provincia"), "CALLAO");
+  await elegirOpcion(form.locator("#partida-distrito"), "CALLAO");
   await form.locator("#partida-direccion").fill("Av. Contralmirante Mora 100");
   await llenarTransportePrivado(page);
   await form.locator("#remitente-num").fill("20601234565");
@@ -152,7 +156,7 @@ test("un formulario incompleto dice qué falta antes de llamar a la API", async 
 test("con «Enviar a SUNAT al emitir» y el envío apagado en el servidor, la emisión se rechaza y no numera", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-motivo").selectOption("01");
+  await elegirOpcion(form.locator("#guia-motivo"), /^01 · /);
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
   await form.getByRole("checkbox", { name: /Enviar a SUNAT al emitir/ }).check();
@@ -165,7 +169,7 @@ test("con «Enviar a SUNAT al emitir» y el envío apagado en el servidor, la em
 test("una regla de SUNAT que el formulario no conoce vuelve del backend con su código y se muestra", async ({ page }) => {
   await page.goto("/guias/nueva");
   const form = page.getByTestId("nueva-guia-form");
-  await form.locator("#guia-motivo").selectOption("01");
+  await elegirOpcion(form.locator("#guia-motivo"), /^01 · /);
   await llenarLoComun(page);
   await llenarTransportePrivado(page);
   // Un traslado que empieza antes de la emisión: el calendario no ofrece un inicio anterior a la emisión, pero la emisión se puede mover después de elegir el

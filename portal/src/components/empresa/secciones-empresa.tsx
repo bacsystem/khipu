@@ -2,6 +2,7 @@
 
 import { useMessages } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
+import { Punto } from "khipu-design-system/patrones/metricas";
 import { Tabs, type TabItem } from "khipu-design-system/navegacion/tabs";
 import { SECCIONES, type Seccion } from "@/lib/empresa/secciones";
 
@@ -42,7 +43,7 @@ export function SeccionesEmpresa({
     etiqueta: pendientes.includes(id) ? (
       <>
         {t.etiquetas[id]}
-        <span className="size-1.5 rounded-full bg-warning-solid" aria-hidden />
+        <Punto tono="aviso" />
         <span className="sr-only">{t.pendiente}</span>
       </>
     ) : (

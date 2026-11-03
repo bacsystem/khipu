@@ -8,11 +8,13 @@ import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dia
 import { type EstadoDeCuentaAdmin, MOTIVO_MAX } from "@/lib/api/admin-suspension";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
-import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, AYUDA_CAMPO, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO } from "@/lib/estilos";
+import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, BOTON_DESTRUCTIVO, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
+import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
 function empresasAfectadas(n: number, t: Mensajes["admin"]["suspension"]): string {
   if (n === 0) return t.sinEmpresasAfectadas;
@@ -79,6 +81,18 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
   }
 
   const Icono = suspendida ? PlayCircleIcon : PauseCircleIcon;
+  const alcance = (
+    <div className="grid gap-1.5">
+      <p className="font-medium" data-testid="suspension-alcance">
+        {empresasAfectadas(empresas, t)}
+      </p>
+      <ul className="grid list-disc gap-1 pl-4">
+        {textos.efectos.map((efecto) => (
+          <li key={efecto}>{efecto}</li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <Dialog open={abierto} onOpenChange={cambiarAbierto}>
@@ -93,39 +107,32 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
         <CabeceraDialogo icon={Icono} tono={suspendida ? "ok" : "peligro"} titulo={textos.titulo} descripcion={textos.descripcion.replace("{nombre}", nombre)} />
 
         <div className="grid gap-4 px-5 py-4">
-          <div className={cn("flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-control leading-relaxed text-foreground", suspendida ? "border-border bg-muted/50" : "border-destructive/40 bg-destructive/5")}>
-            {suspendida ? null : <WarningIcon className="mt-0.5 size-4 shrink-0 text-destructive" />}
-            <div className="grid gap-1.5">
-              <p className="font-medium" data-testid="suspension-alcance">
-                {empresasAfectadas(empresas, t)}
-              </p>
-              <ul className="grid list-disc gap-1 pl-4">
-                {textos.efectos.map((efecto) => (
-                  <li key={efecto}>{efecto}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {/* Suspender corta el servicio: sus efectos van en el `Aviso` de peligro del DS. Reactivar no pesa: `Aviso` neutro. */}
+          <Aviso tono={suspendida ? "neutro" : "peligro"} icon={suspendida ? PlayCircleIcon : WarningIcon}>
+            {alcance}
+          </Aviso>
 
           {suspendida ? null : (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="suspension-motivo" className={ETIQUETA_CAMPO}>
-                {t.suspender.motivo}
-              </label>
-              <input
+            <Campo
+              id="suspension-motivo"
+              etiqueta={t.suspender.motivo}
+              ayuda={
+                <>
+                  {t.suspender.motivoAyuda}
+                  {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
+                </>
+              }
+            >
+              <Entrada
                 id="suspension-motivo"
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 maxLength={MOTIVO_MAX}
                 placeholder={t.suspender.motivoEjemplo}
-                className={CAMPO}
+                aria-describedby="suspension-motivo-ayuda"
                 autoFocus
               />
-              <span className={AYUDA_CAMPO}>
-                {t.suspender.motivoAyuda}
-                {motivo.length >= MOTIVO_MAX ? interpolar(messages.admin.motivoAlMaximo, { max: MOTIVO_MAX }) : ""}
-              </span>
-            </div>
+            </Campo>
           )}
           {error ? (
             <p ref={alertaRef} tabIndex={-1} className="text-cuerpo text-destructive outline-none" role="alert">
@@ -138,16 +145,16 @@ export function AccionesDeCuenta({ id, nombre, suspendida, empresas }: { id: str
           <button type="button" disabled={enviando} onClick={() => cambiarAbierto(false)} className={BOTON_SECUNDARIO}>
             {textos.cancelar}
           </button>
-          <button
-            type="button"
-            disabled={enviando}
+          <BotonAsync
+            pendiente={enviando}
             onClick={confirmar}
             data-testid="suspension-confirmar"
+            icon={<Icono className="size-4" />}
+            textoPendiente={textos.enviando}
             className={suspendida ? BOTON_PRIMARIO : BOTON_DESTRUCTIVO}
           >
-            <Icono className="size-4" />
-            {enviando ? textos.enviando : textos.confirmar}
-          </button>
+            {textos.confirmar}
+          </BotonAsync>
         </PieDialogo>
       </DialogContent>
     </Dialog>
