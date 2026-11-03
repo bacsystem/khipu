@@ -2,7 +2,7 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-03
 
 Trae **dos migraciones**: V73 agrega el entorno a cada documento y lo rellena desde la bitácora de cambios de entorno; V74 agrega a la cuenta el plan que pidió al registrarse (columna opcional). Respaldar la base antes de desplegar.
 
