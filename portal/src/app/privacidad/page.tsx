@@ -4,6 +4,9 @@ import type { Metadata } from "next";
 import { useMessages } from "next-intl";
 import { getMessages } from "next-intl/server";
 
+/** Dinámica a propósito: el aviso de borrador depende de `REVISADO_POR_LEGAL`, que se lee al pintar, no al construir la imagen (#580). */
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
   const messages = await getMessages();
   return { title: `${messages.legal.privacidad} · ${messages.app.nombre}` };

@@ -193,6 +193,7 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 | `CONTACTO_URL` | `mailto:` o URL de un formulario | A dónde lleva «Solicitar acceso» con el registro cerrado |
 | `SUPPORT_URL` | página o portal de ayuda, `https://…` | Opcional (#250), vacía por defecto. El portal muestra «¿Necesitas ayuda?» con este enlace en el pie, en las pantallas de error y de acceso. Si no es `https`, el log del portal nombra la variable y no se muestra ninguna ayuda hasta corregirla; el resto del portal funciona igual |
 | `SUPPORT_EMAIL` | correo de soporte | Opcional (#250), vacía por defecto. Va junto al enlace y en «Escribir a soporte» de la ficha de cada cuenta del backoffice (asunto con el nombre y el id de la cuenta). Un correo mal formado se denuncia igual que un enlace que no es `https` |
+| `REVISADO_POR_LEGAL` | `true` cuando un abogado revisó los términos y la privacidad | Opcional (#580), vacía por defecto: las páginas legales y el registro avisan que los textos son un borrador. Solo `true` quita el aviso; cualquier otro valor lo deja. Ver «Términos y privacidad» |
 | `TRUSTED_PROXY_HOPS` | cuántos proxies de confianza hay **delante del portal** | Opcional, **`0` por defecto: el portal no reenvía ninguna IP** y el backend ve la del servidor de Next. Se calibra con `/api/admin/origen`; ver §5. No poner más de `0` si el portal está expuesto directamente, sin proxy delante |
 
 El portal se puede desplegar **antes que el backend**: sin `API_BASE_URL` el landing, `/login` y la
@@ -1029,7 +1030,7 @@ backend guarda por usuario la versión aceptada y la fecha (tabla `aceptacion_te
 anterior, y la clave foránea a `usuario` no borra en cascada: un `DELETE` de un usuario con aceptaciones falla). Los usuarios que existían antes de V64 no tienen ninguna fila: **la primera vez que entren después de este despliegue el portal les pide
 aceptar** antes de dejarlos usar el panel. Lo mismo pasa con los usuarios que crea el alta asistida: el administrador no acepta por el cliente.
 
-**Los textos actuales son un borrador sin revisión legal.** Mientras `REVISADO_POR_LEGAL` sea `false`, las dos páginas lo dicen arriba de todo. Los datos
+**Los textos actuales son un borrador sin revisión legal.** Mientras la variable `REVISADO_POR_LEGAL` del portal no sea `true`, las dos páginas lo dicen arriba de todo, y el registro junto a la casilla. Los datos
 entre corchetes que quedan (correo de contacto, inscripción del banco de datos ante la ANPD) también son del dueño; el RUC y el domicilio fiscal ya están, tal como figuran en SUNAT.
 
 **Cómo publicar una versión nueva** (todo en el mismo commit, y desplegar los dos servicios):
@@ -1041,7 +1042,7 @@ entre corchetes que quedan (correo de contacto, inscripción del banco de datos 
    coinciden). No es una variable de entorno a propósito: la versión acompaña al texto, que vive en el código.
 4. Al desplegar el backend, **todos los usuarios quedan pendientes** y aceptan la versión nueva la próxima vez que entren (el login, el refresh y
    `GET /v1/auth/me` traen `terminos_pendientes`; aceptar es `POST /v1/auth/terminos`). Una errata que no cambia lo que se acepta no sube la versión.
-5. Cuando un abogado revise los textos, `REVISADO_POR_LEGAL = true` en `version.ts` quita el aviso de borrador.
+5. Cuando un abogado revise los textos, `REVISADO_POR_LEGAL=true` en las variables del servicio del portal quita el aviso de borrador (se lee al pintar: basta redesplegar el servicio, sin construir otra imagen).
 
 Mientras un usuario tenga los términos pendientes, el backend le niega toda escritura con la sesión del portal fuera de `/v1/auth/**`
 (`403 TERMINOS_PENDIENTES`, en `JwtFilter`, igual que `CORREO_SIN_VERIFICAR`): puede mirar y aceptar, no emitir. El portal le muestra la pantalla
@@ -1059,7 +1060,7 @@ que va el backend primero (las páginas nuevas del portal no existen hasta enton
 **Antes de producción hay que completar** en `version.ts` los datos entre corchetes: RUC y domicilio fiscal del responsable, correo de contacto
 para privacidad y derechos ARCO, y la frase de la inscripción del banco de datos ante la Autoridad Nacional de Protección de Datos Personales
 (con su código, o retirarla si se decide que no corresponde). Y la revisión legal de los dos textos (#283), que es la que permite poner
-`REVISADO_POR_LEGAL = true`. Los textos describen lo que el sistema hace hoy (por ejemplo, que no borra datos de forma automática): si eso
+`REVISADO_POR_LEGAL=true` en el portal. Los textos describen lo que el sistema hace hoy (por ejemplo, que no borra datos de forma automática): si eso
 cambia, el texto tiene que cambiar con él.
 
 La constancia de quién aceptó qué y cuándo se consulta en la base:

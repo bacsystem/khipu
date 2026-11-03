@@ -11,9 +11,10 @@ import { useMensajeError } from "@/i18n/use-mensaje-error";
 
 /**
  * Lo único que puede hacer quien no aceptó la versión vigente de los términos (#342): leerlos, aceptarlos o cerrar la sesión. Al aceptar se
- * vuelve a pintar la misma página, que ya no lo detiene: sigue donde quería ir.
+ * vuelve a pintar la misma página, que ya no lo detiene: sigue donde quería ir. `revisado` viene de `PantallaDeTerminos`, que lee
+ * `REVISADO_POR_LEGAL` en el servidor; sin él, la casilla avisa que los textos son un borrador.
  */
-export function AceptarTerminos() {
+export function AceptarTerminos({ revisado = false }: { revisado?: boolean }) {
   const t = useMessages().aceptarTerminos;
   const mensajeError = useMensajeError();
   const router = useRouter();
@@ -51,6 +52,7 @@ export function AceptarTerminos() {
       <p className="text-cuerpo text-foreground/80">{t.descripcion}</p>
       <CasillaDeTerminos
         id="acepta-terminos"
+        revisado={revisado}
         checked={marcada}
         onCheckedChange={(v) => {
           setMarcada(v);

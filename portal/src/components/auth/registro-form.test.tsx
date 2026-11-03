@@ -29,6 +29,15 @@ const casilla = () => screen.getByRole("checkbox", { name: /Acepto los términos
 const enviar = () => fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
 describe("RegistroForm: términos y privacidad (#342)", () => {
+  it("#580: el aviso de borrador sigue a `revisado`, que le pasa la página; sin él, se avisa", () => {
+    render(<RegistroForm />);
+    expect(screen.getByTestId("borrador-legal-casilla")).toBeTruthy();
+    cleanup();
+
+    render(<RegistroForm revisado />);
+    expect(screen.queryByTestId("borrador-legal-casilla")).toBeNull();
+  });
+
   it("la casilla empieza sin marcar y enlaza los dos textos en otra pestaña", () => {
     render(<RegistroForm />);
 

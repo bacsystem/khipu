@@ -31,7 +31,8 @@ function esquema(messages: Mensajes) {
 
 type FormValues = z.infer<ReturnType<typeof esquema>>;
 
-export function RegistroForm() {
+/** `revisado`: si los textos legales ya los revisó un abogado (`revisadoPorLegal()`, que la página lee en el servidor); sin él, la casilla avisa que son un borrador. */
+export function RegistroForm({ revisado = false }: { revisado?: boolean }) {
   const router = useRouter();
   const messages = useMessages();
   const mensajeError = useMensajeError();
@@ -99,7 +100,7 @@ export function RegistroForm() {
       <Controller
         name="acepta_terminos"
         control={control}
-        render={({ field }) => <CasillaDeTerminos id="acepta_terminos" name={field.name} checked={field.value} onCheckedChange={field.onChange} error={errors.acepta_terminos?.message} />}
+        render={({ field }) => <CasillaDeTerminos id="acepta_terminos" revisado={revisado} name={field.name} checked={field.value} onCheckedChange={field.onChange} error={errors.acepta_terminos?.message} />}
       />
       {error ? <Alerta tono="error">{error}</Alerta> : null}
       <BotonAsync type="submit" pendiente={isSubmitting} textoPendiente={messages.auth.registro.enviando} className={cn(BOTON_PRIMARIO, "w-full")}>

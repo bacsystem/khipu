@@ -10,6 +10,7 @@ import pe.factura.domain.plan.CicloMensual;
 import pe.factura.domain.plan.EstadoSuscripcion;
 import pe.factura.domain.plan.Limite;
 import pe.factura.domain.plan.Plan;
+import pe.factura.domain.tenant.Tenant;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -24,7 +25,8 @@ import java.util.UUID;
  * Lo que el plan deja emitir. **Vencido** (pasados sus días de gracia, #285), la cuenta no emite nada hasta que lo renueve; en gracia sigue emitiendo. El **tope de
  * documentos al mes** (#18): al llegar a él, la cuenta no emite más (facturas, boletas ni notas) hasta el mes siguiente o hasta que le suban el plan. Se cuenta por
  * cuenta, sumando todas sus empresas, en el mes de la fecha de emisión, como el consumo. Las empresas sin cuenta (integraciones) no se controlan, y los planes sin tope
- * solo por el vencimiento.
+ * solo por el vencimiento. El tope es de Producción (#580): lo emitido en Beta no lo ocupa, y una empresa en Beta prueba sin límite aunque su cuenta ya lo haya
+ * llenado; el vencimiento sí la frena, porque es el plan entero el que dejó de servirse.
  */
 @RequiredArgsConstructor
 public class TopeDelPlanService implements TopeDelPlan {
@@ -48,6 +50,8 @@ public class TopeDelPlanService implements TopeDelPlan {
         if (deLaCuenta.estadoEn(ahora) == EstadoSuscripcion.VENCIDA) throw vencido(plan, deLaCuenta.hastaCuandoCubreEn(ahora));
         Limite tope = plan.limites().documentosAlMes();
         if (tope.ilimitado()) return;
+        // Sin la empresa a mano (no debería pasar al emitir) se controla igual: ante la duda, el tope manda.
+        if (tenants.buscar(tenantId).map(Tenant::entorno).map(e -> !e.consumeElPlan()).orElse(false)) return;
         YearMonth mes = YearMonth.from(fechaEmision);
         if (ocupados.ocupadosBloqueando(cuenta.get(), mes) < tope.maximo()) return;
         throw new DomainException("LIMITE_PLAN", "Llegaste al tope de " + tope.maximo() + " documentos de " + mes.format(MES) + " de tu plan " + plan.nombre()

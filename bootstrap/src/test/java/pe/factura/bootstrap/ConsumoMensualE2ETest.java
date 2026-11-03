@@ -79,10 +79,11 @@ class ConsumoMensualE2ETest {
 
     private int numero = 1;
 
+    /** Comprobantes reales: en Producción, que es lo único que consume el plan (#580). La empresa sigue en Beta para no hablarle a la SUNAT real. */
     private void documento(UUID empresa, String tipo, String estado, LocalDate fecha, int intentos) {
         jdbc.update("""
-                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, intentos)
-                VALUES (?, ?, ?, 'F001', ?, ?, ?, 'archivo', ?)""", UUID.randomUUID(), empresa, tipo, numero++, java.sql.Date.valueOf(fecha), estado, intentos);
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, intentos, entorno)
+                VALUES (?, ?, ?, 'F001', ?, ?, ?, 'archivo', ?, 'PRODUCCION')""", UUID.randomUUID(), empresa, tipo, numero++, java.sql.Date.valueOf(fecha), estado, intentos);
     }
 
     private void documento(UUID empresa, String estado, LocalDate fecha) { documento(empresa, "01", estado, fecha, 1); }

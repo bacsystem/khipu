@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Casilla } from "khipu-design-system/formularios/casilla";
-import { REVISADO_POR_LEGAL } from "@/content/legal/version";
 import { useMessages } from "next-intl";
 
 const ENLACE = "font-medium text-foreground underline underline-offset-2 hover:text-primary";
@@ -9,13 +8,13 @@ const ENLACE = "font-medium text-foreground underline underline-offset-2 hover:t
  * La casilla de «Acepto los términos del servicio y la política de privacidad» (#342), con un enlace a cada texto. La usan el registro y la
  * pantalla que pide volver a aceptar. Los enlaces abren otra pestaña: leerlos no debe hacer perder lo que ya se llenó del formulario.
  * El error se anuncia y se ata a la casilla, como en `FormField`. Mientras los textos sean un borrador, se dice aquí mismo: no solo a quien
- * abre el enlace. `revisado` es para las pruebas: la casilla usa la bandera de `version.ts`. Es la `Casilla` del design system: controlada
+ * abre el enlace. `revisado` viene de la página (`revisadoPorLegal()`, en el servidor); sin él, se avisa. Es la `Casilla` del design system: controlada
  * (`checked` + `onCheckedChange`), así que con react-hook-form va por un `Controller`.
  */
 export function CasillaDeTerminos({
   id,
   error,
-  revisado = REVISADO_POR_LEGAL,
+  revisado = false,
   checked,
   onCheckedChange,
   name,

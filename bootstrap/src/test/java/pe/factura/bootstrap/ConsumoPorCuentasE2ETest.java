@@ -90,11 +90,11 @@ class ConsumoPorCuentasE2ETest {
                 Timestamp.from(vence.minus(Duration.ofDays(30))), Timestamp.from(vence), gracia, c.cuentaId());
     }
 
-    /** {@code n} comprobantes del mes en el estado dado, de golpe. */
+    /** {@code n} comprobantes del mes en el estado dado, de golpe, en Producción: lo único que consume el plan (#580). */
     private void documentos(Cliente c, int n, String estado) {
         jdbc.update("""
-                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo)
-                SELECT gen_random_uuid(), ?, '01', 'F001', (SELECT coalesce(max(numero), 0) FROM documento WHERE tenant_id = ?) + g, ?, ?, 'archivo' FROM generate_series(1, ?) g""",
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, entorno)
+                SELECT gen_random_uuid(), ?, '01', 'F001', (SELECT coalesce(max(numero), 0) FROM documento WHERE tenant_id = ?) + g, ?, ?, 'archivo', 'PRODUCCION' FROM generate_series(1, ?) g""",
                 c.empresa(), c.empresa(), java.sql.Date.valueOf("2026-10-15"), estado, n);
     }
 
