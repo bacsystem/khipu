@@ -195,6 +195,7 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 | `SUPPORT_EMAIL` | correo de soporte | Opcional (#250), vacía por defecto. Va junto al enlace y en «Escribir a soporte» de la ficha de cada cuenta del backoffice (asunto con el nombre y el id de la cuenta). Un correo mal formado se denuncia igual que un enlace que no es `https` |
 | `REVISADO_POR_LEGAL` | `true` cuando un abogado revisó los términos y la privacidad | Opcional (#580), vacía por defecto: las páginas legales y el registro avisan que los textos son un borrador. Solo `true` quita el aviso; cualquier otro valor lo deja. Ver «Términos y privacidad» |
 | `TRUSTED_PROXY_HOPS` | cuántos proxies de confianza hay **delante del portal** | Opcional, **`0` por defecto: el portal no reenvía ninguna IP** y el backend ve la del servidor de Next. Se calibra con `/api/admin/origen`; ver §5. No poner más de `0` si el portal está expuesto directamente, sin proxy delante |
+| `TRUSTED_CLOUDFLARE` | `true` si el dominio del portal pasa por el proxy de Cloudflare (nube naranja) | Opcional (#594), vacía por defecto: no se mira `CF-Connecting-IP`. Con `true`, si quien se conectó al borde de Railway (según `TRUSTED_PROXY_HOPS`) es una IP de Cloudflare, la IP del cliente se toma de `CF-Connecting-IP`; si no lo es, esa cabecera se ignora. Ver §5, «Con Cloudflare delante» |
 
 El portal se puede desplegar **antes que el backend**: sin `API_BASE_URL` el landing, `/login` y la
 documentación funcionan, y `/developers` muestra un aviso en vez de fallar.
@@ -271,7 +272,7 @@ Lo que **no** está documentado y solo aparece en el foro (Central Station), con
 
 khipu lee solo `X-Forwarded-For`, no `X-Real-IP`, aunque esta última sea la que Railway documenta. Si la verificación mostrara que
 `X-Forwarded-For` no sirve (ningún valor de `TRUSTED_PROXY_HOPS` da la IP pública propia), leer `X-Real-IP` sería un cambio de
-código en `portal/src/lib/origen.ts`, no de configuración.
+código en `portal/src/lib/origen.ts`, no de configuración. Con Cloudflare delante es lo que pasó: ver «Con Cloudflare delante», abajo.
 
 #### Procedimiento de verificación
 
@@ -316,6 +317,40 @@ Con la sesión de administrador abierta, visitar `https://<portal>/api/admin/ori
 navegador ya mandó `X-Forwarded-For` (solo la rellena si falta), y esa cabecera sería lo que se lee. Probado en local: con `1` y sin
 proxy, un `X-Forwarded-For: 6.6.6.6` del navegador queda como IP registrada. Con un borde que agrega a la derecha, lo falso queda a
 la izquierda y no se mira.
+
+### Con Cloudflare delante (#594)
+
+**Medido en producción el 2026-11-03** (Cloudflare con proxy delante de los dominios propios): el borde de Railway **reemplaza** el
+`X-Forwarded-For` que trae Cloudflare. La cadena que llega al portal tiene dos entradas, una IP de Cloudflare (quien se conectó al
+borde) y una de Railway, y la IP pública del cliente no está en ninguna: ningún valor de `TRUSTED_PROXY_HOPS` la da solo. Cloudflare
+la manda en `CF-Connecting-IP`, y el portal la lee con `TRUSTED_CLOUDFLARE=true`, **solo si** la entrada que eligió
+`TRUSTED_PROXY_HOPS` cae en los rangos publicados de Cloudflare (`portal/src/lib/cloudflare.ts`, con la fecha en que se copiaron).
+Quien entra directo al dominio `*.up.railway.app` del portal puede mandar un `CF-Connecting-IP` inventado, pero su conexión no viene
+de Cloudflare y se registra su IP real, como sin Cloudflare. Si la conexión viene de Cloudflare y la cabecera falta o no es una IP,
+no se reenvía ninguna.
+
+Límites:
+
+- Los rangos de Cloudflare están copiados en el código. Si Cloudflare agrega uno, las peticiones que entren por él no se reconocen y
+  la bitácora no guarda la IP del cliente (falla segura) hasta actualizar `RANGOS_CLOUDFLARE`.
+- Ser de Cloudflare no prueba que sea **nuestra** zona: alguien con su propia cuenta de Cloudflare podría pasar por Cloudflare
+  hacia el dominio de Railway del portal. Cloudflare escribe `CF-Connecting-IP` él mismo (no se puede elegir desde fuera), así que
+  lo que quedaría registrado es una IP real del camino, no una inventada. Quitar el dominio `*.up.railway.app` del portal en
+  Railway (Settings → Networking) cierra también eso.
+
+Procedimiento, con la sesión de administrador abierta en el portal:
+
+1. En el **backend**, `TRUSTED_PROXIES` con la dirección privada del portal: es el `ip_backend` que muestra `/api/admin/origen` con
+   todo vacío («Calibrar», paso 1).
+2. En el **portal**, `TRUSTED_PROXY_HOPS=2` y `TRUSTED_CLOUDFLARE=true`, y redesplegar.
+3. Abrir `https://<portal>/api/admin/origen`: `ip_de_la_conexion` debe ser una IP de Cloudflare, `cloudflare_confiada` `true`, e
+   `ip_resuelta` e `ip_backend` tu IP pública (`ifconfig.me`). Si `ip_de_la_conexion` es la de Railway, sobra un salto; si es
+   `null`, falta.
+4. Con la cookie `khipu_admin_access`, pedir lo mismo **directo al dominio de Railway** del portal con una cabecera inventada:
+   `curl -s -H "CF-Connecting-IP: 6.6.6.6" -H "Cookie: khipu_admin_access=<valor>" https://<portal>.up.railway.app/api/admin/origen`.
+   `cloudflare_confiada` debe ser `false` e `ip_resuelta` tu IP pública, **nunca `6.6.6.6`**.
+5. Redesplegar el portal y repetir el paso 3: si `ip_backend` vuelve a ser la del portal, su dirección privada cambió y hay que
+   ampliar `TRUSTED_PROXIES` al rango observado.
 
 ## 6. Orden de despliegue sugerido
 

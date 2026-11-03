@@ -2,6 +2,11 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [Unreleased]
+
+### Added
+- Variable `TRUSTED_CLOUDFLARE` del portal (#594): con Cloudflare delante, la bitácora del backoffice registra la IP real del administrador, tomada de `CF-Connecting-IP` solo cuando la conexión vino de una IP de Cloudflare (rangos publicados, en `portal/src/lib/cloudflare.ts`). Apagada por defecto; nada cambia sin ella. `/api/admin/origen` muestra también la conexión, la `CF-Connecting-IP` recibida y si se confió en ella. Procedimiento en `deploy/README.md` §5, «Con Cloudflare delante».
+
 ## [1.2.1] - 2026-11-03
 
 Sin migraciones.
