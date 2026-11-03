@@ -172,14 +172,14 @@ describe("NuevoComprobanteDialog", () => {
     await waitFor(() => expect(screen.getByRole("link", { name: "Ir a Fiscal & certificado" })).toHaveAttribute("href", "/empresa?seccion=sol"));
   });
 
-  /** #18: en el tope del plan el backend rechaza la emisión (429 LIMITE_PLAN); el diálogo lo dice antes de que se llene nada. */
+  /** #18: en el tope del plan el backend rechaza la emisión (429 LIMITE_PLAN); el diálogo lo dice antes de que se llene nada. El tope es de Producción (#580). */
   it("con la cuenta en el tope de documentos del mes no muestra el formulario y lleva a Plan y consumo", async () => {
     stubFetch((url) =>
       url.includes("/series")
         ? sobre(SERIES)
         : url.includes("/cuenta")
           ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Gratis" }, estado: "VIGENTE" }, consumo: { mes: "2026-10", documentos: 30, maximo: 30 } })
-          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "PRODUCCION" }),
     );
 
     render(<NuevoComprobanteDialog />);
@@ -189,6 +189,22 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByText(/Tu plan Gratis permite 30 documentos al mes y ya los usaste/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
+  /** #580: las pruebas en Beta no tienen tope. Con la cuenta llena en Producción, una empresa en Beta sigue emitiendo: el backend la deja y el diálogo no la frena. */
+  it("con la cuenta en el tope, una empresa en Beta sigue emitiendo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({ nombre: "Mi negocio", plan: { plan: { nombre: "Gratis" }, estado: "VIGENTE" }, consumo: { mes: "2026-10", documentos: 30, maximo: 30 } })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.queryByText("Llegaste al tope de documentos del mes")).not.toBeInTheDocument();
   });
 
   /** #285: con el plan vencido (pasada la gracia) el backend rechaza la emisión (402 PLAN_VENCIDO); el diálogo lo dice antes, aunque quede lugar en el tope. */
