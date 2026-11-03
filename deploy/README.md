@@ -367,7 +367,7 @@ Railway no tiene copia propia.
 
 ### Servicio `respaldo` en Railway
 
-0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 16 y `pg_dump` aborta ante un servidor más nuevo («server version
+0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 18 (la de producción en Railway) y `pg_dump` aborta ante un servidor más nuevo («server version
    mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
    `deploy/respaldo/Dockerfile` a esa versión.
 1. **New → Docker Image** → `cbaciliod/khipu-respaldo:latest` (la publica CI desde `deploy/respaldo/Dockerfile`). Si cambias el `FROM` del paso 0,
