@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { elegirOpcion } from "./combo";
 
+// #502: cuenta propia. Este spec guarda el domicilio fiscal, el diseño del PDF y el logo; sobre la demo, `guias-emision.spec.ts` dejaba de ver una empresa
+// sin domicilio fiscal cuando los dos corrían en la misma tanda.
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Correo electrónico").fill("demo@example.com");
+  await page.getByLabel("Correo electrónico").fill("empresa@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page).toHaveURL(/\/inicio/);
