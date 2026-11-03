@@ -64,29 +64,37 @@ export function useAutocompletadoDelPadron({
   const { resultado } = consulta;
   const actuales = useRef(campos);
   actuales.current = campos;
-  /** Qué se rellenó, campo por campo, y para qué RUC. */
-  const rellenado = useRef<{ ruc: string; valores: string[] } | null>(null);
+  /** Qué se rellenó, campo por campo, y para qué consulta: el RUC mientras se consulta, `""` cuando no (otro tipo de documento). */
+  const clave = activa ? ruc : "";
+  const rellenado = useRef<{ clave: string; valores: string[] } | null>(null);
 
+  // Soltar y rellenar en la misma pasada (#575, H1 de la revisión): volver a un RUC ya consultado trae su resultado en el mismo render en que cambia el RUC, y con
+  // dos efectos el segundo veía todavía el valor que el primero acababa de quitar, lo tomaba por escrito a mano y no rellenaba. También se suelta cuando la consulta
+  // se apaga sin cambiar el número (el documento pasó de RUC a DNI): el nombre de una empresa no queda bajo un DNI.
   useEffect(() => {
     const previo = rellenado.current;
-    if (!previo || previo.ruc === ruc) return;
-    actuales.current.forEach((c, i) => {
-      if (previo.valores[i] && c.valor === previo.valores[i]) c.poner("");
-    });
-    rellenado.current = null;
-  }, [ruc]);
-
-  useEffect(() => {
+    const soltados = new Set<number>();
+    if (previo && previo.clave !== clave) {
+      actuales.current.forEach((c, i) => {
+        if (previo.valores[i] && c.valor === previo.valores[i]) {
+          c.poner("");
+          soltados.add(i);
+        }
+      });
+      rellenado.current = null;
+    }
     if (resultado?.tipo !== "encontrado") return;
     const contribuyente = resultado.contribuyente;
-    const valores = actuales.current.map((c) => {
+    const anteriores = rellenado.current?.valores ?? [];
+    const valores = actuales.current.map((c, i) => {
+      const escrito = soltados.has(i) ? "" : c.valor.trim();
       const dato = c.dato(contribuyente)?.trim() ?? "";
-      if (!dato || c.valor.trim()) return "";
+      if (!dato || escrito) return anteriores[i] ?? "";
       c.poner(dato);
       return dato;
     });
-    rellenado.current = { ruc: contribuyente.ruc, valores };
-  }, [resultado]);
+    rellenado.current = { clave, valores };
+  }, [clave, resultado]);
 
   return {
     ...consulta,
@@ -95,7 +103,7 @@ export function useAutocompletadoDelPadron({
       actuales.current[indice]?.poner(valor);
       const valores = [...(rellenado.current?.valores ?? [])];
       valores[indice] = valor;
-      rellenado.current = { ruc, valores };
+      rellenado.current = { clave, valores };
     },
   };
 }

@@ -366,6 +366,17 @@ describe("NuevaGuiaForm — el RUC en el padrón de SUNAT", () => {
     expect(llamadasA("/consultas/ruc/").map(([ruta]) => ruta)).toEqual(["/api/proxy/consultas/ruc/20601234565"]);
   });
 
+  it("al pasar el destinatario de RUC a DNI se suelta el nombre que puso el padrón", async () => {
+    montar();
+    const form = screen.getByTestId("nueva-guia-form");
+    fireEvent.change(form.querySelector("#destinatario-num")!, { target: { value: "20601234565" } });
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#destinatario-nombre")!.value).toBe("PESQUERA PACÍFICO S.A.C."));
+
+    await elegirOpcion(combo("#destinatario-tipo"), /DNI/);
+
+    await waitFor(() => expect(form.querySelector<HTMLInputElement>("#destinatario-nombre")!.value).toBe(""));
+  });
+
   it("con DNI el destinatario no se consulta", async () => {
     montar();
     const form = screen.getByTestId("nueva-guia-form");

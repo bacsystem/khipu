@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMERCIAL, DE_BAJA, TIENDAS, consultasAlPadron, digitar, estadoDeLaConsulta, exito, stubPadron } from "@/test/padron-de-prueba";
 import type { ClienteGuardado } from "@/lib/api/clientes";
+import { elegirOpcion } from "@/test/select-de-prueba";
 import { ClienteForm } from "./cliente-form";
 
 const guardado = (c: Pick<ClienteGuardado, "tipo_doc" | "num_doc" | "razon_social">): ClienteGuardado => ({
@@ -9,7 +10,8 @@ const guardado = (c: Pick<ClienteGuardado, "tipo_doc" | "num_doc" | "razon_socia
 });
 
 const numero = () => screen.getByLabelText("Número") as HTMLInputElement;
-const razon = () => screen.getByLabelText("Razón social") as HTMLInputElement;
+/** Por su id: con DNI la etiqueta pasa de «Razón social» a «Nombre». */
+const razon = () => document.getElementById("cli-razon") as HTMLInputElement;
 const direccion = () => screen.getByLabelText(/Dirección/) as HTMLInputElement;
 
 afterEach(() => {
@@ -41,6 +43,33 @@ describe("ClienteForm — el RUC en el padrón de SUNAT", () => {
 
     await waitFor(() => expect(razon().value).toBe("COMERCIAL VERDE E.I.R.L."));
     expect(direccion().value).toBe("Jr. Puno 300");
+  });
+
+  it("volver a un RUC ya consultado (la respuesta sale de la memoria) vuelve a rellenar con lo suyo", async () => {
+    const fetch = stubPadron({ [TIENDAS.ruc]: exito(TIENDAS), [COMERCIAL.ruc]: exito(COMERCIAL) });
+    render(<ClienteForm />);
+    digitar(numero(), TIENDAS.ruc);
+    await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
+    fireEvent.change(numero(), { target: { value: COMERCIAL.ruc } });
+    await waitFor(() => expect(razon().value).toBe("COMERCIAL VERDE E.I.R.L."));
+
+    fireEvent.change(numero(), { target: { value: TIENDAS.ruc } });
+
+    await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
+    expect(direccion().value).toBe("AV. REPUBLICA DE PANAMA NRO. 2457");
+    expect(consultasAlPadron(fetch)).toHaveLength(2);
+  });
+
+  it("al pasar de RUC a DNI suelta lo que puso el padrón", async () => {
+    stubPadron({ [TIENDAS.ruc]: exito(TIENDAS) });
+    render(<ClienteForm existente={guardado({ tipo_doc: "6", num_doc: "", razon_social: "" })} />);
+    digitar(numero(), TIENDAS.ruc);
+    await waitFor(() => expect(razon().value).toBe("TIENDAS DEL SUR S.A.C."));
+
+    await elegirOpcion(screen.getByLabelText("Documento"), /DNI/);
+
+    await waitFor(() => expect(razon().value).toBe(""));
+    expect(direccion().value).toBe("");
   });
 
   it("un RUC de baja trae las observaciones que SUNAT pondrá a sus comprobantes", async () => {
