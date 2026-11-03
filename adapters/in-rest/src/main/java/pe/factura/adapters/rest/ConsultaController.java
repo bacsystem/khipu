@@ -31,9 +31,17 @@ public class ConsultaController {
             Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).
             `actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si
             no es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo
-            (60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL.""")
+            (60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL. Desde el portal también responde sin `X-Empresa` (una cuenta que todavía no
+            registra su primera empresa), con el mismo cupo contado por cuenta.""")
     public ApiResponse<PadronRucResponse> ruc(HttpServletRequest req, @Parameter(example = "20100066603") @PathVariable String ruc) {
-        return ApiResponse.ok(PadronRucResponse.de(padron.consultar(TenantActual.id(req), ruc)));
+        return ApiResponse.ok(PadronRucResponse.de(padron.consultar(solicitante(req), ruc)));
+    }
+
+    /** #575: con empresa (API key o `X-Empresa`) el cupo es de la empresa; sin ella, el de la cuenta del portal. Sin ninguna de las dos, el error de siempre. */
+    static ConsultarPadronRucUseCase.Solicitante solicitante(HttpServletRequest req) {
+        if (req.getAttribute(TenantActual.ATRIBUTO) != null) return ConsultarPadronRucUseCase.Solicitante.empresa(TenantActual.id(req));
+        if (req.getAttribute(CuentaActual.ATRIBUTO) != null) return ConsultarPadronRucUseCase.Solicitante.cuenta(CuentaActual.id(req));
+        return ConsultarPadronRucUseCase.Solicitante.empresa(TenantActual.id(req));
     }
 
     @GetMapping("/consultas/validez")

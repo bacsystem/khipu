@@ -2871,7 +2871,8 @@ export interface paths {
          * @description Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).
          *     `actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si
          *     no es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo
-         *     (60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL.
+         *     (60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL. Desde el portal también responde sin `X-Empresa` (una cuenta que todavía no
+         *     registra su primera empresa), con el mismo cupo contado por cuenta.
          */
         get: operations["consultarRuc"];
         put?: never;
@@ -3236,6 +3237,27 @@ export interface paths {
          *     por `=`, `+`, `-` o `@` llevan una comilla simple delante para que una hoja de cálculo no los ejecute como fórmula.
          */
         get: operations["exportar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/consultas/ruc/{ruc}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar un RUC en el padrón de SUNAT (backoffice)
+         * @description Lo mismo que `GET /v1/consultas/ruc/{ruc}`, para el backoffice: razón social, estado, condición y domicilio fiscal del padrón reducido. Mismos errores
+         *     (`400 PARAMETRO_INVALIDO`, `404 NO_ENCONTRADO`, `503 PADRON_NO_CARGADO`, `429 DEMASIADAS_CONSULTAS`) y el mismo cupo, contado por administrador.
+         */
+        get: operations["consultarRucAdmin"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15561,6 +15583,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": string;
+                };
+            };
+        };
+    };
+    consultarRucAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 20100066603 */
+                ruc: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePadronRucResponse"];
                 };
             };
         };
