@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.3.0] - 2026-11-03
+
+Sin migraciones. Tras desplegar: `TRUSTED_PROXY_HOPS=2` y `TRUSTED_CLOUDFLARE=true` en el portal, `TRUSTED_PROXIES` en el backend, y comprobar con `/api/admin/origen` (`deploy/README.md` §5, «Con Cloudflare delante»).
+
+### Added
+- Variable `TRUSTED_CLOUDFLARE` del portal (#594): con Cloudflare delante, el portal reenvía al backend la IP real del cliente (la bitácora del backoffice la registra, y con `TRUSTED_PROXIES` el límite de intentos de login por IP de #261 cuenta por ella en el login y la recuperación de todos los clientes), tomada de `CF-Connecting-IP` solo cuando la conexión vino de una IP de Cloudflare (rangos publicados, en `portal/src/lib/cloudflare.ts`). Apagada por defecto; nada cambia sin ella. `/api/admin/origen` muestra también la conexión, la `CF-Connecting-IP` recibida y si se confió en ella. Procedimiento en `deploy/README.md` §5, «Con Cloudflare delante».
+
 ## [1.2.1] - 2026-11-03
 
 Sin migraciones.

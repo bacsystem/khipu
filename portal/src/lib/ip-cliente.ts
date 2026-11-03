@@ -28,7 +28,7 @@ function ipv6Canonica(s: string): string | undefined {
 }
 
 /** Quita corchetes y puerto y deja la IP en su forma canónica; `undefined` si no es una IP. */
-function normalizar(entrada: string): string | undefined {
+export function normalizar(entrada: string): string | undefined {
   let s = entrada.trim();
   const conCorchetes = /^\[(.+)\](?::\d+)?$/.exec(s);
   if (conCorchetes) s = conCorchetes[1];
