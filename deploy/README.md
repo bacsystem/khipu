@@ -352,6 +352,18 @@ Procedimiento, con la sesión de administrador abierta en el portal:
 5. Redesplegar el portal y repetir el paso 3: si `ip_backend` vuelve a ser la del portal, su dirección privada cambió y hay que
    ampliar `TRUSTED_PROXIES` al rango observado.
 
+**Valores en producción (medido el 2026-11-03, v1.3.0):**
+
+- Portal: `TRUSTED_PROXY_HOPS=2` y `TRUSTED_CLOUDFLARE=true`. La cadena que llega es `<IP de Cloudflare>, <IP de Railway>`;
+  `ip_resuelta` e `ip_backend` dan la IP pública del administrador.
+- Backend: `TRUSTED_PROXIES=10\.\d+\.\d+\.\d+`. La dirección privada del portal **cambia en cada despliegue** (se vieron dos
+  distintas dentro de `10.0.0.0/8` el mismo día), así que una dirección fija no sirve. El borde de Railway llega al backend desde
+  `100.64.0.0/10` (paso 4 de «Procedimiento de verificación»: `datos.ip` fue `100.64.0.x`, nunca `6.6.6.6`), fuera de la regex. La
+  regex cubre también a los otros servicios del proyecto (Postgres, respaldo), que están en la misma red: el límite de la tabla de
+  arriba, salto (2).
+- El portal no tiene dominio `*.up.railway.app`: solo `khipu.bacsystemsolutions.com`, con el proxy de Cloudflare. El paso 4 de esta
+  lista no aplica mientras siga así; si se genera uno, repetirlo.
+
 ## 6. Orden de despliegue sugerido
 
 1. Postgres (plugin).
