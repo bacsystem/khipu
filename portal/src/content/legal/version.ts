@@ -37,7 +37,8 @@ export const RESPONSABLE = {
   ruc: "20614798093",
   // El domicilio fiscal tal como figura en SUNAT (ficha RUC): AV. A LOTE. 01 RES. ALAMEDA 4, LIMA - LIMA - RIMAC.
   domicilio: "Av. A Lote 01, Res. Alameda 4, Rímac, Lima, Perú",
-  correo: "[correo de contacto por completar]",
+  // El mismo que el portal muestra en «¿Necesitas ayuda?» (SUPPORT_EMAIL). Completar un dato de contacto no cambia lo que se acepta: no sube la versión.
+  correo: "contact@bacsystemsolutions.com",
   /**
    * La frase sobre la inscripción del banco de datos en el Registro Nacional de Protección de Datos Personales. Por completar con el código
    * cuando exista, o dejar vacía si se decide que no corresponde inscribirlo (#283).
