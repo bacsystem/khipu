@@ -6,7 +6,8 @@ import java.util.UUID;
 
 /**
  * El consumo de documentos de un plan (#192). **Es código de dinero:** un documento consume solo si SUNAT lo aceptó (con o sin observaciones, aunque después
- * se diera de baja; {@code EstadoDocumento.cuentaParaElConsumo}), por su fecha de emisión, dentro del mes calendario. No cuentan los rechazados, los errores de
+ * se diera de baja; {@code EstadoDocumento.cuentaParaElConsumo}) y en Producción ({@code Entorno.consumeElPlan}, #580: las pruebas en Beta no consumen), por su
+ * fecha de emisión, dentro del mes calendario. No cuentan los rechazados, los errores de
  * envío ni los que están en camino; la comunicación de baja no suma otro documento, y un comprobante reintentado hasta que lo aceptan es uno solo (los
  * reintentos son un contador, no filas).
  */

@@ -153,7 +153,8 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   // #18: en el tope del plan el backend rechaza la emisión; se dice antes. Si la cuenta no se puede leer no se bloquea: el backend tiene la última palabra.
   const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
   const consumo = cuenta.dato?.consumo;
-  const enElTope = consumo?.maximo !== undefined && consumo.documentos >= consumo.maximo;
+  // #580: el tope es de Producción. Una empresa en Beta prueba sin límite aunque la cuenta lo haya llenado; sin saber el entorno no se bloquea.
+  const enElTope = empresa.dato?.entorno === "PRODUCCION" && consumo?.maximo !== undefined && consumo.documentos >= consumo.maximo;
   // #285: vencido (pasada la gracia) tampoco emite, quede o no lugar en el tope; en gracia sí.
   const vencido = cuenta.dato?.plan?.estado === "VENCIDA";
 
