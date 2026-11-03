@@ -2,6 +2,14 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.2.1] - 2026-11-03
+
+Sin migraciones.
+
+### Fixed
+- El respaldo diario deja fuera los datos del padrón de RUC (#591): `padron_ruc`, su tabla de paso y el registro de cargas (el esquema sí va). Son ~18 M filas públicas que la carga diaria vuelve a bajar, y con ellas cada respaldo pesaba ~384 MB. Una base restaurada arranca sin padrón y lo recibe en la siguiente carga. Tras desplegar, hacer Redeploy del servicio `khipu-respaldo` y «Run now» para comprobarlo.
+- Los términos del servicio y la política de privacidad dan `contact@bacsystemsolutions.com` como correo de contacto, en lugar del texto de relleno (#283). La versión legal no cambia: nadie tiene que volver a aceptarlos.
+
 ## [1.2.0] - 2026-11-03
 
 Trae **dos migraciones**: V73 agrega el entorno a cada documento y lo rellena desde la bitácora de cambios de entorno; V74 agrega a la cuenta el plan que pidió al registrarse (columna opcional). Respaldar la base antes de desplegar.
