@@ -53,6 +53,24 @@ describe("POST /api/auth/registro", () => {
     }
   });
 
+  /** #581: el plan elegido llega al backend como un nombre corto, recortado; lo que no lo es (vacío, largo, otro tipo) no se reenvía. */
+  it("reenvía el plan elegido solo si es un nombre corto", async () => {
+    vi.mocked(registrar).mockResolvedValue({
+      access: "a1",
+      refresh: "r1",
+      usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: false, terminos_pendientes: false },
+    });
+    const datos = { nombre: "Mi cuenta", email: "a@b.com", password: "secreto1", telefono: "987654321", acepta_terminos: true };
+
+    await POST(postRequest({ ...datos, plan: " Negocio " }));
+    expect(vi.mocked(registrar).mock.lastCall?.[0].plan).toBe("Negocio");
+
+    for (const plan of [undefined, "", "   ", "x".repeat(41), 7, { nombre: "Negocio" }]) {
+      await POST(postRequest({ ...datos, plan }));
+      expect(vi.mocked(registrar).mock.lastCall?.[0].plan).toBeUndefined();
+    }
+  });
+
   it("sin aceptar los términos devuelve el 400 del backend", async () => {
     vi.mocked(registrar).mockRejectedValue(new ApiError(400, "TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos"));
 

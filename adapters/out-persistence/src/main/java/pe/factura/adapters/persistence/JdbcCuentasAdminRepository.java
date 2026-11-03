@@ -29,6 +29,7 @@ import java.util.UUID;
 public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
     private static final String SELECT = """
             SELECT c.id, c.nombre, c.email, c.telefono, c.created_at, c.suspendida_en, c.baja_en,
+                   (SELECT p.nombre FROM plan p WHERE p.id = c.plan_solicitado_id) AS plan_solicitado,
                    (SELECT count(*) FROM tenant t WHERE t.cuenta_id = c.id) AS empresas,
                    (SELECT max(s.created_at) FROM sesion s JOIN usuario u ON u.id = s.usuario_id WHERE u.cuenta_id = c.id) AS ultimo_acceso
             FROM cuenta c
@@ -37,7 +38,7 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
         Timestamp ultimoAcceso = rs.getTimestamp("ultimo_acceso");
         return new CuentaResumen(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"),
                 rs.getTimestamp("created_at").toInstant(), rs.getInt("empresas"), ultimoAcceso == null ? null : ultimoAcceso.toInstant(), instante(rs.getTimestamp("suspendida_en")),
-                instante(rs.getTimestamp("baja_en")));
+                instante(rs.getTimestamp("baja_en")), rs.getString("plan_solicitado"));
     };
 
     private final JdbcTemplate jdbc;
@@ -65,11 +66,13 @@ public class JdbcCuentasAdminRepository implements CuentasAdminRepository {
      */
     @Override public Optional<CuentaDetalle> detalle(UUID cuentaId) {
         // El detalle no filtra por baja: una cuenta dada de baja se abre igual, con todo lo suyo (sus comprobantes se conservan).
-        return jdbc.query("SELECT id, nombre, email, telefono, created_at, suspendida_en, baja_en FROM cuenta WHERE id = ?", (rs, i) -> new Object[]{
+        return jdbc.query("""
+                        SELECT c.id, c.nombre, c.email, c.telefono, c.created_at, c.suspendida_en, c.baja_en, p.nombre AS plan_solicitado
+                        FROM cuenta c LEFT JOIN plan p ON p.id = c.plan_solicitado_id WHERE c.id = ?""", (rs, i) -> new Object[]{
                         rs.getString("nombre"), rs.getString("email"), rs.getString("telefono"), rs.getTimestamp("created_at").toInstant(), instante(rs.getTimestamp("suspendida_en")),
-                        instante(rs.getTimestamp("baja_en"))}, cuentaId)
+                        instante(rs.getTimestamp("baja_en")), rs.getString("plan_solicitado")}, cuentaId)
                 .stream().findFirst().map(c -> new CuentaDetalle(cuentaId, (String) c[0], (String) c[1], (String) c[2], (Instant) c[3], (Instant) c[4], (Instant) c[5],
-                        usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId), historialEstadoDe(cuentaId)));
+                        usuariosDe(cuentaId), empresasDe(cuentaId), comprobantesDe(cuentaId), eventosDe(cuentaId), historialEstadoDe(cuentaId), (String) c[6]));
     }
 
     private List<UsuarioDeCuenta> usuariosDe(UUID cuentaId) {

@@ -23,6 +23,8 @@ export type CuentaAdmin = {
   suspendida_en?: string;
   /** Desde cuándo está dada de baja (#201); falta si está en servicio. */
   baja_en?: string;
+  /** #581: el plan que eligió en la página de precios al registrarse; ausente si no eligió ninguno. */
+  plan_solicitado?: string;
 };
 
 export type PaginaCuentasAdmin = { datos: CuentaAdmin[]; total: number };

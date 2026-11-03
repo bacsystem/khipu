@@ -1536,7 +1536,8 @@ export const handlers = [
   }),
 
   http.post(`${BASE}/v1/auth/registro`, async ({ request }) => {
-    const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string; acepta_terminos?: boolean | null };
+    // `plan` (#581) es opcional y el backend solo lo anota para el operador: el mock lo acepta y no cambia nada de lo que responde.
+    const body = (await request.json()) as { nombre: string; email: string; password: string; telefono?: string; acepta_terminos?: boolean | null; plan?: string };
     // Como el backend (#342): primero `@Valid` de `RegistroRequest` (los obligatorios vacíos, 422 VALIDACION) y después el servicio, que antes que
     // el resto rechaza la falta de aceptación con 400 (no 422): sin aceptar los términos no se crea nada.
     const vacios = (["nombre", "email", "password", "telefono"] as const).filter((campo) => !body[campo]?.trim());

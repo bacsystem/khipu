@@ -9,6 +9,24 @@ afterEach(cleanup);
 const tarjeta = (nombre: string) => screen.getByRole("heading", { level: 3, name: nombre }).closest("[data-slot=card]") as HTMLElement;
 
 /** #580: el precio de la portada, con el IGV en su línea, y lo que cada plan dice de Producción y Beta. */
+/** #581: cada plan de pago lleva su nombre al registro; el gratis no pide nada. Con el registro cerrado, todos van al contacto. */
+describe("Planes de la portada: a dónde lleva cada botón", () => {
+  it("los de pago llevan su plan al registro y el gratis va al registro a secas", () => {
+    render(<Planes planes={planesDeRespaldo(es)} abierto contacto={null} />);
+
+    expect(screen.getByRole("link", { name: "Empezar gratis" }).getAttribute("href")).toBe("/registro");
+    expect(screen.getByRole("link", { name: "Elegir Emprende" }).getAttribute("href")).toBe("/registro?plan=emprende");
+    expect(screen.getByRole("link", { name: "Elegir Negocio" }).getAttribute("href")).toBe("/registro?plan=negocio");
+    expect(screen.getByRole("link", { name: "Elegir Pro" }).getAttribute("href")).toBe("/registro?plan=pro");
+  });
+
+  it("con el registro cerrado todos van al contacto", () => {
+    render(<Planes planes={planesDeRespaldo(es)} abierto={false} contacto="https://wa.me/51987654321" />);
+
+    for (const enlace of screen.getAllByRole("link", { name: "Pedir acceso" })) expect(enlace.getAttribute("href")).toBe("https://wa.me/51987654321");
+  });
+});
+
 describe("Planes de la portada", () => {
   it("el monto y su sufijo no se parten, y el IGV va en su propia línea solo en los planes de pago", () => {
     render(<Planes planes={planesDeRespaldo(es)} abierto contacto={null} />);

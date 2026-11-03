@@ -15,8 +15,17 @@ public interface AutenticarUsuarioUseCase {
      * Crea la cuenta con el correo sin verificar y le manda el enlace de verificación (#22); {@code urlBase} es la del portal. Entra
      * igual: puede ver el portal, pero no crear empresas ni emitir hasta verificar. Sin {@code aceptaTerminos}, {@code TERMINOS_NO_ACEPTADOS}
      * (#342); con ella queda guardada la versión vigente y la fecha.
+     *
+     * {@code planSolicitado} (#581, opcional): el nombre del plan que eligió en la página de precios. La cuenta nace igual en el plan por defecto; si el nombre es
+     * el de un plan publicado de pago, queda anotado y se avisa al operador para que lo active. Uno desconocido, no publicado o el gratis se ignora: un enlace
+     * viejo no impide registrarse.
      */
-    Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String urlBase);
+    Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String planSolicitado, String urlBase);
+
+    /** Sin plan elegido: el registro de siempre. */
+    default Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String urlBase) {
+        return registrar(nombreCuenta, email, password, telefono, aceptaTerminos, null, urlBase);
+    }
     /**
      * {@code ip}: la del cliente ya resuelta, o {@code null} si no se conoce. Tras 5 contraseñas erróneas en 15 minutos para ese
      * correo, o 20 fallos desde esa IP, {@code DEMASIADOS_INTENTOS_LOGIN} durante 15 minutos (#261).

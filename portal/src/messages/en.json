@@ -47,7 +47,8 @@
     "registro": {
       "titulo": "Create your account",
       "subtitulo": "Start issuing receipts in minutes.",
-      "nombre": "Account name",
+      "nombre": "Your name or your business’s",
+      "ayudaNombre": "It’s how we greet you and how our support team sees you. We ask for your company’s legal name later, with its RUC.",
       "telefono": "Mobile (Peru)",
       "ayudaTelefono": "We will contact you if there is any problem with your account. 9 digits, starting with 9.",
       "email": "Email",
@@ -62,8 +63,12 @@
       "yLa": "and the",
       "privacidad": "privacy policy",
       "terminosRequeridos": "To create your account you must accept the terms of service and the privacy policy.",
-      "nombreRequerido": "Enter your account name",
-      "nombreLargo": "Up to 150 characters"
+      "nombreRequerido": "Enter your name or your business’s",
+      "nombreLargo": "Up to 150 characters",
+      "planElegido": {
+        "titulo": "You chose the {plan} plan · {precio}/month, IGV included",
+        "texto": "Your account starts on the free plan and we’ll write to you to activate {plan} once we arrange the payment. Meanwhile you can already add your company and test in Beta."
+      }
     },
     "recuperar": {
       "titulo": "Recover your password",
@@ -208,6 +213,7 @@
       "vacio": "There are no accounts yet.",
       "sinResultados": "No accounts match those filters.",
       "nunca": "Never",
+      "pidioPlan": "Asked for {plan}",
       "columnas": {
         "cuenta": "Account",
         "telefono": "Phone",
@@ -1278,6 +1284,8 @@
       "alta": "Created",
       "correo": "Email",
       "telefono": "Mobile",
+      "planSolicitado": "Plan requested at sign-up",
+      "sinPlanSolicitado": "None (started free)",
       "error": "Could not load the account.",
       "noExiste": "The account does not exist.",
       "bajaDesde": "Closed since {fecha}",

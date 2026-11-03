@@ -24,7 +24,8 @@ public record CuentaDetalleResponse(
         @Schema(description = "Los 10 comprobantes de fecha de emisión más reciente entre todas las empresas de la cuenta") List<ComprobanteResponse> comprobantes,
         @Schema(description = "Las últimas 10 acciones del administrador sobre esta cuenta (bitácora)") List<EventoResponse> eventos,
         @Schema(description = "Todas las suspensiones, reactivaciones, bajas y reposiciones de la cuenta, de la más reciente a la más antigua, con su motivo en `detalle`")
-        List<EventoResponse> historialEstado) {
+        List<EventoResponse> historialEstado,
+        @Schema(example = "Negocio", description = "El plan que eligió en la página de precios al registrarse (#581). Es lo que pidió, no lo que tiene: la cuenta nace en el plan por defecto y el plan pagado se activa al registrar el pago. Ausente si no eligió ninguno") String planSolicitado) {
 
     @Schema(name = "UsuarioDeCuenta")
     public record UsuarioResponse(
@@ -79,6 +80,7 @@ public record CuentaDetalleResponse(
                 d.comprobantes().stream().map(c -> new ComprobanteResponse(c.id(), c.empresaId(), c.ruc(), c.tipo(), c.serie(), c.numero(), c.fechaEmision(), c.estado(),
                         c.moneda(), c.total())).toList(),
                 d.eventos().stream().map(EventoResponse::de).toList(),
-                d.historialEstado().stream().map(EventoResponse::de).toList());
+                d.historialEstado().stream().map(EventoResponse::de).toList(),
+                d.planSolicitado());
     }
 }

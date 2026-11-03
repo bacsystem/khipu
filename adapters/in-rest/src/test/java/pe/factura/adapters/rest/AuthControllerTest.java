@@ -37,7 +37,7 @@ class AuthControllerTest {
     AutenticarUsuarioUseCase.Tokens tokens = new AutenticarUsuarioUseCase.Tokens("access-token", "refresh-token", usuario, false);
 
     @Test void registroDevuelve201ConTokens() throws Exception {
-        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "http://localhost:3000")).thenReturn(tokens);
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, null, "http://localhost:3000")).thenReturn(tokens);
         mvc.perform(post("/v1/auth/registro").contentType("application/json")
                         .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}"))
                 .andExpect(status().isCreated())
@@ -46,14 +46,23 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
                 .andExpect(jsonPath("$.datos.usuario.rol").value("ADMIN"))
                 .andExpect(jsonPath("$.datos.usuario.terminos_pendientes").value(false));
-        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "http://localhost:3000");
+        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, null, "http://localhost:3000");
+    }
+
+    /** #581: el plan que eligió en la página de precios llega tal cual al caso de uso, que decide si vale. */
+    @Test void elPlanElegidoLlegaAlCasoDeUso() throws Exception {
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "negocio", "http://localhost:3000")).thenReturn(tokens);
+        mvc.perform(post("/v1/auth/registro").contentType("application/json")
+                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true,\"plan\":\"negocio\"}"))
+                .andExpect(status().isCreated());
+        verify(auth).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, "negocio", "http://localhost:3000");
     }
 
     // --- #342: términos del servicio y política de privacidad ------------------------------------------------------------------------
 
     /** Sin el campo, o con {@code false}, el caso de uso recibe {@code false} y responde TERMINOS_NO_ACEPTADOS: un 400, no un 422 de validación. */
     @Test void registroSinAceptarLosTerminosEs400() throws Exception {
-        when(auth.registrar(anyString(), anyString(), anyString(), anyString(), eq(false), anyString()))
+        when(auth.registrar(anyString(), anyString(), anyString(), anyString(), eq(false), isNull(), anyString()))
                 .thenThrow(new DomainException("TERMINOS_NO_ACEPTADOS", "Para crear la cuenta tienes que aceptar los términos"));
         for (String acepta : new String[]{"", ",\"acepta_terminos\":false", ",\"acepta_terminos\":null"}) {
             mvc.perform(post("/v1/auth/registro").contentType("application/json")
@@ -61,7 +70,7 @@ class AuthControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.codigo").value("TERMINOS_NO_ACEPTADOS"));
         }
-        verify(auth, org.mockito.Mockito.times(3)).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", false, "http://localhost:3000");
+        verify(auth, org.mockito.Mockito.times(3)).registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", false, null, "http://localhost:3000");
     }
 
     @Test void elLoginDiceSiFaltaAceptarLosTerminos() throws Exception {

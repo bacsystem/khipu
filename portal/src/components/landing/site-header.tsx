@@ -19,7 +19,8 @@ export function SiteHeader() {
         <div className="hidden min-w-0 sm:block">
           <LogoMarca href="/" />
         </div>
-        <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
+        {/* #581: los enlaces con más peso y contraste: tenues, la cabecera se leía como decoración. */}
+        <nav className="hidden items-center gap-7 text-sm font-medium text-foreground/80 md:flex">
           <a href="#precios" className="transition-colors hover:text-foreground">
             {t.precios}
           </a>
