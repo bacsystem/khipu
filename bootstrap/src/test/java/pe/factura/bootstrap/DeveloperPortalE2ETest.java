@@ -77,7 +77,7 @@ class DeveloperPortalE2ETest {
         List<String> diferencias = new ArrayList<>();
         diferencias(enVivo, commiteado, "", diferencias);
         assertThat(diferencias)
-                .as("portal/src/lib/api/openapi.json no es el OpenAPI de la API. Con un backend en marcha: `API_BASE_URL=http://localhost:8001 npm --prefix portal run generate:api`, "
+                .as("portal/src/lib/api/openapi.json no es el OpenAPI de la API. Con un backend en marcha y `OPENAPI_RUTAS_OCULTAS=` vacía: `API_BASE_URL=http://localhost:8001 npm --prefix portal run generate:api`, "
                         + "corrija lo que rompa `npm --prefix portal run typecheck` (contrato-openapi.ts) y commitee los dos archivos. Primeras diferencias (API en vivo vs archivo)")
                 .isEmpty();
     }
