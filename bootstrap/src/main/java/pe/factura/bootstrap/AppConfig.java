@@ -568,9 +568,12 @@ public class AppConfig {
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
                                                     SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite,
-                                                    AceptarTerminosUseCase terminos) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos);
+                                                    AceptarTerminosUseCase terminos, PlanRepository planes, PlanSolicitadoRepository planesSolicitados,
+                                                    AvisoAlOperador operador) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos, planes, planesSolicitados, operador);
     }
+    // #581: el plan que la cuenta eligió en la página de precios, para el operador.
+    @Bean PlanSolicitadoRepository planSolicitadoRepository(JdbcTemplate jdbc) { return new JdbcPlanSolicitadoRepository(jdbc); }
     // #21: el equipo de una cuenta (roles e invitaciones). Un solo servicio para lo que hace el administrador y lo que hace el invitado con el enlace.
     @Bean EquipoRepository equipoRepository(JdbcTemplate jdbc) { return new JdbcEquipoRepository(jdbc); }
     @Bean InvitacionRepository invitacionRepository(JdbcTemplate jdbc) { return new JdbcInvitacionRepository(jdbc); }
@@ -673,12 +676,17 @@ public class AppConfig {
         AppProperties.Alertas a = p.alertas();
         // El monitor y el vigilante miden los resúmenes sin respuesta con el mismo umbral.
         VigilarOperacionService.Umbrales umbrales = umbralesDeAlertas(a, umbralDeResumenesSinRespuesta(p.monitor()));
-        List<CanalDeAlertas> canales = List.of(new CorreoDeAlertas(correo, a == null ? null : a.email()), new WebhookDeAlertas(a == null ? null : a.webhookUrl()));
+        List<CanalDeAlertas> canales = canalesDeAlertas(correo, a);
         if (canales.stream().noneMatch(CanalDeAlertas::configurado))
             LoggerFactory.getLogger(AppConfig.class).warn("Alertas al operador sin canal (ALERTAS_EMAIL / ALERTAS_WEBHOOK_URL sin configurar): solo saldrán por el log. Ver deploy/README.md §11.");
         return new VigilarOperacionService(monitor, avisos, vigilado, correo, canales, clock, umbrales);
     }
     @Bean VigilarOperacionWorker vigilarOperacionWorker(VigilarOperacionUseCase vigilante) { return new VigilarOperacionWorker(vigilante); }
+    // #581: los avisos sueltos al operador (una cuenta nueva que pide un plan de pago) salen por los mismos canales que las alertas del vigilante.
+    @Bean AvisoAlOperador avisoAlOperador(CorreoSender correo, AppProperties p) { return new AvisoAlOperadorPorCanales(canalesDeAlertas(correo, p.alertas())); }
+    private static List<CanalDeAlertas> canalesDeAlertas(CorreoSender correo, AppProperties.Alertas a) {
+        return List.of(new CorreoDeAlertas(correo, a == null ? null : a.email()), new WebhookDeAlertas(a == null ? null : a.webhookUrl()));
+    }
     // #319: clientes guardados por empresa.
     @Bean ClienteRepository clienteRepository(JdbcTemplate jdbc) { return new JdbcClienteRepository(jdbc); }
     @Bean GestionarClientesUseCase gestionarClientes(ClienteRepository clientes, UnitOfWork uow, Clock clock) { return new GestionarClientesService(clientes, uow, clock); }

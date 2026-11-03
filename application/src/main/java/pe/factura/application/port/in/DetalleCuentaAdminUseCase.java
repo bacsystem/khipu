@@ -17,11 +17,19 @@ public interface DetalleCuentaAdminUseCase {
 
     /**
      * {@code suspendidaEn} es nulo si la cuenta está activa (#182); {@code bajaEn}, si no está dada de baja (#201). Una cuenta de baja se abre
-     * igual, con todo lo suyo: sus comprobantes se conservan y siguen siendo consultables.
+     * igual, con todo lo suyo: sus comprobantes se conservan y siguen siendo consultables. {@code planSolicitado}: el nombre del plan que eligió en la página
+     * de precios al registrarse (#581); nulo si no eligió ninguno.
      */
     record CuentaDetalle(UUID id, String nombre, String email, String telefono, Instant creadaEn, Instant suspendidaEn, Instant bajaEn,
                          List<UsuarioDeCuenta> usuarios, List<EmpresaDeCuenta> empresas,
-                         List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos, List<EventoReciente> historialEstado) {}
+                         List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos, List<EventoReciente> historialEstado, String planSolicitado) {
+        /** Sin plan pedido. */
+        public CuentaDetalle(UUID id, String nombre, String email, String telefono, Instant creadaEn, Instant suspendidaEn, Instant bajaEn,
+                             List<UsuarioDeCuenta> usuarios, List<EmpresaDeCuenta> empresas,
+                             List<ComprobanteReciente> comprobantes, List<EventoReciente> eventos, List<EventoReciente> historialEstado) {
+            this(id, nombre, email, telefono, creadaEn, suspendidaEn, bajaEn, usuarios, empresas, comprobantes, eventos, historialEstado, null);
+        }
+    }
 
     /** {@code ultimoAcceso}: su sesión más reciente en el portal; el uso por API key no cuenta. Nulo si nunca inició sesión. */
     record UsuarioDeCuenta(UUID id, String email, String rol, boolean activo, Instant correoVerificadoEn, Instant ultimoAcceso) {}

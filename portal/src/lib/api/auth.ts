@@ -19,13 +19,17 @@ export type Usuario = {
   terminos_pendientes?: boolean;
 };
 
-/** El cuerpo de `POST /v1/auth/registro`. `acepta_terminos` (#342): sin `true`, el backend responde `400 TERMINOS_NO_ACEPTADOS`. */
+/**
+ * El cuerpo de `POST /v1/auth/registro`. `acepta_terminos` (#342): sin `true`, el backend responde `400 TERMINOS_NO_ACEPTADOS`. `plan` (#581): el plan que eligió en la
+ * página de precios, por su nombre; el backend lo anota si es uno publicado de pago y lo ignora si no.
+ */
 export type DatosDeRegistro = {
   nombre: string;
   email: string;
   password: string;
   telefono: string;
   acepta_terminos: boolean;
+  plan?: string;
 };
 
 /** Lo que quedó guardado al aceptar los términos vigentes (#342). */

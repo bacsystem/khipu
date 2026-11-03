@@ -26,6 +26,8 @@ export type CuentaDetalleAdmin = {
   eventos: EventoReciente[];
   /** Todas las suspensiones, reactivaciones, bajas y reposiciones, de la más reciente a la más antigua (H15); el motivo va en `detalle`. */
   historial_estado: EventoReciente[];
+  /** #581: el plan que eligió en la página de precios al registrarse; ausente si no eligió ninguno. */
+  plan_solicitado?: string;
 };
 
 export type UsuarioCuenta = {

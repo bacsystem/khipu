@@ -47,7 +47,8 @@
     "registro": {
       "titulo": "Crea tu cuenta",
       "subtitulo": "Empieza a emitir comprobantes en minutos.",
-      "nombre": "Nombre de la cuenta",
+      "nombre": "Tu nombre o el de tu negocio",
+      "ayudaNombre": "Así te saludamos y así te ve nuestro equipo de soporte. La razón social de tu empresa te la pedimos después, con su RUC.",
       "telefono": "Celular (Perú)",
       "ayudaTelefono": "Te contactamos si hay algún problema con tu cuenta. 9 dígitos, empieza con 9.",
       "email": "Correo electrónico",
@@ -62,8 +63,12 @@
       "yLa": "y la",
       "privacidad": "política de privacidad",
       "terminosRequeridos": "Para crear la cuenta tienes que aceptar los términos del servicio y la política de privacidad.",
-      "nombreRequerido": "Ingresa el nombre de tu cuenta",
-      "nombreLargo": "Hasta 150 caracteres"
+      "nombreRequerido": "Ingresa tu nombre o el de tu negocio",
+      "nombreLargo": "Hasta 150 caracteres",
+      "planElegido": {
+        "titulo": "Elegiste el plan {plan} · {precio}/mes, IGV incluido",
+        "texto": "Tu cuenta empieza en el plan gratuito y te escribimos para activar {plan} cuando coordinemos el pago. Mientras tanto ya puedes registrar tu empresa y probar en Beta."
+      }
     },
     "recuperar": {
       "titulo": "Recupera tu contraseña",
@@ -208,6 +213,7 @@
       "vacio": "Todavía no hay cuentas.",
       "sinResultados": "No hay cuentas con esos filtros.",
       "nunca": "Nunca",
+      "pidioPlan": "Pidió {plan}",
       "columnas": {
         "cuenta": "Cuenta",
         "telefono": "Teléfono",
@@ -1278,6 +1284,8 @@
       "alta": "Alta",
       "correo": "Correo",
       "telefono": "Celular",
+      "planSolicitado": "Plan que pidió al registrarse",
+      "sinPlanSolicitado": "Ninguno (empezó gratis)",
       "error": "No se pudo cargar la cuenta.",
       "noExiste": "La cuenta no existe.",
       "bajaDesde": "De baja desde {fecha}",

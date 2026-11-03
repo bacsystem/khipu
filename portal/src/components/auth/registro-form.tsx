@@ -10,6 +10,7 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
+import { interpolar } from "@/i18n/mensajes";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMessages } from "next-intl";
 import type { Mensajes } from "@/i18n/mensajes";
@@ -31,8 +32,13 @@ function esquema(messages: Mensajes) {
 
 type FormValues = z.infer<ReturnType<typeof esquema>>;
 
+/** «S/ 69», como la página de precios. */
+function soles(n: number) {
+  return `S/ ${n.toLocaleString("es-PE", { maximumFractionDigits: 2 })}`;
+}
+
 /** `revisado`: si los textos legales ya los revisó un abogado (`revisadoPorLegal()`, que la página lee en el servidor); sin él, la casilla avisa que son un borrador. */
-export function RegistroForm({ revisado = false }: { revisado?: boolean }) {
+export function RegistroForm({ revisado = false, plan }: { revisado?: boolean; plan?: { nombre: string; precio: number } }) {
   const router = useRouter();
   const messages = useMessages();
   const mensajeError = useMensajeError();
@@ -48,7 +54,8 @@ export function RegistroForm({ revisado = false }: { revisado?: boolean }) {
 
   async function onSubmit(values: FormValues) {
     setError(null);
-    const res = await postJson<{ usuario: unknown }>("/api/auth/registro", values);
+    // #581: el plan elegido viaja con el registro para que el operador lo active; la cuenta nace igual en el plan gratis.
+    const res = await postJson<{ usuario: unknown }>("/api/auth/registro", plan ? { ...values, plan: plan.nombre } : values);
     if (res.estado === "exito") {
       router.push("/onboarding");
       router.refresh();
@@ -59,12 +66,19 @@ export function RegistroForm({ revisado = false }: { revisado?: boolean }) {
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+      {/* #581: lo que eligió en la página de precios, y qué pasa con eso: no hay pasarela de pago, el plan lo activa el equipo al registrar el pago. */}
+      {plan ? (
+        <Alerta tono="info" titulo={interpolar(messages.auth.registro.planElegido.titulo, { plan: plan.nombre, precio: soles(plan.precio) })}>
+          <span data-testid="plan-elegido">{interpolar(messages.auth.registro.planElegido.texto, { plan: plan.nombre })}</span>
+        </Alerta>
+      ) : null}
       <FormField
         id="nombre"
         label={messages.auth.registro.nombre}
         autoComplete="organization"
         register={register("nombre")}
         error={errors.nombre?.message}
+        hint={messages.auth.registro.ayudaNombre}
       />
       <FormField
         id="telefono"

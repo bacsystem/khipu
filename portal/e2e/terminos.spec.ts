@@ -19,7 +19,7 @@ test("las páginas de términos y privacidad son públicas, dicen que son un bor
 test("el registro no se envía sin aceptar los términos, y con ellos crea la cuenta", async ({ page }) => {
   const email = `terminos-registro-${Date.now()}@example.com`;
   await page.goto("/registro");
-  await page.getByLabel("Nombre de la cuenta").fill("Bodega de Prueba");
+  await page.getByLabel("Tu nombre o el de tu negocio").fill("Bodega de Prueba");
   await page.getByLabel(/Celular/).fill("987654321");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña").fill("Passw0rd1");

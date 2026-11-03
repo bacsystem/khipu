@@ -15,4 +15,8 @@ public record RegistroRequest(
         // TERMINOS_NO_ACEPTADOS que decide el servicio (el mismo para quien lo llame sin pasar por este DTO).
         @Schema(example = "true", requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Que acepta los términos del servicio y la política de privacidad vigentes (#342). Sin `true`, `400 TERMINOS_NO_ACEPTADOS`.")
-        Boolean aceptaTerminos) {}
+        Boolean aceptaTerminos,
+        // Opcional y sin validar el nombre acá (#581): un plan desconocido no es un error, el servicio lo ignora para que un enlace viejo no impida registrarse.
+        @Size(max = 40) @Schema(example = "Negocio", description = "El plan que eligió en la página de precios (#581), por su nombre. La cuenta nace igual en el plan por defecto; "
+                + "si es un plan publicado de pago queda anotado para el operador, que lo activa al registrar el pago. Uno desconocido o el gratis se ignora.")
+        String plan) {}

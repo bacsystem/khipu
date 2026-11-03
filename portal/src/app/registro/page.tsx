@@ -4,8 +4,8 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { RegistroForm } from "@/components/auth/registro-form";
 import { revisadoPorLegal } from "@/content/legal/version";
 import { registroAbierto } from "@/lib/acceso";
+import { obtenerPlanesPublicados, planDePagoElegido } from "@/lib/api/planes-publicados";
 import type { Metadata } from "next";
-import { useMessages } from "next-intl";
 import { getMessages } from "next-intl/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,10 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
 // (Railway las inyecta en runtime) y prerenderizar dejaría el flag congelado con lo que hubiera al construir la imagen.
 export const dynamic = "force-dynamic";
 
-export default function RegistroPage() {
+/** `?plan=<clave>` (#581): el plan que eligió en la página de precios. Se valida contra lo publicado: uno que no existe o el gratis no se muestra ni se envía. */
+export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ plan?: string | string[] }> }) {
   // Con el autoservicio cerrado la página no existe: el landing ofrece «Solicitar acceso» y las cuentas se dan de alta a mano.
   if (!registroAbierto()) notFound();
-  const messages = useMessages();
+  const messages = await getMessages();
+  const { plan } = await searchParams;
+  const elegido = typeof plan === "string" ? planDePagoElegido(await obtenerPlanesPublicados(), plan) : null;
   return (
     <AuthShell
       title={messages.auth.registro.titulo}
@@ -34,7 +37,7 @@ export default function RegistroPage() {
         </>
       }
     >
-      <RegistroForm revisado={revisadoPorLegal()} />
+      <RegistroForm revisado={revisadoPorLegal()} plan={elegido ? { nombre: elegido.nombre, precio: elegido.precio_mensual } : undefined} />
     </AuthShell>
   );
 }

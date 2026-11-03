@@ -288,6 +288,8 @@ export function CuentaDetalle({ cuenta, hoy, plan }: { cuenta: CuentaDetalleAdmi
             },
             { etiqueta: t.correo, valor: cuenta.email, mono: true },
             { etiqueta: t.telefono, valor: cuenta.telefono ?? "—", mono: true },
+            // #581: lo que pidió al registrarse, no lo que tiene (eso lo dice la pestaña Plan).
+            { etiqueta: t.planSolicitado, valor: cuenta.plan_solicitado ?? t.sinPlanSolicitado },
             { etiqueta: t.alta, valor: formatearFechaHora(cuenta.creada_en, locale) },
           ]}
         />

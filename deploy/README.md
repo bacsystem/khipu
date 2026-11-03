@@ -620,6 +620,8 @@ si ningún canal pudo entregar el mensaje, no se registra y la siguiente pasada 
 
 Con `CORREO_DESHABILITADO` el canal de correo no puede avisar de su propio problema: configure también el webhook, o esa alerta solo quedará en el log.
 
+Por los mismos canales sale un **aviso suelto** cuando una cuenta nueva se registra eligiendo un plan de pago en la página de precios (#581): «Cuenta nueva pide el plan X», con el nombre, el correo, el celular y el enlace a la cuenta en el backoffice. El nombre y el correo los escribió el cliente: van sin `<`/`>` y con la arroba de ancho completo (`＠`), para que nadie mencione a todo el canal (`<!channel>`, `@everyone`) registrándose con ese nombre; el correo exacto está en el backoffice. La cuenta nace en el plan por defecto; el operador la contacta, registra el pago y le cambia el plan. No se repite ni tiene «resuelto», y sin canal configurado queda solo en el log (nivel INFO). El plan pedido también se ve en Backoffice → Cuentas.
+
 ### El respaldo avisa que corrió
 
 `respaldar.sh` anota al terminar bien un latido (`INSERT` en `latido_operativo`, clave `respaldo`) con el mismo `DATABASE_URL` con que hizo el volcado. Si la base todavía no tiene la migración V57, el

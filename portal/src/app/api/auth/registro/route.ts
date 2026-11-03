@@ -11,10 +11,12 @@ export async function POST(req: NextRequest) {
       { estado: "error", datos: null, mensaje: "El registro está por invitación: escríbenos para pedir acceso.", codigo: "REGISTRO_CERRADO", errores: null },
       { status: 403 },
     );
-  const { nombre, email, password, telefono, acepta_terminos } = await req.json();
+  const { nombre, email, password, telefono, acepta_terminos, plan } = await req.json();
+  // #581: el plan elegido es opcional y solo un nombre corto; cualquier otra cosa no se reenvía (el backend igual ignora uno que no sea un plan publicado).
+  const planElegido = typeof plan === "string" && plan.trim() !== "" && plan.trim().length <= 40 ? plan.trim() : undefined;
   try {
     // #342: solo un `true` cuenta como aceptación; cualquier otra cosa llega como `false` y el backend responde 400 TERMINOS_NO_ACEPTADOS.
-    const tokens = await registrar({ nombre, email, password, telefono, acepta_terminos: acepta_terminos === true });
+    const tokens = await registrar({ nombre, email, password, telefono, acepta_terminos: acepta_terminos === true, plan: planElegido });
     const res = NextResponse.json(
       { estado: "exito", datos: { usuario: tokens.usuario }, mensaje: null, codigo: null, errores: null },
       { status: 201 },
