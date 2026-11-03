@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PRIVACIDAD } from "./privacidad";
 import { TERMINOS } from "./terminos";
-import { VERSION_PRIVACIDAD, VERSION_TERMINOS, VERSION_TEXTOS_LEGALES } from "./version";
+import { revisadoPorLegal, VERSION_PRIVACIDAD, VERSION_TERMINOS, VERSION_TEXTOS_LEGALES } from "./version";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -9,6 +9,30 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/;
  * #342: lo que acepta el usuario es `VERSION_TEXTOS_LEGALES`. Si un texto cambia de versión y esta no sube, nadie vuelve a aceptar; por eso es
  * la más reciente de las dos. Que sea la misma que `app.terminos-version` del backend lo comprueba `TerminosVersionTest` del backend.
  */
+/** #580: el aviso de borrador lo quita `REVISADO_POR_LEGAL=true` en el entorno; ante cualquier duda, se sigue avisando. */
+describe("revisadoPorLegal", () => {
+  it("solo true los da por revisados, sin importar mayúsculas ni espacios", () => {
+    for (const v of ["true", "TRUE", " True "]) expect(revisadoPorLegal(v)).toBe(true);
+  });
+
+  it("vacía, ausente o cualquier otro valor deja el aviso", () => {
+    for (const v of [undefined, "", "false", "1", "si", "yes", "truee"]) expect(revisadoPorLegal(v)).toBe(false);
+  });
+
+  it("lee la variable de entorno al llamarse, no al cargar el módulo", () => {
+    const antes = process.env.REVISADO_POR_LEGAL;
+    try {
+      process.env.REVISADO_POR_LEGAL = "true";
+      expect(revisadoPorLegal()).toBe(true);
+      process.env.REVISADO_POR_LEGAL = "";
+      expect(revisadoPorLegal()).toBe(false);
+    } finally {
+      if (antes === undefined) delete process.env.REVISADO_POR_LEGAL;
+      else process.env.REVISADO_POR_LEGAL = antes;
+    }
+  });
+});
+
 describe("versiones de los textos legales", () => {
   it("son fechas AAAA-MM-DD válidas", () => {
     for (const v of [VERSION_TERMINOS, VERSION_PRIVACIDAD, VERSION_TEXTOS_LEGALES]) {

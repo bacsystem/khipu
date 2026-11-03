@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [Unreleased]
+
+Trae **una migración (V73)**, que agrega el entorno a cada documento y lo rellena desde la bitácora de cambios de entorno: respaldar la base antes de desplegar.
+
+### Added
+- Variable de entorno `REVISADO_POR_LEGAL` del portal (#580): `true` quita el aviso de borrador de los términos, la privacidad y la casilla del registro, sin construir otra imagen.
+
+### Changed
+- El tope y el consumo del plan cuentan solo Producción (#580): cada documento guarda el entorno en que se emitió (V73), las pruebas en Beta no consumen ni ocupan el tope en ningún plan, y una empresa en Beta sigue probando aunque su cuenta llegó al tope. Plan y consumo del cliente y el consumo del backoffice usan el mismo criterio.
+- Portada (#580): Gratis con comprobantes reales en Producción y pruebas en Beta sin límite, Pro con 10 000 documentos/mes en la lista de respaldo; Emprende ya no vende «Producción además de pruebas», y la nota dice que las pruebas no consumen el plan. Los límites publicados siguen saliendo del backoffice.
+
+### Fixed
+- El precio de los planes ya no se parte en dos líneas («S/» arriba y el monto abajo) en cuatro columnas: «IGV incluido» va en su propia línea (#580).
+
 ## [1.1.0] - 2026-11-02
 
 Una emisión más simple y todo el portal con el design system. Trae **una migración (V72)**, que solo agrega una columna con valor por defecto: igual conviene respaldar la base antes de desplegar.

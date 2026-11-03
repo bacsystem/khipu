@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * El contador de consumo (#192) con Postgres real. Es código de dinero y el error está en lo que **no** cuenta, así que los tests recorren cada caso que no cuenta:
  * un documento por cada estado, el borde de los meses, los reintentos, las bajas, los tipos y las empresas ajenas. Solo cuentan los comprobantes aceptados
- * (con o sin observaciones), por su fecha de emisión, dentro del mes calendario.
+ * (con o sin observaciones) emitidos en Producción (#580), por su fecha de emisión, dentro del mes calendario.
  */
 class JdbcConsumoRepositoryTest extends PersistenciaTestBase {
     static final YearMonth OCTUBRE = YearMonth.of(2026, 10);
@@ -33,10 +33,12 @@ class JdbcConsumoRepositoryTest extends PersistenciaTestBase {
         return id;
     }
 
-    UUID empresa(UUID cuenta, String razon) {
+    UUID empresa(UUID cuenta, String razon) { return empresa(cuenta, razon, "PRODUCCION"); }
+
+    UUID empresa(UUID cuenta, String razon, String entorno) {
         UUID id = UUID.randomUUID();
         String ruc = "20" + String.format("%09d", RUC.getAndIncrement());
-        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, ?, 'BETA', ?)", id, ruc, razon, cuenta);
+        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, ?, ?, ?)", id, ruc, razon, entorno, cuenta);
         return id;
     }
 
@@ -107,6 +109,33 @@ class JdbcConsumoRepositoryTest extends PersistenciaTestBase {
                 anulado, e, NUMERO.getAndIncrement(), java.sql.Date.valueOf(MITAD));
 
         assertThat(repo.documentosDeEmpresa(e, OCTUBRE)).isEqualTo(2);
+    }
+
+    /** #580: lo emitido en Beta no consume el plan, ni por empresa ni en la lista de la cuenta, aunque SUNAT lo haya aceptado. */
+    @Test void lasPruebasEnBetaNoConsumen() {
+        UUID c = cuenta("a@negocio.pe");
+        UUID beta = empresa(c, "PRUEBAS SAC", "BETA");
+        UUID prod = empresa(c, "REAL SAC");
+        documento(beta, EstadoDocumento.ACEPTADO, MITAD);
+        documento(beta, EstadoDocumento.ACEPTADO_CON_OBS, MITAD);
+        documento(prod, EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(repo.documentosDeEmpresa(beta, OCTUBRE)).isZero();
+        assertThat(repo.documentosDeEmpresa(prod, OCTUBRE)).isEqualTo(1);
+        assertThat(repo.documentosPorEmpresaDeCuenta(c, OCTUBRE)).extracting(ConsumoDeEmpresa::documentos).containsExactlyInAnyOrder(0L, 1L);
+    }
+
+    /** #580: cada documento guarda el entorno en que se emitió. Las pruebas previas al paso a Producción no pasan a consumir; lo emitido después, sí. */
+    @Test void elEntornoEsElDeCuandoSeEmitioNoElDeHoy() {
+        UUID c = cuenta("a@negocio.pe");
+        UUID e = empresa(c, "UNO SAC", "BETA");
+        documento(e, EstadoDocumento.ACEPTADO, MITAD);
+        documento(e, EstadoDocumento.ACEPTADO, MITAD);
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE id = ?", e);
+        documento(e, EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(repo.documentosDeEmpresa(e, OCTUBRE)).isEqualTo(1);
+        assertThat(repo.documentosPorEmpresaDeCuenta(c, OCTUBRE).get(0).documentos()).isEqualTo(1);
     }
 
     // --- el mes -----------------------------------------------------------------------------------------------------------------------------

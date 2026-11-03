@@ -23,6 +23,15 @@ const casilla = () => screen.getByRole("checkbox", { name: /Acepto los términos
 const aceptar = () => fireEvent.click(screen.getByRole("button", { name: "Aceptar y continuar" }));
 
 describe("AceptarTerminos (#342)", () => {
+  it("#580: el aviso de borrador sigue a `revisado`, que le pasa la página; sin él, se avisa", () => {
+    render(<AceptarTerminos />);
+    expect(screen.getByTestId("borrador-legal-casilla")).toBeTruthy();
+    cleanup();
+
+    render(<AceptarTerminos revisado />);
+    expect(screen.queryByTestId("borrador-legal-casilla")).toBeNull();
+  });
+
   it("enlaza los dos textos, en otra pestaña", () => {
     render(<AceptarTerminos />);
 

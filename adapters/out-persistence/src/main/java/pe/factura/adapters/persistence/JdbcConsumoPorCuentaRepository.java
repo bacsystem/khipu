@@ -16,7 +16,8 @@ import java.util.UUID;
 
 /**
  * El consumo de todas las cuentas contra su plan de hoy (#193). Los documentos se cuentan con los mismos estados y el mismo mes que el contador de #192
- * ({@link JdbcConsumoRepository#ESTADOS_QUE_CUENTAN}: la regla vive en el dominio, no en un texto copiado aquí); las cuentas de baja se quitan con la misma regla de
+ * ({@link JdbcConsumoRepository#ESTADOS_QUE_CUENTAN} y solo Producción, {@link JdbcConsumoRepository#ENTORNOS_QUE_CONSUMEN}: la regla vive en el dominio, no en un
+ * texto copiado aquí); las cuentas de baja se quitan con la misma regla de
  * los listados ({@link BajasEnListado}). El tope es el que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha. Un solo recorrido, con el orden
  * y la paginación en la base: el porcentaje de la ordenación es la misma división entera (hacia abajo) que muestra {@code UsoDeLimite}.
  */
@@ -35,7 +36,7 @@ public class JdbcConsumoPorCuentaRepository implements ConsumoPorCuentaRepositor
                 LEFT JOIN plan_cambio_programado cp ON cp.plan_id = p.id
                 LEFT JOIN (
                     SELECT t.cuenta_id, count(*) AS n FROM tenant t JOIN documento d ON d.tenant_id = t.id
-                    WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%s) AND d.fecha_emision >= ? AND d.fecha_emision < ?
+                    WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%s) AND d.entorno IN (%s) AND d.fecha_emision >= ? AND d.fecha_emision < ?
                     GROUP BY t.cuenta_id) u ON u.cuenta_id = c.id
                 WHERE %s
             ) x WHERE %s""";
@@ -56,7 +57,7 @@ public class JdbcConsumoPorCuentaRepository implements ConsumoPorCuentaRepositor
     }
 
     private static String sql(Consulta q) {
-        return BASE.formatted(JdbcConsumoRepository.ESTADOS_QUE_CUENTAN, BajasEnListado.deCuenta(VisibilidadDeBajas.OCULTAS, "c"), switch (q.filtro()) {
+        return BASE.formatted(JdbcConsumoRepository.ESTADOS_QUE_CUENTAN, JdbcConsumoRepository.ENTORNOS_QUE_CONSUMEN, BajasEnListado.deCuenta(VisibilidadDeBajas.OCULTAS, "c"), switch (q.filtro()) {
             case TODAS -> "TRUE";
             case CERCA_DEL_LIMITE -> "limite IS NOT NULL AND documentos * 100 >= limite::bigint * ?";
             case PLAN_VENCIDO -> "vence_en IS NOT NULL AND vence_en <= ?";

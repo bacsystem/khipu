@@ -1,6 +1,7 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AceptarTerminos } from "@/components/legal/aceptar-terminos";
 import { useMessages } from "next-intl";
+import { revisadoPorLegal } from "@/content/legal/version";
 import type { Usuario } from "@/lib/api/auth";
 
 /**
@@ -17,7 +18,7 @@ export function PantallaDeTerminos() {
   const messages = useMessages();
   return (
     <AuthShell title={messages.aceptarTerminos.titulo} subtitle={messages.app.nombre}>
-      <AceptarTerminos />
+      <AceptarTerminos revisado={revisadoPorLegal()} />
     </AuthShell>
   );
 }

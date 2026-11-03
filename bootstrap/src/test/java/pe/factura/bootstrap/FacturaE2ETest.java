@@ -772,8 +772,8 @@ class FacturaE2ETest {
     }
 
     /**
-     * #18: la empresa de una cuenta con el plan Gratis (30 documentos al mes) que ya tiene 29 en el mes emite el número 30 y el 31 se rechaza con 429 LIMITE_PLAN, sin
-     * gastar correlativo ni llamar a SUNAT. Lo que está en camino también ocupa lugar.
+     * #18: una cuenta con el plan Gratis (30 documentos al mes) que ya usó los 30 en Producción no emite más en Producción: 429 LIMITE_PLAN, sin gastar correlativo ni
+     * llamar a SUNAT. Lo que está en camino también ocupa lugar. #580: el tope es de Producción, así que en Beta la misma empresa sigue probando.
      */
     @Test void enElTopeDelPlanLaEmisionSeRechazaCon429(WireMockRuntimeInfo wm) throws Exception {
         stubFor(post("/billService").willReturn(okXml(soapOk("20100066603-01-F001-1"))));
@@ -785,16 +785,20 @@ class FacturaE2ETest {
         assertThat(jdbc.queryForObject("SELECT p.nombre FROM suscripcion s JOIN plan p ON p.id = s.plan_id WHERE s.cuenta_id = ? AND s.termina_en IS NULL", String.class, cuenta)).isEqualTo("Gratis");
         jdbc.update("UPDATE tenant SET cuenta_id = ? WHERE ruc = '20100066603'", cuenta);
         java.time.LocalDate hoy = java.time.LocalDate.now(java.time.ZoneId.of("America/Lima"));
-        // 28 aceptados y uno en camino, en serie aparte para no tocar la numeración de F001.
+        // 29 aceptados y uno en camino, emitidos en Producción, en serie aparte para no tocar la numeración de F001.
         jdbc.update("""
-                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo)
-                SELECT gen_random_uuid(), t.id, '01', 'F900', g, ?, CASE WHEN g = 1 THEN 'ENVIADO' ELSE 'ACEPTADO' END, 'archivo'
-                FROM tenant t, generate_series(1, 29) g WHERE t.ruc = '20100066603'""", java.sql.Date.valueOf(hoy));
+                INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, entorno)
+                SELECT gen_random_uuid(), t.id, '01', 'F900', g, ?, CASE WHEN g = 1 THEN 'ENVIADO' ELSE 'ACEPTADO' END, 'archivo', 'PRODUCCION'
+                FROM tenant t, generate_series(1, 30) g WHERE t.ruc = '20100066603'""", java.sql.Date.valueOf(hoy));
         HttpHeaders h = new HttpHeaders(); h.set("X-Api-Key", apiKey); h.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<Map> trigesima = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
-        assertThat(trigesima.getStatusCode()).as("%s", trigesima.getBody()).isEqualTo(HttpStatus.CREATED);
+        // La empresa está en Beta: prueba aunque la cuenta esté en el tope, y la prueba no lo ocupa.
+        ResponseEntity<Map> enBeta = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
+        assertThat(enBeta.getStatusCode()).as("%s", enBeta.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(jdbc.queryForObject("SELECT entorno FROM documento WHERE serie = 'F001' AND numero = 1", String.class)).isEqualTo("BETA");
 
+        // En Producción, el tope manda. Se rechaza antes de hablarle a SUNAT, así que no sale ninguna llamada a la URL real.
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE ruc = '20100066603'");
         ResponseEntity<Map> rechazada = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
         assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
         assertThat(rechazada.getBody().toString()).contains("LIMITE_PLAN").contains("30 documentos").contains("Gratis");

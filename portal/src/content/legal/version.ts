@@ -7,11 +7,17 @@
  * 3. `VERSION_TEXTOS_LEGALES` es la más reciente de las dos (`version.test.ts` lo comprueba) y tiene que ser la misma que
  *    `app.terminos-version` en `bootstrap/src/main/resources/application.yml` (`TerminosVersionTest` del backend lo comprueba). Al subirla,
  *    todos los usuarios vuelven a aceptar al entrar. Una corrección que no cambia lo que se acepta (una errata) no la sube.
- * 4. Cuando un abogado haya revisado los textos, `REVISADO_POR_LEGAL = true` quita el aviso de borrador de las dos páginas.
+ * 4. Cuando un abogado haya revisado los textos, la variable de entorno `REVISADO_POR_LEGAL=true` del portal quita el aviso de borrador.
  */
 
-/** `false` mientras los textos sean el borrador escrito sin asesoría legal: las páginas lo dicen arriba de todo. */
-export const REVISADO_POR_LEGAL = false;
+/**
+ * Si los textos ya los revisó alguien con formación legal: la variable de entorno `REVISADO_POR_LEGAL` del portal (#580), leída en el servidor al pintar.
+ * Solo `true` (sin importar mayúsculas ni espacios) la da por revisada; vacía, ausente o cualquier otro valor deja el aviso de borrador: ante la duda, se
+ * dice que es un borrador. Los componentes de cliente no la leen: la reciben como prop de la página, que sí corre en el servidor.
+ */
+export function revisadoPorLegal(valor: string | undefined = process.env.REVISADO_POR_LEGAL): boolean {
+  return valor?.trim().toLowerCase() === "true";
+}
 
 /** Fecha (AAAA-MM-DD) de la versión vigente de los términos del servicio. */
 export const VERSION_TERMINOS = "2026-10-21";

@@ -89,15 +89,18 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                 {p.destacado ? <Badge className="shrink-0 border-transparent bg-acento text-acento-texto">{t.masUsado}</Badge> : null}
               </div>
 
+              {/* El monto no se parte («S/» arriba y «29» abajo) y el sufijo es corto: en cuatro columnas «/mes · IGV incluido» no cabía al lado y partía
+                  las dos cosas (#580). El IGV va en su propia línea, igual en todas las tarjetas de pago. */}
               <p className="mt-5 flex items-baseline gap-1.5">
-                <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em] tabular-nums">
+                <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums" data-testid="precio-plan">
                   {p.mensual === 0 ? "S/ 0" : soles(porMes)}
                 </span>
-                <span className="text-sm text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
+                <span className="text-sm whitespace-nowrap text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
               </p>
-              {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo. */}
-              <p className="mt-1 min-h-[1.25rem] text-control text-acento-texto dark:text-acento">
-                {anual && p.mensual > 0 ? interpolar(t.alAno, { monto: soles(alAno) }) : ""}
+              {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo, y las de pago con las gratis. */}
+              <p className="mt-1 min-h-[2.5rem] text-control">
+                {p.mensual > 0 ? <span className="block text-muted-foreground">{t.igvIncluido}</span> : null}
+                {anual && p.mensual > 0 ? <span className="block text-acento-texto dark:text-acento">{interpolar(t.alAno, { monto: soles(alAno) })}</span> : null}
               </p>
 
               <div className="mt-4 rounded-lg bg-muted/60 px-3 py-2.5 text-sm">

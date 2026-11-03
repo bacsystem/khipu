@@ -7,6 +7,8 @@ import pe.factura.application.port.out.TopeDeDocumentosRepository;
 import pe.factura.domain.DomainException;
 import pe.factura.domain.plan.*;
 import pe.factura.domain.plataforma.ActorAdmin;
+import pe.factura.domain.tenant.Entorno;
+import pe.factura.domain.tenant.Tenant;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -68,6 +70,23 @@ class TopeDelPlanServiceTest {
                 .hasMessageContaining("octubre de 2026")
                 .hasMessageContaining("Gratis")
                 .hasMessageContaining("1 de noviembre");
+    }
+
+    /** #580: las pruebas en Beta no tienen tope. Con la cuenta llena, su empresa en Beta sigue emitiendo, y ni siquiera se cuenta ni se bloquea la cuenta. */
+    @Test void unaEmpresaEnBetaEmiteAunqueLaCuentaEsteEnElTope() {
+        tenants.guardar(Fakes.tenantListo(empresa));
+        ocupados.put(cuentaId + "/2026-10", 30L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+        assertThat(bloqueadas).isEmpty();
+    }
+
+    /** #580: la misma cuenta llena, con la empresa ya en Producción, no emite. */
+    @Test void unaEmpresaEnProduccionSiTopaConLaCuentaLlena() {
+        Tenant t = Fakes.tenantListo(empresa);
+        tenants.guardar(new Tenant(t.id(), t.ruc(), t.razonSocial(), Entorno.PRODUCCION, t.sol(), t.certificado(), t.domicilio(), t.cuentaDetracciones(), t.nombreComercial(),
+                t.personalizacionPdf(), t.padronTasaEspecialIgv()));
+        ocupados.put(cuentaId + "/2026-10", 30L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).hasFieldOrPropertyWithValue("codigo", "LIMITE_PLAN");
     }
 
     @Test void pasadoElTopeTampoco() {
