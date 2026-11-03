@@ -70,6 +70,15 @@ export function UbigeoSelector({
   );
   const cargando = ubigeos === null && !errorCatalogo;
 
+  // Un distrito elegido desde afuera (#575: el domicilio que sugiere el padrón de SUNAT) lleva el departamento y la provincia al suyo: sin esto el combo del
+  // distrito quedaba con un valor que no está entre sus opciones.
+  useEffect(() => {
+    const u = value ? ubigeos?.find((x) => x.codigo === value) : undefined;
+    if (!u) return;
+    setDepartamento(u.departamento);
+    setProvincia(u.provincia);
+  }, [value, ubigeos]);
+
   return (
     <>
       {errorCatalogo ? (

@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMessages, useTranslations } from "next-intl";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { FormField } from "@/components/forms/form-field";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
@@ -88,6 +90,19 @@ export function OnboardingEmpresaForm() {
     defaultValues: { entorno: "BETA" },
   });
 
+  // #575: con el RUC completo se consulta el padrón de SUNAT (con la sesión, todavía sin empresa) y se rellena la razón social si está vacía.
+  const razonSocial = empresaForm.watch("razon_social") ?? "";
+  const padron = useAutocompletadoDelPadron({
+    ruc: empresaForm.watch("ruc") ?? "",
+    campos: [
+      {
+        valor: razonSocial,
+        poner: (v) => empresaForm.setValue("razon_social", v, { shouldValidate: empresaForm.formState.isSubmitted }),
+        dato: (c) => c.razon_social,
+      },
+    ],
+  });
+
   async function onEmpresa(values: EmpresaValues) {
     setError(null);
     const res = await enviar<{ id: string }>("/api/proxy/empresas", { method: "POST", body: values });
@@ -128,6 +143,15 @@ export function OnboardingEmpresaForm() {
           hint={t.rucAyuda}
           register={empresaForm.register("ruc")}
           error={empresaForm.formState.errors.ruc?.message}
+        />
+        <EstadoConsultaRuc
+          contexto="emisor"
+          consultando={padron.consultando}
+          resultado={padron.resultado}
+          nombreActual={razonSocial}
+          onReintentar={padron.reintentar}
+          onUsarNombre={(n) => padron.usarDato(0, n)}
+          className="-mt-2"
         />
         <FormField
           id="razon_social"

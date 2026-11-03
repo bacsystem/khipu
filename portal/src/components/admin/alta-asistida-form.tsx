@@ -8,6 +8,8 @@ import { type ChangeEvent, type ComponentProps, type FormEvent, useEffect, useMe
 import { Controller, type FieldErrors, type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiKeyRevelada } from "@/components/api-keys/api-key-revelada";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
@@ -137,6 +139,14 @@ export function AltaAsistidaForm({
   } = useForm<Valores, unknown, Salida>({ resolver: zodResolver(schema), defaultValues: VALORES_INICIALES });
   useEffect(() => alCambiarEnvio?.(isSubmitting), [isSubmitting, alCambiarEnvio]);
 
+  // #575: el RUC se consulta en el padrón de SUNAT por la ruta del backoffice (todavía no hay empresa) y se rellena la razón social si está vacía.
+  const razonSocial = watch("razon_social");
+  const padron = useAutocompletadoDelPadron({
+    ruc: watch("ruc"),
+    origen: "admin",
+    campos: [{ valor: razonSocial, poner: (v) => setValue("razon_social", v, { shouldValidate: Boolean(errors.razon_social) }), dato: (c) => c.razon_social }],
+  });
+
   async function onSubmit(values: Salida) {
     setError(null);
     const cuerpo = {
@@ -244,6 +254,15 @@ export function AltaAsistidaForm({
         <fieldset hidden={paso !== 1} className="grid gap-4">
           <legend className="sr-only">{t.seccionEmpresa}</legend>
           <CampoDeTexto id="alta-ruc" etiqueta={t.ruc} inputMode="numeric" maxLength={11} filtrar={soloDigitos} mono registro={register("ruc")} error={errors.ruc?.message} />
+          <EstadoConsultaRuc
+            contexto="emisor"
+            consultando={padron.consultando}
+            resultado={padron.resultado}
+            nombreActual={razonSocial}
+            onReintentar={padron.reintentar}
+            onUsarNombre={(n) => padron.usarDato(0, n)}
+            className="-mt-2"
+          />
           <CampoDeTexto id="alta-razon-social" etiqueta={t.razonSocial} registro={register("razon_social")} error={errors.razon_social?.message} />
           <Campo id="alta-entorno" etiqueta={t.entorno}>
             <Controller

@@ -4,6 +4,8 @@ import { PlusIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, useState } from "react";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { apiRequest } from "@/lib/api/browser";
 import type { Empresa, Entorno } from "@/lib/api/empresas";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
@@ -23,6 +25,8 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
   const [entorno, setEntorno] = useState<Entorno>("BETA");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #575: con el RUC completo se consulta el padrón de SUNAT y se rellena la razón social si está vacía.
+  const padron = useAutocompletadoDelPadron({ ruc, campos: [{ valor: razonSocial, poner: setRazonSocial, dato: (c) => c.razon_social }] });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -76,6 +80,15 @@ export function NuevaEmpresaForm({ onGuardado, onCancelar }: { onGuardado?: () =
           />
         </Campo>
       </div>
+      <EstadoConsultaRuc
+        contexto="emisor"
+        consultando={padron.consultando}
+        resultado={padron.resultado}
+        nombreActual={razonSocial}
+        onReintentar={padron.reintentar}
+        onUsarNombre={(n) => padron.usarDato(0, n)}
+        className="-mt-2"
+      />
 
       <Campo id="nueva-razon" etiqueta={tc.razonSocial}>
         <Entrada id="nueva-razon" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} placeholder={t.razonSocialPlaceholder} required />

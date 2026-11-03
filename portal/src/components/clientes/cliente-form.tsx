@@ -5,6 +5,8 @@ import { useLocale, useMessages } from "next-intl";
 import { type FormEvent, useMemo, useState } from "react";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { apiRequest } from "@/lib/api/browser";
 import type { ClienteGuardado, DatosDeCliente } from "@/lib/api/clientes";
 import { documentosDeCliente, errorDeDocumento } from "@/lib/comprobantes/documentos";
@@ -33,6 +35,16 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #575: con un RUC completo se consulta el padrón de SUNAT y se rellenan el nombre y la dirección vacíos. Al editar, solo si el RUC cambió: abrir un cliente
+  // guardado no gasta una consulta.
+  const padron = useAutocompletadoDelPadron({
+    ruc: numDoc,
+    activa: tipoDoc === "6" && numDoc !== (existente?.num_doc ?? ""),
+    campos: [
+      { valor: razon, poner: setRazon, dato: (c) => c.razon_social },
+      { valor: direccion, poner: setDireccion, dato: (c) => c.direccion },
+    ],
+  });
 
   const documento = DOCUMENTOS_DE_CLIENTE.find((d) => d.codigo === tipoDoc) ?? DOCUMENTOS_DE_CLIENTE[0];
   const errorDoc = errorDeDocumento(tipoDoc, numDoc, messages);
@@ -93,6 +105,14 @@ export function ClienteForm({ existente, onGuardado, onCancelar }: { existente?:
           />
         </Campo>
       </div>
+      <EstadoConsultaRuc
+        consultando={padron.consultando}
+        resultado={padron.resultado}
+        nombreActual={razon}
+        onReintentar={padron.reintentar}
+        onUsarNombre={(n) => padron.usarDato(0, n)}
+        className="-mt-2"
+      />
       <Campo id="cli-razon" etiqueta={tipoDoc === "6" ? t.razonSocial : t.nombre} error={intento ? errorNombre : null}>
         <Entrada id="cli-razon" value={razon} onChange={(e) => setRazon(e.target.value)} maxLength={1500} invalido={intento && !!errorNombre} aria-describedby={intento && errorNombre ? "cli-razon-error" : undefined} />
       </Campo>

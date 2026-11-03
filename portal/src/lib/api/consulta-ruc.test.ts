@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { consultarRuc, observacionesDeSunat } from "./consulta-ruc";
+import { avisosDeEmisor, consultarRuc, observacionesDeSunat } from "./consulta-ruc";
 import es from "@/messages/es.json";
 
 const CONTRIBUYENTE = {
@@ -24,6 +24,15 @@ describe("consultarRuc", () => {
     const r = await consultarRuc("20100066603");
 
     expect(fetch).toHaveBeenCalledWith("/api/proxy/consultas/ruc/20100066603", expect.objectContaining({ method: "GET" }));
+    expect(r).toEqual({ tipo: "encontrado", contribuyente: CONTRIBUYENTE });
+  });
+
+  it("desde el backoffice (#575) pide el RUC a su propia ruta, con la sesión de administrador", async () => {
+    const fetch = responde(200, exito(CONTRIBUYENTE));
+
+    const r = await consultarRuc("20100066603", "admin");
+
+    expect(fetch).toHaveBeenCalledWith("/api/admin/consultas/ruc/20100066603", expect.objectContaining({ method: "GET" }));
     expect(r).toEqual({ tipo: "encontrado", contribuyente: CONTRIBUYENTE });
   });
 
@@ -85,5 +94,22 @@ describe("observacionesDeSunat", () => {
 
   it("de baja y no habido: las dos, 4013 primero", () => {
     expect(observacionesDeSunat({ estado: "BAJA DEFINITIVA", condicion: "NO HABIDO", activo: false }, es).map((x) => x.codigo)).toEqual(["4013", "4014"]);
+  });
+});
+
+/** #575: el RUC propio (onboarding, empresa nueva, alta asistida). */
+describe("avisosDeEmisor", () => {
+  it("un RUC activo y habido no tiene avisos", () => {
+    expect(avisosDeEmisor(CONTRIBUYENTE, es)).toEqual([]);
+  });
+
+  it("no activo, con el estado de SUNAT en el texto; no habido; y los dos", () => {
+    expect(avisosDeEmisor({ estado: "BAJA DE OFICIO", condicion: "HABIDO", activo: false }, es)).toEqual([expect.stringContaining("BAJA DE OFICIO")]);
+    expect(avisosDeEmisor({ estado: "ACTIVO", condicion: "NO HABIDO", activo: true }, es)).toEqual([es.consultaRuc.emisor.noHabido]);
+    expect(avisosDeEmisor({ estado: "SUSPENSION TEMPORAL", condicion: "NO HABIDO", activo: false }, es)).toHaveLength(2);
+  });
+
+  it("«NO HALLADO» y «PENDIENTE» no son «NO HABIDO»", () => {
+    for (const condicion of ["NO HALLADO", "PENDIENTE"]) expect(avisosDeEmisor({ estado: "ACTIVO", condicion, activo: true }, es), condicion).toEqual([]);
   });
 });

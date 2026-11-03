@@ -5,7 +5,7 @@ import { opcionesDe } from "@/test/select-de-prueba";
 import { CREDITO_VACIO } from "@/lib/comprobantes/credito";
 import { PERCEPCION_VACIA } from "@/lib/comprobantes/percepcion";
 import { CreditoEditor } from "./credito-editor";
-import { EstadoConsultaRuc } from "./estado-consulta-ruc";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
 import { PercepcionEditor } from "./percepcion-editor";
 
 afterEach(cleanup);

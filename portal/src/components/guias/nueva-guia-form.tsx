@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMessages } from "next-intl";
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
-import { Campo } from "khipu-design-system/formularios/campo";
+import { Campo, Entrada } from "khipu-design-system/formularios/campo";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import type { IconoComponente } from "khipu-design-system/lib/iconos";
 import { CabeceraSeccion } from "khipu-design-system/patrones/cabecera-seccion";
 import { EntradaFecha } from "khipu-design-system/formularios/entrada-fecha";
 import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
+import { EstadoConsultaRuc } from "@/components/consulta-ruc/estado-consulta-ruc";
+import { useAutocompletadoDelPadron } from "@/components/consulta-ruc/use-consulta-ruc";
 import { UbigeoSelector } from "@/components/empresa/ubigeo-selector";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { interpolar, type Mensajes } from "@/i18n/mensajes";
@@ -20,7 +22,7 @@ import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import type { Establecimiento } from "@/lib/api/establecimientos";
 import type { Guia } from "@/lib/api/guias";
 import type { Serie } from "@/lib/api/series";
-import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, CAMPO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
+import { AYUDA_CAMPO, BOTON_PRIMARIO, BOTON_SECUNDARIO, ETIQUETA_CAMPO, TARJETA } from "@/lib/estilos";
 import {
   conductorVacio,
   conTiposAplicables,
@@ -93,21 +95,36 @@ const textoDeOpcion = (o: OpcionDeCatalogo) => `${o.codigo} · ${o.descripcion}`
 /** Quién, con su documento, de una parte de la guía (destinatario, remitente). */
 function Parte({ prefijo, parte, alCambiar, tipos }: { prefijo: string; parte: ParteForm; alCambiar: (p: ParteForm) => void; tipos: OpcionDeCatalogo[] }) {
   const t = useMessages().guias.form;
+  // #575: con RUC (tipo 6) se consulta el padrón de SUNAT y se rellena el nombre si está vacío.
+  const padron = useAutocompletadoDelPadron({
+    ruc: parte.num_doc.trim(),
+    activa: parte.tipo_doc === "6",
+    campos: [{ valor: parte.nombre, poner: (nombre) => alCambiar({ ...parte, nombre }), dato: (c) => c.razon_social }],
+  });
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <Campo id={`${prefijo}-tipo`} etiqueta={t.tipoDoc}>
         {tipos.length > 0 ? (
           <Seleccion id={`${prefijo}-tipo`} valor={parte.tipo_doc} alCambiar={(v) => alCambiar({ ...parte, tipo_doc: v })} opciones={tipos.map((o) => ({ valor: o.codigo, texto: textoDeOpcion(o) }))} />
         ) : (
-          <input id={`${prefijo}-tipo`} value={parte.tipo_doc} onChange={(e) => alCambiar({ ...parte, tipo_doc: e.target.value })} className={cn(CAMPO, "font-mono")} />
+          <Entrada id={`${prefijo}-tipo`} value={parte.tipo_doc} onChange={(e) => alCambiar({ ...parte, tipo_doc: e.target.value })} mono />
         )}
       </Campo>
       <Campo id={`${prefijo}-num`} etiqueta={t.numDoc}>
-        <input id={`${prefijo}-num`} value={parte.num_doc} onChange={(e) => alCambiar({ ...parte, num_doc: e.target.value })} maxLength={15} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${prefijo}-num`} value={parte.num_doc} onChange={(e) => alCambiar({ ...parte, num_doc: e.target.value })} maxLength={15} mono />
       </Campo>
       <Campo id={`${prefijo}-nombre`} etiqueta={t.nombre}>
-        <input id={`${prefijo}-nombre`} value={parte.nombre} onChange={(e) => alCambiar({ ...parte, nombre: e.target.value })} maxLength={250} className={CAMPO} />
+        <Entrada id={`${prefijo}-nombre`} value={parte.nombre} onChange={(e) => alCambiar({ ...parte, nombre: e.target.value })} maxLength={250} />
       </Campo>
+      <EstadoConsultaRuc
+        contexto="dato"
+        consultando={padron.consultando}
+        resultado={padron.resultado}
+        nombreActual={parte.nombre}
+        onReintentar={padron.reintentar}
+        onUsarNombre={(n) => padron.usarDato(0, n)}
+        className="-mt-2 sm:col-span-3"
+      />
     </div>
   );
 }
@@ -150,7 +167,7 @@ function Punto({ prefijo, titulo, punto, alCambiar, establecimientos, admiteEsta
             <UbigeoSelector value={punto.ubigeo} onChange={(ubigeo) => alCambiar({ ...punto, ubigeo })} idPrefijo={prefijo} />
           </div>
           <Campo id={`${prefijo}-direccion`} etiqueta={t.direccion}>
-            <input id={`${prefijo}-direccion`} value={punto.direccion} onChange={(e) => alCambiar({ ...punto, direccion: e.target.value })} maxLength={500} className={CAMPO} />
+            <Entrada id={`${prefijo}-direccion`} value={punto.direccion} onChange={(e) => alCambiar({ ...punto, direccion: e.target.value })} maxLength={500} />
           </Campo>
         </>
       )}
@@ -209,6 +226,22 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
     setValida(false);
     setError(null);
   }
+
+  // #575: el RUC de la empresa de transporte (transporte público) se consulta en el padrón de SUNAT y se rellena su razón social si está vacía.
+  const padronTransportista = useAutocompletadoDelPadron({
+    ruc: f.transportista.ruc.trim(),
+    activa: !transportista && f.modalidad === "01",
+    campos: [
+      {
+        valor: f.transportista.razon_social,
+        poner: (razon_social) => {
+          setF((previo) => ({ ...previo, transportista: { ...previo.transportista, razon_social } }));
+          setValida(false);
+        },
+        dato: (c) => c.razon_social,
+      },
+    ],
+  });
 
   async function enviar(accion: "validar" | "emitir") {
     if (enCurso.current) return;
@@ -283,7 +316,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
         <Seccion titulo={t.remitente} icon={BuildingsIcon}>
           <Parte prefijo="remitente" parte={f.remitente} alCambiar={(remitente) => cambiar({ remitente })} tipos={tiposDocumento} />
           <Campo id="guia-mtc" etiqueta={t.registroMtc} ayuda={t.registroMtcObligatorio}>
-            <input id="guia-mtc" value={f.registro_mtc} onChange={(e) => cambiar({ registro_mtc: e.target.value })} maxLength={20} className={cn(CAMPO, "font-mono")} />
+            <Entrada id="guia-mtc" value={f.registro_mtc} onChange={(e) => cambiar({ registro_mtc: e.target.value })} maxLength={20} mono />
           </Campo>
         </Seccion>
       ) : (
@@ -293,11 +326,11 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
               {catalogos.motivos.length > 0 ? (
                 <Seleccion id="guia-motivo" valor={f.motivo} alCambiar={(motivo) => cambiar({ motivo })} opciones={catalogos.motivos.map((o) => ({ valor: o.codigo, texto: textoDeOpcion(o) }))} vacio={t.motivoPlaceholder} />
               ) : (
-                <input id="guia-motivo" value={f.motivo} onChange={(e) => cambiar({ motivo: e.target.value })} maxLength={2} className={cn(CAMPO, "font-mono")} />
+                <Entrada id="guia-motivo" value={f.motivo} onChange={(e) => cambiar({ motivo: e.target.value })} maxLength={2} mono />
               )}
             </Campo>
             <Campo id="guia-motivo-descripcion" etiqueta={t.descripcionMotivo} ayuda={t.descripcionMotivoAyuda}>
-              <input id="guia-motivo-descripcion" value={f.descripcion_motivo} onChange={(e) => cambiar({ descripcion_motivo: e.target.value })} maxLength={100} className={CAMPO} />
+              <Entrada id="guia-motivo-descripcion" value={f.descripcion_motivo} onChange={(e) => cambiar({ descripcion_motivo: e.target.value })} maxLength={100} />
             </Campo>
           </div>
           <fieldset className="flex flex-col gap-2">
@@ -312,14 +345,23 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
           {f.modalidad === "01" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Campo id="guia-transportista-ruc" etiqueta={t.transportistaRuc}>
-                <input id="guia-transportista-ruc" value={f.transportista.ruc} onChange={(e) => cambiar({ transportista: { ...f.transportista, ruc: e.target.value } })} maxLength={11} className={cn(CAMPO, "font-mono")} />
+                <Entrada id="guia-transportista-ruc" value={f.transportista.ruc} onChange={(e) => cambiar({ transportista: { ...f.transportista, ruc: e.target.value } })} maxLength={11} mono />
               </Campo>
               <Campo id="guia-transportista-nombre" etiqueta={t.transportistaNombre}>
-                <input id="guia-transportista-nombre" value={f.transportista.razon_social} onChange={(e) => cambiar({ transportista: { ...f.transportista, razon_social: e.target.value } })} maxLength={250} className={CAMPO} />
+                <Entrada id="guia-transportista-nombre" value={f.transportista.razon_social} onChange={(e) => cambiar({ transportista: { ...f.transportista, razon_social: e.target.value } })} maxLength={250} />
               </Campo>
               <Campo id="guia-transportista-mtc" etiqueta={t.registroMtcOpcional}>
-                <input id="guia-transportista-mtc" value={f.transportista.registro_mtc} onChange={(e) => cambiar({ transportista: { ...f.transportista, registro_mtc: e.target.value } })} maxLength={20} className={cn(CAMPO, "font-mono")} />
+                <Entrada id="guia-transportista-mtc" value={f.transportista.registro_mtc} onChange={(e) => cambiar({ transportista: { ...f.transportista, registro_mtc: e.target.value } })} maxLength={20} mono />
               </Campo>
+              <EstadoConsultaRuc
+                contexto="dato"
+                consultando={padronTransportista.consultando}
+                resultado={padronTransportista.resultado}
+                nombreActual={f.transportista.razon_social}
+                onReintentar={padronTransportista.reintentar}
+                onUsarNombre={(n) => padronTransportista.usarDato(0, n)}
+                className="-mt-2 sm:col-span-3"
+              />
             </div>
           ) : null}
         </Seccion>
@@ -331,7 +373,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             <EntradaFecha id="guia-inicio" valor={f.fecha_inicio} min={f.fecha_emision} onCambio={(fecha_inicio) => cambiar({ fecha_inicio })} />
           </Campo>
           <Campo id="guia-peso" etiqueta={t.pesoBruto}>
-            <input id="guia-peso" inputMode="decimal" value={f.peso_bruto} onChange={(e) => cambiar({ peso_bruto: e.target.value })} className={cn(CAMPO, "font-mono")} />
+            <Entrada id="guia-peso" inputMode="decimal" value={f.peso_bruto} onChange={(e) => cambiar({ peso_bruto: e.target.value })} mono />
           </Campo>
           <Campo id="guia-unidad-peso" etiqueta={t.unidadPeso}>
             <Seleccion id="guia-unidad-peso" valor={f.unidad_peso} alCambiar={(v) => cambiar({ unidad_peso: v === "TNE" ? "TNE" : "KGM" })} opciones={(["KGM", "TNE"] as const).map((u) => ({ valor: u, texto: `${u} · ${t.unidadesPeso[u]}` }))} />
@@ -362,7 +404,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
             {f.vehiculos.map((placa, i) => (
               <div key={i} className="flex items-end gap-2">
                 <Campo id={`guia-placa-${i}`} etiqueta={`${t.placa} ${i + 1}`} className="max-w-xs flex-1">
-                  <input id={`guia-placa-${i}`} value={placa} onChange={(e) => cambiar({ vehiculos: reemplazar(f.vehiculos, i, e.target.value) })} maxLength={8} className={cn(CAMPO, "font-mono")} />
+                  <Entrada id={`guia-placa-${i}`} value={placa} onChange={(e) => cambiar({ vehiculos: reemplazar(f.vehiculos, i, e.target.value) })} maxLength={8} mono />
                 </Campo>
                 {i > 0 ? (
                   <button type="button" onClick={() => cambiar({ vehiculos: f.vehiculos.filter((_, n) => n !== i) })} aria-label={`${t.quitar} ${t.placa} ${i + 1}`} className={BOTON_SECUNDARIO}>
@@ -425,7 +467,7 @@ export function NuevaGuiaForm({ series, establecimientos, catalogos, hoy }: Prop
 
       <Seccion titulo={t.observaciones} icon={ChatTextIcon}>
         <Campo id="guia-observaciones" etiqueta={t.observaciones} ayuda={t.observacionesAyuda}>
-          <input id="guia-observaciones" value={f.observaciones} onChange={(e) => cambiar({ observaciones: e.target.value })} maxLength={MAX_OBSERVACIONES} className={CAMPO} />
+          <Entrada id="guia-observaciones" value={f.observaciones} onChange={(e) => cambiar({ observaciones: e.target.value })} maxLength={MAX_OBSERVACIONES} />
         </Campo>
         <Casilla
           id="guia-enviar-automatico"
@@ -472,20 +514,20 @@ function ConductorFila({ i, conductor, tipos, alCambiar, alQuitar }: { i: number
         {tipos.length > 0 ? (
           <Seleccion id={`${id}-tipo`} valor={conductor.tipo_doc} alCambiar={(v) => alCambiar({ ...conductor, tipo_doc: v })} opciones={tipos.map((o) => ({ valor: o.codigo, texto: textoDeOpcion(o) }))} />
         ) : (
-          <input id={`${id}-tipo`} value={conductor.tipo_doc} onChange={(e) => alCambiar({ ...conductor, tipo_doc: e.target.value })} className={cn(CAMPO, "font-mono")} />
+          <Entrada id={`${id}-tipo`} value={conductor.tipo_doc} onChange={(e) => alCambiar({ ...conductor, tipo_doc: e.target.value })} mono />
         )}
       </Campo>
       <Campo id={`${id}-num`} etiqueta={t.numDoc} className="sm:col-span-2">
-        <input id={`${id}-num`} value={conductor.num_doc} onChange={(e) => alCambiar({ ...conductor, num_doc: e.target.value })} maxLength={15} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-num`} value={conductor.num_doc} onChange={(e) => alCambiar({ ...conductor, num_doc: e.target.value })} maxLength={15} mono />
       </Campo>
       <Campo id={`${id}-licencia`} etiqueta={t.licencia} className="sm:col-span-2">
-        <input id={`${id}-licencia`} value={conductor.licencia} onChange={(e) => alCambiar({ ...conductor, licencia: e.target.value })} maxLength={10} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-licencia`} value={conductor.licencia} onChange={(e) => alCambiar({ ...conductor, licencia: e.target.value })} maxLength={10} mono />
       </Campo>
       <Campo id={`${id}-nombres`} etiqueta={t.conductorNombres} className="sm:col-span-3">
-        <input id={`${id}-nombres`} value={conductor.nombres} onChange={(e) => alCambiar({ ...conductor, nombres: e.target.value })} maxLength={250} className={CAMPO} />
+        <Entrada id={`${id}-nombres`} value={conductor.nombres} onChange={(e) => alCambiar({ ...conductor, nombres: e.target.value })} maxLength={250} />
       </Campo>
       <Campo id={`${id}-apellidos`} etiqueta={t.conductorApellidos} className="sm:col-span-3">
-        <input id={`${id}-apellidos`} value={conductor.apellidos} onChange={(e) => alCambiar({ ...conductor, apellidos: e.target.value })} maxLength={250} className={CAMPO} />
+        <Entrada id={`${id}-apellidos`} value={conductor.apellidos} onChange={(e) => alCambiar({ ...conductor, apellidos: e.target.value })} maxLength={250} />
       </Campo>
       {alQuitar ? (
         <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
@@ -503,19 +545,19 @@ function ItemFila({ i, item, alCambiar, alQuitar }: { i: number; item: ItemForm;
   return (
     <div className="grid grid-cols-1 gap-3 rounded-lg border border-border p-3 sm:grid-cols-6">
       <Campo id={`${id}-descripcion`} etiqueta={t.descripcion} className="sm:col-span-6">
-        <input id={`${id}-descripcion`} value={item.descripcion} onChange={(e) => alCambiar({ ...item, descripcion: e.target.value })} maxLength={500} className={CAMPO} />
+        <Entrada id={`${id}-descripcion`} value={item.descripcion} onChange={(e) => alCambiar({ ...item, descripcion: e.target.value })} maxLength={500} />
       </Campo>
       <Campo id={`${id}-cantidad`} etiqueta={t.cantidad} className="sm:col-span-2">
-        <input id={`${id}-cantidad`} inputMode="decimal" value={item.cantidad} onChange={(e) => alCambiar({ ...item, cantidad: e.target.value })} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-cantidad`} inputMode="decimal" value={item.cantidad} onChange={(e) => alCambiar({ ...item, cantidad: e.target.value })} mono />
       </Campo>
       <Campo id={`${id}-unidad`} etiqueta={t.unidad} ayuda={i === 0 ? t.unidadAyuda : undefined} className="sm:col-span-2">
-        <input id={`${id}-unidad`} value={item.unidad} onChange={(e) => alCambiar({ ...item, unidad: e.target.value.toUpperCase() })} maxLength={3} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-unidad`} value={item.unidad} onChange={(e) => alCambiar({ ...item, unidad: e.target.value.toUpperCase() })} maxLength={3} mono />
       </Campo>
       <Campo id={`${id}-codigo`} etiqueta={t.codigoOpcional} className="sm:col-span-1">
-        <input id={`${id}-codigo`} value={item.codigo} onChange={(e) => alCambiar({ ...item, codigo: e.target.value })} maxLength={30} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-codigo`} value={item.codigo} onChange={(e) => alCambiar({ ...item, codigo: e.target.value })} maxLength={30} mono />
       </Campo>
       <Campo id={`${id}-codigo-sunat`} etiqueta={t.codigoSunat} className="sm:col-span-1">
-        <input id={`${id}-codigo-sunat`} value={item.codigo_sunat} onChange={(e) => alCambiar({ ...item, codigo_sunat: e.target.value })} maxLength={8} inputMode="numeric" className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-codigo-sunat`} value={item.codigo_sunat} onChange={(e) => alCambiar({ ...item, codigo_sunat: e.target.value })} maxLength={8} inputMode="numeric" mono />
       </Campo>
       {alQuitar ? (
         <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
@@ -536,14 +578,14 @@ function DocumentoFila({ i, documento, opciones, alCambiar, alQuitar }: { i: num
         {opciones.length > 0 ? (
           <Seleccion id={`${id}-tipo`} valor={documento.tipo} alCambiar={(v) => alCambiar({ ...documento, tipo: v })} opciones={opciones.map((o) => ({ valor: o.codigo, texto: textoDeOpcion(o) }))} />
         ) : (
-          <input id={`${id}-tipo`} value={documento.tipo} onChange={(e) => alCambiar({ ...documento, tipo: e.target.value })} maxLength={2} className={cn(CAMPO, "font-mono")} />
+          <Entrada id={`${id}-tipo`} value={documento.tipo} onChange={(e) => alCambiar({ ...documento, tipo: e.target.value })} maxLength={2} mono />
         )}
       </Campo>
       <Campo id={`${id}-numero`} etiqueta={t.documentoNumero} className="sm:col-span-2">
-        <input id={`${id}-numero`} value={documento.numero} onChange={(e) => alCambiar({ ...documento, numero: e.target.value })} maxLength={100} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-numero`} value={documento.numero} onChange={(e) => alCambiar({ ...documento, numero: e.target.value })} maxLength={100} mono />
       </Campo>
       <Campo id={`${id}-ruc`} etiqueta={t.documentoRuc} className="sm:col-span-1">
-        <input id={`${id}-ruc`} value={documento.ruc_emisor} onChange={(e) => alCambiar({ ...documento, ruc_emisor: e.target.value })} maxLength={11} className={cn(CAMPO, "font-mono")} />
+        <Entrada id={`${id}-ruc`} value={documento.ruc_emisor} onChange={(e) => alCambiar({ ...documento, ruc_emisor: e.target.value })} maxLength={11} mono />
       </Campo>
       <button type="button" onClick={alQuitar} className={cn(BOTON_SECUNDARIO, "w-fit sm:col-span-6")}>
         <TrashIcon className="size-4" />

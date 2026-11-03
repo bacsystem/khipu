@@ -795,6 +795,19 @@ const padronMock: Record<string, { razon_social: string; estado: string; condici
   "20602160280": { razon_social: "COMERCIAL VERDE E.I.R.L.", estado: "ACTIVO", condicion: "NO HABIDO", direccion: null },
 };
 
+/** Los desenlaces de `GET /v1/consultas/ruc/{ruc}` (y de la del backoffice, #575), comentados en su handler. */
+function consultaDelPadron(ruc: string) {
+  if (!/^\d{11}$/.test(ruc)) return fail(400, "PARAMETRO_INVALIDO", "Consulta de RUC: el RUC tiene 11 dígitos");
+  if (ruc === "20999999990") return fail(429, "DEMASIADAS_CONSULTAS", "Se superó el máximo de consultas de RUC. Espera un momento antes de volver a consultar");
+  if (ruc === "20777777778") return fail(503, "PADRON_NO_CARGADO", "El padrón de SUNAT todavía no está cargado: no se puede confirmar si el RUC existe");
+  if (ruc === "20888888889") return HttpResponse.error();
+  const c = padronMock[ruc];
+  if (!c) return fail(404, "NO_ENCONTRADO", "El RUC no figura en el padrón de SUNAT. Puede ser reciente: el padrón se actualiza cada día");
+  // Como el backend (`non_null`): un RUC sin dirección no trae la clave `direccion`, no `direccion: null`.
+  const { direccion, ...resto } = c;
+  return ok({ ruc, ...resto, ...(direccion ? { direccion } : {}), activo: c.estado === "ACTIVO", habido: c.condicion === "HABIDO", ubigeo: "150101", actualizado_al: new Date().toISOString() });
+}
+
 /**
  * Lo que SUNAT observa del comprador aunque acepte el comprobante, como `ValidarCompradorEnPadron.avisosDe` (#378): 4013 si el RUC no está activo y 4014 solo con la
  * condición «NO HABIDO». Un RUC que el padrón no tiene no avisa nada (el mock no rechaza con 1083: el padrón de ejemplo es un trozo).
@@ -3253,18 +3266,9 @@ export const handlers = [
    * no habido, 20602160280 activo y no habido; 20999999990 agota el cupo (429), 20777777778 dice que el padrón no está cargado (503) y 20888888889 corta la
    * conexión. Cualquier otro RUC válido no figura (404).
    */
-  http.get(`${BASE}/v1/consultas/ruc/:ruc`, ({ params }) => {
-    const ruc = String(params.ruc);
-    if (!/^\d{11}$/.test(ruc)) return fail(400, "PARAMETRO_INVALIDO", "Consulta de RUC: el RUC tiene 11 dígitos");
-    if (ruc === "20999999990") return fail(429, "DEMASIADAS_CONSULTAS", "Se superó el máximo de consultas de RUC. Espera un momento antes de volver a consultar");
-    if (ruc === "20777777778") return fail(503, "PADRON_NO_CARGADO", "El padrón de SUNAT todavía no está cargado: no se puede confirmar si el RUC existe");
-    if (ruc === "20888888889") return HttpResponse.error();
-    const c = padronMock[ruc];
-    if (!c) return fail(404, "NO_ENCONTRADO", "El RUC no figura en el padrón de SUNAT. Puede ser reciente: el padrón se actualiza cada día");
-    // Como el backend (`non_null`): un RUC sin dirección no trae la clave `direccion`, no `direccion: null`.
-    const { direccion, ...resto } = c;
-    return ok({ ruc, ...resto, ...(direccion ? { direccion } : {}), activo: c.estado === "ACTIVO", habido: c.condicion === "HABIDO", ubigeo: "150101", actualizado_al: new Date().toISOString() });
-  }),
+  http.get(`${BASE}/v1/consultas/ruc/:ruc`, ({ params }) => consultaDelPadron(String(params.ruc))),
+  /** #575: la misma consulta desde el backoffice (el alta asistida). */
+  http.get(`${BASE}/v1/admin/consultas/ruc/:ruc`, ({ params }) => consultaDelPadron(String(params.ruc))),
 
   http.post(`${BASE}/v1/series`, async ({ request }) => {
     const empresaId = request.headers.get("x-empresa") ?? "";
