@@ -132,8 +132,22 @@ class AutenticarUsuarioServiceTest {
         assertThat(anotados).containsExactly(Map.entry(cuentaDe(t), negocio.id()));
         assertThat(avisos).singleElement().satisfies(a -> assertThat(a)
                 .startsWith("Cuenta nueva pide el plan Negocio|")
-                .contains("Bodega Ana").contains("a@b.pe").contains("987654321")
+                .contains("Bodega Ana").contains("a＠b.pe").contains("987654321")
                 .contains(PORTAL + "/admin/cuentas/" + cuentaDe(t)));
+    }
+
+    /**
+     * #581 (H1 de la revisión): el aviso sale por el webhook del operador (Slack, Discord, Mattermost) y lleva lo que escribió quien se registra. Sin neutralizar,
+     * cualquiera mencionaría a todo el canal con su nombre (`<!channel>`, `@everyone`, `@channel`). El dato se sigue leyendo; solo deja de ser una mención.
+     */
+    @Test void elAvisoNoDejaMencionarAlCanalConLoQueEscribioElUsuario() {
+        plan("Negocio", "69", false, EstadoPlan.ACTIVO, true);
+
+        service.registrar("<!channel> @everyone Bodega", "a@b.pe", "Segura123", "987654321", true, "Negocio", PORTAL);
+
+        assertThat(avisos).singleElement().satisfies(a -> assertThat(a)
+                .doesNotContain("<!channel>").doesNotContain("@everyone").doesNotContain("<").doesNotContain(">")
+                .contains("everyone Bodega").contains("a\uFF20b.pe"));
     }
 
     @Test void elNombreSeEmparejaSinImportarMayusculasNiEspacios() {
