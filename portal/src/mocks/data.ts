@@ -613,6 +613,15 @@ export function resetDb() {
   db.establecimientosPorEmpresa.set("e-anexos", [
     { codigo: "0002", nombre: "Tienda Miraflores", domicilio: { ubigeo: "150122", direccion: "Av. Larco 345", urbanizacion: null, distrito: "MIRAFLORES", provincia: "LIMA", departamento: "LIMA", codigo_establecimiento: "0002" }, activo: true },
   ]);
+  // #502: la de `empresa.spec.ts`, que guarda el domicilio fiscal, el diseño del PDF y el logo. Cuenta propia: hecho sobre la demo, dejaba a
+  // `guias-emision.spec.ts` con una empresa que ya tenía domicilio fiscal (no ofrecía la partida por dirección) cuando corrían en la misma tanda.
+  const datosDeEmpresa: Usuario = { id: "u-datos-empresa", cuenta_id: "c-datos-empresa", email: "empresa@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(datosDeEmpresa.email, { usuario: datosDeEmpresa, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(datosDeEmpresa.cuenta_id, "Datos de Empresa Demo");
+  db.empresasPorCuenta.set(datosDeEmpresa.cuenta_id, [
+    { id: "e-datos-empresa", ruc: "20600000064", razon_social: "Datos de Empresa Demo SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-datos-empresa", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
   // Un cliente que ya usó los 30 documentos de octubre de su plan Gratis (#18): no emite más hasta el mes siguiente. Cuenta propia: el consumo de la demo no cambia.
   const enElTope: Usuario = { id: "u-en-el-tope", cuenta_id: "c-en-el-tope", email: "tope@example.com", rol: "ADMIN", correo_verificado: true };
   db.usuariosPorEmail.set(enElTope.email, { usuario: enElTope, password: "Passw0rd1" });
