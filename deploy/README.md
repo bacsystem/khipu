@@ -367,7 +367,7 @@ Railway no tiene copia propia.
 
 ### Servicio `respaldo` en Railway
 
-0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 16 y `pg_dump` aborta ante un servidor más nuevo («server version
+0. **Misma versión mayor de Postgres que la base.** La imagen trae `pg_dump` 18 (la de producción en Railway) y `pg_dump` aborta ante un servidor más nuevo («server version
    mismatch»): el respaldo fallaría todos los días. Comprobarlo en la base de Railway con `SELECT version();`; si es otra, cambiar el `FROM` de
    `deploy/respaldo/Dockerfile` a esa versión.
 1. **New → Docker Image** → `cbaciliod/khipu-respaldo:latest` (la publica CI desde `deploy/respaldo/Dockerfile`). Si cambias el `FROM` del paso 0,
@@ -401,7 +401,9 @@ docker run --rm -e RESTAURAR_EN=postgres://usuario:clave@host:5432/base_de_prueb
 # BACKUP_S3_ENDPOINT solo con R2, B2 o MinIO; con AWS S3 se omite.
 ```
 
-Restaurar **en una base de prueba**, nunca en la de producción, y abrirla para comprobar que están las cuentas y los comprobantes recientes.
+Restaurar **en una base de prueba**, nunca en la de producción, y abrirla para comprobar que están las cuentas y los comprobantes recientes. La base de
+prueba tiene que ser **Postgres 18**, como producción (p. ej. `docker run -d -e POSTGRES_PASSWORD=… -p 5433:5432 postgres:18-alpine`): un volcado de
+`pg_dump` 18 puede traer opciones que un servidor más viejo no conoce, y el Postgres del `docker-compose.yml` de desarrollo todavía es 16.
 
 **Además**, si el plan de Railway incluye respaldos del Volume de Postgres, conviene activarlos también: es una segunda copia, en otro lugar. No
 reemplaza a esta, porque queda dentro del mismo proyecto de Railway.

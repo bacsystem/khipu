@@ -16,6 +16,7 @@ Trae **dos migraciones**: V73 agrega el entorno a cada documento y lo rellena de
 - Portada (#580): Gratis con comprobantes reales en Producción y pruebas en Beta sin límite, Pro con 10 000 documentos/mes en la lista de respaldo; Emprende ya no vende «Producción además de pruebas», y la nota dice que las pruebas no consumen el plan. Los límites publicados siguen saliendo del backoffice.
 
 ### Fixed
+- El respaldo diario de la base vuelve a correr: la imagen `khipu-respaldo` pasa a `pg_dump` 18, la versión de Postgres de producción. Con 16, cada ejecución abortaba con «server version mismatch» y no se subía ningún respaldo. Tras desplegar, hacer Redeploy del servicio `khipu-respaldo` y «Run now» para comprobarlo.
 - El precio de los planes ya no se parte en dos líneas («S/» arriba y el monto abajo) en cuatro columnas: «IGV incluido» va en su propia línea (#580).
 
 ## [1.1.0] - 2026-11-02
