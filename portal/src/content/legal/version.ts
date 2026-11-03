@@ -28,8 +28,9 @@ export const VERSION_TEXTOS_LEGALES = "2026-10-21";
  */
 export const RESPONSABLE = {
   razonSocial: "Bacsystem Solutions E.I.R.L.",
-  ruc: "[RUC por completar]",
-  domicilio: "[domicilio fiscal por completar], Lima, Perú",
+  ruc: "20614798093",
+  // El domicilio fiscal tal como figura en SUNAT (ficha RUC): AV. A LOTE. 01 RES. ALAMEDA 4, LIMA - LIMA - RIMAC.
+  domicilio: "Av. A Lote 01, Res. Alameda 4, Rímac, Lima, Perú",
   correo: "[correo de contacto por completar]",
   /**
    * La frase sobre la inscripción del banco de datos en el Registro Nacional de Protección de Datos Personales. Por completar con el código
