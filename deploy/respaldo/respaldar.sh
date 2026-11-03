@@ -28,7 +28,12 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 # --no-owner/--no-privileges: se restaura en otra base con otro usuario sin pelear por dueños. El formato custom ya va comprimido.
-pg_dump --format=custom --no-owner --no-privileges --dbname="$DATABASE_URL" --file="$tmp/khipu.dump"
+# #591: sin los datos del padrón de RUC (~18 M filas, casi todo el volumen): es público y la carga diaria lo vuelve a bajar entero. Su esquema sí va.
+# `carga_padron_ruc` sale junto con `padron_ruc`: una base restaurada con una carga EXITOSA reciente y el padrón vacío rechazaría toda factura a un
+# RUC (RECEPTOR_INVALIDO, #378); sin ninguna carga, la consulta dice PADRON_NO_CARGADO, la emisión no rechaza nada y la próxima carga es la primera.
+pg_dump --format=custom --no-owner --no-privileges \
+  --exclude-table-data=public.padron_ruc --exclude-table-data=public.padron_ruc_carga --exclude-table-data=public.carga_padron_ruc \
+  --dbname="$DATABASE_URL" --file="$tmp/khipu.dump"
 # Un volcado truncado no se sube como si fuera un respaldo bueno: el índice tiene que poder leerse y traer las tablas.
 pg_restore --list "$tmp/khipu.dump" > "$tmp/indice"
 tablas="$(grep -c ' TABLE DATA ' "$tmp/indice" || true)"

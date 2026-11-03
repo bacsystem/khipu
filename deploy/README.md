@@ -358,7 +358,9 @@ Railway no tiene copia propia.
 
 - **`respaldar.sh`** (lo que corre el servicio): `pg_dump` en formato custom → cifrado AES-256 con `BACKUP_PASSPHRASE` → objeto
   `postgres/khipu-<fecha UTC>.dump.enc` en el bucket. Comprueba que el volcado tenga datos y que el objeto subido mida lo mismo que el local. Ante
-  cualquier fallo termina con error, así que Railway marca la ejecución como fallida.
+  cualquier fallo termina con error, así que Railway marca la ejecución como fallida. **Deja fuera los datos del padrón de RUC** (#591:
+  `padron_ruc`, `padron_ruc_carga` y `carga_padron_ruc`; su esquema sí va): son ~18 M filas públicas que la carga diaria vuelve a bajar, y con
+  ellas cada respaldo pesaba ~384 MB en vez de unos pocos MB.
 - **`restaurar.sh <clave> | --ultimo`**: baja, descifra y restaura en `RESTAURAR_EN`, una variable aparte de `DATABASE_URL` a propósito, para no
   restaurar encima de producción por un descuido. Si la base destino ya tiene tablas, exige `CONFIRMAR=si`.
 - **`probar.sh`** (`make probar-respaldo`): la prueba de punta a punta en contenedores propios y temporales. Crea una base con las migraciones reales y
@@ -404,6 +406,11 @@ docker run --rm -e RESTAURAR_EN=postgres://usuario:clave@host:5432/base_de_prueb
 Restaurar **en una base de prueba**, nunca en la de producción, y abrirla para comprobar que están las cuentas y los comprobantes recientes. La base de
 prueba tiene que ser **Postgres 18**, como producción (p. ej. `docker run -d -e POSTGRES_PASSWORD=… -p 5433:5432 postgres:18-alpine`): un volcado de
 `pg_dump` 18 puede traer opciones que un servidor más viejo no conoce, y el Postgres del `docker-compose.yml` de desarrollo todavía es 16.
+
+Una base restaurada **arranca sin padrón de RUC** y sin ninguna carga registrada: la consulta de RUC responde `503 PADRON_NO_CARGADO` y la emisión
+no rechaza a ningún comprador por el padrón (#378) hasta que corra la carga diaria (`PADRON_RUC_CRON`, 4:30 de Lima), que lo baja entero como
+primera carga (~8 minutos). Para tenerlo antes, el disparo único que describe la sección del padrón (#361). Se excluye también
+`carga_padron_ruc` a propósito: con una carga exitosa reciente y el padrón vacío, la emisión rechazaría toda factura a un RUC.
 
 **Además**, si el plan de Railway incluye respaldos del Volume de Postgres, conviene activarlos también: es una segunda copia, en otro lugar. No
 reemplaza a esta, porque queda dentro del mismo proyecto de Railway.

@@ -44,6 +44,10 @@ for m in $(ls "$raiz"/adapters/out-persistence/src/main/resources/db/migration/V
 done
 docker exec -i khipu-pr-origen psql -q -v ON_ERROR_STOP=1 -U khipu -d khipu >/dev/null <<'SQL'
 INSERT INTO cuenta (id, nombre, email) VALUES ('00000000-0000-4000-8000-000000000001', 'Ferretería Ñandú', 'ana@prueba.pe');
+-- #591: el padrón de RUC y su última carga exitosa, que el respaldo deja fuera.
+INSERT INTO padron_ruc (ruc, razon_social, estado, condicion) VALUES ('20100017491', 'EMPRESA DE PRUEBA SAC', 'ACTIVO', 'HABIDO');
+INSERT INTO padron_ruc_carga (ruc, razon_social, estado, condicion) VALUES ('20100017491', 'EMPRESA DE PRUEBA SAC', 'ACTIVO', 'HABIDO');
+INSERT INTO carga_padron_ruc (iniciada, terminada, resultado, origen, filas, nuevas) VALUES (now(), now(), 'EXITOSA', 'prueba', 1, 1);
 SQL
 
 env_s3="-e BACKUP_PASSPHRASE=$clave -e BACKUP_S3_BUCKET=respaldos -e BACKUP_S3_ENDPOINT=http://khipu-pr-minio:9000
@@ -76,13 +80,21 @@ echo "3) restaurar el último en la base vacía"
 correr -e RESTAURAR_EN=postgres://khipu:khipu@khipu-pr-destino:5432/khipu "$imagen" restaurar.sh --ultimo
 
 echo "4) comparar tabla por tabla"
+# El padrón y sus cargas no viajan en el volcado (#591): se comparan aparte.
+sin_padron="'padron_ruc', 'padron_ruc_carga', 'carga_padron_ruc'"
 conteos() {
   docker exec "$1" psql -At -U khipu -d khipu -c "
     SELECT string_agg(t.table_name || '=' || (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.' || quote_ident(t.table_name), false, true, '')))[1]::text, ',' ORDER BY t.table_name)
-    FROM information_schema.tables t WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND t.table_name <> 'latido_operativo'"
+    FROM information_schema.tables t WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND t.table_name <> 'latido_operativo'
+      AND t.table_name NOT IN ($sin_padron)"
 }
 a="$(conteos khipu-pr-origen)"; b="$(conteos khipu-pr-destino)"
 [ "$a" = "$b" ] || { echo "FALLO: las tablas no coinciden"; echo "origen:  $a"; echo "destino: $b"; exit 1; }
+# Las tres tablas del padrón existen en la restaurada (el esquema sí va) y están vacías: sin una carga EXITOSA, la emisión no rechaza a nadie
+# por un padrón vacío y la próxima carga es la primera.
+padron="$(docker exec khipu-pr-destino psql -At -U khipu -d khipu -c "SELECT (SELECT count(*) FROM padron_ruc) || ',' || (SELECT count(*) FROM padron_ruc_carga) || ',' || (SELECT count(*) FROM carga_padron_ruc)")"
+[ "$padron" = "0,0,0" ] || { echo "FALLO: el padrón viajó en el respaldo (padron_ruc, padron_ruc_carga, carga_padron_ruc = $padron)"; exit 1; }
+[ "$(docker exec khipu-pr-origen psql -At -U khipu -d khipu -c "SELECT count(*) FROM padron_ruc")" = "1" ] || { echo "FALLO: el origen no tiene el padrón sembrado"; exit 1; }
 nombre="$(docker exec khipu-pr-destino psql -At -U khipu -d khipu -c "SELECT nombre FROM cuenta")"
 [ "$nombre" = "Ferretería Ñandú" ] || { echo "FALLO: el texto no volvió igual: $nombre"; exit 1; }
 echo "   $(echo "$a" | tr ',' '\n' | wc -l | tr -d ' ') tablas iguales, con tildes y ñ intactas"
