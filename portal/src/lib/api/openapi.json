@@ -6105,7 +6105,7 @@
           "Consultas"
         ],
         "summary": "Consultar un RUC en el padrón de SUNAT",
-        "description": "Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).\n`actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si\nno es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo\n(60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL.",
+        "description": "Razón social, estado, condición de domicilio y domicilio fiscal de un contribuyente, del padrón reducido que SUNAT publica cada día (no consulta a SUNAT en cada llamada).\n`actualizado_al` dice de qué carga viene la respuesta: un RUC creado después no aparece, así que `404 NO_ENCONTRADO` no prueba que no exista. `400 PARAMETRO_INVALIDO` si\nno es un RUC (11 dígitos, prefijo y dígito verificador), `503 PADRON_NO_CARGADO` si el padrón todavía no se cargó y `429 DEMASIADAS_CONSULTAS` al pasar el cupo\n(60 por minuto y 5 000 por día, por empresa). No requiere credenciales SOL. Desde el portal también responde sin `X-Empresa` (una cuenta que todavía no\nregistra su primera empresa), con el mismo cupo contado por cuenta.",
         "operationId": "consultarRuc",
         "parameters": [
           {
@@ -6842,6 +6842,39 @@
               "*/*": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/consultas/ruc/{ruc}": {
+      "get": {
+        "tags": [
+          "Administración de la plataforma"
+        ],
+        "summary": "Consultar un RUC en el padrón de SUNAT (backoffice)",
+        "description": "Lo mismo que `GET /v1/consultas/ruc/{ruc}`, para el backoffice: razón social, estado, condición y domicilio fiscal del padrón reducido. Mismos errores\n(`400 PARAMETRO_INVALIDO`, `404 NO_ENCONTRADO`, `503 PADRON_NO_CARGADO`, `429 DEMASIADAS_CONSULTAS`) y el mismo cupo, contado por administrador.",
+        "operationId": "consultarRucAdmin",
+        "parameters": [
+          {
+            "name": "ruc",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 20100066603
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePadronRucResponse"
                 }
               }
             }

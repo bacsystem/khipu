@@ -1,11 +1,13 @@
 package pe.factura.application.service;
 
 import org.junit.jupiter.api.Test;
+import pe.factura.application.port.in.ConsultarPadronRucUseCase.Solicitante;
 import pe.factura.application.port.out.PadronRucRepository;
 import pe.factura.application.port.out.PadronRucRepository.CargaRegistrada;
 import pe.factura.application.port.out.PadronRucRepository.Contribuyente;
 import pe.factura.application.port.out.PadronRucRepository.ResultadoCarga;
 import pe.factura.domain.DomainException;
+import pe.factura.domain.plataforma.ActorAdmin;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -33,7 +35,8 @@ class ConsultarPadronRucServiceTest {
     final PadronEnMemoria padron = new PadronEnMemoria();
     final Fakes.Intentos cupo = new Fakes.Intentos();
     final ConsultarPadronRucService servicio = new ConsultarPadronRucService(padron, cupo, clock);
-    final UUID empresa = UUID.randomUUID();
+    final UUID idEmpresa = UUID.randomUUID();
+    final Solicitante empresa = Solicitante.empresa(idEmpresa);
 
     @Test void devuelveElContribuyenteYDeQueCargaViene() {
         padron.cargada = Instant.parse("2026-10-15T09:40:00Z");
@@ -94,7 +97,42 @@ class ConsultarPadronRucServiceTest {
         padron.contribuyentes.add(new Contribuyente(RUC, "TIENDAS", "ACTIVO", "HABIDO", null, null));
         for (int i = 0; i < 60; i++) servicio.consultar(empresa, RUC);
 
-        assertThat(servicio.consultar(UUID.randomUUID(), RUC)).as("otra empresa no se entera").isNotNull();
+        assertThat(servicio.consultar(Solicitante.empresa(UUID.randomUUID()), RUC)).as("otra empresa no se entera").isNotNull();
+    }
+
+    /** #575: los contadores de una empresa conservan la clave de antes, así un despliegue no le regala a nadie un cupo nuevo a mitad del día. */
+    @Test void elCupoDeUnaEmpresaSigueContandoseConLaClaveDeAntes() {
+        padron.cargada = Instant.parse("2026-10-15T09:40:00Z");
+        padron.contribuyentes.add(new Contribuyente(RUC, "TIENDAS", "ACTIVO", "HABIDO", null, null));
+
+        servicio.consultar(empresa, RUC);
+
+        assertThat(cupo.filas).containsOnlyKeys("padron:min:" + idEmpresa, "padron:dia:" + idEmpresa);
+    }
+
+    /** #575: una cuenta sin empresa (el onboarding) tiene su propio cupo; ni gasta el de una empresa con el mismo id ni se libra del suyo. */
+    @Test void unaCuentaSinEmpresaTieneSuPropioCupo() {
+        padron.cargada = Instant.parse("2026-10-15T09:40:00Z");
+        padron.contribuyentes.add(new Contribuyente(RUC, "TIENDAS", "ACTIVO", "HABIDO", null, null));
+        var cuenta = Solicitante.cuenta(idEmpresa);
+        for (int i = 0; i < 60; i++) servicio.consultar(cuenta, RUC);
+
+        assertThatThrownBy(() -> servicio.consultar(cuenta, RUC)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("DEMASIADAS_CONSULTAS");
+        assertThat(servicio.consultar(empresa, RUC)).as("la empresa con el mismo id no se entera").isNotNull();
+        assertThat(cupo.filas).containsKey("padron:min:cuenta:" + idEmpresa);
+    }
+
+    /** #575: en el backoffice el cupo es de cada administrador; la clave de plataforma no identifica a nadie y comparte uno solo. */
+    @Test void enElBackofficeElCupoEsDeCadaAdministrador() {
+        padron.cargada = Instant.parse("2026-10-15T09:40:00Z");
+        padron.contribuyentes.add(new Contribuyente(RUC, "TIENDAS", "ACTIVO", "HABIDO", null, null));
+        var ana = Solicitante.backoffice(ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7"));
+        for (int i = 0; i < 60; i++) servicio.consultar(ana, RUC);
+
+        assertThatThrownBy(() -> servicio.consultar(ana, RUC)).isInstanceOf(DomainException.class).extracting("codigo").isEqualTo("DEMASIADAS_CONSULTAS");
+        assertThat(servicio.consultar(Solicitante.backoffice(ActorAdmin.administrador(UUID.randomUUID(), "203.0.113.7")), RUC)).as("otro administrador").isNotNull();
+        assertThat(Solicitante.backoffice(ActorAdmin.clavePlataforma("203.0.113.7")))
+                .as("desde dos IP, la clave de plataforma es la misma").isEqualTo(Solicitante.backoffice(ActorAdmin.clavePlataforma("198.51.100.4")));
     }
 
     static final class PadronEnMemoria implements PadronRucRepository {

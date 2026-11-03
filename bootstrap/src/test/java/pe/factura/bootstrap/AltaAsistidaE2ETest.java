@@ -283,4 +283,38 @@ class AltaAsistidaE2ETest {
         assertThat(estados).filteredOn(s -> s.equals(HttpStatus.OK)).hasSize(3);
         assertThat(filas("cuenta")).isEqualTo(1);
     }
+
+    @Autowired pe.factura.application.port.out.PadronRucRepository padron;
+
+    /**
+     * #575: el RUC se consulta en el padrón antes de que exista una empresa a la que contarle el cupo. El backoffice, con su credencial, al dar de alta; el cliente, con su
+     * sesión y sin {@code X-Empresa}, en el onboarding. Con los filtros de verdad: antes de #575 el primero era 404 y el segundo 422 EMPRESA_REQUERIDA.
+     */
+    @Test void elPadronSeConsultaDesdeElBackofficeYConLaSesionSinEmpresa(@org.junit.jupiter.api.io.TempDir java.nio.file.Path carpeta) throws Exception {
+        jdbc.update("TRUNCATE padron_ruc, carga_padron_ruc");
+        java.nio.file.Path archivo = carpeta.resolve("padron_reducido_ruc.txt");
+        java.nio.file.Files.writeString(archivo, """
+                RUC|NOMBRE O RAZÓN SOCIAL|ESTADO DEL CONTRIBUYENTE|CONDICIÓN DE DOMICILIO|UBIGEO|TIPO DE VÍA|NOMBRE DE VÍA|CÓDIGO DE ZONA|TIPO DE ZONA|NÚMERO|INTERIOR|LOTE|DEPARTAMENTO|MANZANA|KILÓMETRO|
+                20100066603|COMERCIAL ANDINA SAC|ACTIVO|HABIDO|150101|AV.|REPUBLICA DE PANAMA|-|-|2457|-|-|-|-|-|
+                """, java.nio.charset.StandardCharsets.ISO_8859_1);
+        new pe.factura.application.service.CargarPadronRucService(1, new pe.factura.adapters.sunat.ArchivoDelPadronRuc(archivo.toString(), java.time.Duration.ofSeconds(5)),
+                padron, java.time.Clock.systemUTC()).cargar();
+
+        ResponseEntity<Map> desdeElBackoffice = http.exchange("/v1/admin/consultas/ruc/20100066603", HttpMethod.GET, new HttpEntity<>(conClaveDePlataforma()), Map.class);
+        assertThat(desdeElBackoffice.getStatusCode()).as("%s", desdeElBackoffice.getBody()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<String, Object>) desdeElBackoffice.getBody().get("datos")).get("razon_social")).isEqualTo("COMERCIAL ANDINA SAC");
+        assertThat(http.exchange("/v1/admin/consultas/ruc/20100066603", HttpMethod.GET, new HttpEntity<>(json()), Map.class).getStatusCode())
+                .as("sin credencial de administrador").isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        assertThat(alta(conClaveDePlataforma(), ALTA).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        http.postForEntity("/v1/auth/restablecer", new HttpEntity<>("{\"token\":\"%s\",\"password\":\"Segura123\"}".formatted(tokenDeLaInvitacion()), json()), Void.class);
+        String access = (String) ((Map<?, ?>) http.postForEntity("/v1/auth/login", new HttpEntity<>("{\"email\":\"ana@andina.pe\",\"password\":\"Segura123\"}", json()), Map.class)
+                .getBody().get("datos")).get("access");
+
+        ResponseEntity<Map> conLaSesion = http.exchange("/v1/consultas/ruc/20100066603", HttpMethod.GET, new HttpEntity<>(conBearer(access)), Map.class);
+        assertThat(conLaSesion.getStatusCode()).as("sin X-Empresa: %s", conLaSesion.getBody()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<String, Object>) conLaSesion.getBody().get("datos")).get("activo")).isEqualTo(true);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM intento_de_acceso WHERE clave LIKE 'padron:min:cuenta:%'", Long.class))
+                .as("el cupo se le contó a la cuenta").isEqualTo(1L);
+    }
 }
