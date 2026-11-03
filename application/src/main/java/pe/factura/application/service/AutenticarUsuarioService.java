@@ -86,10 +86,21 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
                 .findFirst();
     }
 
-    /** Después de la transacción, como el correo de verificación: el aviso no puede deshacer un registro ya hecho. */
+    /**
+     * Texto de un usuario apto para un canal de chat (#581, H1 de la revisión): sin {@code <} ni {@code >} (Slack arma con ellos {@code <!channel>}) y con la arroba
+     * de ancho completo, que ninguna plataforma toma como mención ({@code @everyone} en Discord, {@code @channel} en Mattermost). Se sigue leyendo igual.
+     */
+    static String sinMenciones(String texto) {
+        return texto == null ? null : texto.replace("<", "").replace(">", "").replace('@', '＠');
+    }
+
+    /**
+     * Después de la transacción, como el correo de verificación: el aviso no puede deshacer un registro ya hecho. El nombre y el correo los escribió quien se
+     * registra, y el aviso puede salir por el webhook del canal de operación: van sin la sintaxis de mención ({@link #sinMenciones}).
+     */
     private void avisarPlanPedido(Cuenta cuenta, Plan plan, String urlBase) {
         operador.avisar("Cuenta nueva pide el plan " + plan.nombre(),
-                cuenta.nombre() + " (" + cuenta.email() + (cuenta.telefono() == null ? "" : ", " + cuenta.telefono()) + ") se registró eligiendo el plan "
+                sinMenciones(cuenta.nombre()) + " (" + sinMenciones(cuenta.email()) + (cuenta.telefono() == null ? "" : ", " + cuenta.telefono()) + ") se registró eligiendo el plan "
                         + plan.nombre() + ". Nació en el plan por defecto: contáctala para cobrarle y cambiarle el plan. " + urlBase + "/admin/cuentas/" + cuenta.id());
     }
 
