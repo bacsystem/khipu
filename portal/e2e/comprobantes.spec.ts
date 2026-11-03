@@ -471,6 +471,8 @@ test("nota: los motivos que no aplican a la factura no se ofrecen (11 exportaci√
   const form = page.getByTestId("nota-form");
   const codigos = async () => {
     await form.getByLabel(/Motivo/).click();
+    // Se espera a que la lista tenga sus opciones: leerlas apenas se abre puede devolver una lista vac√≠a.
+    await expect(page.getByRole("listbox").getByRole("option").first()).toBeVisible();
     const textos = await page.getByRole("listbox").getByRole("option").allTextContents();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);

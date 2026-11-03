@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { elegirOpcion } from "./combo";
 
+// #502: cuenta propia (src/mocks/data.ts): registra un anexo y da otro de baja, y sobre la demo eso le cambiaba los anexos a otros specs.
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Correo electrónico").fill("demo@example.com");
+  await page.getByLabel("Correo electrónico").fill("anexos@example.com");
   await page.getByLabel("Contraseña").fill("Passw0rd1");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page).toHaveURL(/\/inicio/);
@@ -11,6 +12,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("registra un anexo, lo asigna a una serie nueva y no permite darlo de baja mientras la use", async ({ page }) => {
+  // #502: un flujo largo (registro, alta de empresa, varias páginas que el dev server compila la primera vez) que con 4 workers sobre el mismo servidor pasa
+  // de los 30 s aunque solo tarde 8-30 s. `slow` triplica el tope; no esconde un fallo, que igual llega al `expect` que no se cumple.
+  test.slow();
   // El seed trae el anexo 0002; el 0000 aparece solo cuando hay domicilio fiscal (el seed no lo tiene).
   await expect(page.getByTestId("establecimiento-0002")).toContainText("Tienda Miraflores");
 

@@ -83,7 +83,8 @@ test("#19 envía una prueba y la ve en el log de entregas", async ({ page }) => 
 
   await w.getByRole("button", { name: "Enviar prueba" }).click();
 
-  await expect(w.getByRole("status")).toContainText("Prueba en cola");
+  // El spinner del design system también es un `role="status"` («Cargando…»): se busca el aviso por su texto.
+  await expect(w.getByRole("status").filter({ hasText: "Prueba en cola" })).toBeVisible();
   const entrega = w.getByTestId("entrega");
   await expect(entrega).toHaveCount(1);
   await expect(entrega.getByText("Prueba", { exact: true })).toBeVisible();

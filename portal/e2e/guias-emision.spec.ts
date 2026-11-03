@@ -54,7 +54,10 @@ test("una empresa sin domicilio fiscal parte de una dirección: no se le ofrece 
   await expect(form.locator("#partida-departamento")).toBeVisible();
   // El anexo 0002 sí existe: se puede elegir, y la lista no trae el 0000.
   await form.locator("fieldset", { has: page.locator("#partida-departamento") }).getByRole("radio", { name: "Un establecimiento de mi empresa" }).check();
-  await expect(form.locator("#partida-establecimiento option")).toHaveText(["0002 · Tienda Miraflores"]);
+  // El combo del design system (#555): sus opciones están en la lista que abre, no en `<option>`.
+  await form.locator("#partida-establecimiento").click();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveText(["0002 · Tienda Miraflores"]);
+  await page.keyboard.press("Escape");
 });
 
 test("los documentos relacionados que son comprobantes piden serie-número y el RUC de quien los emitió", async ({ page }) => {

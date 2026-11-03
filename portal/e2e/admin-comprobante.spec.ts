@@ -23,8 +23,10 @@ test("desde la cola de errores se abre la ficha: intentos, último error, archiv
   await expect(page.getByTestId("comprobante-xml")).toHaveText("XML firmado: Guardado");
 
   // #286: la barra superior ubica la página, el contador se llama «Envíos fallidos» y «Respuesta de SUNAT» no se repite.
-  await expect(page.locator("header").getByText("Operación")).toBeVisible();
-  await expect(page.locator("header").getByText("Comprobante", { exact: true })).toBeVisible();
+  // La miga de la barra superior: la ficha también tiene su `<header>` (`CabeceraPagina`, #567), así que se busca por su nombre y no por la etiqueta.
+  const miga = page.getByRole("navigation", { name: "Ubicación" });
+  await expect(miga.getByText("Operación")).toBeVisible();
+  await expect(miga.getByText("Comprobante", { exact: true })).toBeVisible();
   await expect(page.getByText("Envíos fallidos")).toBeVisible();
   await expect(page.getByText("Respuesta de SUNAT", { exact: true })).toHaveCount(1);
 

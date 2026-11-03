@@ -42,8 +42,9 @@ test("las empresas con el certificado vencido o por vencer se distinguen a simpl
   await expect(vencida).toContainText(/Venció el/);
   await expect(porVencer).toContainText("PANADERIA SOL SAC");
   await expect(porVencer).toContainText(/Vence el .* \(10 días\)/);
-  await expect(vencida).toHaveClass(/bg-destructive/);
-  await expect(porVencer).toHaveClass(/bg-warning/);
+  // El tono lo lleva la pill del certificado (#562): con el patrón de tablas del design system las filas no se pintan enteras.
+  await expect(vencida.locator("[data-estado] > span")).toHaveClass(/bg-destructive-suave/);
+  await expect(porVencer.locator("[data-estado] > span")).toHaveClass(/bg-warning/);
 });
 
 test("filtrar por el estado del certificado cambia la URL y deja solo esas empresas", async ({ page }) => {

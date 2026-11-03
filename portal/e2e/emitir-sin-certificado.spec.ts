@@ -15,6 +15,9 @@ function rucUnico(): string {
  * «Nuevo comprobante» dejaba llenar la factura entera y recién al emitir el backend la rechazaba.
  */
 test("sin certificado ni credenciales SOL, «Nuevo comprobante» dice qué falta en vez de mostrar el formulario", async ({ page }) => {
+  // #502: un flujo largo (registro, alta de empresa, varias páginas que el dev server compila la primera vez) que con 4 workers sobre el mismo servidor pasa
+  // de los 30 s aunque solo tarde 8-30 s. `slow` triplica el tope; no esconde un fallo, que igual llega al `expect` que no se cumple.
+  test.slow();
   const sufijo = Date.now();
   await registrarYVerificar(page, { email: `sincert${sufijo}@ejemplo.pe`, nombre: "Sin Cert SAC", celular: "987654324" });
   const ruc = rucUnico();
