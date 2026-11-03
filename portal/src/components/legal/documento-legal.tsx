@@ -2,7 +2,7 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import Link from "next/link";
 import { LogoMarca } from "@/components/nav/logo";
 import type { DocumentoLegal } from "@/content/legal/tipos";
-import { REVISADO_POR_LEGAL } from "@/content/legal/version";
+import { revisadoPorLegal } from "@/content/legal/version";
 import { formatearFecha } from "@/lib/formato";
 import { useLocale, useMessages } from "next-intl";
 
@@ -10,12 +10,12 @@ const ENLACE = "font-medium text-foreground underline underline-offset-2 hover:t
 
 /**
  * Una página pública con un texto legal (#342): los términos o la política de privacidad. El texto vive en `src/content/legal/`; aquí solo se
- * pinta. `revisado` es para las pruebas: la página usa la bandera de `version.ts`.
+ * pinta. `revisado` es para las pruebas: la página lee `REVISADO_POR_LEGAL` al pintar ({@link revisadoPorLegal}).
  */
 export function DocumentoLegalVista({
   documento,
   otro,
-  revisado = REVISADO_POR_LEGAL,
+  revisado = revisadoPorLegal(),
 }: {
   documento: DocumentoLegal;
   /** El otro texto legal, enlazado al pie. */

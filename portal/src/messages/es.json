@@ -4324,12 +4324,13 @@
       "ahorroAnual": "−2 meses",
       "masUsado": "Más usado",
       "paraSiempre": "para siempre",
-      "porMes": "/mes · IGV incluido",
-      "alAno": "{monto} al año, IGV incluido · 2 meses libres",
+      "porMes": "/mes",
+      "igvIncluido": "IGV incluido",
+      "alAno": "{monto} al año · 2 meses libres",
       "empezarGratis": "Empezar gratis",
       "elegir": "Elegir {plan}",
       "pedirAcceso": "Pedir acceso",
-      "nota": "Precios en soles con IGV incluido. Los documentos se cuentan cuando SUNAT los acepta: los rechazos y los reintentos no consumen tu plan.",
+      "nota": "Precios en soles con IGV incluido. Solo cuentan los documentos que SUNAT acepta en Producción: las pruebas en Beta, los rechazos y los reintentos no consumen tu plan.",
       "aMedida": "¿Necesitas on-premise o un plan a medida?",
       "escribenos": "Escríbenos",
       "limites": {
@@ -4350,12 +4351,13 @@
         "gratis": {
           "nombre": "Gratis",
           "para": "Para probar la API",
-          "docs": "30 documentos/mes",
+          "docs": "10 documentos/mes",
           "rucs": "1 RUC · 1 usuario",
           "incluye": [
             "Factura, nota de crédito y de débito, y baja",
             "Portal web y API REST",
-            "Entorno de pruebas de SUNAT",
+            "Comprobantes reales en Producción",
+            "Pruebas en Beta sin límite",
             "1 API key · PDF A4",
             "XML y CDR guardados 1 año"
           ]
@@ -4367,7 +4369,6 @@
           "rucs": "1 RUC · 1 usuario",
           "incluye": [
             "Todo lo de Gratis",
-            "Producción además de pruebas",
             "2 API keys",
             "XML y CDR guardados 5 años",
             "Soporte por correo (48 h)"
@@ -4388,7 +4389,7 @@
         "pro": {
           "nombre": "Pro",
           "para": "SaaS, ISV y alto volumen",
-          "docs": "Documentos ilimitados",
+          "docs": "10 000 documentos/mes",
           "rucs": "10 RUC · usuarios ilimitados",
           "incluye": [
             "Todo lo de Negocio",

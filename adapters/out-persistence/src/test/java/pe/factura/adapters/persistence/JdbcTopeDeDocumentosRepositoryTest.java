@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Lo que ocupa el tope de documentos del plan (#18), con Postgres real: los documentos de todas las empresas de la cuenta que consumieron o pueden llegar a
- * consumir, en el mes de su fecha de emisión; y el bloqueo que impide que dos emisiones simultáneas tomen el último lugar libre.
+ * consumir, en el mes de su fecha de emisión, solo de Producción (#580); y el bloqueo que impide que dos emisiones simultáneas tomen el último lugar libre.
  */
 class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
     static final YearMonth OCTUBRE = YearMonth.of(2026, 10);
@@ -36,9 +36,11 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
         return id;
     }
 
-    UUID empresa(UUID cuenta) {
+    UUID empresa(UUID cuenta) { return empresa(cuenta, "PRODUCCION"); }
+
+    UUID empresa(UUID cuenta, String entorno) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, 'EMPRESA SAC', 'BETA', ?)", id, "20" + String.format("%09d", RUC.getAndIncrement()), cuenta);
+        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, 'EMPRESA SAC', ?, ?)", id, "20" + String.format("%09d", RUC.getAndIncrement()), entorno, cuenta);
         return id;
     }
 
@@ -79,6 +81,31 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
 
         assertThat(ocupados(c, OCTUBRE)).isEqualTo(2);
         assertThat(ocupados(c, YearMonth.of(2026, 9))).isEqualTo(1);
+    }
+
+    /** #580: las pruebas en Beta no ocupan el tope. Una cuenta con una empresa en cada entorno solo cuenta la de Producción. */
+    @Test void lasPruebasEnBetaNoOcupanElTope() {
+        UUID c = cuenta();
+        UUID beta = empresa(c, "BETA");
+        documento(beta, EstadoDocumento.ACEPTADO, MITAD);
+        documento(beta, EstadoDocumento.ENVIADO, MITAD);
+        documento(empresa(c), EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(ocupados(c, OCTUBRE)).isEqualTo(1);
+    }
+
+    /**
+     * #580: cuenta el entorno en que se emitió cada documento, no el que la empresa tiene hoy. La empresa prueba en Beta y pasa a Producción a mitad de mes:
+     * sus pruebas siguen sin ocupar el tope, y lo que emite después sí.
+     */
+    @Test void alPasarAProduccionLasPruebasAnterioresSiguenFuera() {
+        UUID c = cuenta();
+        UUID e = empresa(c, "BETA");
+        for (int i = 0; i < 8; i++) documento(e, EstadoDocumento.ACEPTADO, MITAD);
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE id = ?", e);
+        documento(e, EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(ocupados(c, OCTUBRE)).isEqualTo(1);
     }
 
     @Test void unaCuentaSinDocumentosOQueNoExisteEsCero() {

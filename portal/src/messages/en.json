@@ -4324,12 +4324,13 @@
       "ahorroAnual": "−2 months",
       "masUsado": "Most popular",
       "paraSiempre": "forever",
-      "porMes": "/month · IGV (VAT) included",
-      "alAno": "{monto} per year, IGV included · 2 months free",
+      "porMes": "/month",
+      "igvIncluido": "IGV (VAT) included",
+      "alAno": "{monto} per year · 2 months free",
       "empezarGratis": "Start for free",
       "elegir": "Choose {plan}",
       "pedirAcceso": "Request access",
-      "nota": "Prices in soles, IGV (VAT) included. Documents count once SUNAT accepts them: rejections and retries don’t use up your plan.",
+      "nota": "Prices in soles, IGV (VAT) included. Only documents SUNAT accepts in Production count: Beta tests, rejections and retries don’t use up your plan.",
       "aMedida": "Need on-premise or a custom plan?",
       "escribenos": "Write to us",
       "limites": {
@@ -4350,12 +4351,13 @@
         "gratis": {
           "nombre": "Gratis",
           "para": "To try out the API",
-          "docs": "30 documents/month",
+          "docs": "10 documents/month",
           "rucs": "1 RUC · 1 user",
           "incluye": [
             "Invoices, credit and debit notes, and voiding",
             "Web portal and REST API",
-            "SUNAT test environment",
+            "Real invoices in Production",
+            "Unlimited Beta testing",
             "1 API key · A4 PDF",
             "XML and CDR stored for 1 year"
           ]
@@ -4367,7 +4369,6 @@
           "rucs": "1 RUC · 1 user",
           "incluye": [
             "Everything in Gratis",
-            "Production as well as testing",
             "2 API keys",
             "XML and CDR stored for 5 years",
             "Email support (48 h)"
@@ -4388,7 +4389,7 @@
         "pro": {
           "nombre": "Pro",
           "para": "SaaS, ISVs and high volume",
-          "docs": "Unlimited documents",
+          "docs": "10 000 documents/month",
           "rucs": "10 RUC · unlimited users",
           "incluye": [
             "Everything in Negocio",

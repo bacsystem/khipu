@@ -18,7 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * El consumo de todas las cuentas contra el límite de su plan (#193), con Postgres real. Cuenta como #192 (solo aceptados, por fecha de emisión, en el mes), y lo que se
+ * El consumo de todas las cuentas contra el límite de su plan (#193), con Postgres real. Cuenta como #192 (solo aceptados en Producción, #580, por fecha de emisión,
+ * en el mes), y lo que se
  * prueba aquí es lo de la tabla: un plan por cuenta (el de hoy, con los límites que mandan hoy), el orden, los dos filtros con sus bordes exactos, las bajas fuera y la
  * paginación estable.
  */
@@ -37,9 +38,11 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         return id;
     }
 
-    UUID empresa(UUID cuenta) {
+    UUID empresa(UUID cuenta) { return empresa(cuenta, "PRODUCCION"); }
+
+    UUID empresa(UUID cuenta, String entorno) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, 'EMPRESA SAC', 'BETA', ?)", id, "20" + String.format("%09d", RUC.getAndIncrement()), cuenta);
+        jdbc.update("INSERT INTO tenant (id, ruc, razon_social, entorno, cuenta_id) VALUES (?, ?, 'EMPRESA SAC', ?, ?)", id, "20" + String.format("%09d", RUC.getAndIncrement()), entorno, cuenta);
         return id;
     }
 
@@ -131,6 +134,22 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         documentos(e, "ACEPTADO", 6, LocalDate.of(2026, 11, 1));
 
         assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(6);
+    }
+
+    /**
+     * #580: el backoffice ve el mismo número que frena al cliente: las pruebas en Beta no suman, tampoco las que hizo antes de pasar a Producción. Sin el filtro, las
+     * 25 pruebas pondrían a la cuenta en «cerca del límite» de Gratis con dos documentos reales.
+     */
+    @Test void lasPruebasEnBetaNoSumanNiAcercanAlLimite() {
+        UUID c = cuenta("Ana");
+        UUID e = empresa(c, "BETA");
+        aceptados(e, 25);
+        jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE id = ?", e);
+        aceptados(e, 2);
+        aceptados(empresa(c, "BETA"), 10);
+
+        assertThat(de(repo.listar(todas(), 1, 20), c).documentos()).isEqualTo(2);
+        assertThat(repo.listar(consulta(FiltroDeConsumo.CERCA_DEL_LIMITE, OrdenDeConsumo.PORCENTAJE), 1, 20)).extracting(Registro::cuentaId).doesNotContain(c);
     }
 
     /** Los bordes del mes son del mes: el día 1 y el último día cuentan; el día anterior y el siguiente, no. */

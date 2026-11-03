@@ -126,8 +126,9 @@ class CambioDePlanE2ETest {
 
     private int numero = 1;
 
+    /** Comprobantes reales: en Producción, que es lo único que consume el plan (#580). La empresa sigue en Beta para no hablarle a la SUNAT real. */
     private void documento(UUID empresa, String estado) {
-        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo) VALUES (?, ?, '01', 'F001', ?, ?, ?, 'archivo')",
+        jdbc.update("INSERT INTO documento (id, tenant_id, tipo, serie, numero, fecha_emision, estado, nombre_archivo, entorno) VALUES (?, ?, '01', 'F001', ?, ?, ?, 'archivo', 'PRODUCCION')",
                 UUID.randomUUID(), empresa, numero++, java.sql.Date.valueOf(LocalDate.now(CicloMensual.ZONA)), estado);
     }
 

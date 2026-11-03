@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RegistroForm } from "@/components/auth/registro-form";
+import { revisadoPorLegal } from "@/content/legal/version";
 import { registroAbierto } from "@/lib/acceso";
 import type { Metadata } from "next";
 import { useMessages } from "next-intl";
@@ -33,7 +34,7 @@ export default function RegistroPage() {
         </>
       }
     >
-      <RegistroForm />
+      <RegistroForm revisado={revisadoPorLegal()} />
     </AuthShell>
   );
 }
