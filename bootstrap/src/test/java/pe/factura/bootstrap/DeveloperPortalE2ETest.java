@@ -25,7 +25,9 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("unchecked")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// #602: como en desarrollo, el OpenAPI publica también el backoffice (`OPENAPI_RUTAS_OCULTAS` vacía): es el documento que el portal commitea.
+// Lo que se publica en producción, sin el backoffice, lo prueba OpenApiPublicoE2ETest.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "springdoc.paths-to-exclude=")
 @ActiveProfiles("test")
 @Testcontainers
 @AutoConfigureTestRestTemplate
@@ -75,7 +77,7 @@ class DeveloperPortalE2ETest {
         List<String> diferencias = new ArrayList<>();
         diferencias(enVivo, commiteado, "", diferencias);
         assertThat(diferencias)
-                .as("portal/src/lib/api/openapi.json no es el OpenAPI de la API. Con un backend en marcha: `API_BASE_URL=http://localhost:8001 npm --prefix portal run generate:api`, "
+                .as("portal/src/lib/api/openapi.json no es el OpenAPI de la API. Con un backend en marcha y `OPENAPI_RUTAS_OCULTAS=` vacía: `API_BASE_URL=http://localhost:8001 npm --prefix portal run generate:api`, "
                         + "corrija lo que rompa `npm --prefix portal run typecheck` (contrato-openapi.ts) y commitee los dos archivos. Primeras diferencias (API en vivo vs archivo)")
                 .isEmpty();
     }

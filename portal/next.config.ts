@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { cabecerasDeSeguridad } from "./src/lib/cabeceras-de-seguridad";
 
 // #25: textos por locale con next-intl, sin rutas por idioma (el locale sale de una cookie, ver src/i18n/config.ts).
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -20,6 +21,11 @@ const nextConfig: NextConfig = {
   // (`eslint && next build`), así que `npm run build` y el Dockerfile siguen fallando con un literal nuevo.
   eslint: { ignoreDuringBuilds: true },
   ...(devOrigins.length > 0 ? { allowedDevOrigins: devOrigins } : {}),
+  // #602: no anunciar `x-powered-by: Next.js`, y las cabeceras de seguridad en todas las respuestas (ver cabeceras-de-seguridad.ts).
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: cabecerasDeSeguridad(process.env.NODE_ENV === "production") }];
+  },
 };
 
 export default withNextIntl(nextConfig);

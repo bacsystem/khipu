@@ -151,6 +151,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("RUTA_INEXISTENTE", "La ruta no existe en esta versión de la API"));
     }
 
+    /**
+     * Método o tipo de contenido que la ruta no acepta (#602): es un error del cliente, no interno. Sin esto, cada sondeo de un escáner
+     * (un `GET` a una ruta solo `POST`) respondía 500 y dejaba un ERROR con traza en el log, tapando los errores de verdad.
+     */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> metodoNoPermitido(org.springframework.web.HttpRequestMethodNotSupportedException e) {
+        var respuesta = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (e.getSupportedHttpMethods() != null) respuesta.allow(e.getSupportedHttpMethods().toArray(org.springframework.http.HttpMethod[]::new));
+        return respuesta.body(ApiResponse.error("METODO_NO_PERMITIDO", "La ruta no acepta el método " + e.getMethod()));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> tipoNoSoportado(org.springframework.web.HttpMediaTypeNotSupportedException e) {
+        // Las rutas de archivos (certificado, logo) aceptan multipart y el resto JSON: se dice lo que acepta esta.
+        String aceptados = e.getSupportedMediaTypes().stream().map(Object::toString).distinct().collect(java.util.stream.Collectors.joining(", "));
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(ApiResponse.error("TIPO_NO_SOPORTADO",
+                aceptados.isEmpty() ? "Tipo de contenido no soportado" : "Tipo de contenido no soportado; la ruta acepta: " + aceptados));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> interno(Exception e) {
         String traceId = UUID.randomUUID().toString();
