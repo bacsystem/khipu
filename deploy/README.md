@@ -111,6 +111,7 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | credenciales SMTP | Según el proveedor |
 | `MAIL_REMITENTE` | `no-responder@tu-dominio.pe` | De dónde salen los correos; default `no-responder@khipu.pe` |
 | `REGISTRO_ABIERTO` | `false` mientras el autoservicio no esté certificado | Cierra `POST /v1/auth/registro` con `403 REGISTRO_CERRADO` (issue #174). Su default ya es `false`: es la misma variable que usa el servicio `portal` (ver abajo), y **hay que ponerla en los dos servicios** — el portal cierra su propia ruta, el backend cierra la suya, y son independientes |
+| `OPENAPI_RUTAS_OCULTAS` | no ponerla en producción | Opcional (#602). Sin ella, el OpenAPI publicado (`/openapi.json`, `/swagger-ui`, la referencia de `/developers`) no documenta las rutas `/v1/admin/**` del backoffice. Vacía (`OPENAPI_RUTAS_OCULTAS=`) las publica todas: es lo que usan el desarrollo (`docker-compose.yml`) y `npm --prefix portal run generate:api` |
 | `TRUSTED_PROXIES` | expresión regular de las IPs de los proxies de confianza (el servicio `portal`) | Opcional, **vacío por defecto: no se confía en `X-Forwarded-For`** y la bitácora registra la IP de la conexión. Se calibra con `GET /v1/admin/origen`; ver §5 antes de fijarla. Una expresión inválida impide arrancar |
 | `ADMIN_SESION_MINUTOS` | `30` | Opcional. Vida de la sesión del administrador del backoffice (#177), **entre 5 y 60**: fuera de ese rango el backend no arranca. Sin refresh: al vencer se vuelve a entrar con contraseña y segundo factor. El portal toma la vida de la cookie de la respuesta del login, no hace falta configurarla allá |
 | `LOG_DIR` | `/data/logs` (dentro del Volume) | Opcional. Carpeta de `khipu.log` (INFO y superiores) y `khipu-error.log` (WARN y ERROR con la traza completa). Default `./logs`, que en la imagen es `/app/logs` (el Dockerfile la crea con permisos para el usuario `khipu`) y se pierde al redeployar. Para conservarlos, apuntar `LOG_DIR` a una carpeta del Volume, con el mismo requisito que `STORAGE_FS_ROOT`: que el usuario `khipu` pueda escribir ahí. Con `STORAGE_TYPE=s3` no hay Volume y `/data` no existe: no fijar `LOG_DIR` en ese caso. **Un `LOG_DIR` que `khipu` no pueda crear o escribir impide que el backend arranque** (Spring Boot aborta con `Logback configuration error detected: Failed to create parent directories`): es una configuración que falla rápido, igual que `MASTER_KEY` o `MAIL_HOST`. En Railway el log de referencia es la consola, que ya muestra cada error en una línea con su causa raíz |
@@ -351,6 +352,18 @@ Procedimiento, con la sesión de administrador abierta en el portal:
    `cloudflare_confiada` debe ser `false` e `ip_resuelta` tu IP pública, **nunca `6.6.6.6`**.
 5. Redesplegar el portal y repetir el paso 3: si `ip_backend` vuelve a ser la del portal, su dirección privada cambió y hay que
    ampliar `TRUSTED_PROXIES` al rango observado.
+
+**Valores en producción (medido el 2026-11-03, v1.3.0):**
+
+- Portal: `TRUSTED_PROXY_HOPS=2` y `TRUSTED_CLOUDFLARE=true`. La cadena que llega es `<IP de Cloudflare>, <IP de Railway>`;
+  `ip_resuelta` e `ip_backend` dan la IP pública del administrador.
+- Backend: `TRUSTED_PROXIES=10\.\d+\.\d+\.\d+`. La dirección privada del portal **cambia en cada despliegue** (se vieron dos
+  distintas dentro de `10.0.0.0/8` el mismo día), así que una dirección fija no sirve. El borde de Railway llega al backend desde
+  `100.64.0.0/10` (paso 4 de «Procedimiento de verificación»: `datos.ip` fue `100.64.0.x`, nunca `6.6.6.6`), fuera de la regex. La
+  regex cubre también a los otros servicios del proyecto (Postgres, respaldo), que están en la misma red: el límite de la tabla de
+  arriba, salto (2).
+- El portal no tiene dominio `*.up.railway.app`: solo `khipu.bacsystemsolutions.com`, con el proxy de Cloudflare. El paso 4 de esta
+  lista no aplica mientras siga así; si se genera uno, repetirlo.
 
 ## 6. Orden de despliegue sugerido
 

@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.3.1] - 2026-11-03
+
+Sin migraciones ni variables nuevas en producción: ocultar el backoffice del OpenAPI es el valor por defecto (`OPENAPI_RUTAS_OCULTAS`). Tras desplegar, comprobar que `/openapi.json` no trae rutas `/v1/admin`, que el portal manda las cabeceras de seguridad y que un método equivocado responde 405.
+
+### Security
+- El OpenAPI publicado (`/openapi.json`, `/swagger-ui` y la referencia de `/developers`) ya no documenta las 49 rutas `/v1/admin/**` del backoffice ni sus esquemas (#602). En desarrollo se publican con `OPENAPI_RUTAS_OCULTAS=` (vacía), que `docker-compose.yml` ya pone; `generate:api` avisa si faltan.
+- El portal responde con cabeceras de seguridad (#602): no se puede enmarcar desde otro sitio (`X-Frame-Options: SAMEORIGIN`, CSP `frame-ancestors 'self'`), `nosniff`, `Referrer-Policy`, `Permissions-Policy` y, en producción, HSTS de un año; y deja de anunciar `x-powered-by: Next.js`.
+
+### Fixed
+- Una petición con un método que la ruta no acepta responde 405 `METODO_NO_PERMITIDO` (con `Allow`) y una con un tipo de contenido no soportado 415 `TIPO_NO_SOPORTADO`, en vez de 500 `INTERNO` con un ERROR en el log por cada una (#602).
+
 ## [1.3.0] - 2026-11-03
 
 Sin migraciones. Tras desplegar: `TRUSTED_PROXY_HOPS=2` y `TRUSTED_CLOUDFLARE=true` en el portal, `TRUSTED_PROXIES` en el backend, y comprobar con `/api/admin/origen` (`deploy/README.md` §5, «Con Cloudflare delante»).
