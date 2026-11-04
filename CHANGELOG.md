@@ -2,7 +2,9 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
-## [Unreleased]
+## [1.3.1] - 2026-11-03
+
+Sin migraciones ni variables nuevas en producción: ocultar el backoffice del OpenAPI es el valor por defecto (`OPENAPI_RUTAS_OCULTAS`). Tras desplegar, comprobar que `/openapi.json` no trae rutas `/v1/admin`, que el portal manda las cabeceras de seguridad y que un método equivocado responde 405.
 
 ### Security
 - El OpenAPI publicado (`/openapi.json`, `/swagger-ui` y la referencia de `/developers`) ya no documenta las 49 rutas `/v1/admin/**` del backoffice ni sus esquemas (#602). En desarrollo se publican con `OPENAPI_RUTAS_OCULTAS=` (vacía), que `docker-compose.yml` ya pone; `generate:api` avisa si faltan.
