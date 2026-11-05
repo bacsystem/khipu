@@ -8,6 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Design docs live in `docs/` (gitignored, local-only): `docs/spec/spec.md` (architecture + prioritized roadmap), `docs/plan/plan.md` (pricing/business plan), `docs/pending.md` (running status/pending-work report), `docs/superpowers/specs/` and `docs/superpowers/plans/` (per-phase specs and plans, e.g. `10-portal.md` for the portal). Read these for anything beyond what's below — this file intentionally doesn't restate them.
 
+## Project memory: `khipu_memory`
+
+**Before starting the day's work or any development, consult `khipu_memory`**, the project's NotebookLM notebook, about the project's status and the topic at hand. Do it through the `gemini-notebook-mcp` MCP server or the `nlm` CLI, and say in one line what was consulted and what came back.
+
+- The notebook belongs to the repo's owner, so this applies where that server is set up. Elsewhere, skip it.
+- If the query fails (expired Google session, server down), say so and do not carry on as if it had been consulted. `nlm login` renews the session.
+- It holds copies of this repo's docs, so it can lag behind or drop steps. The repo, GitHub and production win; for key rotation or restores, read `deploy/README.md` itself.
+- Only public content goes in: never `docs/`, secrets or customer data.
+- **Log each work session in the notebook.** When a block of work closes (a merged PR, a release, a decision, the end of the session), add a text source titled `sesion-YYYY-MM-DD` with what was done, the decisions, the PRs and issues, and what is pending. Use a source, not a note: queries read sources. Later work the same day goes in a new source (`sesion-YYYY-MM-DD-2`), not over the old one.
+
 ## Commands
 
 ### Backend (Java, root of repo)
