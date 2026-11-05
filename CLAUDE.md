@@ -16,6 +16,7 @@ Design docs live in `docs/` (gitignored, local-only): `docs/spec/spec.md` (archi
 - If the query fails (expired Google session, server down), say so and do not carry on as if it had been consulted. `nlm login` renews the session.
 - It holds copies of this repo's docs, so it can lag behind or drop steps. The repo, GitHub and production win; for key rotation or restores, read `deploy/README.md` itself.
 - Only public content goes in: never `docs/`, secrets or customer data.
+- **Log each work session in the notebook.** When a block of work closes (a merged PR, a release, a decision, the end of the session), add a text source titled `sesion-YYYY-MM-DD` with what was done, the decisions, the PRs and issues, and what is pending. Use a source, not a note: queries read sources. Later work the same day goes in a new source (`sesion-YYYY-MM-DD-2`), not over the old one.
 
 ## Commands
 
