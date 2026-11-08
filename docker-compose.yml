@@ -56,6 +56,9 @@ services:
       context: .
       dockerfile: deploy/backend/Dockerfile
     profiles: ["app"]
+    # Si el proceso se cae, Docker lo vuelve a levantar en vez de dejarlo apagado hasta que alguien lo note. `unless-stopped`: un `docker compose stop`
+    # lo deja parado a propósito.
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +104,8 @@ services:
     ports: ["${BACKEND_PORT:-8001}:8001"]
   portal:
     build: ./portal
+    # Como el backend. En las pruebas de carga del 2026-11-07 el portal se cayó sin memoria y quedó apagado hasta levantarlo a mano.
+    restart: unless-stopped
     environment:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
