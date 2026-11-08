@@ -183,6 +183,10 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 
 - **Fuente**: imagen `cbaciliod/khipu-portal:latest` (ver arriba)
 - **Puerto**: tampoco fijar `PORT` — el output `standalone` de Next.js ya lo respeta
+- **Reinicio**: en Settings → Deploy → Restart Policy, **Always** (también en `backend`). Si el proceso se cae, Railway lo vuelve a levantar
+  en vez de dejar el servicio apagado. Con *On Failure* y un tope de reintentos, una caída repetida lo deja parado al llegar al tope. En las
+  pruebas de carga del 2026-11-07 el portal se cayó por falta de memoria con carga sostenida y quedó apagado: la causa se corrigió en el
+  propio portal, pero el reinicio sigue siendo la red de seguridad. `docker-compose.yml` hace lo mismo en local con `restart: unless-stopped`.
 
 ### Variables de entorno
 
