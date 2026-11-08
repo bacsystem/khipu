@@ -21,6 +21,8 @@ RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nextjs /app/.next/static ./.next/static
+# Punto de entrada (#618): con PORTAL_PROCESOS=N levanta N procesos de server.js que comparten el puerto; sin la variable, uno, como antes.
+COPY --from=build --chown=nextjs:nextjs /app/procesos.cjs ./procesos.cjs
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "procesos.cjs"]
