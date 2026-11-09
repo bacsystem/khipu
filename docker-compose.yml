@@ -125,6 +125,8 @@ services:
       COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-}
       # Cuántos procesos de Node levanta el portal (#618): cada uno usa un núcleo y unos 400 a 650 MB con carga. 1 por defecto, como antes.
       PORTAL_PROCESOS: ${PORTAL_PROCESOS:-1}
+      # Cuánto mantiene el portal una conexión inactiva, en ms (#610): mayor que el del proxy de delante. Mismo default que la imagen.
+      KEEP_ALIVE_TIMEOUT: ${KEEP_ALIVE_TIMEOUT:-65000}
     ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:
