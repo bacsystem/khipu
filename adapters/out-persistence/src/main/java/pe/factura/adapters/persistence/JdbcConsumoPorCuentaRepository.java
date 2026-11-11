@@ -32,22 +32,25 @@ public class JdbcConsumoPorCuentaRepository implements ConsumoPorCuentaRepositor
                 SELECT cuenta_id, nombre, email, plan_id, plan_nombre, CASE WHEN periodo = 'TOTAL' THEN n_total ELSE n_mes END AS documentos, limite, periodo,
                        vence_en, dias_de_gracia
                 FROM (
-                    SELECT c.id AS cuenta_id, c.nombre, c.email, p.id AS plan_id, p.nombre AS plan_nombre, COALESCE(u.n_mes, 0) AS n_mes, COALESCE(u.n_total, 0) AS n_total,
+                    SELECT c.id AS cuenta_id, c.nombre, c.email, p.id AS plan_id, p.nombre AS plan_nombre, COALESCE(u.n, 0) AS n_mes, tot.n AS n_total,
                            CASE WHEN cp.plan_id IS NOT NULL THEN cp.documentos_al_mes ELSE p.documentos_al_mes END AS limite,
-                           CASE WHEN cp.plan_id IS NOT NULL THEN cp.periodo_documentos ELSE p.periodo_documentos END AS periodo,
+                           COALESCE(cp.periodo_documentos, p.periodo_documentos) AS periodo,
                            s.vence_en, s.dias_de_gracia
                     FROM cuenta c
                     JOIN suscripcion s ON s.cuenta_id = c.id AND s.termina_en IS NULL
                     JOIN plan p ON p.id = s.plan_id
                     LEFT JOIN plan_cambio_programado cp ON cp.plan_id = p.id AND cp.aplica_desde <= ?
                     LEFT JOIN (
-                        SELECT t.cuenta_id, count(*) FILTER (WHERE d.fecha_emision >= ? AND d.fecha_emision < ?) AS n_mes, count(*) AS n_total
-                        FROM tenant t JOIN documento d ON d.tenant_id = t.id
-                        WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%s) AND d.entorno IN (%s)
+                        SELECT t.cuenta_id, count(*) AS n FROM tenant t JOIN documento d ON d.tenant_id = t.id
+                        WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%1$s) AND d.entorno IN (%2$s) AND d.fecha_emision >= ? AND d.fecha_emision < ?
                         GROUP BY t.cuenta_id) u ON u.cuenta_id = c.id
-                    WHERE %s
+                    -- Toda la vida de la cuenta solo para las de tope TOTAL: con la condición dentro, Postgres ni recorre los documentos de las demás.
+                    CROSS JOIN LATERAL (
+                        SELECT count(*) AS n FROM tenant t JOIN documento d ON d.tenant_id = t.id
+                        WHERE COALESCE(cp.periodo_documentos, p.periodo_documentos) = 'TOTAL' AND t.cuenta_id = c.id AND d.estado IN (%1$s) AND d.entorno IN (%2$s)) tot
+                    WHERE %3$s
                 ) v
-            ) x WHERE %s""";
+            ) x WHERE %4$s""";
 
     @Override public List<Registro> listar(Consulta q, int pagina, int porPagina) {
         List<Object> params = parametros(q);
