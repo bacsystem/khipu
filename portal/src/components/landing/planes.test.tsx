@@ -39,7 +39,7 @@ describe("Planes de la portada", () => {
     expect(within(emprende).getByText("IGV incluido")).toBeTruthy();
 
     expect(within(tarjeta("Gratis")).queryByText("IGV incluido")).toBeNull();
-    expect(within(tarjeta("Gratis")).getByText("para siempre")).toBeTruthy();
+    expect(within(tarjeta("Gratis")).getByText("sin tarjeta")).toBeTruthy();
   });
 
   it("al año dice el total una sola vez con el IGV, sin repetirlo", () => {
@@ -51,15 +51,20 @@ describe("Planes de la portada", () => {
     expect(within(negocio).getAllByText(/IGV/)).toHaveLength(1);
   });
 
-  it("Gratis emite en Producción y prueba en Beta sin límite; nadie vende «Producción además de pruebas»", () => {
+  /** #613: Gratis da 10 comprobantes reales en total (no al mes), y cada plan 1 000 pruebas en Beta al mes por cada RUC: ya no hay Beta «sin límite». */
+  it("Gratis da 10 comprobantes reales en total y cada plan sus pruebas en Beta por RUC; nadie vende «Producción además de pruebas»", () => {
     render(<Planes planes={planesDeRespaldo(es)} abierto contacto={null} />);
 
     const gratis = tarjeta("Gratis");
-    expect(within(gratis).getByText("10 documentos/mes")).toBeTruthy();
+    expect(within(gratis).getByText("10 comprobantes reales en total")).toBeTruthy();
     expect(within(gratis).getByText("Comprobantes reales en Producción")).toBeTruthy();
-    expect(within(gratis).getByText("Pruebas en Beta sin límite")).toBeTruthy();
+    expect(within(gratis).getByText("1 000 pruebas en Beta al mes")).toBeTruthy();
+    expect(within(tarjeta("Emprende")).getByText("1 000 pruebas en Beta al mes")).toBeTruthy();
+    expect(within(tarjeta("Negocio")).getByText("3 000 pruebas en Beta al mes")).toBeTruthy();
+    expect(within(tarjeta("Pro")).getByText("10 000 pruebas en Beta al mes")).toBeTruthy();
     expect(within(tarjeta("Pro")).getByText("10 000 documentos/mes")).toBeTruthy();
+    expect(screen.queryByText(/sin límite/)).toBeNull();
     expect(screen.queryByText(/Producción además de pruebas|Entorno de pruebas de SUNAT/)).toBeNull();
-    expect(screen.getByText(/las pruebas en Beta, los rechazos y los reintentos no consumen tu plan/)).toBeTruthy();
+    expect(screen.getByText(/Las pruebas en Beta van aparte: 1 000 al mes por cada RUC de tu plan/)).toBeTruthy();
   });
 });

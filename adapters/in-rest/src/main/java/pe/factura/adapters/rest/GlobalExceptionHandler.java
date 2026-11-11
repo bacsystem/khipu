@@ -62,9 +62,10 @@ public class GlobalExceptionHandler {
             case "SUNAT_NO_DISPONIBLE", "PADRON_NO_CARGADO" -> HttpStatus.SERVICE_UNAVAILABLE;
             // Avisos a los clientes (#197): el pedido es válido pero la situación no lo permite (no hay nada que avisar, no hay a quién escribirle, o se avisó lo mismo hace poco).
             case "AVISO_SIN_MOTIVO", "EMPRESA_SIN_CUENTA", "AVISO_RECIENTE" -> HttpStatus.CONFLICT;
-            // LIMITE_PLAN (#18): la cuenta llegó al tope de documentos del mes de su plan; se puede volver a emitir el mes siguiente o con otro plan.
+            // LIMITE_PLAN (#18): la cuenta llegó al tope de documentos de su plan (del mes, o en total, #613); se vuelve a emitir el mes siguiente (el total no se renueva) o con otro plan.
+            // LIMITE_PRUEBAS (#613): la cuenta llegó al tope de pruebas en Beta del mes; se vuelve a probar el mes siguiente o con otro plan.
             // DEMASIADAS_CONSULTAS (#361): la empresa pasó su cupo de consultas de RUC por minuto o por día.
-            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN", "DEMASIADAS_CONSULTAS" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "DEMASIADOS_INTENTOS", "DEMASIADOS_ENLACES", "DEMASIADOS_INTENTOS_LOGIN", "LIMITE_PLAN", "LIMITE_PRUEBAS", "DEMASIADAS_CONSULTAS" -> HttpStatus.TOO_MANY_REQUESTS;
             // CUPO_DEL_PLAN (#498): el plan de la cuenta ya no deja una API key, un usuario o una empresa más; se libera un lugar o se sube de plan. No es un exceso de pedidos: es el estado de la cuenta.
             case "CUPO_DEL_PLAN" -> HttpStatus.CONFLICT;
             // PLAN_VENCIDO (#285): el plan de la cuenta venció y pasó su gracia; se vuelve a emitir al renovarlo (pagarlo).

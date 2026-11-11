@@ -22,7 +22,7 @@ const HOY = "2026-10-15";
 const exito = (datos: unknown = {}): ApiEnvelope<unknown> => ({ estado: "exito", datos, mensaje: null, codigo: null, errores: null });
 const error = (codigo: string, mensaje: string): ApiEnvelope<unknown> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 
-const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
+const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } };
 /** Pagada hasta el 20 de octubre (el vencimiento es la medianoche de Lima del 21). */
 const EMPRENDE: PlanDeCuentaAdmin = {
   cuenta_id: CUENTA,

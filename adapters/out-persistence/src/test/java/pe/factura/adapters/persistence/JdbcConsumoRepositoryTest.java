@@ -125,6 +125,37 @@ class JdbcConsumoRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.documentosPorEmpresaDeCuenta(c, OCTUBRE)).extracting(ConsumoDeEmpresa::documentos).containsExactlyInAnyOrder(0L, 1L);
     }
 
+    /** #613: lo de toda la vida de la cuenta en Producción: todas sus empresas, cualquier mes, sin las pruebas en Beta ni lo que no consume. */
+    @Test void enTotalSumaTodaLaVidaDeLaCuentaSoloEnProduccion() {
+        UUID c = cuenta("a@negocio.pe");
+        UUID uno = empresa(c, "UNO SAC");
+        UUID dos = empresa(c, "DOS SAC");
+        documento(uno, EstadoDocumento.ACEPTADO, LocalDate.of(2025, 3, 1));
+        documento(uno, EstadoDocumento.ACEPTADO_CON_OBS, MITAD);
+        documento(dos, EstadoDocumento.ANULADO, LocalDate.of(2026, 9, 30));
+        documento(dos, EstadoDocumento.RECHAZADO, MITAD);
+        documento(empresa(c, "PRUEBAS SAC", "BETA"), EstadoDocumento.ACEPTADO, MITAD);
+        documento(empresa(cuenta("b@negocio.pe"), "OTRA SAC"), EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(repo.documentosDeCuentaEnTotal(c)).isEqualTo(3);
+        assertThat(repo.documentosDeCuentaEnTotal(UUID.randomUUID())).isZero();
+    }
+
+    /** #613: las pruebas del mes son las de Beta de todas las empresas de la cuenta, con los estados que consumen, en su mes. */
+    @Test void lasPruebasDelMesSonLasDeBetaDeLaCuenta() {
+        UUID c = cuenta("a@negocio.pe");
+        UUID beta = empresa(c, "PRUEBAS SAC", "BETA");
+        UUID otraBeta = empresa(c, "OTRAS PRUEBAS SAC", "BETA");
+        documento(beta, EstadoDocumento.ACEPTADO, MITAD);
+        documento(otraBeta, EstadoDocumento.ACEPTADO_CON_OBS, MITAD);
+        documento(beta, EstadoDocumento.RECHAZADO, MITAD);
+        documento(beta, EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 30));
+        documento(empresa(c, "REAL SAC"), EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(repo.pruebasDeCuenta(c, OCTUBRE)).isEqualTo(2);
+        assertThat(repo.pruebasDeCuenta(c, YearMonth.of(2026, 9))).isEqualTo(1);
+    }
+
     /** #580: cada documento guarda el entorno en que se emitió. Las pruebas previas al paso a Producción no pasan a consumir; lo emitido después, sí. */
     @Test void elEntornoEsElDeCuandoSeEmitioNoElDeHoy() {
         UUID c = cuenta("a@negocio.pe");

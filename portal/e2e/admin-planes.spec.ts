@@ -22,7 +22,7 @@ const nombreUnico = (base: string) => `${base} ${Date.now().toString(36)}${Math.
 async function llenarFormulario(page: import("@playwright/test").Page, v: { nombre: string; precio: string; documentos: string; rucs: string; usuarios: string; keys: string; retencion: string }) {
   await page.getByLabel("Nombre", { exact: true }).fill(v.nombre);
   await page.getByLabel("Precio mensual (S/)").fill(v.precio);
-  await page.getByLabel("Documentos por mes").fill(v.documentos);
+  await page.getByLabel("Tope de documentos").fill(v.documentos);
   await page.getByLabel("RUC", { exact: true }).fill(v.rucs);
   await page.getByLabel("Usuarios", { exact: true }).fill(v.usuarios);
   await page.getByLabel("API keys", { exact: true }).fill(v.keys);
@@ -82,7 +82,7 @@ test("un cambio de límites ya programado se muestra aparte, con qué cambia y d
   await expect((await negocio.getByRole("cell").allTextContents())[2]).toBe("1,500");
   const aviso = page.getByTestId(`plan-programado-${NEGOCIO}`);
   await expect(aviso).toContainText("Desde el 1");
-  await expect(aviso).toContainText("Documentos / mes: 1,500 → 2,000");
+  await expect(aviso).toContainText("Documentos: 1,500/mes → 2,000/mes");
 });
 
 // --- crear ----------------------------------------------------------------------------------------------------------------------------------
@@ -95,10 +95,12 @@ test("crear un plan lo deja en el listado, activo, con sus límites y sin cuenta
 
     const celdas = await nuevo.getByRole("cell").allTextContents();
     expect(celdas[1]).toBe("S/ 49.90");
-    expect(celdas[2]).toBe("800");
-    expect(celdas[3]).toBe("2");
-    expect(celdas[6]).toBe("6 años");
-    expect(celdas[7]).toBe("0");
+    expect(celdas[2]).toBe("800/mes");
+    // #613: 1 000 pruebas en Beta por RUC (lo que trae un plan nuevo) por sus 2 RUC.
+    expect(celdas[3]).toBe("2,0001,000 por RUC");
+    expect(celdas[4]).toBe("2");
+    expect(celdas[7]).toBe("6 años");
+    expect(celdas[8]).toBe("0");
     await expect(nuevo).toHaveAttribute("data-estado", "ACTIVO");
   } finally {
     await borrarPlan(page, nombre);
@@ -163,16 +165,16 @@ test("editar cambia el precio al instante pero los límites quedan programados p
     await expect(dialogo).toContainText("El nombre y el precio cambian al instante.");
     await expect(dialogo).toContainText("Los límites nuevos entran el 1");
     await page.getByLabel("Precio mensual (S/)").fill("59.90");
-    await page.getByLabel("Documentos por mes").fill("2000");
+    await page.getByLabel("Tope de documentos").fill("2000");
 
     await page.getByTestId("plan-guardar").click();
 
     const editado = page.getByRole("row", { name: new RegExp(nombre) });
     // Primero se espera a que la tabla se vuelva a pintar con el cambio; leer las celdas antes puede agarrar la fila vieja o ninguna.
-    await expect(editado).toContainText("Documentos / mes: 800 → 2,000");
+    await expect(editado).toContainText("Documentos: 800/mes → 2,000/mes");
     const celdas = await editado.getByRole("cell").allTextContents();
     expect(celdas[1]).toBe("S/ 59.90");
-    expect(celdas[2], "los límites vigentes no cambian").toBe("800");
+    expect(celdas[2], "los límites vigentes no cambian").toBe("800/mes");
   } finally {
     await borrarPlan(page, nombre);
   }
@@ -184,13 +186,13 @@ test("volver a poner los límites vigentes cancela el cambio programado", async 
   try {
     const nuevo = await crearPlan(page, nombre, "800");
     await nuevo.getByRole("button", { name: "Editar" }).click();
-    await page.getByLabel("Documentos por mes").fill("2000");
+    await page.getByLabel("Tope de documentos").fill("2000");
     await page.getByTestId("plan-guardar").click();
-    await expect(page.getByRole("row", { name: new RegExp(nombre) })).toContainText("800 → 2,000");
+    await expect(page.getByRole("row", { name: new RegExp(nombre) })).toContainText("800/mes → 2,000/mes");
 
     await page.getByRole("row", { name: new RegExp(nombre) }).getByRole("button", { name: "Editar" }).click();
     await expect(page.getByTestId("plan-hay-programado")).toContainText("se cancela");
-    await page.getByLabel("Documentos por mes").fill("800");
+    await page.getByLabel("Tope de documentos").fill("800");
     await page.getByTestId("plan-guardar").click();
 
     await expect(page.getByRole("row", { name: new RegExp(nombre) })).not.toContainText("→");

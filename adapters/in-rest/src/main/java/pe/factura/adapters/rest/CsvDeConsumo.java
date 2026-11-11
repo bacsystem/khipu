@@ -15,7 +15,7 @@ import java.util.stream.Stream;
  * no se tocan.
  */
 final class CsvDeConsumo {
-    private static final String CABECERA = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta";
+    private static final String CABECERA = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta,periodo";
     private static final String FIN_DE_LINEA = "\r\n";
 
     private CsvDeConsumo() {}
@@ -27,7 +27,8 @@ final class CsvDeConsumo {
     private static String linea(Fila f) {
         return String.join(",", f.cuentaId().toString(), texto(f.nombre()), texto(f.email()), texto(f.planNombre()), String.valueOf(f.documentos()),
                 f.limite().ilimitado() ? "ilimitado" : String.valueOf(f.limite().maximo()), f.porcentaje() == null ? "" : String.valueOf(f.porcentaje()),
-                f.enAlerta() ? "si" : "no", f.estado().name(), ultimoDiaCubierto(f.venceEn()), ultimoDiaCubierto(f.hastaCuandoCubre()));
+                f.enAlerta() ? "si" : "no", f.estado().name(), ultimoDiaCubierto(f.venceEn()), ultimoDiaCubierto(f.hastaCuandoCubre()),
+                f.periodo().name());
     }
 
     /**

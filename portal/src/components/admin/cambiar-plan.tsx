@@ -234,7 +234,9 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
   const d = previa.datos;
   const inmediato = d.efecto === "INMEDIATO";
   const limite = d.limite_de_documentos;
-  const consumo = (limite.ilimitado ? t.consumoSinTope : t.consumo)
+  // #613: si el plan nuevo tiene el tope en total, `consumo_del_mes` es lo de toda la vida de la cuenta y no se habla del mes.
+  const total = !limite.ilimitado && d.plan_nuevo.limites.periodo_documentos === "TOTAL";
+  const consumo = (limite.ilimitado ? t.consumoSinTope : total ? t.consumoTotal : t.consumo)
     .replace("{mes}", formatearMes(d.mes, locale))
     .replace("{n}", String(d.consumo_del_mes))
     .replace("{plan}", d.plan_nuevo.nombre)
@@ -258,7 +260,7 @@ function Efecto({ previa }: { previa: Exclude<Previa, { estado: "ninguna" }> }) 
       {d.supera_el_limite ? (
         <p data-testid="cambiar-plan-supera" className="flex items-start gap-1.5 text-warning-foreground">
           <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
-          {inmediato ? t.superaInmediato : t.superaBajada}
+          {inmediato ? (total ? t.superaInmediatoTotal : t.superaInmediato) : total ? t.superaBajadaTotal : t.superaBajada}
         </p>
       ) : null}
       </div>

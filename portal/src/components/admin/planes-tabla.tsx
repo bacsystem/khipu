@@ -5,7 +5,8 @@ import { AccionesDePlan } from "@/components/admin/acciones-de-plan";
 import { Etiqueta } from "@/components/admin/etiquetas";
 import { CONTENEDOR_TABLA, FilaVacia } from "khipu-design-system/patrones/pie-tabla";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "khipu-design-system/ui/table";
-import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
+import { cambiosDeLimites, limiteEnPalabras, precioEnSoles, retencionEnPalabras, topeDeDocumentosEnPalabras, type PlanAdmin } from "@/lib/api/admin-planes";
+import { interpolar } from "@/i18n/mensajes";
 import { CABECERA_TABLA } from "@/lib/estilos";
 import { formatearFechaDeLima } from "@/lib/formato";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
               <TableHead className={`${CABECERA_TABLA} pl-4`}>{columnas.plan}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.precio}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.documentos}</TableHead>
+              <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.pruebasBeta}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.rucs}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.usuarios}</TableHead>
               <TableHead className={`${CABECERA_TABLA} text-right`}>{columnas.apiKeys}</TableHead>
@@ -82,7 +84,18 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
                   <CambioProgramado plan={p} />
                 </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{precioEnSoles(p.precio_mensual, messages, locale)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.documentos_al_mes, messages)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums" data-testid={`plan-documentos-${p.id}`}>
+                  {topeDeDocumentosEnPalabras(p.limites, messages)}
+                </TableCell>
+                {/* #613: la bolsa de pruebas de la cuenta (por RUC × RUC), con lo que da cada RUC debajo cuando hay tope. */}
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums" data-testid={`plan-pruebas-${p.id}`}>
+                  <span className="block">{limiteEnPalabras(p.limites.pruebas_beta_al_mes, messages)}</span>
+                  {p.limites.pruebas_beta_por_ruc.ilimitado ? null : (
+                    <span className="block text-etiqueta text-muted-foreground">
+                      {interpolar(t.pruebasPorRuc, { n: limiteEnPalabras(p.limites.pruebas_beta_por_ruc, messages) })}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{p.limites.rucs}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.usuarios, messages)}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{limiteEnPalabras(p.limites.api_keys, messages)}</TableCell>
@@ -94,7 +107,7 @@ export function PlanesTabla({ planes }: { planes: PlanAdmin[] }) {
               </TableRow>
             ))}
             {planes.length === 0 ? (
-              <FilaVacia columnas={9} icon={<TrayIcon weight={PESO_ICONO} className="size-6" />}>
+              <FilaVacia columnas={10} icon={<TrayIcon weight={PESO_ICONO} className="size-6" />}>
                 {t.vacio}
               </FilaVacia>
             ) : null}

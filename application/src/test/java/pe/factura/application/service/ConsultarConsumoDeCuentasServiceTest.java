@@ -8,6 +8,7 @@ import pe.factura.application.port.out.ConsumoPorCuentaRepository;
 import pe.factura.application.port.out.ConsumoPorCuentaRepository.Registro;
 import pe.factura.domain.plan.EstadoSuscripcion;
 import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -39,7 +40,7 @@ class ConsultarConsumoDeCuentasServiceTest {
     ConsultarConsumoDeCuentasService service = new ConsultarConsumoDeCuentasService(consumos, Fakes.CLOCK);
 
     static Registro registro(String nombre, long documentos, Integer limite, Instant vence, int gracia) {
-        return new Registro(UUID.randomUUID(), nombre, nombre.toLowerCase() + "@negocio.pe", UUID.randomUUID(), "Emprende", documentos, limite, vence, gracia);
+        return new Registro(UUID.randomUUID(), nombre, nombre.toLowerCase() + "@negocio.pe", UUID.randomUUID(), "Emprende", documentos, limite, PeriodoDelTope.MENSUAL, vence, gracia);
     }
 
     Fila una(Registro r) {

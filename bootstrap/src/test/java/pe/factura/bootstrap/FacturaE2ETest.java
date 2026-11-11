@@ -801,7 +801,7 @@ class FacturaE2ETest {
         jdbc.update("UPDATE tenant SET entorno = 'PRODUCCION' WHERE ruc = '20100066603'");
         ResponseEntity<Map> rechazada = http.postForEntity("/v1/facturas", new HttpEntity<>(FACTURA, h), Map.class);
         assertThat(rechazada.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(rechazada.getBody().toString()).contains("LIMITE_PLAN").contains("30 documentos").contains("Gratis");
+        assertThat(rechazada.getBody().toString()).contains("LIMITE_PLAN").contains("30 comprobantes reales").contains("Gratis").contains("no se renuevan"); // Gratis: tope en total (#613)
         assertThat(jdbc.queryForObject("SELECT ultimo_numero FROM serie WHERE codigo = 'F001'", Long.class)).as("el rechazo no gastó el número 2").isEqualTo(1L);
         verify(1, postRequestedFor(urlEqualTo("/billService")));
     }

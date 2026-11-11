@@ -1448,6 +1448,30 @@ describe("NuevoComprobanteForm — boleta (#20)", () => {
     expect(cancelar).toHaveBeenCalled();
   });
 
+  /** #613: lo mismo con la bolsa de pruebas en Beta del mes (429 LIMITE_PRUEBAS): el integrador la distingue de un error de la API y el usuario va a su plan. */
+  it("si el backend responde LIMITE_PRUEBAS muestra su mensaje y el enlace a Plan y consumo", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ estado: "error", datos: null, codigo: "LIMITE_PRUEBAS", mensaje: "Llegaste a las 1000 pruebas de este mes; se renuevan el 1 de noviembre", errores: null }),
+            { status: 429 },
+          ),
+        ),
+      ),
+    );
+    render(<NuevoComprobanteForm tipo="boleta" series={SERIES} tasaIgv={18} onCancelar={vi.fn()} />);
+    abrirDatosDelCliente();
+
+    await elegirDocumento("-");
+    linea("Pan", "5");
+    fireEvent.click(screen.getByRole("button", { name: /^Emitir boleta/ }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Llegaste a las 1000 pruebas de este mes/));
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
   /** #285: si el plan vence con el diálogo abierto (402 PLAN_VENCIDO), el error también lleva a Plan y consumo. */
   it("si el backend responde PLAN_VENCIDO muestra su mensaje y el enlace a Plan y consumo", async () => {
     vi.stubGlobal(

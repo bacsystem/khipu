@@ -153,8 +153,12 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
   // #18: en el tope del plan el backend rechaza la emisión; se dice antes. Si la cuenta no se puede leer no se bloquea: el backend tiene la última palabra.
   const cuenta = useRecursoDelDialogo<MiCuenta>(abierto, "/api/proxy/cuenta");
   const consumo = cuenta.dato?.consumo;
-  // #580: el tope es de Producción. Una empresa en Beta prueba sin límite aunque la cuenta lo haya llenado; sin saber el entorno no se bloquea.
+  // #580: el tope de documentos es de Producción. #613: Beta tiene su propia bolsa de pruebas del mes; sin saber el entorno no se bloquea ninguna.
   const enElTope = empresa.dato?.entorno === "PRODUCCION" && consumo?.maximo !== undefined && consumo.documentos >= consumo.maximo;
+  const pruebas = cuenta.dato?.pruebas;
+  const enElTopeDePruebas = empresa.dato?.entorno === "BETA" && pruebas?.maximo !== undefined && pruebas.usadas >= pruebas.maximo;
+  // #613: un tope total (el plan Gratis) no se renueva el mes que viene: se dice distinto.
+  const textosDelTope = consumo?.periodo === "TOTAL" ? t.topeTotal : t.tope;
   // #285: vencido (pasada la gracia) tampoco emite, quede o no lugar en el tope; en gracia sí.
   const vencido = cuenta.dato?.plan?.estado === "VENCIDA";
 
@@ -236,8 +240,17 @@ export function NuevoComprobanteDialog({ className }: { className?: string }) {
           </div>
         ) : enElTope && cuenta.dato ? (
           <div className="flex flex-col gap-3 px-5 py-4">
-            <Alerta tono="aviso" titulo={t.tope.titulo}>
-              {interpolar(t.tope.texto, { plan: cuenta.dato.plan.plan.nombre, maximo: consumo.maximo ?? "" })}
+            <Alerta tono="aviso" titulo={textosDelTope.titulo}>
+              {interpolar(textosDelTope.texto, { plan: cuenta.dato.plan.plan.nombre, maximo: consumo.maximo ?? "" })}
+            </Alerta>
+            <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
+              {t.verPlan}
+            </Link>
+          </div>
+        ) : enElTopeDePruebas && cuenta.dato ? (
+          <div className="flex flex-col gap-3 px-5 py-4">
+            <Alerta tono="aviso" titulo={t.topePruebas.titulo}>
+              {interpolar(t.topePruebas.texto, { plan: cuenta.dato.plan.plan.nombre, maximo: (pruebas?.maximo ?? 0).toLocaleString("en-US") })}
             </Alerta>
             <Link href="/cuenta/plan" onClick={() => setAbierto(false)} className={cn(BOTON_PRIMARIO, "self-end")}>
               {t.verPlan}

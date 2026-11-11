@@ -124,6 +124,7 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
             Limites l = p.limites();
             return "plan=" + p.nombre() + " precio=" + p.precioMensual().toPlainString() + " documentos=" + texto(l.documentosAlMes()) + " ruc=" + l.rucs()
                     + " usuarios=" + texto(l.usuarios()) + " api_keys=" + texto(l.apiKeys()) + " retencion=" + l.retencionAnios()
+                    + " periodo=" + l.periodoDeDocumentos().name().toLowerCase(java.util.Locale.ROOT) + " pruebas_beta_por_ruc=" + texto(l.pruebasBetaPorRuc())
                     + (p.visibleEnPublicidad() ? "" : " publicidad=no");
         }
 
@@ -143,6 +144,8 @@ public class GestionarPlanesService implements GestionarPlanesUseCase {
                 cambio(partes, "usuarios", texto(a.usuarios()), texto(n.usuarios()));
                 cambio(partes, "api_keys", texto(a.apiKeys()), texto(n.apiKeys()));
                 cambio(partes, "retencion", String.valueOf(a.retencionAnios()), String.valueOf(n.retencionAnios()));
+                cambio(partes, "periodo", a.periodoDeDocumentos().name().toLowerCase(java.util.Locale.ROOT), n.periodoDeDocumentos().name().toLowerCase(java.util.Locale.ROOT));
+                cambio(partes, "pruebas_beta_por_ruc", texto(a.pruebasBetaPorRuc()), texto(n.pruebasBetaPorRuc()));
                 partes.add("limites_desde=" + programado.aplicaDesde().atZone(CicloMensual.ZONA).toLocalDate());
             } else if (antes.programado() != null) {
                 partes.add("limites_programados=cancelados");

@@ -40,4 +40,6 @@ public class ConsultarConsumoService implements ConsultarConsumoUseCase {
                 .map(e -> new ConsumoDeEmpresa(e.tenantId(), e.ruc(), e.razonSocial(), m, e.documentos())).toList();
         return new ConsumoDeCuenta(cuentaId, m, empresas.stream().mapToLong(ConsumoDeEmpresa::documentos).sum(), empresas);
     }
+
+    @Override public long documentosEnTotal(UUID cuentaId) { return consumos.documentosDeCuentaEnTotal(cuentaId); }
 }

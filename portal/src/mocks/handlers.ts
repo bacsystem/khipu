@@ -1076,6 +1076,12 @@ function validarPlanMock(body: unknown, exceptoId?: string): { error: Response }
   };
   const documentos = limite("documentos_al_mes");
   if (documentos instanceof Response) return { error: documentos };
+  // #613: el periodo del tope es obligatorio, y un tope en total necesita cifra.
+  const periodo = l.periodo_documentos;
+  if (periodo !== "MENSUAL" && periodo !== "TOTAL") return { error: fail(422, "LIMITE_INVALIDO", "Falta el periodo del tope de documentos (MENSUAL o TOTAL)") };
+  if (periodo === "TOTAL" && documentos.ilimitado) return { error: fail(422, "LIMITE_INVALIDO", "Un tope de documentos en total necesita una cifra") };
+  const pruebas = limite("pruebas_beta_por_ruc");
+  if (pruebas instanceof Response) return { error: pruebas };
   const usuarios = limite("usuarios");
   if (usuarios instanceof Response) return { error: usuarios };
   const apiKeys = limite("api_keys");
@@ -1087,7 +1093,17 @@ function validarPlanMock(body: unknown, exceptoId?: string): { error: Response }
   return {
     nombre,
     precio,
-    limites: { documentos_al_mes: documentos, rucs: l.rucs as number, usuarios, api_keys: apiKeys, retencion_anios: l.retencion_anios as number },
+    limites: {
+      documentos_al_mes: documentos,
+      rucs: l.rucs as number,
+      usuarios,
+      api_keys: apiKeys,
+      retencion_anios: l.retencion_anios as number,
+      periodo_documentos: periodo,
+      pruebas_beta_por_ruc: pruebas,
+      // De solo lectura, como en el backend: lo que se mande se ignora.
+      pruebas_beta_al_mes: pruebas.ilimitado || pruebas.maximo === undefined ? { ilimitado: true } : { maximo: pruebas.maximo * (l.rucs as number), ilimitado: false },
+    },
   };
 }
 
@@ -1178,16 +1194,24 @@ function rechazoPorTopeDelPlanMock(request: Request) {
   return fail(429, "LIMITE_PLAN", `Llegaste al tope de ${tope} documentos del mes de tu plan ${plan!.nombre}. Se renueva el 1 del mes que viene; para emitir antes, pide un cambio de plan`);
 }
 
-/** El tope de documentos que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha (como el backend). */
+/** Los límites que mandan hoy: los del plan, o los de su cambio programado si ya llegó a su fecha (como el backend). */
+function limitesDeHoyMock(plan: PlanMock): PlanMock["limites"] {
+  return plan.limites_programados && Date.parse(plan.limites_programados.aplica_desde) <= Date.now() ? plan.limites_programados.limites : plan.limites;
+}
+
+/** El tope de documentos que manda hoy. */
 function topeDeHoyMock(plan: PlanMock): number | undefined {
-  const limites = plan.limites_programados && Date.parse(plan.limites_programados.aplica_desde) <= Date.now() ? plan.limites_programados.limites : plan.limites;
+  const limites = limitesDeHoyMock(plan);
   return limites.documentos_al_mes.ilimitado ? undefined : limites.documentos_al_mes.maximo;
 }
+
+/** Las pruebas en Beta del mes de una cuenta en el mock (#613): 40, para ver la bolsa a medio usar. */
+const PRUEBAS_DEL_MES_MOCK = 40;
 
 const UMBRAL_DE_ALERTA_MOCK = 80;
 
 type FilaDeConsumoMock = {
-  cuenta_id: string; nombre: string; email: string; plan_id: string; plan: string; documentos: number; limite?: number; porcentaje?: number; en_alerta: boolean;
+  cuenta_id: string; nombre: string; email: string; plan_id: string; plan: string; documentos: number; limite?: number; periodo: "MENSUAL" | "TOTAL"; porcentaje?: number; en_alerta: boolean;
   estado_del_plan: "VIGENTE" | "EN_GRACIA" | "VENCIDA"; pagado_hasta?: string; se_sirve_hasta?: string;
 };
 
@@ -1204,6 +1228,7 @@ function filasDeConsumoMock(mes: string, filtro: string, orden: string): FilaDeC
       return {
         cuenta_id: c.id, nombre: c.nombre, email: c.email, plan_id: plan.id, plan: plan.nombre, documentos,
         ...(limite === undefined ? {} : { limite, porcentaje }),
+        periodo: limitesDeHoyMock(plan).periodo_documentos,
         en_alerta: porcentaje !== undefined && porcentaje >= UMBRAL_DE_ALERTA_MOCK,
         estado_del_plan: estadoDeSuscripcion(s),
         ...(s.venceEn ? { pagado_hasta: s.venceEn, se_sirve_hasta: new Date(Date.parse(s.venceEn) + s.diasDeGracia * 86_400_000).toISOString() } : {}),
@@ -1226,9 +1251,9 @@ function celdaCsvMock(valor: string): string {
 
 /** Como el backend: BOM UTF-8, registros con CRLF (también el último), `ilimitado` sin tope y celdas vacías sin fecha. */
 function csvDeConsumoMock(filas: FilaDeConsumoMock[]): string {
-  const cabecera = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta";
+  const cabecera = "cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta,periodo";
   const lineas = filas.map((f) =>
-    [f.cuenta_id, celdaCsvMock(f.nombre), celdaCsvMock(f.email), celdaCsvMock(f.plan), f.documentos, f.limite ?? "ilimitado", f.porcentaje ?? "", f.en_alerta ? "si" : "no", f.estado_del_plan, f.pagado_hasta ? ultimoDiaCubierto(f.pagado_hasta) : "", f.se_sirve_hasta ? ultimoDiaCubierto(f.se_sirve_hasta) : ""].join(","),
+    [f.cuenta_id, celdaCsvMock(f.nombre), celdaCsvMock(f.email), celdaCsvMock(f.plan), f.documentos, f.limite ?? "ilimitado", f.porcentaje ?? "", f.en_alerta ? "si" : "no", f.estado_del_plan, f.pagado_hasta ? ultimoDiaCubierto(f.pagado_hasta) : "", f.se_sirve_hasta ? ultimoDiaCubierto(f.se_sirve_hasta) : "", f.periodo].join(","),
   );
   return "\uFEFF" + [cabecera, ...lineas].join("\r\n") + "\r\n";
 }
@@ -1660,14 +1685,20 @@ export const handlers = [
     // El tope de hoy, como el backend (`Plan.vigenteEn`): si un cambio de límites programado ya entró en vigor, manda ese (265-H2).
     const planDelMock = db.planesAdmin.find((p) => p.id === plan.plan.id);
     const maximo = planDelMock ? topeDeHoyMock(planDelMock) : undefined;
+    const limitesDeHoy = planDelMock ? limitesDeHoyMock(planDelMock) : undefined;
+    const pruebas = limitesDeHoy?.pruebas_beta_al_mes;
+    const mes = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
     return ok({
       nombre: db.nombresDeCuenta.get(c.cuenta) ?? "Mi cuenta",
       plan,
       consumo: {
-        mes: new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7),
+        mes,
         documentos: consumoDelMesMock(c.cuenta),
         ...(maximo === undefined ? {} : { maximo }),
+        periodo: limitesDeHoy?.periodo_documentos ?? "MENSUAL",
       },
+      // #613: las pruebas en Beta del mes contra la bolsa de la cuenta.
+      pruebas: { mes, usadas: PRUEBAS_DEL_MES_MOCK, ...(pruebas && !pruebas.ilimitado && pruebas.maximo !== undefined ? { maximo: pruebas.maximo } : {}) },
       // #498: lo que la cuenta ocupa de su plan. Las keys, las de todas las empresas del mock; los usuarios, los activos más las invitaciones pendientes.
       uso: {
         api_keys: [...db.apiKeysPorEmpresa.values()].flat().filter((k) => k.activa).length,
