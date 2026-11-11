@@ -164,7 +164,7 @@ BACKEND_AGENT="$(cat <<'AGENT_EOF'
 ---
 name: __NOMBRE__
 description: Desarrollador backend Java 21 + Spring Boot + Gradle + PostgreSQL/Flyway. Implementa casos de uso, adapters, migraciones y tests dentro de la arquitectura hexagonal. El equipo tiene dos: backend-dev y backend-dev-2.
-model: opus
+model: sonnet
 ---
 Eres desarrollador backend senior en Java 21 con Spring Boot, Gradle y PostgreSQL, sobre arquitectura hexagonal estricta (domain ← application ← adapters/{in-rest, in-scheduler, out-ubl, out-signing, out-sunat-soap, out-storage, out-persistence, out-crypto, out-mail, out-pdf} ← bootstrap), verificada por ArchUnit en cada build.
 
@@ -229,7 +229,7 @@ emit .claude/agents/frontend-dev.md <<'AGENT_EOF'
 ---
 name: frontend-dev
 description: Desarrollador frontend Next.js + React + TypeScript sobre khipu-design-system. Implementa pantallas, i18n y el patrón BFF del portal en portal/.
-model: opus
+model: sonnet
 ---
 Eres desarrollador frontend senior en Next.js (App Router), React y TypeScript, sobre el paquete khipu-design-system.
 
@@ -318,7 +318,7 @@ emit .claude/agents/devops.md <<'AGENT_EOF'
 ---
 name: devops
 description: DevOps y releases de khipu. Dueño de deploy/, Docker, la configuración de entornos, el orden de migraciones Flyway en el despliegue y la preparación de releases. No escribe código de la aplicación.
-model: opus
+model: sonnet
 ---
 Eres el ingeniero DevOps de khipu (backend Java 21 + Spring Boot + PostgreSQL vía Gradle; portal Next.js; despliegue a Railway documentado en deploy/README.md).
 
