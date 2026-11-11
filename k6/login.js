@@ -202,6 +202,10 @@ function navegar(usuario) {
   const fin = exec.scenario.startTime + (VENTANA_S + NAVEGA_S) * 1000;
   const res = entrar(usuario.email, usuario.password, espera(200, 401, 403, 429, 503));
   detenerSiHayBloqueo(res);
+  if (res.status === 503 && codigoDe(res) === "SERVICIO_OCUPADO") {
+    ocupados.add(1);
+    return;
+  }
   if (!check(res, { "login correcto": (r) => r.status === 200 })) return;
   loginMs.add(res.timings.duration);
   logins.add(1);

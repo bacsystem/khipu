@@ -49,7 +49,7 @@ usuarios hacen login, abren el panel, leen sus empresas y cierran sesión. Solo 
 | `VUS` | `10` | Usuarios a la vez |
 | `DURACION` | `2m` | Cuánto dura la carga, después de los casos |
 | `PAUSA_S` | `5` | Pausa media entre sesiones de un usuario |
-| `MODO` | (vacío) | `unico`: cada usuario entra una sola vez, con una cuenta propia; `DURACION` pasa a ser el tiempo máximo. `navega`: como `unico`, pero además recorre el panel como una persona (una página o lectura al azar, con pausas) hasta cerrar sesión |
+| `MODO` | (vacío) | `unico`: cada usuario entra una sola vez, con una cuenta propia; `DURACION` pasa a ser el tiempo máximo. `navega`: como `unico`, pero además recorre el panel como una persona (una página o lectura al azar, con pausas) hasta que se acaba `NAVEGA_S`; no cierra sesión al final, así que las sesiones quedan vivas hasta que vencen |
 | `VENTANA_S` | `60` | Con `MODO=unico` o `MODO=navega`, en cuántos segundos se reparten al azar las llegadas |
 | `PIENSA_MIN_S` / `PIENSA_MAX_S` | `10` / `30` | Con `MODO=navega`, pausa al azar entre una página o lectura del panel y la siguiente |
 | `NAVEGA_S` | `300` | Con `MODO=navega`, hasta cuántos segundos sigue navegando cada usuario después de que termina la ventana de llegadas (`VENTANA_S`) |
@@ -57,6 +57,7 @@ usuarios hacen login, abren el panel, leen sus empresas y cierran sesión. Solo 
 | `REPETIR_MIN_S` / `REPETIR_MAX_S` | `30` / `120` | Espera al azar antes de volver a entrar |
 | `DESDE` | `1` | Con `MODO=unico`, la primera cuenta que usa; escalones seguidos no repiten cuentas si cada uno empieza donde terminó el anterior |
 | `UMBRAL_LOGIN_MS` | `2000` | p95 máximo del login |
+| `UMBRAL_PAGINA_MS` | `2000` | Con `MODO=navega`, p95 máximo de cada página o lectura del panel |
 | `PROBAR_BLOQUEO` | apagado | `si` agrega el caso del sexto intento (`429`), con un correo inventado |
 | `CONFIRMAR_SERVIDOR_REAL` | apagado | `si` es obligatorio si `PORTAL_URL` no es local |
 
