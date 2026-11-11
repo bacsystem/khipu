@@ -37,6 +37,79 @@ Sin k6 instalado: `docker run --rm -i -e API_BASE_URL=http://host.docker.interna
 La fecha de emisión de los scripts es la de **Lima** (UTC-5): con la fecha UTC, entre las 19:00 y las 24:00 de Lima la API respondía `422 FECHA_INVALIDA` (fecha futura) y la siembra de
 `descargas.js` fallaba.
 
+## Login y sesiones del portal (`login.js`)
+
+Entra por el portal, como el navegador. Primero corre una vez los casos (páginas públicas, sin sesión, credenciales inválidas, sesión completa, logout y refresh revocado) y después `VUS`
+usuarios hacen login, abren el panel, leen sus empresas y cierran sesión. Solo lee: no emite, no crea cuentas y no cambia datos.
+
+| Variable | Por defecto | Qué hace |
+|---|---|---|
+| `PORTAL_URL` | `http://localhost:3000` | El portal, sin barra final |
+| `USUARIOS` | obligatoria | JSON con una cuenta por usuario, como `usuarios.ejemplo.json` |
+| `VUS` | `10` | Usuarios a la vez |
+| `DURACION` | `2m` | Cuánto dura la carga, después de los casos |
+| `PAUSA_S` | `5` | Pausa media entre sesiones de un usuario |
+| `MODO` | (vacío) | `unico`: cada usuario entra una sola vez, con una cuenta propia; `DURACION` pasa a ser el tiempo máximo. `navega`: como `unico`, pero además recorre el panel como una persona (una página o lectura al azar, con pausas) hasta cerrar sesión |
+| `VENTANA_S` | `60` | Con `MODO=unico` o `MODO=navega`, en cuántos segundos se reparten al azar las llegadas |
+| `PIENSA_MIN_S` / `PIENSA_MAX_S` | `10` / `30` | Con `MODO=navega`, pausa al azar entre una página o lectura del panel y la siguiente |
+| `NAVEGA_S` | `300` | Con `MODO=navega`, hasta cuántos segundos sigue navegando cada usuario después de que termina la ventana de llegadas (`VENTANA_S`) |
+| `P_REPETIR` | `0` | Con `MODO=unico`, probabilidad de que el usuario vuelva a entrar tras cerrar sesión (y otra vez, con la misma probabilidad) |
+| `REPETIR_MIN_S` / `REPETIR_MAX_S` | `30` / `120` | Espera al azar antes de volver a entrar |
+| `DESDE` | `1` | Con `MODO=unico`, la primera cuenta que usa; escalones seguidos no repiten cuentas si cada uno empieza donde terminó el anterior |
+| `UMBRAL_LOGIN_MS` | `2000` | p95 máximo del login |
+| `PROBAR_BLOQUEO` | apagado | `si` agrega el caso del sexto intento (`429`), con un correo inventado |
+| `CONFIRMAR_SERVIDOR_REAL` | apagado | `si` es obligatorio si `PORTAL_URL` no es local |
+
+**Antes de correrlo contra un servidor real:**
+
+- Usa cuentas de prueba creadas para esto, nunca las de un cliente, y guarda el JSON fuera del repositorio o en `k6/usuarios.json`, que está ignorado.
+- Una cuenta por usuario: `LimiteDeIntentos` reserva el intento antes de comprobar la contraseña, así que de seis logins simultáneos del mismo correo, el sexto recibe `429` aunque la
+  contraseña sea correcta. El script se niega a arrancar con correos repetidos.
+- Todo sale de tu IP: 20 fallos en 15 minutos la bloquean para cualquier cuenta. Los casos gastan 1 fallo (6 con `PROBAR_BLOQUEO=si`), y la corrida se detiene ante el primer `401`
+  inesperado, `429` o bloqueo del proxy.
+- Sube de a poco: `VUS=1`, y si sale limpio, 3, 5 y 10.
+- Con `MODO=navega`, las cuentas necesitan una empresa ya configurada: sin ella el panel manda a `/onboarding` y la prueba lo cuenta como fallo.
+
+El caso «el refresh de una sesión cerrada ya no sirve» solo prueba algo contra un backend real: con los mocks el middleware (runtime edge) no llega a MSW y siempre manda al login.
+
+### Dashboard de resultados
+
+Todas las corridas van a **un solo dashboard**, `k6/resultados/dashboard-login.html`, con un selector por cantidad de usuarios y la interpretación de cada gráfico. No se guarda un reporte
+por corrida: k6 exporta siempre al mismo archivo temporal y `dashboard/agregar.mjs` suma sus datos a `k6/resultados/corridas.json`. Repetir una prueba con los mismos usuarios y conexión
+reemplaza la anterior. Los dos archivos están ignorados por git. Mientras corre, k6 también muestra su panel en vivo en `http://localhost:5665`.
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -p 5665:5665 \
+  -v "$PWD/k6:/k6:ro" -v "$PWD/k6/resultados:/resultados" -v "/ruta/usuarios.json:/datos/usuarios.json:ro" \
+  -e PORTAL_URL=http://host.docker.internal:13000 -e USUARIOS=/datos/usuarios.json -e VUS=20 -e DURACION=2m \
+  -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT=/resultados/.ultima.html \
+  grafana/k6:0.54.0 run /k6/login.js
+node k6/dashboard/agregar.mjs --usuarios 20 --recursos k6/resultados/.recursos.txt
+```
+
+`--recursos` lleva el consumo de los contenedores durante la corrida. Tómalo en otra terminal mientras k6 corre:
+
+```bash
+for i in $(seq 1 70); do docker stats --no-stream --format "{{.Name}} {{.CPUPerc}} {{.MemUsage}}" | grep -E "backend|portal|postgres" | tr '\n' ';'; echo; done > k6/resultados/.recursos.txt
+```
+
+Cada corrida guarda además la máquina en la que se hizo. Con esos datos el dashboard marca su zona (Holgada, Con carga, Saturada o Sobrepasada) y la capacidad medida: los resultados dependen de la
+PC, y k6 comparte la CPU con el servidor si corren en la misma.
+
+`--tipo` dice qué tipo de prueba es la corrida: `humo` (1 a 10 usuarios), `carga` (el uso esperado; por defecto), `estres` (escalones por encima de lo normal),
+`quiebre` (subir hasta que falle), `pico` (avalancha repentina) o `resistencia` (horas de carga media). El dashboard muestra un catálogo con los seis, cuáles faltan, y compara las corridas
+solo dentro de su tipo. Lo encontrado en cada tipo va en `k6/resultados/conclusiones.json` (`{"estres": "…"}`), que el catálogo muestra tal cual.
+
+`--linea` dibuja la memoria a lo largo de la prueba, para las de resistencia: es la misma muestra de `docker stats` con los segundos desde el inicio delante de cada línea
+(`echo "$((SECONDS));$(docker stats …)"` cada unos 20 s). `--reposo` indica que su última línea se tomó en reposo, después de terminar.
+
+`--usuarios` tiene que coincidir con `VUS`. Para comparar dos caminos con los mismos usuarios, `--ruta "Red interna"` crea una variante y `--principal` la usa en las comparaciones. Contra un
+servidor que no sea el `develop` local, `--entorno` y `--alcance` lo dicen en el dashboard. Las interpretaciones salen de los números; el tipo de error no está en el reporte de k6, así que
+un fallo se investiga en la salida de k6 y en los logs.
+
+Con muchos usuarios, `host.docker.internal` agrega fallos de conexión propios del puente de Docker (100 usuarios: 21 timeouts que desaparecen por la red interna). Para el `develop` local,
+agrega `--network khipu-develop_default` a `docker run`, y usa `PORTAL_URL=http://portal:3000` con `CONFIRMAR_SERVIDOR_REAL=si`, porque el script no reconoce ese nombre como local.
+
 ## Fuera de CI
 
 Las pruebas de carga **no corren solas en GitHub Actions**: se lanzan a mano, con los comandos de arriba, contra un backend local o un entorno de pruebas, o desde
