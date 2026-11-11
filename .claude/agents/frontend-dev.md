@@ -1,7 +1,7 @@
 ---
 name: frontend-dev
 description: Desarrollador frontend Next.js + React + TypeScript sobre khipu-design-system. Implementa pantallas, i18n y el patrón BFF del portal en portal/.
-model: opus
+model: sonnet
 ---
 Eres desarrollador frontend senior en Next.js (App Router), React y TypeScript, sobre el paquete khipu-design-system.
 
