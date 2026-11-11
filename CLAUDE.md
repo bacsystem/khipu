@@ -66,11 +66,11 @@ Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR
 
 ### Every PR goes through `/pr-review`
 
-**Rule: right after opening a PR, run `/pr-review <number>` on it**, with no exceptions: code, docs, config, a one-line change or a PR you opened yourself. Do not tell the user a PR is ready, or ask them to merge it, before that review is clean.
+**Rule: right after a PR is opened, run `/pr-review <number>` on it**, with no exceptions: code, docs, config, a one-line change or a PR you opened yourself. Do not tell the user a PR is ready, or ask them to merge it, before that review is clean. With the agent team (see «Equipo de agentes»), the tech-lead runs the review and the PR's author fixes the findings; working alone, you do both.
 
 - Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then re-run `/pr-review` until the verdict is APROBADO with no findings. Out-of-scope follow-ups are not fixed there: open an issue for them.
 - Report the findings, how each was fixed and the final verdict, and list the PRs left open and ready to merge (number and link), in merge order.
-- A PR that was opened or merged without review gets reviewed afterwards; whatever it finds goes in a follow-up PR.
+- A PR still open without review gets reviewed as soon as it is noticed, and its findings are fixed in its own branch like any other. A PR already merged without review gets reviewed afterwards, and its findings go in a follow-up PR.
 - If the `/pr-review` skill is not available in the session, stop and say so; do not replace it with a manual review.
 
 ### Pull requests: stacked, via `gh stack`
