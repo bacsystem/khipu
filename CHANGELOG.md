@@ -2,6 +2,23 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.3.2] - 2026-11-10
+
+Sin migraciones. Tras desplegar, en Railway:
+- Restart Policy «Always» en `portal` y `backend` (`deploy/README.md` §4).
+- `PORTAL_PROCESOS` en el portal según sus vCPU, mientras N × ~650 MB entre en su memoria. Sin ella sigue con 1 proceso, como antes.
+
+Comprobar que el portal arranca, que el log dice `[procesos] portal con N procesos` (si se definió), que su memoria no crece con el uso y que en Railway no aparecen 502 ni cortes sueltos con el portal sano (`KEEP_ALIVE_TIMEOUT` ya viene en 65000 en la imagen; no hace falta definirla).
+
+### Fixed
+- El portal ya no acumula memoria hasta caerse con «JavaScript heap out of memory» bajo carga sostenida (#614, PR #616). Los sockets keep-alive hacia el backend retenían la petición que los abrió, con el caché de React y las respuestas del backend adentro. En las pruebas de carga se caía a los 79 minutos con 100 usuarios, o tras ~11 500 páginas; ahora se mantiene en ~450 MB.
+- `instrumentation.ts` pasa a `portal/src/`: en la raíz, el build de producción lo dejaba fuera sin avisar, y con él la comprobación de `SUPPORT_URL`/`SUPPORT_EMAIL` del #250, que ahora sí corre al arrancar (#614).
+- `docker-compose.yml` reinicia el portal y el backend si se caen (`restart: unless-stopped`), y `deploy/README.md` pide lo mismo en Railway (#615, PR #617).
+- El portal mantiene abiertas las conexiones inactivas 65 s en vez de los 5 s de Node (`KEEP_ALIVE_TIMEOUT`, #610, PR #620): el proxy de delante las reutiliza unos 60 s, y una petición mandada por una conexión que el portal acababa de cerrar le llegaba al cliente como un corte. En k6, 68 logins cortados con 5 s y ninguno con 65 s.
+
+### Changed
+- El portal puede usar varios núcleos: con `PORTAL_PROCESOS=N`, un proceso principal levanta N procesos que comparten el puerto, reemplaza al que se cae y los cierra en orden (#618, PR #619). 1 por defecto. En las pruebas, con 3 procesos, 2 000 usuarios navegando pasaron de 11,7 % de fallos a ninguno, y de ~31 a ~48 páginas por segundo.
+
 ## [1.3.1] - 2026-11-03
 
 Sin migraciones ni variables nuevas en producción: ocultar el backoffice del OpenAPI es el valor por defecto (`OPENAPI_RUTAS_OCULTAS`). Tras desplegar, comprobar que `/openapi.json` no trae rutas `/v1/admin`, que el portal manda las cabeceras de seguridad y que un método equivocado responde 405.
