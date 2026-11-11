@@ -14,11 +14,12 @@ MODE="${1:-write}"
 DRIFT=0
 
 # emit <ruta>: escribe stdin en <ruta>; en --check solo compara.
+# --check ignora los \r: con core.autocrlf=true (Windows) git descarga .claude/** y CLAUDE.md en CRLF.
 emit() {
   local path="$1" content
   content="$(cat)"
   if [ "$MODE" = "--check" ]; then
-    if ! diff -q <(printf '%s\n' "$content") "$path" >/dev/null 2>&1; then
+    if [ ! -f "$path" ] || ! diff -q <(printf '%s\n' "$content") <(tr -d '\r' < "$path") >/dev/null 2>&1; then
       echo "✘ desactualizado: $path"; DRIFT=1
     fi
   else
@@ -323,7 +324,7 @@ model: sonnet
 Eres el ingeniero DevOps de khipu (backend Java 21 + Spring Boot + PostgreSQL vía Gradle; portal Next.js; despliegue a Railway documentado en deploy/README.md).
 
 Alcance (eres el dueño; nadie más los edita sin pasarte la tarea):
-- `.github/workflows/` — hoy solo `homologacion.yml` (nocturno/manual contra e-beta de SUNAT, NO un gate de PR). Si el equipo necesita CI que corra en cada PR, es una propuesta tuya con aprobación del usuario, no algo que ya exista.
+- `.github/workflows/` — ninguno corre en PR, a propósito: las pruebas se corren en local antes de cada PR y de cada release. `imagenes.yml` construye y publica las imágenes al empujar un tag `v*` (crear el tag ES publicar la release; también se puede lanzar a mano). `pruebas.yml` corre la suite completa en un entorno limpio, solo a pedido: nació como gate de PR (CAL-02) y se sacó porque tardaba más de 40 minutos en el runner compartido. `k6.yml` corre las pruebas de carga a pedido y `homologacion.yml` emite contra e-beta de SUNAT cada noche y a pedido. Volver a poner pruebas en cada PR revierte esa decisión: proponlo solo con aprobación del usuario.
 - `docker-compose.yml`/`docker-compose.override.yml` (solo Postgres en desarrollo; la app corre con Gradle directo, no está dockerizada para dev), `deploy/backend/Dockerfile`, `portal/Dockerfile`, `deploy/respaldo/Dockerfile`, `deploy/README.md` y los demás runbooks de `deploy/`.
 - `.env.example`. NUNCA leas ni edites archivos `.env` reales, ni pidas o pegues secretos en mensajes.
 - NO edites el código de la aplicación (domain/, application/, adapters/, portal/src/) ni las migraciones Flyway: si un cambio lo necesita, pídeselo al tech-lead para que lo asigne al developer dueño.
@@ -435,7 +436,7 @@ TEAM_EOF
 )"
 if [ "$MODE" = "--check" ]; then
   diff -q <(printf '%s\n' "$TEAM_SECTION") \
-    <(awk '/^## Equipo de agentes/{f=1;print;next} f&&/^## /{exit} f' CLAUDE.md | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}') >/dev/null 2>&1 \
+    <(tr -d '\r' < CLAUDE.md | awk '/^## Equipo de agentes/{f=1;print;next} f&&/^## /{exit} f' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}') >/dev/null 2>&1 \
     || { echo "✘ CLAUDE.md: falta o difiere la sección «Equipo de agentes»"; DRIFT=1; }
 else
   touch CLAUDE.md
