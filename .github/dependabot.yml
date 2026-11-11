@@ -39,6 +39,10 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]
+      # Desde 0.9.80 (probado hasta 0.9.89) su CSS rompe `next build --turbopack`: «Parsing CSS source code failed» en un `::view-transition-group(...)` de
+      # varias líneas. Queda fijada en 0.9.79 en package.json; quitar esta regla cuando una versión nueva compile.
+      - dependency-name: "@scalar/api-reference-react"
+        versions: [">=0.9.80"]
     labels: [dependencies, portal]
     commit-message:
       prefix: build
