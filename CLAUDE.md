@@ -64,6 +64,15 @@ The `git-flow` skill detects `develop` automatically and uses it as the PR base 
 
 Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR merges into the **default branch** (`main`). A PR merged into `develop` leaves its issue open until the release PR reaches `main` — close it by hand if it shouldn't wait for the release.
 
+### Every PR goes through `/pr-review`
+
+**Rule: right after opening a PR, run `/pr-review <number>` on it**, with no exceptions: code, docs, config, a one-line change or a PR you opened yourself. Do not tell the user a PR is ready, or ask them to merge it, before that review is clean.
+
+- Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then re-run `/pr-review` until the verdict is APROBADO with no findings. Out-of-scope follow-ups are not fixed there: open an issue for them.
+- Report the findings, how each was fixed and the final verdict, and list the PRs left open and ready to merge (number and link), in merge order.
+- A PR that was opened or merged without review gets reviewed afterwards; whatever it finds goes in a follow-up PR.
+- If the `/pr-review` skill is not available in the session, stop and say so; do not replace it with a manual review.
+
 ### Pull requests: stacked, via `gh stack`
 
 Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
