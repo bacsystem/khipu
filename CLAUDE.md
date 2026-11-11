@@ -74,7 +74,7 @@ Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR
 4. The developer fixes every finding in the same branch, answers each one, and **asks the tech-lead for a re-review** once all of them are fixed. The tech-lead does not re-review on its own initiative.
 5. Repeat from 2 until the verdict is clean. Only then does the tech-lead tell the user the PR is ready to merge.
 
-- Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then re-run `/pr-review` until the verdict is APROBADO with no findings. Out-of-scope follow-ups are not fixed there: open an issue for them.
+- Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then the review runs again until the verdict is APROBADO with no findings (in the team, the tech-lead runs it when the developer asks, never the developer on their own PR). Out-of-scope follow-ups are not fixed there: open an issue for them.
 - Report the findings, how each was fixed and the final verdict, and list the PRs left open and ready to merge (number and link), in merge order.
 - A PR still open without review gets reviewed as soon as it is noticed, and its findings are fixed in its own branch like any other. A PR already merged without review gets reviewed afterwards, and its findings go in a follow-up PR.
 - If the `/pr-review` skill is not available in the session, stop and say so; do not replace it with a manual review.
