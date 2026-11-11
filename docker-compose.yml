@@ -56,6 +56,9 @@ services:
       context: .
       dockerfile: deploy/backend/Dockerfile
     profiles: ["app"]
+    # Si el proceso se cae, Docker lo vuelve a levantar en vez de dejarlo apagado hasta que alguien lo note. `unless-stopped`: un `docker compose stop`
+    # lo deja parado a propósito.
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +104,8 @@ services:
     ports: ["${BACKEND_PORT:-8001}:8001"]
   portal:
     build: ./portal
+    # Como el backend. En las pruebas de carga del 2026-11-07 el portal se cayó sin memoria y quedó apagado hasta levantarlo a mano.
+    restart: unless-stopped
     environment:
       API_BASE_URL: ${PORTAL_API_BASE_URL:-http://host.docker.internal:8001}
       # La que ve el navegador (snippets de integración, "Try it" de /developers): desde el host, la API está en localhost.
@@ -118,6 +123,10 @@ services:
       # `false` porque ese despliegue es HTTP local: por HTTP desde otro dispositivo (el celular) el navegador descarta una cookie
       # Secure y el login no deja sesión. Nunca en un despliegue con HTTPS real.
       COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-}
+      # Cuántos procesos de Node levanta el portal (#618): cada uno usa un núcleo y unos 400 a 650 MB con carga. 1 por defecto, como antes.
+      PORTAL_PROCESOS: ${PORTAL_PROCESOS:-1}
+      # Cuánto mantiene el portal una conexión inactiva, en ms (#610): mayor que el del proxy de delante. Mismo default que la imagen.
+      KEEP_ALIVE_TIMEOUT: ${KEEP_ALIVE_TIMEOUT:-65000}
     ports: ["${PORTAL_PORT:-3000}:3000"]
 volumes:
   pgdata:

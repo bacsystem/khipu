@@ -183,6 +183,10 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 
 - **Fuente**: imagen `cbaciliod/khipu-portal:latest` (ver arriba)
 - **Puerto**: tampoco fijar `PORT` — el output `standalone` de Next.js ya lo respeta
+- **Reinicio**: en Settings → Deploy → Restart Policy, **Always** (también en `backend`). Si el proceso se cae, Railway lo vuelve a levantar
+  en vez de dejar el servicio apagado. Con *On Failure* y un tope de reintentos, una caída repetida lo deja parado al llegar al tope. En las
+  pruebas de carga del 2026-11-07 el portal se cayó por falta de memoria con carga sostenida y quedó apagado: la causa se corrigió en el
+  propio portal, pero el reinicio sigue siendo la red de seguridad. `docker-compose.yml` hace lo mismo en local con `restart: unless-stopped`.
 
 ### Variables de entorno
 
@@ -197,6 +201,8 @@ Pasos completos, verificación y fase 0 (landing público con el autoservicio ce
 | `REVISADO_POR_LEGAL` | `true` cuando un abogado revisó los términos y la privacidad | Opcional (#580), vacía por defecto: las páginas legales y el registro avisan que los textos son un borrador. Solo `true` quita el aviso; cualquier otro valor lo deja. Ver «Términos y privacidad» |
 | `TRUSTED_PROXY_HOPS` | cuántos proxies de confianza hay **delante del portal** | Opcional, **`0` por defecto: el portal no reenvía ninguna IP** y el backend ve la del servidor de Next. Se calibra con `/api/admin/origen`; ver §5. No poner más de `0` si el portal está expuesto directamente, sin proxy delante |
 | `TRUSTED_CLOUDFLARE` | `true` si el dominio del portal pasa por el proxy de Cloudflare (nube naranja) | Opcional (#594), vacía por defecto: no se mira `CF-Connecting-IP`. Con `true`, si quien se conectó al borde de Railway (según `TRUSTED_PROXY_HOPS`) es una IP de Cloudflare, la IP del cliente se toma de `CF-Connecting-IP`; si no lo es, esa cabecera se ignora. Vale para todo lo que el portal reenvía: la bitácora del backoffice y, con `TRUSTED_PROXIES`, el límite de intentos de login por IP de los clientes (#261). Ver §5, «Con Cloudflare delante» |
+| `PORTAL_PROCESOS` | cuántos vCPU tiene el servicio, sin pasar de lo que entra en su memoria | Opcional (#618), `1` por defecto: un proceso de Node, que usa un solo núcleo (~31 páginas por segundo en las pruebas). Con `N`, el portal levanta N procesos que comparten el puerto y reemplaza solo al que se cae. Cada uno usa unos 400 a 650 MB con carga, así que N × 650 MB tiene que entrar en la memoria del servicio. No se deduce de los núcleos a propósito: dentro del contenedor, Node puede ver los del servidor físico. Un valor que no es un entero de 1 a 32 se avisa en el log y el portal arranca con 1 |
+| `KEEP_ALIVE_TIMEOUT` | ms que el portal mantiene una conexión inactiva; **no hace falta definirla** | Opcional (#610), `65000` por defecto en la imagen. Tiene que ser mayor que el tiempo que el proxy de delante reutiliza sus conexiones hacia el portal (el de Railway, unos 60 s según su foro, no está documentado); con el default de Node, 5 s, el proxy manda peticiones por conexiones que el portal ya cerró y el cliente ve cortes sueltos (k6: 68 logins cortados con 5 s, 0 con 65 s). Los 900 s de Cloudflare son de su conexión con Railway, no con el portal. Si aparecen 502 sueltos en Railway con el portal sano, subirla |
 
 El portal se puede desplegar **antes que el backend**: sin `API_BASE_URL` el landing, `/login` y la
 documentación funcionan, y `/developers` muestra un aviso en vez de fallar.
