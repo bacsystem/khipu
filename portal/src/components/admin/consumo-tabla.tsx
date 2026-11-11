@@ -110,6 +110,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
       <ul className="grid gap-0.5 text-control text-muted-foreground">
         <li>{t.ayudaPlanDeHoy}</li>
         <li>{t.ayudaAlerta.replace("{umbral}", String(datos.umbral_de_alerta))}</li>
+        {datos.cuentas.some((c) => c.periodo === "TOTAL") ? <li>{t.ayudaTotal}</li> : null}
       </ul>
 
       <div className={CONTENEDOR_TABLA}>
@@ -137,7 +138,7 @@ export function ConsumoTabla({ datos, total, params }: { datos: ConsumoDeCuentas
                 </TableCell>
                 <TableCell className="px-3 py-2">{c.plan}</TableCell>
                 <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{enteroEnPalabras(c.documentos)}</TableCell>
-                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{c.limite === undefined ? t.ilimitado : enteroEnPalabras(c.limite)}</TableCell>
+                <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{c.limite === undefined ? t.ilimitado : c.periodo === "TOTAL" ? t.limiteEnTotal.replace("{n}", enteroEnPalabras(c.limite)) : enteroEnPalabras(c.limite)}</TableCell>
                 <TableCell className="px-3 py-2">
                   {c.porcentaje === undefined ? (
                     <span className="text-muted-foreground">{t.sinTope}</span>

@@ -13,6 +13,8 @@ import pe.factura.domain.plan.CambioDePlan;
 import pe.factura.domain.plan.CicloMensual;
 import pe.factura.domain.plan.DireccionDeCambio;
 import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.Limites;
+import pe.factura.domain.plan.PeriodoDelTope;
 import pe.factura.domain.plan.Plan;
 import pe.factura.domain.plan.PlanesDeCuenta;
 import pe.factura.domain.plan.Suscripcion;
@@ -51,13 +53,16 @@ public class CambiarPlanDeCuentaService implements CambiarPlanDeCuentaUseCase, A
         Plan actual = planDe(p.planVigenteEn(ahora)).vigenteEn(ahora);
         DireccionDeCambio direccion = DireccionDeCambio.entre(actual, nuevo);
         ConsultarConsumoUseCase.ConsumoDeCuenta consumo = consumos.deCuenta(cuentaId, null);
-        Limite limite = nuevo.vigenteEn(ahora).limites().documentosAlMes();
+        Limites limitesNuevos = nuevo.vigenteEn(ahora).limites();
+        Limite limite = limitesNuevos.documentosAlMes();
+        // Con un tope en total (#613), lo que se compara con él es lo de toda la vida de la cuenta, no lo del mes.
+        long consumido = limitesNuevos.periodoDeDocumentos() == PeriodoDelTope.TOTAL ? consumos.documentosEnTotal(cuentaId) : consumo.documentos();
         Efecto efecto = direccion.esInmediata() ? Efecto.INMEDIATO : Efecto.CICLO_SIGUIENTE;
         // La bajada que espera y todavía no llegó: cualquier cambio la deja sin efecto (el inmediato la cancela, otra bajada la reemplaza), y hay que decirlo.
         Programado descartado = p.programado() == null || p.programado().mandaEn(ahora) ? null
                 : new Programado(planDe(p.programado().planId()).vigenteEn(ahora), p.programado());
         return new Previsualizacion(cuentaId, actual, nuevo, direccion, efecto, direccion.esInmediata() ? ahora : CicloMensual.inicioDelSiguiente(ahora),
-                consumo.mes(), consumo.documentos(), limite, !limite.ilimitado() && consumo.documentos() > limite.maximo(), descartado);
+                consumo.mes(), consumido, limite, !limite.ilimitado() && consumido > limite.maximo(), descartado);
     }
 
     @Override public PlanDeCuenta cambiar(ActorAdmin actor, UUID cuentaId, UUID planId, Instant venceEn, Integer diasDeGracia) {

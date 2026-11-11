@@ -280,24 +280,26 @@
       "columnas": {
         "plan": "Plan",
         "precio": "Precio mensual",
-        "documentos": "Documentos / mes",
+        "documentos": "Documentos",
         "rucs": "RUC",
         "usuarios": "Usuarios",
         "apiKeys": "API keys",
         "retencion": "Retención",
         "cuentas": "Cuentas",
-        "acciones": "Acciones"
+        "acciones": "Acciones",
+        "pruebasBeta": "Pruebas en Beta / mes"
       },
       "retencionAnios": "{n} años",
       "retencionUnAnio": "1 año",
       "programado": "Desde el {fecha}",
       "programadoAyuda": "Este cambio de límites todavía no manda: entra al inicio del ciclo siguiente.",
       "cambiosDe": {
-        "documentos": "Documentos / mes",
+        "documentos": "Documentos",
         "rucs": "RUC",
         "usuarios": "Usuarios",
         "apiKeys": "API keys",
-        "retencion": "Retención (años)"
+        "retencion": "Retención (años)",
+        "pruebasBeta": "Pruebas en Beta por RUC"
       },
       "editar": "Editar",
       "formulario": {
@@ -319,7 +321,7 @@
         "nombreEjemplo": "Estudio",
         "precio": "Precio mensual (S/)",
         "precioAyuda": "En soles, con hasta dos decimales. Cero para un plan gratis.",
-        "documentos": "Documentos por mes",
+        "documentos": "Tope de documentos",
         "rucs": "RUC",
         "usuarios": "Usuarios",
         "apiKeys": "API keys",
@@ -337,8 +339,19 @@
           "nombreLargo": "El nombre admite hasta 40 caracteres.",
           "precioInvalido": "Escribe un precio de cero o más (hasta 99,999,999.99), con hasta dos decimales.",
           "limiteInvalido": "Escribe un número entero mayor que cero, o marca «Ilimitado».",
-          "numeroInvalido": "Escribe un número entero mayor que cero."
-        }
+          "numeroInvalido": "Escribe un número entero mayor que cero.",
+          "totalSinCifra": "Un tope en total necesita una cifra: desmarca «Ilimitado» o elige «Al mes»."
+        },
+        "periodo": "Periodo del tope",
+        "periodos": {
+          "MENSUAL": "Al mes (se renueva el día 1)",
+          "TOTAL": "En total (no se renueva)"
+        },
+        "periodoAyuda": "Cuenta lo que SUNAT acepta en Producción. «En total» suma toda la vida de la cuenta y necesita una cifra.",
+        "pruebasPorRuc": "Pruebas en Beta por RUC (al mes)",
+        "pruebasTotal": "= {total} pruebas al mes para la cuenta con {rucs} RUC, compartidas entre sus empresas.",
+        "pruebasSinTope": "Sin tope de pruebas en Beta.",
+        "pruebasAyuda": "Escribe las pruebas por RUC y los RUC para ver el total de la cuenta."
       },
       "desactivar": {
         "boton": "Desactivar",
@@ -402,8 +415,21 @@
           "varios": "{n} API keys",
           "ilimitados": "API keys ilimitadas"
         },
-        "retencion": "{retencion} de retención"
-      }
+        "retencion": "{retencion} de retención",
+        "porMes": "{n}/mes",
+        "enTotal": "{n} en total",
+        "documentosEnTotal": {
+          "uno": "{n} documento en total",
+          "varios": "{n} documentos en total",
+          "ilimitados": "Documentos ilimitados"
+        },
+        "pruebasBeta": {
+          "uno": "{n} prueba en Beta al mes",
+          "varios": "{n} pruebas en Beta al mes",
+          "ilimitados": "pruebas en Beta ilimitadas"
+        }
+      },
+      "pruebasPorRuc": "{n} por RUC"
     },
     "consumo": {
       "titulo": "Consumo",
@@ -433,7 +459,7 @@
         "cuenta": "Cuenta",
         "plan": "Plan",
         "documentos": "Documentos",
-        "limite": "Tope al mes",
+        "limite": "Tope",
         "uso": "Uso",
         "estadoDelPlan": "Estado del plan"
       },
@@ -443,7 +469,9 @@
       "enElLimite": "En el límite",
       "pagadoHasta": "Hasta el {fecha}",
       "error": "No se pudo cargar el consumo de las cuentas.",
-      "reintentar": "Reintentar"
+      "reintentar": "Reintentar",
+      "limiteEnTotal": "{n} en total",
+      "ayudaTotal": "Un plan con tope en total cuenta toda la vida de la cuenta, no el mes elegido."
     },
     "planDeCuenta": {
       "titulo": "Plan",
@@ -498,7 +526,10 @@
           "vencimientoPasado": "La fecha tiene que ser de hoy en adelante.",
           "graciaInvalida": "Los días de gracia van de 0 a 90."
         },
-        "planActual": " (plan actual)"
+        "planActual": " (plan actual)",
+        "consumoTotal": "Desde que se creó, la cuenta consumió {n} documentos en Producción (cuenta lo que SUNAT aceptó, aunque después se anule). El plan {plan} permite {limite} en total, sin renovarse.",
+        "superaInmediatoTotal": "Ya supera ese tope: con el cambio inmediato, la cuenta no podría emitir más en Producción.",
+        "superaBajadaTotal": "Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy. Después ya no podrá emitir en Producción."
       }
     },
     "pagos": {
@@ -1810,7 +1841,8 @@
     "INVITACION_PENDIENTE": "Ya hay una invitación pendiente para ese correo: reenvíala desde la lista.",
     "INVITACION_NO_PENDIENTE": "La invitación ya no está pendiente: se aceptó o se revocó. Recarga la página.",
     "DEMASIADAS_INVITACIONES": "Llegaste al tope de invitaciones: 20 pendientes, o 30 correos de invitación de tu cuenta (o 3 a ese correo) en las últimas 24 horas. Revoca las que sobren o vuelve a intentarlo mañana.",
-    "DEMASIADOS_ENVIOS": "Ya enviamos esta invitación 5 veces. Revócala e invita de nuevo si hace falta."
+    "DEMASIADOS_ENVIOS": "Ya enviamos esta invitación 5 veces. Revócala e invita de nuevo si hace falta.",
+    "LIMITE_PRUEBAS": "Alcanzaste el tope de pruebas en Beta de este mes."
   },
   "validacion": {
     "correoRequerido": "Ingresa tu correo",
@@ -1897,7 +1929,8 @@
     "plan": {
       "sinPlan": "No se pudo leer tu plan. Ver mi plan",
       "etiqueta": "Plan {plan}",
-      "resumenAccesible": "Plan {plan}: {consumo} documentos este mes"
+      "resumenAccesible": "Plan {plan}: {consumo} documentos este mes",
+      "resumenAccesibleTotal": "Plan {plan}: {n} de {maximo} documentos en total"
     }
   },
   "resumenDePlan": {
@@ -1907,7 +1940,11 @@
     "llegaste": "Llegaste al tope de documentos del mes",
     "pagoVencidoHasta": "Pago vencido: se sirve hasta el {fecha}",
     "pagoVencido": "Pago vencido",
-    "cerca": "Cerca del tope de documentos del mes"
+    "cerca": "Cerca del tope de documentos del mes",
+    "deEnTotal": "{n} de {maximo} en total",
+    "superasteTotal": "Superaste el tope de documentos de tu plan",
+    "llegasteTotal": "Usaste todos los documentos de tu plan",
+    "cercaTotal": "Cerca del tope de documentos de tu plan"
   },
   "inicio": {
     "sinEmpresa": "Primero registra una empresa para ver tu panel.",
@@ -3100,6 +3137,14 @@
       "series": {
         "titulo": "No se pudieron cargar tus series",
         "texto": "Puede ser un problema pasajero de conexión. Tus series y sus correlativos no se tocaron."
+      },
+      "topeTotal": {
+        "titulo": "Usaste los documentos de tu plan",
+        "texto": "Tu plan {plan} incluye {maximo} documentos en total y ya los usaste. Para seguir emitiendo en Producción, cambia a un plan de pago."
+      },
+      "topePruebas": {
+        "titulo": "Llegaste al tope de pruebas en Beta del mes",
+        "texto": "Tu plan {plan} da {maximo} pruebas en Beta al mes y ya las usaste. Vuelves a probar el mes que viene, o antes si cambias de plan."
       }
     },
     "descargaMasiva": {
@@ -4170,8 +4215,8 @@
     "hero": {
       "etiqueta": "Facturación electrónica para Perú",
       "titulo": "Comprobantes que SUNAT acepta a la primera.",
-      "descripcion": "Calculamos los totales en el servidor antes de firmar, así que los rechazos por descuadre no existen. Empieza gratis, para siempre, con tu primer RUC.",
-      "notaAbierto": "Sin tarjeta · Plan gratis permanente, no un trial.",
+      "descripcion": "Calculamos los totales en el servidor antes de firmar, así que los rechazos por descuadre no existen. Empieza gratis con tu primer RUC: 10 comprobantes reales en Producción y 1 000 pruebas en Beta al mes.",
+      "notaAbierto": "Sin tarjeta · El plan Gratis no vence: trae 10 comprobantes reales para empezar.",
       "notaCerrado": "Beta por invitación: habilitamos las cuentas una por una y acompañamos cada alta."
     },
     "confianza": [
@@ -4316,7 +4361,7 @@
       },
       "planGratis": {
         "pregunta": "¿El plan gratis tiene fecha de vencimiento?",
-        "respuesta": "No. Es permanente, no un trial — mientras tu volumen entre en los 30 documentos mensuales."
+        "respuesta": "No vence. Trae 10 comprobantes reales en Producción, en total, para comprobar con SUNAT que todo funciona, y 1 000 pruebas en Beta al mes. Cuando necesites emitir más, pasas a Emprende."
       },
       "boletas": {
         "pregunta": "¿Puedo emitir boletas o notas de crédito?",
@@ -4325,20 +4370,20 @@
     },
     "planes": {
       "titulo": "Planes claros, gratis para empezar",
-      "descripcion": "El plan Gratis no vence — no es un trial. Subes de plan cuando tu volumen lo pida.",
+      "descripcion": "Gratis trae 10 comprobantes reales en Producción y 1 000 pruebas en Beta al mes, sin tarjeta y sin vencimiento. Subes de plan cuando tu volumen lo pida.",
       "periodo": "Periodo de facturación",
       "mensual": "Mensual",
       "anual": "Anual",
       "ahorroAnual": "−2 meses",
       "masUsado": "Más usado",
-      "paraSiempre": "para siempre",
+      "sinTarjeta": "sin tarjeta",
       "porMes": "/mes",
       "igvIncluido": "IGV incluido",
       "alAno": "{monto} al año · 2 meses libres",
       "empezarGratis": "Empezar gratis",
       "elegir": "Elegir {plan}",
       "pedirAcceso": "Pedir acceso",
-      "nota": "Precios en soles con IGV incluido. Solo cuentan los documentos que SUNAT acepta en Producción: las pruebas en Beta, los rechazos y los reintentos no consumen tu plan.",
+      "nota": "Precios en soles con IGV incluido. Solo cuentan los documentos que SUNAT acepta en Producción: los rechazos y los reintentos no consumen tu plan. Las pruebas en Beta van aparte: 1 000 al mes por cada RUC de tu plan.",
       "aMedida": "¿Necesitas on-premise o un plan a medida?",
       "escribenos": "Escríbenos",
       "limites": {
@@ -4353,22 +4398,25 @@
         "apiKeys": "{n} API keys",
         "retencion": "XML y CDR guardados {periodo}",
         "unAno": "1 año",
-        "anos": "{n} años"
+        "anos": "{n} años",
+        "documentosEnTotal": "{n} comprobantes reales en total",
+        "pruebasBeta": "{n} pruebas en Beta al mes",
+        "pruebasBetaIlimitadas": "Pruebas en Beta ilimitadas"
       },
       "catalogo": {
         "gratis": {
           "nombre": "Gratis",
           "para": "Para probar la API",
-          "docs": "10 documentos/mes",
+          "docs": "10 comprobantes reales en total",
           "rucs": "1 RUC · 1 usuario",
           "incluye": [
             "Factura, nota de crédito y de débito, y baja",
             "Portal web y API REST",
             "Comprobantes reales en Producción",
-            "Pruebas en Beta sin límite",
             "1 API key · PDF A4",
             "XML y CDR guardados 1 año"
-          ]
+          ],
+          "beta": "1 000 pruebas en Beta al mes"
         },
         "emprende": {
           "nombre": "Emprende",
@@ -4380,7 +4428,8 @@
             "2 API keys",
             "XML y CDR guardados 5 años",
             "Soporte por correo (48 h)"
-          ]
+          ],
+          "beta": "1 000 pruebas en Beta al mes"
         },
         "negocio": {
           "nombre": "Negocio",
@@ -4392,7 +4441,8 @@
             "PDF con tu logo y tu color",
             "5 API keys",
             "Soporte por correo y WhatsApp (24 h)"
-          ]
+          ],
+          "beta": "3 000 pruebas en Beta al mes"
         },
         "pro": {
           "nombre": "Pro",
@@ -4403,7 +4453,8 @@
             "Todo lo de Negocio",
             "API keys ilimitadas",
             "Soporte prioritario (8 h hábiles)"
-          ]
+          ],
+          "beta": "10 000 pruebas en Beta al mes"
         }
       }
     }
@@ -4605,9 +4656,14 @@
             "422 RECEPTOR_INVALIDO."
           ],
           [
-            "Documentos por mes",
-            "El tope del plan de la cuenta, sumando facturas, boletas y notas de todas sus empresas.",
+            "Documentos de Producción",
+            "El tope del plan de la cuenta, al mes o en total según el plan, sumando facturas, boletas y notas de todas sus empresas.",
             "429 LIMITE_PLAN; 402 PLAN_VENCIDO cuando el plan venció y pasaron sus días de gracia."
+          ],
+          [
+            "Pruebas en BETA por mes",
+            "1 000 por cada RUC del plan, sumando las de todas las empresas de la cuenta en BETA. Aparte del tope de Producción; se renuevan el día 1.",
+            "429 LIMITE_PRUEBAS."
           ],
           [
             "Listados",
@@ -4894,8 +4950,8 @@
           "Cargue un certificado vigente de la empresa."
         ],
         "LIMITE_PLAN": [
-          "La cuenta llegó al tope de documentos del mes de su plan (facturas, boletas y notas de todas sus empresas). No se emite ni se gasta número.",
-          "Vuelva a emitir el mes siguiente o pida un cambio de plan; la comunicación de baja no consume."
+          "La cuenta llegó al tope de documentos de Producción de su plan (facturas, boletas y notas de todas sus empresas): del mes, o en total si el plan lo cuenta así. No se emite ni se gasta número.",
+          "Con un tope mensual, vuelva a emitir el mes siguiente; un tope en total no se renueva. En los dos casos puede pedir un cambio de plan; la comunicación de baja no consume."
         ],
         "CUPO_DEL_PLAN": [
           "El plan de la cuenta ya no deja una API key activa, un usuario (con las invitaciones pendientes) o una empresa más. El mensaje dice cuánto incluye el plan y cuánto tiene la cuenta; lo que ya excedía el tope no se toca.",
@@ -4992,6 +5048,10 @@
         "INTERNO": [
           "Error no controlado.",
           "Reintente; si persiste, envíe el trace_id a soporte."
+        ],
+        "LIMITE_PRUEBAS": [
+          "Una empresa en BETA y la cuenta llegó a su tope de pruebas del mes: las pruebas por RUC de su plan por sus RUC, compartidas entre todas sus empresas. Es aparte del tope de Producción. No se emite ni se gasta número.",
+          "Vuelva a probar el mes siguiente (se renueva el día 1, hora de Lima) o pida un cambio de plan."
         ]
       },
       "titulo": "Errores y estados",
@@ -5980,7 +6040,18 @@
         "excedido": "Tienes más {recurso} de los que incluye tu plan. No se quitó nada, pero no puedes sumar más."
       },
       "consumoTope": "Consumo del tope del mes",
-      "nota": "Cuenta lo que SUNAT aceptó este mes en todas tus empresas, aunque después se anule, por su fecha de emisión (hora de Lima)."
+      "nota": "Cuenta lo que SUNAT aceptó este mes en todas tus empresas, aunque después se anule, por su fecha de emisión (hora de Lima).",
+      "consumoTotal": "Consumo total en Producción",
+      "consumoTopeTotal": "Consumo del tope total",
+      "notaTotal": "Cuenta lo que SUNAT aceptó en Producción desde que se creó tu cuenta, en todas tus empresas, aunque después se anule. Este tope no se renueva: cuando lo uses, pasa a un plan de pago para seguir emitiendo.",
+      "pruebasDe": "Pruebas en Beta de {mes}",
+      "pruebasTope": "Pruebas en Beta usadas este mes",
+      "pruebasNota": "Las pruebas que SUNAT Beta aceptó este mes en todas tus empresas. Tu plan da {porRuc} al mes por cada RUC, compartidas entre tus empresas: no gastan tus documentos de Producción y se renuevan el día 1.",
+      "pruebasNotaSinTope": "Las pruebas que SUNAT Beta aceptó este mes en todas tus empresas. Tu plan no les pone tope y no gastan tus documentos de Producción.",
+      "pruebasAvisos": {
+        "cerca": "Estás cerca del tope de pruebas en Beta del mes.",
+        "lleno": "Llegaste a las {n} pruebas en Beta de este mes: se renuevan el día 1. Para seguir probando antes, pide un cambio de plan."
+      }
     }
   }
 }

@@ -6,6 +6,7 @@ import pe.factura.application.port.in.FiltroDeConsumo;
 import pe.factura.application.port.in.OrdenDeConsumo;
 import pe.factura.application.port.in.VisibilidadDeBajas;
 import pe.factura.application.port.out.ConsumoPorCuentaRepository;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -18,7 +19,8 @@ import java.util.UUID;
  * El consumo de todas las cuentas contra su plan de hoy (#193). Los documentos se cuentan con los mismos estados y el mismo mes que el contador de #192
  * ({@link JdbcConsumoRepository#ESTADOS_QUE_CUENTAN} y solo Producción, {@link JdbcConsumoRepository#ENTORNOS_QUE_CONSUMEN}: la regla vive en el dominio, no en un
  * texto copiado aquí); las cuentas de baja se quitan con la misma regla de
- * los listados ({@link BajasEnListado}). El tope es el que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha. Un solo recorrido, con el orden
+ * los listados ({@link BajasEnListado}). El tope es el que manda hoy: el del plan, o el de su cambio programado si ya llegó a su fecha. Con un tope {@code TOTAL} (#613) los documentos son los de toda
+ * la vida de la cuenta, no los del mes, porque son los que se comparan con ese tope. Un solo recorrido, con el orden
  * y la paginación en la base: el porcentaje de la ordenación es la misma división entera (hacia abajo) que muestra {@code UsoDeLimite}.
  */
 @RequiredArgsConstructor
@@ -27,18 +29,24 @@ public class JdbcConsumoPorCuentaRepository implements ConsumoPorCuentaRepositor
 
     private static final String BASE = """
             SELECT * FROM (
-                SELECT c.id AS cuenta_id, c.nombre, c.email, p.id AS plan_id, p.nombre AS plan_nombre, COALESCE(u.n, 0) AS documentos,
-                       CASE WHEN cp.plan_id IS NOT NULL AND cp.aplica_desde <= ? THEN cp.documentos_al_mes ELSE p.documentos_al_mes END AS limite,
-                       s.vence_en, s.dias_de_gracia
-                FROM cuenta c
-                JOIN suscripcion s ON s.cuenta_id = c.id AND s.termina_en IS NULL
-                JOIN plan p ON p.id = s.plan_id
-                LEFT JOIN plan_cambio_programado cp ON cp.plan_id = p.id
-                LEFT JOIN (
-                    SELECT t.cuenta_id, count(*) AS n FROM tenant t JOIN documento d ON d.tenant_id = t.id
-                    WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%s) AND d.entorno IN (%s) AND d.fecha_emision >= ? AND d.fecha_emision < ?
-                    GROUP BY t.cuenta_id) u ON u.cuenta_id = c.id
-                WHERE %s
+                SELECT cuenta_id, nombre, email, plan_id, plan_nombre, CASE WHEN periodo = 'TOTAL' THEN n_total ELSE n_mes END AS documentos, limite, periodo,
+                       vence_en, dias_de_gracia
+                FROM (
+                    SELECT c.id AS cuenta_id, c.nombre, c.email, p.id AS plan_id, p.nombre AS plan_nombre, COALESCE(u.n_mes, 0) AS n_mes, COALESCE(u.n_total, 0) AS n_total,
+                           CASE WHEN cp.plan_id IS NOT NULL THEN cp.documentos_al_mes ELSE p.documentos_al_mes END AS limite,
+                           CASE WHEN cp.plan_id IS NOT NULL THEN cp.periodo_documentos ELSE p.periodo_documentos END AS periodo,
+                           s.vence_en, s.dias_de_gracia
+                    FROM cuenta c
+                    JOIN suscripcion s ON s.cuenta_id = c.id AND s.termina_en IS NULL
+                    JOIN plan p ON p.id = s.plan_id
+                    LEFT JOIN plan_cambio_programado cp ON cp.plan_id = p.id AND cp.aplica_desde <= ?
+                    LEFT JOIN (
+                        SELECT t.cuenta_id, count(*) FILTER (WHERE d.fecha_emision >= ? AND d.fecha_emision < ?) AS n_mes, count(*) AS n_total
+                        FROM tenant t JOIN documento d ON d.tenant_id = t.id
+                        WHERE t.cuenta_id IS NOT NULL AND d.estado IN (%s) AND d.entorno IN (%s)
+                        GROUP BY t.cuenta_id) u ON u.cuenta_id = c.id
+                    WHERE %s
+                ) v
             ) x WHERE %s""";
 
     @Override public List<Registro> listar(Consulta q, int pagina, int porPagina) {
@@ -91,7 +99,7 @@ public class JdbcConsumoPorCuentaRepository implements ConsumoPorCuentaRepositor
         Integer tope = rs.wasNull() ? null : limite;
         Timestamp vence = rs.getTimestamp("vence_en");
         return new Registro(rs.getObject("cuenta_id", UUID.class), rs.getString("nombre"), rs.getString("email"), rs.getObject("plan_id", UUID.class), rs.getString("plan_nombre"),
-                rs.getLong("documentos"), tope, vence == null ? null : vence.toInstant(), rs.getInt("dias_de_gracia"));
+                rs.getLong("documentos"), tope, PeriodoDelTope.valueOf(rs.getString("periodo")), vence == null ? null : vence.toInstant(), rs.getInt("dias_de_gracia"));
     }
 
     private static Date desde(YearMonth mes) { return Date.valueOf(mes.atDay(1)); }

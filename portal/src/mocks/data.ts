@@ -508,12 +508,17 @@ export function resetDb() {
 
   // Los cuatro planes de la página de precios (#190). Gratis es el de las cuentas nuevas; Negocio trae un cambio de límites ya programado para el ciclo
   // siguiente; Pro nunca tuvo cuentas hoy pero sí las tuvo (historial), así que no se puede borrar aunque figure con 0 cuentas.
-  const limites = (docs: number | null, rucs: number, usuarios: number | null, keys: number | null, retencion: number) => ({
+  // #613: todos con 1 000 pruebas en Beta al mes por RUC, como lo dejó la migración. Gratis sigue con tope mensual en el mock: los e2e de «Plan y consumo» y del tope
+  // de emisión se escribieron sobre sus 30 documentos del mes.
+  const limites = (docs: number | null, rucs: number, usuarios: number | null, keys: number | null, retencion: number, periodo: "MENSUAL" | "TOTAL" = "MENSUAL") => ({
     documentos_al_mes: docs === null ? { ilimitado: true } : { maximo: docs, ilimitado: false },
     rucs,
     usuarios: usuarios === null ? { ilimitado: true } : { maximo: usuarios, ilimitado: false },
     api_keys: keys === null ? { ilimitado: true } : { maximo: keys, ilimitado: false },
     retencion_anios: retencion,
+    periodo_documentos: periodo,
+    pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false },
+    pruebas_beta_al_mes: { maximo: 1000 * rucs, ilimitado: false },
   });
   db.planesAdmin = [
     { id: idPlanMock(1), nombre: "Gratis", precio_mensual: 0, limites: limites(30, 1, 1, 1, 1), estado: "ACTIVO", por_defecto: true, visible_en_publicidad: true, cuentas: 12 },

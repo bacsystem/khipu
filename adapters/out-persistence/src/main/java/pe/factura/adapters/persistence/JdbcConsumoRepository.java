@@ -37,6 +37,16 @@ public class JdbcConsumoRepository implements ConsumoRepository {
                 Long.class, tenantId, desde(mes), hasta(mes));
     }
 
+    @Override public long documentosDeCuentaEnTotal(UUID cuentaId) {
+        return jdbc.queryForObject("SELECT count(*) FROM documento d JOIN tenant t ON t.id = d.tenant_id WHERE t.cuenta_id = ? AND d.estado IN (" + ESTADOS_QUE_CUENTAN
+                + ") AND d.entorno IN (" + ENTORNOS_QUE_CONSUMEN + ")", Long.class, cuentaId);
+    }
+
+    @Override public long pruebasDeCuenta(UUID cuentaId, YearMonth mes) {
+        return jdbc.queryForObject("SELECT count(*) FROM documento d JOIN tenant t ON t.id = d.tenant_id WHERE t.cuenta_id = ? AND d.estado IN (" + ESTADOS_QUE_CUENTAN
+                + ") AND d.entorno = ? AND d.fecha_emision >= ? AND d.fecha_emision < ?", Long.class, cuentaId, Entorno.BETA.name(), desde(mes), hasta(mes));
+    }
+
     @Override public List<ConsumoDeEmpresa> documentosPorEmpresaDeCuenta(UUID cuentaId, YearMonth mes) {
         return jdbc.query("""
                 SELECT t.id, t.ruc, t.razon_social, count(d.id) AS documentos

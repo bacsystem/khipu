@@ -27,7 +27,10 @@ test("el menú muestra el plan y el consumo del mes, y lleva al detalle", async 
   await expect(page.getByText("No vence")).toBeVisible();
   await expect(page.getByTestId("consumo-del-mes")).toHaveText("20 / 30");
   await expect(page.getByRole("progressbar", { name: "Consumo del tope del mes" })).toHaveAttribute("aria-valuenow", "67");
-  await expect(page.getByText("30 documentos al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención")).toBeVisible();
+  await expect(page.getByText("30 documentos al mes · 1,000 pruebas en Beta al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención")).toBeVisible();
+  // #613: las pruebas en Beta del mes, aparte (el mock lleva 40 de las 1 000 de su RUC).
+  await expect(page.getByTestId("pruebas-del-mes")).toHaveText("40 / 1,000");
+  await expect(page.getByRole("progressbar", { name: "Pruebas en Beta usadas este mes" })).toHaveAttribute("aria-valuenow", "4");
 });
 
 test("«Plan y consumo» también está en el menú, en el grupo de la cuenta", async ({ page }) => {

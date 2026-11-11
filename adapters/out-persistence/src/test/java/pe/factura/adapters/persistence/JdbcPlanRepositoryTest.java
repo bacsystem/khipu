@@ -7,6 +7,7 @@ import pe.factura.domain.plan.CambioDeLimites;
 import pe.factura.domain.plan.EstadoPlan;
 import pe.factura.domain.plan.Limite;
 import pe.factura.domain.plan.Limites;
+import pe.factura.domain.plan.PeriodoDelTope;
 import pe.factura.domain.plan.Plan;
 
 import java.math.BigDecimal;
@@ -76,6 +77,38 @@ class JdbcPlanRepositoryTest extends PersistenciaTestBase {
         assertThat(pro.limites().usuarios().ilimitado()).isTrue();
         assertThat(pro.limites().apiKeys().ilimitado()).isTrue();
         assertThat(pro.limites().rucs()).isEqualTo(10);
+    }
+
+    /** #613 (V75): todos los planes nacen con 1 000 pruebas en Beta por RUC; Gratis, el gratuito por defecto, con el tope de documentos en total; el resto, mensual. */
+    @Test void laMigracionDejaGratisEnTotalYMilPruebasPorRucEnTodos() {
+        assertThat(semilla("Gratis").limites().periodoDeDocumentos()).isEqualTo(PeriodoDelTope.TOTAL);
+        for (String nombre : List.of("Emprende", "Negocio", "Pro")) assertThat(semilla(nombre).limites().periodoDeDocumentos()).as(nombre).isEqualTo(PeriodoDelTope.MENSUAL);
+        assertThat(repo.listar()).allSatisfy(p -> assertThat(p.limites().pruebasBetaPorRuc()).isEqualTo(Limite.de(1_000)));
+        assertThat(semilla("Negocio").limites().pruebasBetaAlMes()).isEqualTo(Limite.de(3_000));
+        assertThat(semilla("Pro").limites().pruebasBetaAlMes()).isEqualTo(Limite.de(10_000));
+    }
+
+    /** #613: el periodo y las pruebas por RUC (también sin límite) se guardan y se leen, en el plan y en su cambio programado. */
+    @Test void elPeriodoYLasPruebasSeGuardanEnElPlanYEnSuCambioProgramado() {
+        Limites total = new Limites(Limite.de(10), 1, Limite.de(1), Limite.de(1), 1, PeriodoDelTope.TOTAL, Limite.de(250));
+        Plan p = new Plan(UUID.randomUUID(), "Prueba total", BigDecimal.ZERO, total, EstadoPlan.ACTIVO, false);
+        repo.guardar(p);
+        assertThat(repo.buscar(p.id()).orElseThrow().limites()).isEqualTo(total);
+
+        Limites mensualSinTopeDePruebas = new Limites(Limite.de(10), 1, Limite.de(1), Limite.de(1), 1, PeriodoDelTope.MENSUAL, Limite.sinLimite());
+        Plan conCambio = p.editar("Prueba total", BigDecimal.ZERO, mensualSinTopeDePruebas, T0);
+        repo.guardar(conCambio);
+        Plan leido = repo.buscar(p.id()).orElseThrow();
+        assertThat(leido.limites()).isEqualTo(total);
+        assertThat(leido.programado().limites()).isEqualTo(mensualSinTopeDePruebas);
+    }
+
+    /** #613: la base tampoco admite un tope en total sin cifra, ni cero pruebas. */
+    @Test void laBaseRechazaUnTotalSinCifraYCeroPruebas() {
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, retencion_anios, periodo_documentos) "
+                + "VALUES (?, 'Malo', 0, NULL, 1, 1, 'TOTAL')", UUID.randomUUID())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, retencion_anios, pruebas_beta_por_ruc) "
+                + "VALUES (?, 'Malo', 0, 10, 1, 1, 0)", UUID.randomUUID())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     @Test void elPlanPorDefectoEsGratis() {

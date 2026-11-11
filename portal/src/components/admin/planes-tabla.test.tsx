@@ -9,13 +9,13 @@ vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn() }));
 
 afterEach(cleanup);
 
-const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
+const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } };
 
 const GRATIS: PlanAdmin = {
   id: "g",
   nombre: "Gratis",
   precio_mensual: 0,
-  limites: { ...LIMITES, documentos_al_mes: { maximo: 30, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 1 },
+  limites: { ...LIMITES, documentos_al_mes: { maximo: 30, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 1, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
   estado: "ACTIVO",
   por_defecto: true, visible_en_publicidad: true,
   cuentas: 12,
@@ -24,7 +24,7 @@ const NEGOCIO: PlanAdmin = {
   id: "n",
   nombre: "Negocio",
   precio_mensual: 69,
-  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
+  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 3000, ilimitado: false } },
   estado: "ACTIVO",
   por_defecto: false, visible_en_publicidad: true,
   cuentas: 4,
@@ -33,7 +33,7 @@ const PRO: PlanAdmin = {
   id: "p",
   nombre: "Pro",
   precio_mensual: 129,
-  limites: { documentos_al_mes: { ilimitado: true }, rucs: 10, usuarios: { ilimitado: true }, api_keys: { ilimitado: true }, retencion_anios: 5 },
+  limites: { documentos_al_mes: { ilimitado: true }, rucs: 10, usuarios: { ilimitado: true }, api_keys: { ilimitado: true }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { ilimitado: true }, pruebas_beta_al_mes: { ilimitado: true } },
   estado: "ACTIVO",
   por_defecto: false, visible_en_publicidad: true,
   cuentas: 0,
@@ -50,23 +50,25 @@ describe("PlanesTabla", () => {
     const n = celdas("n");
     expect(n[0]).toContain("Negocio");
     expect(n[1]).toBe("S/ 69.00");
-    expect(n[2]).toBe("1,500");
-    expect(n[3]).toBe("3");
+    expect(n[2]).toBe("1,500/mes");
+    expect(n[3]).toBe("3,0001,000 por RUC");
     expect(n[4]).toBe("3");
-    expect(n[5]).toBe("5");
-    expect(n[6]).toBe("5 años");
-    expect(n[7]).toBe("4");
+    expect(n[5]).toBe("3");
+    expect(n[6]).toBe("5");
+    expect(n[7]).toBe("5 años");
+    expect(n[8]).toBe("4");
   });
 
   it("gratis se lee «Gratis», 1 año de retención se lee en singular y lo ilimitado dice «Ilimitados»", () => {
     render(<PlanesTabla planes={[GRATIS, NEGOCIO, PRO]} />);
 
     expect(celdas("g")[1]).toBe("Gratis");
-    expect(celdas("g")[6]).toBe("1 año");
+    expect(celdas("g")[7]).toBe("1 año");
     expect(celdas("p")[2]).toBe("Ilimitados");
-    expect(celdas("p")[4]).toBe("Ilimitados");
+    expect(celdas("p")[3]).toBe("Ilimitados");
     expect(celdas("p")[5]).toBe("Ilimitados");
-    expect(celdas("p")[3]).toBe("10");
+    expect(celdas("p")[6]).toBe("Ilimitados");
+    expect(celdas("p")[4]).toBe("10");
   });
 
   it("marca el plan de las cuentas nuevas", () => {
@@ -104,15 +106,15 @@ describe("PlanesTabla", () => {
       ...NEGOCIO,
       limites_programados: {
         aplica_desde: "2026-11-01T05:00:00Z",
-        limites: { ...NEGOCIO.limites, documentos_al_mes: { maximo: 3000, ilimitado: false }, retencion_anios: 7 },
+        limites: { ...NEGOCIO.limites, documentos_al_mes: { maximo: 3000, ilimitado: false }, retencion_anios: 7, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
       },
     };
     render(<PlanesTabla planes={[conCambio]} />);
 
-    expect(celdas("n")[2]).toBe("1,500");
+    expect(celdas("n")[2]).toBe("1,500/mes");
     const aviso = screen.getByTestId("plan-programado-n");
     expect(aviso.textContent).toContain("Desde el 1 Nov 2026");
-    expect(aviso.textContent).toContain("Documentos / mes: 1,500 → 3,000");
+    expect(aviso.textContent).toContain("Documentos: 1,500/mes → 3,000/mes");
     expect(aviso.textContent).toContain("Retención (años): 5 años → 7 años");
     expect(aviso.textContent).not.toContain("RUC");
   });
@@ -167,9 +169,32 @@ describe("PlanesTabla", () => {
     expect(screen.getByText("Monthly price")).toBeTruthy();
     const g = celdas("g");
     expect(g[1]).toBe("Free");
-    expect(g[6]).toBe("1 year");
+    expect(g[7]).toBe("1 year");
+    expect(g[2]).toBe("30/month");
     const p = celdas("p");
     expect(p[2]).toBe("Unlimited");
-    expect(p[6]).toBe("5 years");
+    expect(p[7]).toBe("5 years");
+  });
+
+  /** #613: el plan Gratis da sus documentos en total, y cada plan una bolsa de pruebas en Beta (por RUC × RUC). */
+  it("un tope en total dice «en total» y la bolsa de Beta de la cuenta va con lo que da cada RUC", () => {
+    const gratisTotal: PlanAdmin = { ...GRATIS, limites: { ...GRATIS.limites, documentos_al_mes: { maximo: 10, ilimitado: false }, periodo_documentos: "TOTAL" } };
+    render(<PlanesTabla planes={[gratisTotal, NEGOCIO]} />);
+
+    expect(screen.getByTestId("plan-documentos-g").textContent).toBe("10 en total");
+    expect(screen.getByTestId("plan-documentos-n").textContent).toBe("1,500/mes");
+    expect(screen.getByTestId("plan-pruebas-g").textContent).toBe("1,0001,000 por RUC");
+    expect(within(screen.getByTestId("plan-pruebas-n")).getByText("3,000")).toBeTruthy();
+    expect(within(screen.getByTestId("plan-pruebas-n")).getByText("1,000 por RUC")).toBeTruthy();
+  });
+
+  it("pasar a tope total se anuncia como un cambio programado", () => {
+    const conCambio: PlanAdmin = {
+      ...GRATIS,
+      limites_programados: { aplica_desde: "2026-11-01T05:00:00Z", limites: { ...GRATIS.limites, documentos_al_mes: { maximo: 10, ilimitado: false }, periodo_documentos: "TOTAL" } },
+    };
+    render(<PlanesTabla planes={[conCambio]} />);
+
+    expect(screen.getByTestId("plan-programado-g").textContent).toContain("Documentos: 30/mes → 10 en total");
   });
 });

@@ -28,6 +28,10 @@ class TopeDelPlanServiceTest {
     { tenants.asignarCuenta(empresa, cuentaId); }
 
     Limite tope = Limite.de(30);
+    /** #613: mensual salvo que la prueba diga otra cosa; Beta con 1 000 por RUC y un RUC. */
+    PeriodoDelTope periodo = PeriodoDelTope.MENSUAL;
+    Limite pruebasPorRuc = Limite.de(1_000);
+    int rucs = 1;
     /** La bajada que espera su fecha, si hay (#18-H1). */
     CambiarPlanDeCuentaUseCase.Programado programado;
     /** Hasta cuándo está pagada la suscripción y su gracia (#285); sin vencimiento, como el plan gratis. */
@@ -35,7 +39,7 @@ class TopeDelPlanServiceTest {
     int diasDeGracia;
     final CambiarPlanDeCuentaUseCase planes = new CambiarPlanDeCuentaUseCase() {
         public PlanDeCuenta plan(UUID id) {
-            Plan gratis = new Plan(UUID.randomUUID(), "Gratis", BigDecimal.ZERO, new Limites(tope, 1, Limite.de(1), Limite.de(1), 1), EstadoPlan.ACTIVO, true);
+            Plan gratis = new Plan(UUID.randomUUID(), "Gratis", BigDecimal.ZERO, new Limites(tope, rucs, Limite.de(1), Limite.de(1), 1, periodo, pruebasPorRuc), EstadoPlan.ACTIVO, true);
             Suscripcion s = new Suscripcion(UUID.randomUUID(), id, gratis.id(), Instant.parse("2026-09-01T05:00:00Z"), venceEn, diasDeGracia, null);
             return new PlanDeCuenta(id, gratis, s, s.estadoEn(reloj.instant()), s.hastaCuandoCubre(), programado);
         }
@@ -43,12 +47,16 @@ class TopeDelPlanServiceTest {
         public PlanDeCuenta cambiar(ActorAdmin a, UUID c, UUID p, Instant v, Integer g) { throw new AssertionError("solo se lee el plan"); }
     };
 
-    /** Lo ocupado por cuenta y mes, y qué cuentas se bloquearon al contar. */
+    /**
+     * Lo ocupado por cuenta, entorno y mes, y qué cuentas se bloquearon al contar. Las claves: {@code cuenta/2026-10} es Producción en el mes, {@code cuenta/total}
+     * Producción en toda la vida (#613) y {@code cuenta/BETA/2026-10} las pruebas del mes (#613).
+     */
     final Map<String, Long> ocupados = new HashMap<>();
     final List<UUID> bloqueadas = new ArrayList<>();
-    final TopeDeDocumentosRepository repo = (cuenta, mes) -> {
+    final TopeDeDocumentosRepository repo = (cuenta, entorno, mes) -> {
         bloqueadas.add(cuenta);
-        return ocupados.getOrDefault(cuenta + "/" + mes, 0L);
+        String periodo = mes == null ? "total" : mes.toString();
+        return ocupados.getOrDefault(cuenta + (entorno == Entorno.PRODUCCION ? "" : "/" + entorno) + "/" + periodo, 0L);
     };
 
     Clock reloj = Clock.fixed(Instant.parse("2026-10-09T15:00:00Z"), ZoneId.of("America/Lima"));
@@ -72,12 +80,83 @@ class TopeDelPlanServiceTest {
                 .hasMessageContaining("1 de noviembre");
     }
 
-    /** #580: las pruebas en Beta no tienen tope. Con la cuenta llena, su empresa en Beta sigue emitiendo, y ni siquiera se cuenta ni se bloquea la cuenta. */
+    /** #580, #613: lo de Producción no ocupa las pruebas. Con la cuenta llena en Producción, su empresa en Beta sigue emitiendo: cuenta en su propia bolsa. */
     @Test void unaEmpresaEnBetaEmiteAunqueLaCuentaEsteEnElTope() {
         tenants.guardar(Fakes.tenantListo(empresa));
         ocupados.put(cuentaId + "/2026-10", 30L);
+        ocupados.put(cuentaId + "/total", 30L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+        assertThat(bloqueadas).containsExactly(cuentaId);
+    }
+
+    /** #613: en Beta, la bolsa es de 1 000 pruebas al mes por RUC del plan. La 1 000 pasa; con 1 000 ya hechas, LIMITE_PRUEBAS, distinto de LIMITE_PLAN. */
+    @Test void enBetaAlLlegarALasPruebasDelMesDiceLimitePruebas() {
+        tenants.guardar(Fakes.tenantListo(empresa));
+        ocupados.put(cuentaId + "/BETA/2026-10", 999L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+
+        ocupados.put(cuentaId + "/BETA/2026-10", 1_000L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE))
+                .isInstanceOf(DomainException.class)
+                .hasFieldOrPropertyWithValue("codigo", "LIMITE_PRUEBAS")
+                .hasMessageContaining("1000 pruebas en Beta")
+                .hasMessageContaining("octubre de 2026")
+                .hasMessageContaining("1 de noviembre");
+    }
+
+    /** #613: la bolsa de Beta crece con los RUC del plan: con 3 RUC, 3 000. Y lo de Producción no la ocupa. */
+    @Test void lasPruebasDeBetaSonLasDeCadaRucPorLosRucDelPlan() {
+        rucs = 3;
+        tenants.guardar(Fakes.tenantListo(empresa));
+        ocupados.put(cuentaId + "/BETA/2026-10", 2_999L);
+        ocupados.put(cuentaId + "/2026-10", 1_000_000L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+
+        ocupados.put(cuentaId + "/BETA/2026-10", 3_000L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, OCTUBRE)).hasFieldOrPropertyWithValue("codigo", "LIMITE_PRUEBAS").hasMessageContaining("3000 pruebas");
+    }
+
+    /** #613: las pruebas son del mes: las de setiembre no cuentan en octubre. */
+    @Test void lasPruebasSeRenuevanCadaMes() {
+        tenants.guardar(Fakes.tenantListo(empresa));
+        ocupados.put(cuentaId + "/BETA/2026-09", 5_000L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+    }
+
+    /** #613: un plan con pruebas sin límite no cuenta en Beta ni bloquea la cuenta. */
+    @Test void sinTopeDePruebasBetaNoCuenta() {
+        pruebasPorRuc = Limite.sinLimite();
+        tenants.guardar(Fakes.tenantListo(empresa));
+        ocupados.put(cuentaId + "/BETA/2026-10", 1_000_000L);
         assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
         assertThat(bloqueadas).isEmpty();
+    }
+
+    /** #613: un tope en total (Gratis) cuenta toda la vida de la cuenta en Producción: el 10.º pasa, con 10 hechos ya no, aunque sea otro mes. */
+    @Test void unTopeEnTotalCuentaTodaLaVidaYNoSeRenueva() {
+        tope = Limite.de(10);
+        periodo = PeriodoDelTope.TOTAL;
+        ocupados.put(cuentaId + "/2026-10", 0L);
+        ocupados.put(cuentaId + "/total", 9L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
+
+        ocupados.put(cuentaId + "/total", 10L);
+        assertThatThrownBy(() -> service().exigirDisponible(empresa, LocalDate.of(2027, 3, 1)))
+                .isInstanceOf(DomainException.class)
+                .hasFieldOrPropertyWithValue("codigo", "LIMITE_PLAN")
+                .hasMessageContaining("10 comprobantes reales")
+                .hasMessageContaining("Gratis")
+                .hasMessageContaining("no se renuevan")
+                .hasMessageNotContaining("Se renueva el");
+    }
+
+    /** #613: con tope en total, lo del mes no importa: 30 en el mes pero 3 en total (no puede pasar en la realidad) deja emitir. Mira el total, no el mes. */
+    @Test void unTopeEnTotalNoMiraElMes() {
+        tope = Limite.de(10);
+        periodo = PeriodoDelTope.TOTAL;
+        ocupados.put(cuentaId + "/2026-10", 30L);
+        ocupados.put(cuentaId + "/total", 3L);
+        assertThatCode(() -> service().exigirDisponible(empresa, OCTUBRE)).doesNotThrowAnyException();
     }
 
     /** #580: la misma cuenta llena, con la empresa ya en Producción, no emite. */

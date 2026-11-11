@@ -22,7 +22,7 @@ const CUENTA = "0b1f1c3e-0f1c-4b53-9a1e-2f6f6d0c7a11";
 const exito = (datos: unknown = {}): ApiEnvelope<unknown> => ({ estado: "exito", datos, mensaje: null, codigo: null, errores: null });
 const error = (codigo: string, mensaje: string): ApiEnvelope<unknown> => ({ estado: "error", datos: null, mensaje, codigo, errores: null });
 
-const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
+const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } };
 const plan = (id: string, nombre: string, precio: number): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado: "ACTIVO", por_defecto: false, visible_en_publicidad: true, cuentas: 0 });
 const GRATIS = plan("p-gratis", "Gratis", 0);
 const EMPRENDE = plan("p-emprende", "Emprende", 29);
@@ -175,6 +175,21 @@ describe("CambiarPlan — antes de confirmar", () => {
     const aviso = await screen.findByTestId("cambiar-plan-supera");
     expect(aviso.textContent).toContain("Este mes no cambia nada: hasta el ciclo siguiente la cuenta sigue con su plan de hoy.");
     expect(aviso.textContent).not.toContain("Ya supera ese tope");
+  });
+
+  /** #613: si el plan nuevo tiene el tope en total (Gratis), el consumo es el de toda la vida de la cuenta y no se habla del mes. */
+  it("un plan nuevo con tope en total habla del consumo total, sin renovarse", async () => {
+    const gratisTotal = { ...resumen(GRATIS), limites: { ...LIMITES, documentos_al_mes: { maximo: 10, ilimitado: false }, periodo_documentos: "TOTAL" as const } };
+    responder(exito(previa({ plan_nuevo: gratisTotal, direccion: "BAJADA", efecto: "CICLO_SIGUIENTE", consumo_del_mes: 25, limite_de_documentos: { maximo: 10, ilimitado: false }, supera_el_limite: true })));
+    abrir();
+
+    await elegir(NEGOCIO.id);
+
+    const previaTexto = (await screen.findByTestId("cambiar-plan-supera")).closest("[data-testid=cambiar-plan-previa]")?.textContent ?? "";
+    expect(previaTexto).toContain("Desde que se creó, la cuenta consumió 25 documentos en Producción");
+    expect(previaTexto).toContain("El plan Gratis permite 10 en total, sin renovarse.");
+    expect(previaTexto).not.toContain("al mes");
+    expect(screen.getByTestId("cambiar-plan-supera").textContent).toContain("Después ya no podrá emitir en Producción.");
   });
 
   it("un plan sin tope de documentos lo dice en vez de poner una cifra", async () => {

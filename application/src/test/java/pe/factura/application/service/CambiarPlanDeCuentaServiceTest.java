@@ -101,11 +101,14 @@ class CambiarPlanDeCuentaServiceTest {
     }
 
     long consumo = 0;
+    /** Lo consumido en toda la vida de la cuenta (#613). */
+    long consumoTotal = 0;
     final List<YearMonth> mesesConsultados = new ArrayList<>();
     ConsultarConsumoUseCase consumos = new ConsultarConsumoUseCase() {
         public YearMonth mesActual() { return YearMonth.of(2026, 9); }
         public ConsumoDeEmpresa deEmpresa(UUID t, YearMonth mes) { throw new AssertionError("el cambio de plan mira la cuenta"); }
         public ConsumoDeCuenta deCuenta(UUID c, YearMonth mes) { mesesConsultados.add(mes); return new ConsumoDeCuenta(c, YearMonth.of(2026, 9), consumo, List.of()); }
+        public long documentosEnTotal(UUID c) { return consumoTotal; }
     };
 
     Fakes.UowTransaccional uow = new Fakes.UowTransaccional();

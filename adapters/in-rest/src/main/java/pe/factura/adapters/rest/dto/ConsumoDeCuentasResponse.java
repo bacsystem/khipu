@@ -2,6 +2,7 @@ package pe.factura.adapters.rest.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pe.factura.application.port.in.ConsultarConsumoDeCuentasUseCase.Fila;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.time.Instant;
 import java.time.YearMonth;
@@ -20,15 +21,16 @@ public record ConsumoDeCuentasResponse(
             @Schema(example = "ana@libreria.pe") String email,
             UUID planId,
             @Schema(example = "Emprende", description = "El plan de hoy de la cuenta; se compara con él aunque el mes sea pasado") String plan,
-            @Schema(example = "240", description = "Comprobantes aceptados por SUNAT en el mes") long documentos,
-            @Schema(example = "300", description = "El tope de documentos al mes que rige hoy; ausente si el plan no tiene tope") Integer limite,
+            @Schema(example = "240", description = "Comprobantes aceptados por SUNAT en Producción en el mes, o en toda la vida de la cuenta si `periodo` es `TOTAL`") long documentos,
+            @Schema(example = "300", description = "El tope de documentos que rige hoy; ausente si el plan no tiene tope") Integer limite,
+            @Schema(example = "MENSUAL", description = "`MENSUAL` (se renueva el día 1) o `TOTAL` (de toda la vida de la cuenta)") PeriodoDelTope periodo,
             @Schema(example = "80", description = "El porcentaje del tope usado, hacia abajo; ausente si el plan no tiene tope") Integer porcentaje,
             @Schema(description = "Ya llegó al umbral de alerta") boolean enAlerta,
             @Schema(example = "EN_GRACIA", description = "`VIGENTE`, `EN_GRACIA` o `VENCIDA`") String estadoDelPlan,
             @Schema(description = "Hasta cuándo está pagado el plan; ausente si no vence") Instant pagadoHasta,
             @Schema(description = "Hasta cuándo se la sirve, con la gracia incluida; ausente si no vence") Instant seSirveHasta) {
         static CuentaConsumo de(Fila f) {
-            return new CuentaConsumo(f.cuentaId(), f.nombre(), f.email(), f.planId(), f.planNombre(), f.documentos(), f.limite().maximo(), f.porcentaje(), f.enAlerta(), f.estado().name(),
+            return new CuentaConsumo(f.cuentaId(), f.nombre(), f.email(), f.planId(), f.planNombre(), f.documentos(), f.limite().maximo(), f.periodo(), f.porcentaje(), f.enAlerta(), f.estado().name(),
                     f.venceEn(), f.hastaCuandoCubre());
         }
     }

@@ -14,6 +14,7 @@ import pe.factura.domain.plan.CambioDeLimites;
 import pe.factura.domain.plan.EstadoPlan;
 import pe.factura.domain.plan.Limite;
 import pe.factura.domain.plan.Limites;
+import pe.factura.domain.plan.PeriodoDelTope;
 import pe.factura.domain.plan.Plan;
 import pe.factura.domain.plataforma.ActorAdmin;
 
@@ -41,7 +42,7 @@ class AdminPlanControllerTest {
     static final UUID ID = UUID.randomUUID();
     static final Limites LIMITES = new Limites(Limite.de(300), 1, Limite.de(1), Limite.sinLimite(), 5);
     static final String CUERPO = """
-            {"nombre":"Estudio","precio_mensual":49.90,"limites":{"documentos_al_mes":{"maximo":300},"rucs":1,"usuarios":{"maximo":1},"api_keys":{"ilimitado":true},"retencion_anios":5}}""";
+            {"nombre":"Estudio","precio_mensual":49.90,"limites":{"documentos_al_mes":{"maximo":300},"rucs":1,"usuarios":{"maximo":1},"api_keys":{"ilimitado":true},"retencion_anios":5,"periodo_documentos":"MENSUAL","pruebas_beta_por_ruc":{"maximo":1000}}}""";
 
     @Autowired MockMvc mvc;
     @MockitoBean GestionarPlanesUseCase planes;
@@ -111,12 +112,46 @@ class AdminPlanControllerTest {
         Plan aMedida = new Plan(ID, "Estudio", new BigDecimal("49.90"), LIMITES, EstadoPlan.ACTIVO, false).conVisibilidadEnPublicidad(false);
         when(planes.crear(eq(actor), any())).thenReturn(new PlanConUso(aMedida, 0));
 
-        mvc.perform(post("/v1/admin/planes").contentType("application/json").content(CUERPO.replace("}}", "},\"visible_en_publicidad\":false}"))
+        mvc.perform(post("/v1/admin/planes").contentType("application/json").content(CUERPO.substring(0, CUERPO.length() - 1) + ",\"visible_en_publicidad\":false}")
                         .requestAttr(AdministradorActual.ATRIBUTO, admin).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.datos.visible_en_publicidad").value(false));
 
         verify(planes).crear(actor, new DatosDePlan("Estudio", new BigDecimal("49.90"), LIMITES, false));
+    }
+
+    /** #613: el periodo y las pruebas por RUC viajan en el cuerpo; las pruebas del mes de la cuenta salen calculadas (por RUC × RUC) y son de solo lectura. */
+    @Test void elPeriodoYLasPruebasViajanYLasDelMesSalenCalculadas() throws Exception {
+        Limites total = new Limites(Limite.de(10), 3, Limite.de(1), Limite.sinLimite(), 5, PeriodoDelTope.TOTAL, Limite.de(1_000));
+        when(planes.listar()).thenReturn(List.of(new PlanConUso(new Plan(ID, "Estudio", new BigDecimal("49.90"), total, EstadoPlan.ACTIVO, false), 0)));
+
+        mvc.perform(get("/v1/admin/planes").with(clave()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos[0].limites.periodo_documentos").value("TOTAL"))
+                .andExpect(jsonPath("$.datos[0].limites.pruebas_beta_por_ruc.maximo").value(1000))
+                .andExpect(jsonPath("$.datos[0].limites.pruebas_beta_al_mes.maximo").value(3000));
+
+        String cuerpo = CUERPO.replace("\"periodo_documentos\":\"MENSUAL\"", "\"periodo_documentos\":\"TOTAL\"")
+                .replace("\"pruebas_beta_por_ruc\":{\"maximo\":1000}", "\"pruebas_beta_por_ruc\":{\"ilimitado\":true},\"pruebas_beta_al_mes\":{\"maximo\":5}");
+        UUID admin = UUID.randomUUID();
+        var actor = ActorAdmin.administrador(admin, "203.0.113.7");
+        when(planes.crear(eq(actor), any())).thenReturn(plan(0));
+        mvc.perform(post("/v1/admin/planes").contentType("application/json").content(cuerpo)
+                        .requestAttr(AdministradorActual.ATRIBUTO, admin).with(r -> { r.setRemoteAddr("203.0.113.7"); return r; }))
+                .andExpect(status().isCreated());
+        verify(planes).crear(actor, new DatosDePlan("Estudio", new BigDecimal("49.90"),
+                new Limites(Limite.de(300), 1, Limite.de(1), Limite.sinLimite(), 5, PeriodoDelTope.TOTAL, Limite.sinLimite())));
+    }
+
+    /** #613: sin periodo o sin pruebas por RUC, el plan no se guarda con un valor supuesto. Y un total sin cifra lo rechaza el dominio. */
+    @Test void faltarElPeriodoOLasPruebasOUnTotalSinCifraSeRechaza() throws Exception {
+        for (String cuerpo : List.of(CUERPO.replace("\"periodo_documentos\":\"MENSUAL\",", ""), CUERPO.replace(",\"pruebas_beta_por_ruc\":{\"maximo\":1000}", ""),
+                CUERPO.replace("\"documentos_al_mes\":{\"maximo\":300}", "\"documentos_al_mes\":{\"ilimitado\":true}").replace("\"MENSUAL\"", "\"TOTAL\""))) {
+            mvc.perform(post("/v1/admin/planes").contentType("application/json").content(cuerpo).with(clave()))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.codigo").value("LIMITE_INVALIDO"));
+        }
+        verifyNoInteractions(planes);
     }
 
     @Test void unLimiteOmitidoNoSeVuelveIlimitadoEnSilencio() throws Exception {
