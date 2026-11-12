@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import type { ApiEnvelope } from "@/lib/api/types";
 import { AccionesDeCuenta } from "./acciones-de-cuenta";
 
@@ -52,6 +53,24 @@ describe("AccionesDeCuenta (#182)", () => {
     expect(texto).toContain("ni siquiera con una sesión ya abierta");
     expect(texto).toContain("seguirán enviándose a SUNAT");
     expect(texto).toContain("lo devuelve todo a como estaba");
+  });
+
+  /** #640: con el corte por inactividad (#636) una cuenta suspendida un buen rato pierde sus sesiones; el diálogo ya no promete conservarlas. */
+  it("al reactivar promete las mismas API keys, pero no las mismas sesiones", () => {
+    abrir();
+
+    const texto = screen.getByTestId("suspension-confirmacion").textContent ?? "";
+    expect(texto).toContain("Reactivar la cuenta lo devuelve todo a como estaba, con las mismas API keys. Sus usuarios quizá deban volver a iniciar sesión.");
+    expect(texto).not.toContain("mismas sesiones");
+  });
+
+  it("y lo mismo en inglés", () => {
+    fijarLocaleDePrueba("en");
+    abrir();
+
+    const texto = screen.getByTestId("suspension-confirmacion").textContent ?? "";
+    expect(texto).toContain("Reactivating the account restores everything as it was, with the same API keys. Its users may need to sign in again.");
+    expect(texto).not.toContain("same sessions");
   });
 
   it("el alcance se dice bien con una empresa y con ninguna", () => {
