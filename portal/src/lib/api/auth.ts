@@ -17,6 +17,11 @@ export type Usuario = {
    * el refresh, el registro y `/me`; opcional porque la respuesta de abrir una sesión de soporte no lo trae.
    */
   terminos_pendientes?: boolean;
+  /**
+   * Minutos sin renovar la sesión tras los que el servidor la corta (#638): `0` si el corte está desactivado, o de 15 a 480. El portal avisa 2 minutos antes y cierra a los N (#637).
+   * Solo viene en `/me` de una sesión normal: falta en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh y el registro.
+   */
+  sesion_inactividad_minutos?: number;
 };
 
 /**
@@ -65,15 +70,8 @@ export function refrescar(refresh: string) {
   return backendFetch<Tokens>("/v1/auth/refresh", { method: "POST", body: { refresh } });
 }
 
-/**
- * Lo que responde `/me`: el usuario más el N de la inactividad (#636), los minutos sin actividad tras los que el servidor cierra la sesión (y el portal avisa y cierra antes,
- * #637). `0` lo desactiva. Falta en una sesión de soporte, que no tiene refresh y vence a hora fija. Vive acá y no en `Usuario` mientras el `openapi.json` committeado no traiga el
- * campo: `contrato-openapi.ts` falla si el tipo del portal dice algo que la spec no dice. Cuando #636 lo publique, pasa a `Usuario` y este tipo se va.
- */
-export type UsuarioDeMe = Usuario & { sesion_inactividad_minutos?: number };
-
 export function me(access: string) {
-  return backendFetch<UsuarioDeMe>("/v1/auth/me", { headers: { Authorization: `Bearer ${access}` } });
+  return backendFetch<Usuario>("/v1/auth/me", { headers: { Authorization: `Bearer ${access}` } });
 }
 
 export function logout(access: string, refresh: string) {
