@@ -2,6 +2,7 @@ package pe.factura.application.port.out;
 
 import pe.factura.domain.cuenta.Rol;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,9 @@ public interface TokenEmisor {
     record Soporte(UUID administradorId, Instant expiraEn) {}
 
     String emitir(Claims claims);
+
+    /** Cuánto vale un token de acceso recién emitido: el refresh que lo acompaña es lo único que lo renueva, y de ahí sale cuánto tarda en notarse una sesión inactiva. */
+    Duration vidaAccess();
 
     /** Vacío si el token es inválido o expiró, o si trae un claim de soporte que no se entiende: ante la duda no se trata como una sesión normal. */
     Optional<Claims> verificar(String token);

@@ -37,6 +37,7 @@ class JwtFilterTest {
 
     TokenEmisor tokenEmisor = new TokenEmisor() {
         public String emitir(Claims c) { throw new UnsupportedOperationException(); }
+        public java.time.Duration vidaAccess() { throw new UnsupportedOperationException(); }
         public Optional<Claims> verificar(String token) {
             if (TOKEN_DE_SOPORTE.equals(token)) return Optional.of(new Claims(usuario, cuenta, Rol.ADMIN, new Soporte(administrador, java.time.Instant.parse("2026-10-04T12:15:00Z"))));
             return tokenValido.equals(token) ? Optional.of(new Claims(usuario, cuenta, Rol.ADMIN)) : Optional.empty();

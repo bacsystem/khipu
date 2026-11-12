@@ -13,15 +13,19 @@ public interface SesionRepository {
      * {@code familia}: la del login del que sale (271-H1). Un refresh hereda la familia de la sesión que rota, también el que entra en gracia, así que
      * todo lo que salió de un mismo login en un navegador —la cadena de rotaciones y las ramas que abre la gracia— es una familia, y el logout la cierra
      * entera. Un login nuevo (otro dispositivo) es otra familia.
+     * <p>
+     * {@code creadaEn}: cuándo nació la fila, con el reloj de la aplicación (no el {@code now()} de la base). Cada login y cada refresh inserta una fila
+     * nueva, así que es el último refresco de esa rama y de ahí se mide la inactividad (#636).
      */
-    record Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, boolean revocada, Instant rotadaEn, UUID reemplazadaPor, UUID familia) {
+    record Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, boolean revocada, Instant rotadaEn, UUID reemplazadaPor, UUID familia,
+                  Instant creadaEn) {
         /** Una sesión nueva de un login: su propia familia. */
-        public Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, boolean revocada) {
-            this(id, usuarioId, refreshHash, expiraEn, revocada, null, null, id);
+        public Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, boolean revocada, Instant creadaEn) {
+            this(id, usuarioId, refreshHash, expiraEn, revocada, null, null, id, creadaEn);
         }
         /** Una sesión nueva que sale de un refresh: la familia de la que rota. */
-        public Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, UUID familia) {
-            this(id, usuarioId, refreshHash, expiraEn, false, null, null, familia);
+        public Sesion(UUID id, UUID usuarioId, String refreshHash, Instant expiraEn, UUID familia, Instant creadaEn) {
+            this(id, usuarioId, refreshHash, expiraEn, false, null, null, familia, creadaEn);
         }
     }
     void crear(Sesion s);

@@ -49,6 +49,7 @@ class ImpersonarUsuarioServiceTest {
         final List<Claims> emitidos = new ArrayList<>();
         public String emitir(Claims claims) { emitidos.add(claims); return "token-de-soporte-" + emitidos.size(); }
         public Optional<Claims> verificar(String token) { throw new AssertionError("no se verifica aquí"); }
+        public java.time.Duration vidaAccess() { throw new AssertionError("la impersonación no mide inactividad"); }
     }
 
     Tokens tokens = new Tokens();

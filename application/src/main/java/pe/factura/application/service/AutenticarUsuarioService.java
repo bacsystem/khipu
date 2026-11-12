@@ -15,6 +15,7 @@ import pe.factura.domain.plan.Plan;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,6 +50,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private final PlanRepository planes;
     private final PlanSolicitadoRepository planesSolicitados;
     private final AvisoAlOperador operador;
+    /** Sin refrescar durante este tiempo (más la vida del access) la sesión se cierra (#636); {@link Duration#ZERO} lo apaga. */
+    private final Duration inactividad;
 
     @Override
     public Tokens registrar(String nombreCuenta, String email, String password, String telefono, boolean aceptaTerminos, String planSolicitado, String urlBase) {
@@ -166,10 +169,15 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
         Sesion s = sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh == null ? "" : refresh))
                 .filter(x -> x.expiraEn().isAfter(clock.instant()))
                 .orElseThrow(AutenticarUsuarioService::sesionInvalida);
-        if (s.revocada() && !enGracia(s)) throw rechazarRevocada(s);
+        // El token se clasifica antes de mirar al usuario y a su cuenta: una sesión que nadie usa muere aunque la cuenta esté suspendida (#636).
+        if (s.revocada()) {
+            if (!enGracia(s)) throw rechazarRevocada(s);
+        } else if (estaInactiva(s)) {
+            throw cerrarPorInactividad(s);
+        }
         Usuario u = usuarios.buscar(s.usuarioId()).filter(Usuario::activo)
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
-        // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
+        // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182), mientras no pase el corte por inactividad (#636).
         exigirCuentaActiva(u);
         return uow.ejecutar(() -> {   // rotación: la sesión nueva es de la misma familia (271-H1), también si entró en gracia
             SesionEmitida t = emitirSesion(u, s.familia());
@@ -193,6 +201,23 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
             // Solo ids: nunca el refresh, su hash, el access ni el correo.
             log.warn("Refresh reutilizado fuera de la gracia: familia revocada (usuario={}, familia={})", s.usuarioId(), s.familia());
         }
+        return sesionInvalida();
+    }
+
+    /**
+     * Una sesión sin revocar cuyo último refresco (el nacimiento de su fila) es más viejo que la inactividad configurada más lo que dura el access que
+     * emitió: ese access aún pudo estar en uso hasta entonces. Corta con {@code <=}. Con la inactividad en cero el corte está apagado. Se mide por la fila
+     * presentada, no por la familia: una rama huérfana que alguien presenta tarde no se salva porque otra rama de la familia siga activa.
+     */
+    private boolean estaInactiva(Sesion s) {
+        if (inactividad.isZero()) return false;
+        return !s.creadaEn().plus(inactividad).plus(tokens.vidaAccess()).isAfter(clock.instant());
+    }
+
+    /** Revoca la familia entera en su propia unidad de trabajo (el rechazo no la deshace) y deja una sola línea, con ids. */
+    private DomainException cerrarPorInactividad(Sesion s) {
+        uow.ejecutar(() -> sesiones.revocarFamilia(s.familia()));
+        log.info("Sesión cerrada por inactividad (usuario={}, familia={})", s.usuarioId(), s.familia());
         return sesionInvalida();
     }
 
@@ -264,7 +289,8 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     private SesionEmitida emitirSesion(Usuario u, UUID familia) {
         String refresh = TokenOpaco.generar();
         UUID id = UUID.randomUUID();
-        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), clock.instant().plus(VIDA_REFRESH), familia == null ? id : familia));
+        Instant ahora = clock.instant();
+        sesiones.crear(new Sesion(id, u.id(), TokenOpaco.hash(refresh), ahora.plus(VIDA_REFRESH), familia == null ? id : familia, ahora));
         String access = tokens.emitir(new TokenEmisor.Claims(u.id(), u.cuentaId(), u.rol()));
         return new SesionEmitida(id, new Tokens(access, refresh, u, terminos.pendiente(u.id())));
     }
