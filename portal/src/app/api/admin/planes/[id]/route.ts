@@ -4,7 +4,8 @@ import { editarPlan, eliminarPlan } from "@/lib/api/admin-planes";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
-import { ERROR, leerCuerpoJson, sinCache, sobrePlan } from "../comun";
+import { ERROR, sinCache, sobrePlan } from "../comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 type Contexto = { params: Promise<{ id: string }> };
 

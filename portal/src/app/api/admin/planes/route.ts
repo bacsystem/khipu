@@ -3,7 +3,8 @@ import { readAdminSession } from "@/lib/admin-session";
 import { crearPlan } from "@/lib/api/admin-planes";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
-import { ERROR, leerCuerpoJson, sinCache } from "./comun";
+import { ERROR, sinCache } from "./comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 /** Crear un plan (#190). Las reglas de cada dato (nombre único, precio, límites mayores que cero) las pone el backend; acá solo se cuida la sesión y la forma. */
 export async function POST(req: NextRequest) {
