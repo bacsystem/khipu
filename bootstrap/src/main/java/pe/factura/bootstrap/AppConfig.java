@@ -47,6 +47,7 @@ import pe.factura.adapters.scheduler.CargaDelPadronRucWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
 import pe.factura.adapters.scheduler.LimpiezaSesionesWorker;
+import pe.factura.adapters.scheduler.LimpiezaTokensDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
@@ -117,13 +118,13 @@ public class AppConfig {
     }
 
     /**
-     * Cuánto se conserva una sesión de refresh después de vencer (#611): entre 1 y 90 días. Sirve para investigar un reclamo mirando la familia
-     * completa y, a la vez, minimiza los datos guardados; un 0 borraría al instante lo que el soporte aún necesita, y un valor enorme dejaría
-     * crecer la tabla, así que fuera de rango aborta el arranque.
+     * Cuánto se conserva una sesión de refresh, un enlace de recuperación o uno de verificación después de vencer (#611, #634): entre 1 y 90 días. Sirve
+     * para investigar un reclamo mirando la familia completa o el correo que el usuario dice no haber pedido y, a la vez, minimiza los datos guardados;
+     * un 0 borraría al instante lo que el soporte aún necesita, y un valor enorme dejaría crecer las tablas, así que fuera de rango aborta el arranque.
      */
-    static Duration retencionDeSesiones(int dias) {
+    static Duration retencionDeAccesos(int dias) {
         if (dias < 1 || dias > 90)
-            throw new IllegalStateException("SESION_RETENCION_DIAS debe estar entre 1 y 90 (es " + dias + ")");
+            throw new IllegalStateException("ACCESO_RETENCION_DIAS debe estar entre 1 y 90 (es " + dias + ")");
         return Duration.ofDays(dias);
     }
 
@@ -317,8 +318,9 @@ public class AppConfig {
     @Bean AceptarTerminosUseCase aceptarTerminos(AceptacionDeTerminosRepository a, UnitOfWork u, Clock clock, @Value("${app.terminos-version}") String version) {
         return new AceptarTerminosService(a, u, clock, version);
     }
-    @Bean VerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
-    // Tipado como el adaptador: es a la vez el SesionRepository y la PurgaDeSesiones (#611).
+    // Tipado como el adaptador: es a la vez el VerificacionCorreoRepository y la PurgaDeVerificaciones (#634).
+    @Bean JdbcVerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
+    // Tipado como el adaptador: es a la vez el SesionRepository, la PurgaDeSesiones (#611) y la PurgaDeRecuperaciones (#634).
     @Bean JdbcSesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
@@ -578,10 +580,17 @@ public class AppConfig {
     @Bean LimiteDeIntentos limiteDeIntentos(IntentosDeAccesoRepository i, Clock clock) { return new LimiteDeIntentos(i, clock); }
     @Bean LimpiezaIntentosDeAccesoWorker limpiezaIntentosDeAccesoWorker(LimiteDeIntentos l) { return new LimpiezaIntentosDeAccesoWorker(l); }
 
-    @Bean PurgarSesionesUseCase purgarSesiones(PurgaDeSesiones purga, Clock clock, @Value("${app.sesion-retencion-dias:7}") int dias) {
-        return new PurgarSesionesService(purga, clock, retencionDeSesiones(dias));
+    @Bean PurgarSesionesUseCase purgarSesiones(PurgaDeSesiones purga, Clock clock, @Value("${app.acceso-retencion-dias:7}") int dias) {
+        return new PurgarSesionesService(purga, clock, retencionDeAccesos(dias));
     }
     @Bean LimpiezaSesionesWorker limpiezaSesionesWorker(PurgarSesionesUseCase purga) { return new LimpiezaSesionesWorker(purga); }
+
+    // Las dos purgas de enlaces comparten la retención de las sesiones (#634): pasado el vencimiento ninguna de las tres filas sirve para nada.
+    @Bean PurgarTokensDeAccesoUseCase purgarTokensDeAcceso(PurgaDeRecuperaciones recuperaciones, PurgaDeVerificaciones verificaciones, Clock clock,
+                                                           @Value("${app.acceso-retencion-dias:7}") int dias) {
+        return new PurgarTokensDeAccesoService(recuperaciones, verificaciones, clock, retencionDeAccesos(dias));
+    }
+    @Bean LimpiezaTokensDeAccesoWorker limpiezaTokensDeAccesoWorker(PurgarTokensDeAccesoUseCase purga) { return new LimpiezaTokensDeAccesoWorker(purga); }
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
