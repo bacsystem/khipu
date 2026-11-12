@@ -103,6 +103,26 @@ class JdbcCuentasAdminRepositoryTest extends PersistenciaTestBase {
         assertThat(repo.listar(Filtro.NINGUNO, 1, 20).get(0).ultimoAcceso()).isEqualTo(T0.plusSeconds(900));
     }
 
+    /** #611: la limpieza de sesiones vencidas deja la última de cada usuario, así que el último acceso no cambia ni para quien lleva meses sin entrar. */
+    @Test void elUltimoAccesoSobreviveALaLimpiezaDeSesiones() {
+        UUID cuenta = cuenta("Mi negocio", "ana@negocio.pe", T0);
+        UUID ana = usuario(cuenta, "ana@negocio.pe");
+        UUID luis = usuario(cuenta, "luis@negocio.pe");
+        sesion(ana, T0.plusSeconds(100));
+        sesion(ana, T0.plusSeconds(500));
+        sesion(luis, T0.plusSeconds(300));
+        Instant meses = T0.plusSeconds(90L * 86400);
+        var antes = repo.listar(Filtro.NINGUNO, 1, 20).get(0).ultimoAcceso();
+        var usuariosAntes = repo.detalle(cuenta).orElseThrow().usuarios();
+
+        int borradas = new JdbcSesionRepository(jdbc).purgarVencidas(meses, 1000);
+
+        assertThat(borradas).as("solo la anterior de Ana: la última de cada usuario se queda").isEqualTo(1);
+        assertThat(antes).isEqualTo(T0.plusSeconds(500));
+        assertThat(repo.listar(Filtro.NINGUNO, 1, 20).get(0).ultimoAcceso()).isEqualTo(antes);
+        assertThat(repo.detalle(cuenta).orElseThrow().usuarios()).isEqualTo(usuariosAntes);
+    }
+
     @Test void sinSesionesElUltimoAccesoEsNulo() {
         UUID cuenta = cuenta("Nueva", "nueva@x.pe", T0);
         usuario(cuenta, "nueva@x.pe");

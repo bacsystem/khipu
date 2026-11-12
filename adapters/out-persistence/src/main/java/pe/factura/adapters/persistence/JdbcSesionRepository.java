@@ -3,6 +3,7 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import pe.factura.application.port.out.PurgaDeSesiones;
 import pe.factura.application.port.out.SesionRepository;
 
 import java.sql.Timestamp;
@@ -11,8 +12,26 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class JdbcSesionRepository implements SesionRepository {
+public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones {
+    /**
+     * Una sesión es borrable si venció antes del corte y el mismo usuario tiene otra más reciente: la última de cada usuario se queda, porque el
+     * backoffice saca de ella su último acceso. SKIP LOCKED: ni espera a una fila que otra réplica o una revocación tiene tomada ni puede entrar en un
+     * deadlock. Usa ix_sesion_expira para el corte y ix_sesion_acceso para la subconsulta.
+     */
+    private static final String PURGAR_VENCIDAS = """
+            DELETE FROM sesion WHERE id IN (
+              SELECT s.id FROM sesion s
+              WHERE s.expira_en < ?
+                AND EXISTS (SELECT 1 FROM sesion n WHERE n.usuario_id = s.usuario_id AND n.created_at > s.created_at)
+              ORDER BY s.expira_en
+              LIMIT ?
+              FOR UPDATE SKIP LOCKED)""";
+
     private final JdbcTemplate jdbc;
+
+    @Override public int purgarVencidas(Instant vencidasAntesDe, int lote) {
+        return jdbc.update(PURGAR_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
+    }
 
     @Override public void crear(Sesion s) {
         jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id) VALUES (?, ?, ?, ?, ?, ?)",

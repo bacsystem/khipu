@@ -501,6 +501,23 @@ class AutenticarUsuarioServiceTest {
         assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
+    /**
+     * #611: la limpieza borra las filas vencidas, así que un refresh rotado que vuelve cuando su fila ya no existe recibe el mismo rechazo que con la fila
+     * presente, y el logout cierra la familia aunque falte la fila del login (se busca por la familia, que heredan las rotaciones).
+     */
+    @Test void conLaFilaPurgadaElRefreshRotadoDaElMismoRechazoYElLogoutCierraLaFamilia() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens t2 = service.refrescar(t1.refresh());
+        AutenticarUsuarioService pasadaLaGracia = conReloj(Clock.offset(clock, AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1)));
+        assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).as("con la fila").extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        sesionesMap.remove(TokenOpaco.hash(t1.refresh()));
+
+        assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).as("sin la fila").extracting("codigo").isEqualTo("SESION_INVALIDA");
+        service.logout(t2.refresh());
+        assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
     // --- S6: dos instancias del portal refrescan la misma sesión casi a la vez ---------------------------------------------------
 
     /**
