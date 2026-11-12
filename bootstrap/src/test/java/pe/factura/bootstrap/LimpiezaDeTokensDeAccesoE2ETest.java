@@ -70,9 +70,12 @@ class LimpiezaDeTokensDeAccesoE2ETest {
         return http.postForEntity("/v1/auth/verificar", new HttpEntity<>("{\"token\":\"%s\"}".formatted(token), json()), Map.class);
     }
 
-    private void assertTokenInvalido(ResponseEntity<Map> r) {
+    /** Devuelve el mensaje, para poder comprobar que la fila borrada no cambia ni el texto: si cambiara, quien consulta distinguiría un enlace purgado de uno vencido. */
+    private String assertTokenInvalido(ResponseEntity<Map> r) {
         assertThat(r.getStatusCode().value()).isEqualTo(422);
         assertThat(r.getBody()).containsEntry("codigo", "TOKEN_INVALIDO");
+        assertThat(r.getBody().get("mensaje")).isInstanceOf(String.class);
+        return (String) r.getBody().get("mensaje");
     }
 
     private static final int HORAS_DE_UN_DIA = 24;
@@ -80,19 +83,19 @@ class LimpiezaDeTokensDeAccesoE2ETest {
     @Test void unaRecuperacionVencidaDaLaMismaRespuestaAntesYDespuesDeBorrarla() {
         String vencida = token("token_recuperacion", -8 * HORAS_DE_UN_DIA, false);
 
-        assertTokenInvalido(restablecer(vencida));
+        String antes = assertTokenInvalido(restablecer(vencida));
         assertThat(purga.purgar()).isEqualTo(1);
         assertThat(existe("token_recuperacion", vencida)).isFalse();
-        assertTokenInvalido(restablecer(vencida));
+        assertThat(assertTokenInvalido(restablecer(vencida))).as("mismo texto con la fila borrada").isEqualTo(antes);
     }
 
     @Test void unaVerificacionVencidaDaLaMismaRespuestaAntesYDespuesDeBorrarla() {
         String vencida = token("token_verificacion", -8 * HORAS_DE_UN_DIA, true);
 
-        assertTokenInvalido(verificar(vencida));
+        String antes = assertTokenInvalido(verificar(vencida));
         assertThat(purga.purgar()).isEqualTo(1);
         assertThat(existe("token_verificacion", vencida)).isFalse();
-        assertTokenInvalido(verificar(vencida));
+        assertThat(assertTokenInvalido(verificar(vencida))).as("mismo texto con la fila borrada").isEqualTo(antes);
     }
 
     @Test void respetaLaRetencionDeSieteDiasEnLasDosTablas() {
