@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruebas de login</title>
+<style>
+:root {
+  color-scheme: light;
+  --fondo: #f6f6f4; --superficie: #fcfcfb; --texto: #0b0b0b; --texto2: #52514e; --linea: #e4e3df; --nota: #f0f0ec; --neutro: #c9c8c2;
+  --serie1: #2a78d6; --serie2: #eb6834; --critico: #c8321e; --bien: #0f7b4f; --aviso: #9a6200; --sel: #0b0b0b; --selTexto: #fcfcfb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fondo: #121211; --superficie: #1a1a19; --texto: #f0efec; --texto2: #c3c2b7; --linea: #33332f; --nota: #24241f; --neutro: #55544e;
+    --serie1: #3987e5; --serie2: #d95926; --critico: #e5604c; --bien: #3fbf8a; --aviso: #e0a93a; --sel: #f0efec; --selTexto: #1a1a19;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fondo: #121211; --superficie: #1a1a19; --texto: #f0efec; --texto2: #c3c2b7; --linea: #33332f; --nota: #24241f; --neutro: #55544e;
+  --serie1: #3987e5; --serie2: #d95926; --critico: #e5604c; --bien: #3fbf8a; --aviso: #e0a93a; --sel: #f0efec; --selTexto: #1a1a19;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 56px; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -.02em; }
+h3 { font-size: 16px; margin: 0 0 2px; }
+.sub { color: var(--texto2); margin: 0; font-size: 14.5px; }
+.barra { position: sticky; top: 0; z-index: 4; background: var(--fondo); padding: 12px 0; margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; border-bottom: 1px solid var(--linea); }
+.barra label, .grupo-nombre { font-size: 13.5px; color: var(--texto2); }
+.grupo { display: inline-flex; gap: 2px; background: var(--nota); padding: 3px; border-radius: 999px; }
+.grupo[hidden] { display: none; }
+.grupo button { font: inherit; font-size: 14.5px; font-weight: 600; color: var(--texto2); background: none; border: 0; border-radius: 999px; padding: 5px 15px; min-height: 34px; cursor: pointer; }
+.grupo button[aria-pressed="true"] { background: var(--sel); color: var(--selTexto); }
+.grupo button:focus-visible { outline: 2px solid var(--serie1); outline-offset: 1px; }
+.cabeza { margin: 18px 0 12px; }
+.cabeza h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.estado { display: inline-block; font-size: 13px; font-weight: 600; margin-top: 4px; }
+.estado.ok { color: var(--bien); } .estado.aviso { color: var(--aviso); } .estado.mal { color: var(--critico); }
+.veredicto { background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 12px 16px; margin: 10px 0; font-size: 15.5px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0 12px; }
+.tile { background: var(--superficie); border: 1px solid var(--linea); border-radius: 12px; padding: 10px 14px; }
+.tile b { display: block; font-size: 23px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.tile span { color: var(--texto2); font-size: 13px; }
+.rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; min-width: 0; display: flex; flex-direction: column; }
+.tarjeta.ancho { grid-column: 1 / -1; }
+.tarjeta .que { color: var(--texto2); font-size: 13px; margin: 0 0 6px; }
+.grafico { position: relative; width: 100%; }
+.grafico svg { display: block; width: 100%; overflow: visible; }
+.leyenda { display: flex; gap: 14px; font-size: 13px; color: var(--texto2); margin: 2px 0 6px; flex-wrap: wrap; }
+.leyenda i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.interpreta { background: var(--nota); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 14.5px; flex: 1; }
+.interpreta strong { display: block; font-size: 12.5px; color: var(--texto2); font-weight: 600; margin-bottom: 2px; }
+details { margin-top: 8px; font-size: 13px; color: var(--texto2); }
+summary { cursor: pointer; }
+table { border-collapse: collapse; width: 100%; margin-top: 6px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--linea); }
+th:first-child, td:first-child { text-align: left; }
+.tip { position: absolute; pointer-events: none; background: var(--texto); color: var(--superficie); font-size: 12.5px; line-height: 1.35; padding: 5px 8px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, -100%); opacity: 0; z-index: 3; }
+.cero { display: flex; align-items: center; justify-content: center; min-height: 96px; font-size: 38px; font-weight: 700; flex-direction: column; line-height: 1.1; }
+.cero span { font-size: 14px; font-weight: 400; color: var(--texto2); }
+.alcance { color: var(--texto2); font-size: 13.5px; margin: 16px 0 0; }
+.tipos-titulo { font-size: 18px; margin: 22px 0 8px; }
+.tipos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tipo { font: inherit; text-align: left; color: inherit; background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+button.tipo { cursor: pointer; }
+button.tipo:hover { border-color: var(--neutro); }
+button.tipo:focus-visible { outline: 2px solid var(--serie1); outline-offset: 1px; }
+.tipo[aria-current="true"] { border-color: var(--sel); box-shadow: inset 0 0 0 1px var(--sel); }
+.tipo h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.tipo h3 small { font-weight: 400; color: var(--texto2); font-size: 12.5px; }
+.tipo .pregunta { font-weight: 600; font-size: 14.5px; margin: 0; }
+.tipo .forma { color: var(--texto2); font-size: 13px; margin: 0; }
+.tipo .conclusion { font-size: 13.5px; margin: 4px 0 0; background: var(--nota); border-radius: 8px; padding: 6px 8px; }
+.chip { font-size: 12.5px; font-weight: 600; }
+.chip.ok { color: var(--bien); } .chip.aviso { color: var(--aviso); } .chip.mal { color: var(--critico); } .chip.pendiente { color: var(--texto2); }
+@media (max-width: 960px) { .tipos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .tipos { grid-template-columns: minmax(0, 1fr); } .rejilla { grid-template-columns: minmax(0, 1fr); } .tiles { grid-template-columns: repeat(2, 1fr); } h1 { font-size: 24px; } .grupo { flex-wrap: wrap; max-width: 100%; border-radius: 18px; } .grupo button { padding: 5px 10px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pruebas de login de khipu</h1>
+  <p class="sub" id="entorno"></p>
+  <p class="sub" id="maquina"></p>
+  <h2 class="tipos-titulo">Tipos de prueba</h2>
+  <p class="sub">Cada tipo responde una pregunta distinta. Elige uno para ver sus corridas; los pendientes todavía no se hicieron.</p>
+  <div class="tipos" id="tipos" style="margin-top:10px"></div>
+  <div class="barra">
+    <span class="grupo-nombre" id="etiqueta-tipo">Tipo</span>
+    <div class="grupo" id="tipo" role="group" aria-labelledby="etiqueta-tipo"></div>
+    <span class="grupo-nombre" id="etiqueta-usuarios">Usuarios</span>
+    <div class="grupo" id="usuarios" role="group" aria-labelledby="etiqueta-usuarios"></div>
+    <span class="grupo-nombre" id="etiqueta-ruta" hidden>Variante</span>
+    <div class="grupo" id="ruta" role="group" aria-labelledby="etiqueta-ruta" hidden></div>
+  </div>
+  <div class="cabeza"><h2 id="titulo"></h2><span class="estado" id="estado"></span></div>
+  <div class="veredicto" id="veredicto"></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="rejilla" id="rejilla"></div>
+  <p class="alcance" id="alcance"></p>
+</main>
+<script>
+const D = /*DATOS*/null;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const num = (v, d = 0) => v == null ? "—" : v.toLocaleString("es-ES", { maximumFractionDigits: d });
+const paso = (max) => { const b = 10 ** Math.floor(Math.log10(max || 1)); for (const m of [1, 2, 2.5, 5, 10]) if (max / (m * b) <= 5) return m * b; return 10 * b; };
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, at, padre) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (padre) padre.appendChild(e); return e; };
+let dibujos = [];
+
+function ejes(svg, W, H, m, yMax, fijo) {
+  const p = fijo ? fijo / 4 : paso(yMax), top = fijo ?? Math.ceil(yMax / p) * p;
+  for (let v = 0; v <= top + 1e-9; v += p) {
+    const y = H - m.b - (v / top) * (H - m.t - m.b);
+    el("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, stroke: css("--linea"), "stroke-width": 1 }, svg);
+    el("text", { x: m.l - 6, y: y + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--texto2") }, svg).textContent = num(v, 1);
+  }
+  return top;
+}
+
+function lineas(cont, c) {
+  const W = cont.clientWidth, H = 200, m = { t: 10, r: c.series.length > 1 ? 66 : 14, b: 26, l: 48 };
+  cont.innerHTML = "";
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": c.aria }, cont);
+  const vals = c.series.flatMap((s) => s.v.filter((x) => x != null));
+  const top = ejes(svg, W, H, m, Math.max(...vals) * 1.08);
+  const xs = (i) => m.l + (c.x.length > 1 ? (i / (c.x.length - 1)) * (W - m.l - m.r) : 0);
+  const ys = (v) => H - m.b - (v / top) * (H - m.t - m.b);
+  const largo = c.x.at(-1) > 600, rotulo = (x) => (largo ? `${Math.round(x / 60)} min` : `${x} s`);
+  c.x.forEach((x, i) => { if (i % Math.ceil(c.x.length / 6) === 0) el("text", { x: xs(i), y: H - 8, "text-anchor": "middle", "font-size": 11.5, fill: css("--texto2") }, svg).textContent = rotulo(x); });
+  c.series.forEach((s) => {
+    const d = s.v.map((v, i) => v == null ? "" : `${i && s.v[i - 1] != null ? "L" : "M"}${xs(i)} ${ys(v)}`).join(" ");
+    el("path", { d, fill: "none", stroke: css(s.color), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  });
+  if (c.series.length > 1) {
+    const fin = c.series.map((s) => ({ s, y: ys(s.v.findLast((v) => v != null)) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < fin.length; i++) if (fin[i].y - fin[i - 1].y < 15) fin[i].y = fin[i - 1].y + 15;
+    fin.forEach(({ s, y }) => { el("text", { x: W - m.r + 6, y: y + 4, "font-size": 12, fill: css("--texto") }, svg).textContent = s.corto; });
+  }
+  const guia = el("line", { y1: m.t, y2: H - m.b, stroke: css("--texto2"), "stroke-width": 1, opacity: 0 }, svg);
+  const tip = document.createElement("div"); tip.className = "tip"; cont.appendChild(tip);
+  const zona = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" }, svg);
+  zona.addEventListener("pointermove", (e) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(c.x.length - 1, Math.round(((e.clientX - r.left - m.l) / (W - m.l - m.r)) * (c.x.length - 1))));
+    guia.setAttribute("x1", xs(i)); guia.setAttribute("x2", xs(i)); guia.setAttribute("opacity", .5);
+    tip.innerHTML = `${largo ? `Minuto ${num(c.x[i] / 60, 1)}` : `Segundo ${c.x[i]}`}<br>` + c.series.map((s) => `${s.nombre}: ${num(s.v[i], c.dec)} ${c.unidad}`).join("<br>");
+    tip.style.left = Math.max(70, Math.min(W - 70, xs(i))) + "px"; tip.style.top = "46px"; tip.style.opacity = 1;
+  });
+  zona.addEventListener("pointerleave", () => { tip.style.opacity = 0; guia.setAttribute("opacity", 0); });
+}
+
+function barras(cont, c) {
+  const W = cont.clientWidth, H = 200, m = { t: 20, r: 10, b: 26, l: 44 };
+  cont.innerHTML = "";
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": c.aria }, cont);
+  const top = ejes(svg, W, H, m, Math.max(...c.v, c.minY || 0) * 1.05, c.topeFijo);
+  const ancho_ = (W - m.l - m.r) / c.x.length, ancho = Math.min(46, ancho_ * .62);
+  const tip = document.createElement("div"); tip.className = "tip"; cont.appendChild(tip);
+  c.x.forEach((x, i) => {
+    const cx = m.l + ancho_ * (i + .5), v = c.v[i], y = H - m.b - (v / top) * (H - m.t - m.b), alto = H - m.b - y, r = Math.min(4, alto, ancho / 2);
+    const color = c.resalta == null || c.resalta === i ? c.color : "--neutro";
+    if (v > 0) el("path", { d: `M${cx - ancho / 2} ${H - m.b}V${y + r}q0 ${-r} ${r} ${-r}H${cx + ancho / 2 - r}q${r} 0 ${r} ${r}V${H - m.b}Z`, fill: css(color) }, svg);
+    if (c.etiquetar && v > 0) el("text", { x: cx, y: y - 5, "text-anchor": "middle", "font-size": 12, "font-weight": c.resalta === i ? 700 : 400, fill: css("--texto") }, svg).textContent = num(v, c.dec);
+    if (i % Math.ceil(c.x.length / 7) === 0 || c.etiquetar) el("text", { x: cx, y: H - 8, "text-anchor": "middle", "font-size": 11.5, fill: css("--texto2") }, svg).textContent = x + (c.sufijo || "");
+    const zona = el("rect", { x: cx - ancho_ / 2, y: 0, width: ancho_, height: H, fill: "transparent" }, svg);
+    zona.addEventListener("pointerenter", () => { tip.innerHTML = `${c.pista} ${x}: ${num(v, c.dec)} ${c.unidad}`; tip.style.left = Math.max(80, Math.min(W - 80, cx)) + "px"; tip.style.top = Math.max(30, y - 8) + "px"; tip.style.opacity = 1; });
+    zona.addEventListener("pointerleave", () => { tip.style.opacity = 0; });
+  });
+}
+
+const tabla = (cabeza, filas) => `<details><summary>Ver los datos</summary><table><tr>${cabeza.map((h) => `<th>${h}</th>`).join("")}</tr>${filas.map((f) => `<tr>${f.map((v) => `<td>${v}</td>`).join("")}</tr>`).join("")}</table></details>`;
+
+function tarjeta(padre, { titulo, que, leyenda = "", txt, datos = "", dibuja, ancho }) {
+  const t = document.createElement("div"); t.className = "tarjeta" + (ancho ? " ancho" : "");
+  t.innerHTML = `<h3>${titulo}</h3><p class="que">${que}</p>${leyenda}<div class="grafico"></div><div class="interpreta"><strong>Interpretación</strong>${txt}</div>${datos}`;
+  padre.appendChild(t);
+  const g = t.querySelector(".grafico");
+  if (dibuja) { const f = () => dibuja(g); dibujos.push(f); f(); }
+  return g;
+}
+
+const porId = Object.fromEntries(D.corridas.map((s) => [s.id, s]));
+const NOMBRE_TIPO = Object.fromEntries(D.tipos.map((t) => [t.clave, t.nombre]));
+const primeraDe = (tipo, u) => { const de = D.corridas.filter((c) => c.tipo === tipo && (u == null || c.usuarios === u)); return de.find((c) => c.principal) ?? de[0]; };
+const ultima = [...D.corridas].reverse().find((c) => c.principal) ?? D.corridas.at(-1);
+let sel = location.hash.slice(1) in porId ? location.hash.slice(1) : ultima.id;
+
+function botones(cont, opciones, activo, elegir) {
+  cont.innerHTML = "";
+  for (const [valor, texto] of opciones) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = texto;
+    b.setAttribute("aria-pressed", String(valor === activo));
+    b.addEventListener("click", () => elegir(valor));
+    cont.appendChild(b);
+  }
+}
+
+function elegir(id) { sel = id; history.replaceState(null, "", "#" + id); pinta(); }
+
+function catalogo(s) {
+  const cont = document.getElementById("tipos"); cont.innerHTML = "";
+  for (const t of D.tipos) {
+    const hecho = t.corridas > 0, b = document.createElement(hecho ? "button" : "div");
+    b.className = "tipo";
+    if (hecho) { b.type = "button"; b.setAttribute("aria-current", String(t.clave === s.tipo)); b.addEventListener("click", () => elegir(primeraDe(t.clave).id)); }
+    const estado = hecho ? `${t.corridas} ${t.corridas === 1 ? "corrida" : "corridas"} · ${t.rango}` : "Pendiente";
+    b.innerHTML = `<h3>${t.nombre} <small>${t.ingles}</small></h3><p class="pregunta">${t.pregunta}</p><p class="forma">${t.forma}</p><span class="chip ${hecho ? t.peor : "pendiente"}">${estado}</span>${t.conclusion ? `<p class="conclusion">${t.conclusion}</p>` : ""}`;
+    cont.appendChild(b);
+  }
+}
+
+function pinta() {
+  const s = porId[sel], delTipo = D.corridas.filter((c) => c.tipo === s.tipo), variantes = delTipo.filter((c) => c.usuarios === s.usuarios);
+  const R = D.resumenes[s.tipo];
+  catalogo(s);
+  botones(document.getElementById("tipo"), D.tipos.filter((t) => t.corridas).map((t) => [t.clave, t.nombre]), s.tipo, (t) => elegir(primeraDe(t).id));
+  botones(document.getElementById("usuarios"), [...new Set(delTipo.map((c) => c.usuarios))].map((u) => [u, u.toLocaleString("es-ES")]), s.usuarios, (u) => elegir(primeraDe(s.tipo, u).id));
+  const ruta = document.getElementById("ruta"), etiqueta = document.getElementById("etiqueta-ruta");
+  ruta.hidden = etiqueta.hidden = variantes.length < 2;
+  if (variantes.length > 1) botones(ruta, variantes.map((c) => [c.id, c.ruta ?? "Normal"]), sel, elegir);
+  else ruta.innerHTML = "";
+  document.getElementById("titulo").textContent = s.titulo;
+  const estado = document.getElementById("estado"); estado.textContent = `Zona de esta PC: ${s.zona} · ${s.estado}`; estado.className = "estado " + s.tono;
+  document.getElementById("veredicto").textContent = s.veredicto;
+  document.getElementById("entorno").textContent = s.entorno;
+  document.getElementById("maquina").textContent = s.maquina;
+  document.getElementById("alcance").textContent = s.alcance;
+  document.getElementById("tiles").innerHTML = s.tiles.map(([k, v]) => `<div class="tile"><b>${v}</b><span>${k}</span></div>`).join("");
+
+  const rej = document.getElementById("rejilla"); rej.innerHTML = ""; dibujos = [];
+  tarjeta(rej, { titulo: "Tiempo de respuesta (p95)", que: "Milisegundos por tramo de 10 segundos: el 95 % de las peticiones tardó menos que esto.",
+    leyenda: `<div class="leyenda"><span><i style="background:var(--serie1)"></i>Login</span><span><i style="background:var(--serie2)"></i>Todas las peticiones</span></div>`,
+    txt: s.txtLat, datos: tabla(["Segundo", "Login p95 (ms)", "HTTP p95 (ms)"], s.t.map((x, i) => [x, num(s.login[i]), num(s.http[i])])),
+    dibuja: (g) => lineas(g, { x: s.t, series: [{ nombre: "Login", corto: "Login", v: s.login, color: "--serie1" }, { nombre: "Todas", corto: "Todas", v: s.http, color: "--serie2" }], unidad: "ms", aria: "Líneas de p95 de login y de todas las peticiones" }) });
+  tarjeta(rej, { titulo: "Peticiones por segundo", que: "Cuánto trabajo recibió el sistema en cada tramo de 10 segundos.", txt: s.txtTasa,
+    datos: tabla(["Segundo", "Peticiones/s"], s.t.map((x, i) => [x, num(s.tasa[i], 1)])),
+    dibuja: (g) => lineas(g, { x: s.t, series: [{ nombre: "Peticiones", v: s.tasa, color: "--serie1" }], unidad: "por segundo", dec: 1, aria: "Línea de peticiones por segundo" }) });
+  if (s.fallos) {
+    tarjeta(rej, { titulo: "Peticiones fallidas", que: "Cantidad de fallos en cada tramo de 10 segundos.", txt: s.txtFallos, ancho: true,
+      datos: tabla(["Segundo", "Fallidas"], s.t.map((x, i) => [x, s.fallos[i]])),
+      dibuja: (g) => barras(g, { x: s.t, v: s.fallos, color: "--critico", unidad: "fallidas", pista: "Segundo", sufijo: " s", minY: 4, aria: "Barras de peticiones fallidas por tramo" }) });
+  } else {
+    tarjeta(rej, { titulo: "Peticiones fallidas", que: "Fallos durante toda la corrida.", txt: s.txtFallos, ancho: true }).innerHTML = `<div class="cero">0<span>fallidas</span></div>`;
+  }
+  if (s.memoria) {
+    tarjeta(rej, { titulo: "Memoria a lo largo de la prueba", que: `Memoria de cada servicio, una muestra cada unos 20 segundos${s.memoria.reposo ? "; el último punto es en reposo, dos minutos después de terminar" : ""}.`, ancho: true,
+      leyenda: `<div class="leyenda">${s.memoria.series.map((m, i) => `<span><i style="background:var(${["--serie1", "--serie2", "--neutro"][i]})"></i>${m.nombre}</span>`).join("")}</div>`,
+      txt: s.memoria.txt, datos: tabla(["Minuto", ...s.memoria.series.map((m) => `${m.nombre} (MB)`)], s.memoria.t.map((x, i) => [num(x / 60, 1), ...s.memoria.series.map((m) => num(m.v[i]))])),
+      dibuja: (g) => lineas(g, { x: s.memoria.t, series: s.memoria.series.map((m, i) => ({ nombre: m.nombre, corto: m.nombre, v: m.v, color: ["--serie1", "--serie2", "--neutro"][i] })), unidad: "MB", aria: "Líneas de memoria por servicio a lo largo de la prueba" }) });
+  }
+  const txtPC = `${s.txtRecursos}<br><br>${D.txtCapacidad}`;
+  if (s.recursos) {
+    tarjeta(rej, { titulo: "Recursos de esta PC", que: "CPU sostenida (p90) como porcentaje de toda la PC. Backend, portal y Postgres compiten por los mismos hilos, junto con k6.", txt: txtPC, ancho: true,
+      datos: tabla(["Servicio", "CPU sostenida (% de la PC)", "CPU pico (% de un hilo)", "Memoria pico (MB)"], s.recursos.map((r) => [r.nombre, num(r.cpu), num(r.cpuMax), num(r.mem)])),
+      dibuja: (g) => barras(g, { x: s.recursos.map((r) => r.nombre), v: s.recursos.map((r) => r.cpu), color: "--serie1", unidad: "% de la PC", pista: "", etiquetar: true, topeFijo: 100, aria: "Barras de CPU sostenida por servicio" }) });
+  } else {
+    tarjeta(rej, { titulo: "Recursos de esta PC", que: "Consumo de CPU y memoria durante la corrida.", txt: txtPC, ancho: true }).innerHTML = `<div class="cero" style="font-size:18px">Sin medición<span>en esta corrida</span></div>`;
+  }
+  const resalta = R.ids.indexOf(s.id);
+  tarjeta(rej, { titulo: "Tiempo de login según usuarios", que: `p95 del login en cada corrida de tipo ${NOMBRE_TIPO[s.tipo]}. Resaltada, la que estás viendo.`, txt: R.txtLogin,
+    datos: tabla(["Usuarios", "Login p95 (ms)"], R.etiquetas.map((e, i) => [e, num(R.login[i])])),
+    dibuja: (g) => barras(g, { x: R.etiquetas, v: R.login, color: "--serie1", resalta: resalta < 0 ? null : resalta, unidad: "ms", pista: "Usuarios", etiquetar: true, aria: "Barras del p95 de login por cantidad de usuarios" }) });
+  tarjeta(rej, { titulo: "Logins por segundo según usuarios", que: `Mediana de logins correctos por segundo durante la carga, en las corridas de tipo ${NOMBRE_TIPO[s.tipo]}.`, txt: R.txtLogins,
+    datos: tabla(["Usuarios", "Logins por segundo"], R.etiquetas.map((e, i) => [e, num(R.logins[i], 1)])),
+    dibuja: (g) => barras(g, { x: R.etiquetas, v: R.logins, color: "--serie1", resalta: resalta < 0 ? null : resalta, unidad: "por segundo", pista: "Usuarios", dec: 1, etiquetar: true, aria: "Barras de logins por segundo por cantidad de usuarios" }) });
+}
+
+pinta();
+let espera; addEventListener("resize", () => { clearTimeout(espera); espera = setTimeout(() => dibujos.forEach((f) => f()), 120); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => dibujos.forEach((f) => f()));
+</script>
+</body>
+</html>
