@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
-import { CalendarIcon, ChartBarIcon, CreditCardIcon, GaugeIcon } from "@phosphor-icons/react/dist/ssr";
+import { CalendarIcon, ChartBarIcon, CreditCardIcon, FlaskIcon, GaugeIcon } from "@phosphor-icons/react/dist/ssr";
 import { ListaDatos } from "khipu-design-system/datos/lista-datos";
 import { Alerta } from "khipu-design-system/feedback/alerta";
 import { ProgresoLineal, type TonoProgreso } from "khipu-design-system/feedback/progreso";
@@ -13,6 +13,7 @@ import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
 import { interpolar } from "@/i18n/mensajes";
 import { limitesEnPalabras, precioEnSoles } from "@/lib/api/admin-planes";
 import { obtenerMiCuenta } from "@/lib/api/cuenta";
+import { resumenDePruebas } from "@/lib/cuenta/pruebas-del-plan";
 import { resumenDePlan } from "@/lib/cuenta/resumen-de-plan";
 import { usoDelPlan } from "@/lib/cuenta/uso-del-plan";
 import { CONTENEDOR_PAGINA, ETIQUETA_DATO, TARJETA } from "@/lib/estilos";
@@ -67,6 +68,9 @@ export default async function PlanPage() {
 
   const { plan, consumo } = cuenta;
   const r = resumenDePlan(cuenta, messages, locale);
+  // #613: con un tope total (el plan Gratis) lo consumido es de toda la cuenta, no «de octubre».
+  const total = consumo.periodo === "TOTAL" && consumo.maximo !== undefined;
+  const pruebas = resumenDePruebas(cuenta, messages);
   const uso = usoDelPlan(cuenta, messages);
   const avisosDeUso = uso.filter((u) => u.aviso !== null);
   // Un estado que el portal no conoce se muestra tal cual, en neutro: caer en «Al día» afirmaría lo que no se sabe (265-H4).
@@ -129,23 +133,50 @@ export default async function PlanPage() {
           </div>
         </section>
 
-        <section className={TARJETA} aria-labelledby="titulo-consumo">
-          <CabeceraSeccion
-            icon={GaugeIcon}
-            titulo={<span id="titulo-consumo">{interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}</span>}
-            derecha={
-              <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="consumo-del-mes">
-                {r.consumo}
-              </span>
-            }
-          />
-          <div className="grid gap-3 px-4 pb-4">
-            {r.porcentaje !== null ? (
-              <ProgresoLineal valor={r.porcentaje} tono={TONO_BARRA[r.tono]} etiqueta={<span className="sr-only">{t.consumoTope}</span>} mostrarValor={false} />
-            ) : null}
-            <p className="text-control leading-relaxed text-muted-foreground">{t.nota}</p>
-          </div>
-        </section>
+        <div className="grid gap-3">
+          <section className={TARJETA} aria-labelledby="titulo-consumo">
+            <CabeceraSeccion
+              icon={GaugeIcon}
+              titulo={<span id="titulo-consumo">{total ? t.consumoTotal : interpolar(t.consumoDe, { mes: formatearMes(consumo.mes, locale) })}</span>}
+              derecha={
+                <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="consumo-del-mes">
+                  {r.consumo}
+                </span>
+              }
+            />
+            <div className="grid gap-3 px-4 pb-4">
+              {r.porcentaje !== null ? (
+                <ProgresoLineal
+                  valor={r.porcentaje}
+                  tono={TONO_BARRA[r.tono]}
+                  etiqueta={<span className="sr-only">{total ? t.consumoTopeTotal : t.consumoTope}</span>}
+                  mostrarValor={false}
+                />
+              ) : null}
+              <p className="text-control leading-relaxed text-muted-foreground">{total ? t.notaTotal : t.nota}</p>
+            </div>
+          </section>
+
+          {/* #613: las pruebas en Beta tienen su propia bolsa del mes, aparte de los documentos de Producción. */}
+          <section className={TARJETA} aria-labelledby="titulo-pruebas">
+            <CabeceraSeccion
+              icon={FlaskIcon}
+              titulo={<span id="titulo-pruebas">{interpolar(t.pruebasDe, { mes: formatearMes(cuenta.pruebas.mes, locale) })}</span>}
+              derecha={
+                <span className="font-mono text-cuerpo font-semibold text-foreground" data-testid="pruebas-del-mes">
+                  {pruebas.texto}
+                </span>
+              }
+            />
+            <div className="grid gap-3 px-4 pb-4">
+              {pruebas.porcentaje !== null ? (
+                <ProgresoLineal valor={pruebas.porcentaje} tono={TONO_BARRA[pruebas.tono]} etiqueta={<span className="sr-only">{t.pruebasTope}</span>} mostrarValor={false} />
+              ) : null}
+              {pruebas.aviso ? <p className="text-control leading-relaxed text-warning-foreground">{pruebas.aviso}</p> : null}
+              <p className="text-control leading-relaxed text-muted-foreground">{pruebas.nota}</p>
+            </div>
+          </section>
+        </div>
 
         <section className={cn(TARJETA, "lg:col-span-2")} aria-labelledby="titulo-uso">
           <CabeceraSeccion icon={ChartBarIcon} titulo={<span id="titulo-uso">{t.usoTitulo}</span>} />

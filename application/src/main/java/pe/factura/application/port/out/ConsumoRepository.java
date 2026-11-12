@@ -18,6 +18,15 @@ public interface ConsumoRepository {
     /** Documentos que consumió la empresa en el mes; cero si no hay ninguno o la empresa no existe. */
     long documentosDeEmpresa(UUID tenantId, YearMonth mes);
 
+    /** Documentos de Producción que consumió la cuenta, sumando todas sus empresas, en toda su vida (#613: un plan con tope en total). */
+    long documentosDeCuentaEnTotal(UUID cuentaId);
+
+    /**
+     * Pruebas en Beta de la cuenta en el mes, sumando todas sus empresas (#613): las que SUNAT Beta aceptó, con la misma regla de estados que el consumo. No son
+     * consumo (no se cobran): es lo que se mide contra el tope de pruebas del plan.
+     */
+    long pruebasDeCuenta(UUID cuentaId, YearMonth mes);
+
     /** Cada empresa de la cuenta —aunque no haya emitido nada— con lo que consumió en el mes, ordenadas por RUC. Vacía si la cuenta no tiene empresas. */
     List<ConsumoDeEmpresa> documentosPorEmpresaDeCuenta(UUID cuentaId, YearMonth mes);
 }

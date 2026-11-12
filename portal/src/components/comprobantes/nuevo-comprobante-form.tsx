@@ -221,7 +221,7 @@ export function NuevoComprobanteForm({
   const [unidades, setUnidades] = useState<EntradaCatalogo[] | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 328-H2: el diálogo avisa del tope con lo aceptado, pero el backend cuenta también lo que está en camino; si igual responde LIMITE_PLAN, se lleva al plan.
+  // 328-H2: el diálogo avisa del tope con lo aceptado, pero el backend cuenta también lo que está en camino; si igual responde LIMITE_PLAN (o LIMITE_PRUEBAS en Beta, #613), se lleva al plan.
   // #285: lo mismo si el plan venció con el diálogo abierto (PLAN_VENCIDO).
   const [llevaAlPlan, setLlevaAlPlan] = useState(false);
   // Clave de idempotencia (#115): la misma mientras se reintente el mismo contenido, otra si el contenido cambia.
@@ -780,7 +780,7 @@ export function NuevoComprobanteForm({
     if (res.estado !== "exito" || !res.datos) {
       // El backend devuelve el detalle de SUNAT en `mensaje`; el código genérico solo dice la familia del error.
       setError(res.mensaje ?? mensajeError(res.codigo));
-      setLlevaAlPlan(res.codigo === "LIMITE_PLAN" || res.codigo === "PLAN_VENCIDO");
+      setLlevaAlPlan(res.codigo === "LIMITE_PLAN" || res.codigo === "LIMITE_PRUEBAS" || res.codigo === "PLAN_VENCIDO");
       return;
     }
     // Los avisos de SUNAT (#378) solo vienen en esta respuesta: la ficha del comprobante los muestra desde aquí.

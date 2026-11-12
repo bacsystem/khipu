@@ -1,6 +1,7 @@
 package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
+import pe.factura.domain.plan.PeriodoDelTope;
 import pe.factura.application.port.out.ConsumoPorCuentaRepository.Consulta;
 import pe.factura.application.port.in.FiltroDeConsumo;
 import pe.factura.application.port.in.OrdenDeConsumo;
@@ -92,6 +93,27 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
         assertThat(r.diasDeGracia()).isEqualTo(5);
     }
 
+    /** #613: una cuenta en Gratis (tope en total) se compara con lo de toda su vida, no con lo del mes; las de tope mensual, con lo del mes. */
+    @Test void conTopeEnTotalLosDocumentosSonLosDeTodaLaVida() {
+        UUID gratis = cuenta("Gratis total");
+        UUID e = empresa(gratis);
+        documentos(e, "ACEPTADO", 4, LocalDate.of(2026, 8, 10));
+        documentos(e, "ACEPTADO", 3, MITAD);
+        documentos(empresa(gratis, "BETA"), "ACEPTADO", 50, MITAD);
+        UUID mensual = cuenta("Emprende mensual");
+        enPlan(mensual, "Emprende", AHORA.plus(Duration.ofDays(20)), 0);
+        UUID m = empresa(mensual);
+        documentos(m, "ACEPTADO", 4, LocalDate.of(2026, 8, 10));
+        documentos(m, "ACEPTADO", 3, MITAD);
+
+        List<Registro> filas = repo.listar(todas(), 1, 50);
+
+        assertThat(de(filas, gratis).periodo()).isEqualTo(PeriodoDelTope.TOTAL);
+        assertThat(de(filas, gratis).documentos()).as("los 7 de su vida, sin las pruebas").isEqualTo(7);
+        assertThat(de(filas, mensual).periodo()).isEqualTo(PeriodoDelTope.MENSUAL);
+        assertThat(de(filas, mensual).documentos()).as("solo los 3 de octubre").isEqualTo(3);
+    }
+
     @Test void unaCuentaSinEmpresasApareceConCero() {
         UUID c = cuenta("Sin empresas");
 
@@ -125,6 +147,7 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
 
     @Test void siguenLasReglasDelContadorSoloAceptadosYSoloElMes() {
         UUID c = cuenta("Ana");
+        enPlan(c, "Emprende", AHORA.plus(Duration.ofDays(20)), 0); // tope mensual: Gratis lo tiene en total (#613)
         UUID e = empresa(c);
         aceptados(e, 3);
         documentos(e, "ACEPTADO_CON_OBS", 2, MITAD);
@@ -155,6 +178,7 @@ class JdbcConsumoPorCuentaRepositoryTest extends PersistenciaTestBase {
     /** Los bordes del mes son del mes: el día 1 y el último día cuentan; el día anterior y el siguiente, no. */
     @Test void elPrimeroYElUltimoDiaDelMesCuentanYSusVecinosNo() {
         UUID c = cuenta("Ana");
+        enPlan(c, "Emprende", AHORA.plus(Duration.ofDays(20)), 0); // tope mensual: Gratis lo tiene en total (#613)
         UUID e = empresa(c);
         documentos(e, "ACEPTADO", 1, LocalDate.of(2026, 10, 1));
         documentos(e, "ACEPTADO", 10, LocalDate.of(2026, 10, 31));

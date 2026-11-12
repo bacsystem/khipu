@@ -15,3 +15,7 @@ adapters/*/build/
 
 # Logs de la aplicación (logback-spring.xml): khipu.log y khipu-error.log
 logs/
+
+# k6: cuentas de prueba y reportes de cada corrida
+k6/usuarios.json
+k6/resultados/

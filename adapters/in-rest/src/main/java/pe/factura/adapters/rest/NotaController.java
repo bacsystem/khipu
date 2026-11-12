@@ -79,8 +79,9 @@ public class NotaController {
             —2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su
             saldo tras otras notas —3286/3503—), `422 DESCUENTO_INVALIDO` (un descuento que no afecta la base, código 01 o 03: la
             nota no lo admite —3280—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
-            `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
-            consume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta
+            `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan: una nota
+            consume como una factura; para anular sin consumir está la comunicación de baja), `429 LIMITE_PRUEBAS` (en Beta, el tope de pruebas del mes),
+            `402 PLAN_VENCIDO` (el plan de la cuenta
             venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).
 
             **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la nota se

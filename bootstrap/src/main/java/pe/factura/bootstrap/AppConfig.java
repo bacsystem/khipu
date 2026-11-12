@@ -633,8 +633,9 @@ public class AppConfig {
         return new ImpersonarUsuarioService(usuarios, tokens, auditoria, u, clock);
     }
     @Bean AccesosDeSoporteUseCase accesosDeSoporte(AccesosDeSoporteRepository registros) { return new AccesosDeSoporteService(registros); }
-    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo, CupoDeCuentaRepository ocupados, Clock clock) {
-        return new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, clock);
+    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo, CupoDeCuentaRepository ocupados,
+                                                     ConsumoRepository documentos, Clock clock) {
+        return new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, documentos, clock);
     }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
                                                  UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock, PlantillasDeCorreo plantillas) {

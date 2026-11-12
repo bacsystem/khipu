@@ -9,6 +9,7 @@ import pe.factura.domain.plan.CambioDeLimites;
 import pe.factura.domain.plan.EstadoPlan;
 import pe.factura.domain.plan.Limite;
 import pe.factura.domain.plan.Limites;
+import pe.factura.domain.plan.PeriodoDelTope;
 import pe.factura.domain.plan.Plan;
 
 import java.sql.ResultSet;
@@ -31,9 +32,9 @@ public class JdbcPlanRepository implements PlanRepository {
 
     private static final String SELECT = """
             SELECT p.id, p.nombre, p.precio_mensual, p.documentos_al_mes, p.rucs, p.usuarios, p.api_keys, p.retencion_anios, p.estado, p.por_defecto,
-                   p.visible_en_publicidad,
+                   p.visible_en_publicidad, p.periodo_documentos, p.pruebas_beta_por_ruc,
                    c.aplica_desde, c.documentos_al_mes AS c_documentos, c.rucs AS c_rucs, c.usuarios AS c_usuarios, c.api_keys AS c_api_keys,
-                   c.retencion_anios AS c_retencion
+                   c.retencion_anios AS c_retencion, c.periodo_documentos AS c_periodo, c.pruebas_beta_por_ruc AS c_pruebas
             FROM plan p LEFT JOIN plan_cambio_programado c ON c.plan_id = p.id""";
 
     @Override public Optional<Plan> buscar(UUID id) {
@@ -57,14 +58,16 @@ public class JdbcPlanRepository implements PlanRepository {
         Limites l = p.limites();
         try {
             jdbc.update("""
-                    INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios, estado, por_defecto, visible_en_publicidad)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO plan (id, nombre, precio_mensual, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios, estado, por_defecto, visible_en_publicidad,
+                                      periodo_documentos, pruebas_beta_por_ruc)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, precio_mensual = EXCLUDED.precio_mensual,
                         documentos_al_mes = EXCLUDED.documentos_al_mes, rucs = EXCLUDED.rucs, usuarios = EXCLUDED.usuarios, api_keys = EXCLUDED.api_keys,
                         retencion_anios = EXCLUDED.retencion_anios, estado = EXCLUDED.estado, por_defecto = EXCLUDED.por_defecto,
-                        visible_en_publicidad = EXCLUDED.visible_en_publicidad
+                        visible_en_publicidad = EXCLUDED.visible_en_publicidad, periodo_documentos = EXCLUDED.periodo_documentos,
+                        pruebas_beta_por_ruc = EXCLUDED.pruebas_beta_por_ruc
                     """, p.id(), p.nombre(), p.precioMensual(), l.documentosAlMes().maximo(), l.rucs(), l.usuarios().maximo(), l.apiKeys().maximo(),
-                    l.retencionAnios(), p.estado().name(), p.porDefecto(), p.visibleEnPublicidad());
+                    l.retencionAnios(), p.estado().name(), p.porDefecto(), p.visibleEnPublicidad(), l.periodoDeDocumentos().name(), l.pruebasBetaPorRuc().maximo());
         } catch (DuplicateKeyException e) {
             if (String.valueOf(e.getMostSpecificCause().getMessage()).toLowerCase(Locale.ROOT).contains("ux_plan_nombre"))
                 throw new DomainException("NOMBRE_DUPLICADO", "Ya existe un plan llamado «" + p.nombre() + "»");
@@ -81,11 +84,14 @@ public class JdbcPlanRepository implements PlanRepository {
         }
         Limites l = c.limites();
         jdbc.update("""
-                INSERT INTO plan_cambio_programado (plan_id, aplica_desde, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO plan_cambio_programado (plan_id, aplica_desde, documentos_al_mes, rucs, usuarios, api_keys, retencion_anios, periodo_documentos,
+                                                    pruebas_beta_por_ruc)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (plan_id) DO UPDATE SET aplica_desde = EXCLUDED.aplica_desde, documentos_al_mes = EXCLUDED.documentos_al_mes, rucs = EXCLUDED.rucs,
-                    usuarios = EXCLUDED.usuarios, api_keys = EXCLUDED.api_keys, retencion_anios = EXCLUDED.retencion_anios
-                """, p.id(), Timestamp.from(c.aplicaDesde()), l.documentosAlMes().maximo(), l.rucs(), l.usuarios().maximo(), l.apiKeys().maximo(), l.retencionAnios());
+                    usuarios = EXCLUDED.usuarios, api_keys = EXCLUDED.api_keys, retencion_anios = EXCLUDED.retencion_anios,
+                    periodo_documentos = EXCLUDED.periodo_documentos, pruebas_beta_por_ruc = EXCLUDED.pruebas_beta_por_ruc
+                """, p.id(), Timestamp.from(c.aplicaDesde()), l.documentosAlMes().maximo(), l.rucs(), l.usuarios().maximo(), l.apiKeys().maximo(), l.retencionAnios(),
+                l.periodoDeDocumentos().name(), l.pruebasBetaPorRuc().maximo());
     }
 
     @Override public boolean eliminar(UUID id) {
@@ -107,11 +113,12 @@ public class JdbcPlanRepository implements PlanRepository {
     }
 
     private Plan mapear(ResultSet rs, int i) throws SQLException {
-        Limites vigentes = new Limites(limite(rs, "documentos_al_mes"), rs.getInt("rucs"), limite(rs, "usuarios"), limite(rs, "api_keys"), rs.getInt("retencion_anios"));
+        Limites vigentes = new Limites(limite(rs, "documentos_al_mes"), rs.getInt("rucs"), limite(rs, "usuarios"), limite(rs, "api_keys"), rs.getInt("retencion_anios"),
+                PeriodoDelTope.valueOf(rs.getString("periodo_documentos")), limite(rs, "pruebas_beta_por_ruc"));
         Timestamp aplicaDesde = rs.getTimestamp("aplica_desde");
         CambioDeLimites programado = aplicaDesde == null ? null
-                : new CambioDeLimites(new Limites(limite(rs, "c_documentos"), rs.getInt("c_rucs"), limite(rs, "c_usuarios"), limite(rs, "c_api_keys"), rs.getInt("c_retencion")),
-                        aplicaDesde.toInstant());
+                : new CambioDeLimites(new Limites(limite(rs, "c_documentos"), rs.getInt("c_rucs"), limite(rs, "c_usuarios"), limite(rs, "c_api_keys"), rs.getInt("c_retencion"),
+                        PeriodoDelTope.valueOf(rs.getString("c_periodo")), limite(rs, "c_pruebas")), aplicaDesde.toInstant());
         return new Plan(rs.getObject("id", UUID.class), rs.getString("nombre"), rs.getBigDecimal("precio_mensual"), vigentes,
                 EstadoPlan.valueOf(rs.getString("estado")), rs.getBoolean("por_defecto"), programado, rs.getBoolean("visible_en_publicidad"));
     }

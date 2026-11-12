@@ -22,4 +22,7 @@ public interface ConsultarConsumoUseCase {
 
     /** {@code NO_ENCONTRADO} si la cuenta no existe. El total es la suma de sus empresas. {@code mes} nulo es el mes en curso. */
     ConsumoDeCuenta deCuenta(UUID cuentaId, YearMonth mes);
+
+    /** Lo que consumió la cuenta en Producción en toda su vida, sumando sus empresas (#613: lo que se compara con un tope {@code TOTAL}). Cero si no existe. */
+    long documentosEnTotal(UUID cuentaId);
 }

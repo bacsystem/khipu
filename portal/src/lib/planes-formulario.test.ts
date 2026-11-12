@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
-import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ValoresDePlan } from "./planes-formulario";
+import { NOMBRE_MAX, pruebasDeLaCuenta, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ValoresDePlan } from "./planes-formulario";
 import es from "@/messages/es.json";
 
 const VALIDOS: ValoresDePlan = {
@@ -8,12 +8,15 @@ const VALIDOS: ValoresDePlan = {
   precio: "49.90",
   documentos: "800",
   documentosIlimitado: false,
+  periodo: "MENSUAL",
   rucs: "2",
   usuarios: "3",
   usuariosIlimitado: false,
   apiKeys: "5",
   apiKeysIlimitado: false,
   retencion: "6",
+  pruebasPorRuc: "1000",
+  pruebasPorRucIlimitado: false,
   visibleEnPublicidad: true,
 };
 
@@ -37,6 +40,8 @@ describe("validarPlan", () => {
           usuarios: { maximo: 3, ilimitado: false },
           api_keys: { maximo: 5, ilimitado: false },
           retencion_anios: 6,
+          periodo_documentos: "MENSUAL",
+          pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false },
         },
         visible_en_publicidad: true,
       },
@@ -113,7 +118,7 @@ describe("valoresDePlan", () => {
     id: "p1",
     nombre: "Negocio",
     precio_mensual: 69,
-    limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { ilimitado: true }, retencion_anios: 5 },
+    limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { ilimitado: true }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
     estado: "ACTIVO",
     por_defecto: false, visible_en_publicidad: true,
     cuentas: 4,
@@ -138,6 +143,9 @@ describe("valoresDePlan", () => {
       apiKeys: "",
       apiKeysIlimitado: true,
       retencion: "5",
+      periodo: "MENSUAL",
+      pruebasPorRuc: "1000",
+      pruebasPorRucIlimitado: false,
       visibleEnPublicidad: true,
     });
   });
@@ -147,7 +155,7 @@ describe("valoresDePlan", () => {
       ...plan,
       limites_programados: {
         aplica_desde: "2026-11-01T05:00:00Z",
-        limites: { documentos_al_mes: { maximo: 3000, ilimitado: false }, rucs: 4, usuarios: { ilimitado: true }, api_keys: { maximo: 9, ilimitado: false }, retencion_anios: 7 },
+        limites: { documentos_al_mes: { maximo: 3000, ilimitado: false }, rucs: 4, usuarios: { ilimitado: true }, api_keys: { maximo: 9, ilimitado: false }, retencion_anios: 7, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
       },
     };
 
@@ -157,7 +165,7 @@ describe("valoresDePlan", () => {
   it("lo que se prellena pasa la validación y vuelve a armar los mismos límites", () => {
     const r = validarPlan(valoresDePlan(plan), es);
 
-    expect(r).toMatchObject({ cuerpo: { nombre: "Negocio", precio_mensual: 69, limites: { rucs: 3, retencion_anios: 5, api_keys: { ilimitado: true } } } });
+    expect(r).toMatchObject({ cuerpo: { nombre: "Negocio", precio_mensual: 69, limites: { rucs: 3, retencion_anios: 5, periodo_documentos: "MENSUAL", pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, api_keys: { ilimitado: true } } } });
   });
 });
 
@@ -172,7 +180,63 @@ describe("visible en publicidad", () => {
   });
 
   it("al editar se prellena con lo que tiene el plan", () => {
-    const plan = { visible_en_publicidad: false, nombre: "A medida", precio_mensual: 80, limites: { documentos_al_mes: { maximo: 900, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 5 } } as PlanAdmin;
+    const plan = { visible_en_publicidad: false, nombre: "A medida", precio_mensual: 80, limites: { documentos_al_mes: { maximo: 900, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 1, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } } } as PlanAdmin;
     expect(valoresDePlan(plan).visibleEnPublicidad).toBe(false);
   });
 });
+
+/** #613: el tope de documentos puede ser mensual o total, y cada plan da pruebas en Beta por RUC. */
+describe("periodo del tope y pruebas en Beta", () => {
+  it("un plan nuevo empieza mensual y con 1 000 pruebas por RUC, lo que dio el dueño a todos los planes", () => {
+    expect(VALORES_NUEVO_PLAN).toMatchObject({ periodo: "MENSUAL", pruebasPorRuc: "1000", pruebasPorRucIlimitado: false });
+  });
+
+  it("el periodo y las pruebas por RUC viajan en el cuerpo; las pruebas de la cuenta no, las calcula el backend", () => {
+    const r = validarPlan({ ...VALIDOS, periodo: "TOTAL", documentos: "10", pruebasPorRuc: "500" }, es);
+
+    expect(r).toMatchObject({ cuerpo: { limites: { documentos_al_mes: { maximo: 10, ilimitado: false }, periodo_documentos: "TOTAL", pruebas_beta_por_ruc: { maximo: 500, ilimitado: false } } } });
+    if ("cuerpo" in r) expect(r.cuerpo.limites).not.toHaveProperty("pruebas_beta_al_mes");
+  });
+
+  it("un tope en total necesita una cifra: con «Ilimitado» es un error del campo, como lo rechazaría el backend", () => {
+    expect(errores({ periodo: "TOTAL", documentosIlimitado: true }).documentos).toMatch(/en total necesita una cifra/);
+    expect(errores({ periodo: "MENSUAL", documentosIlimitado: true })).toEqual({});
+  });
+
+  it("las pruebas por RUC son un entero mayor que cero, o ilimitadas", () => {
+    for (const malo of ["", "0", "-1", "1.5", "abc"]) expect(errores({ pruebasPorRuc: malo }).pruebasPorRuc, malo).toMatch(/Ilimitado/);
+    expect(errores({ pruebasPorRuc: "", pruebasPorRucIlimitado: true })).toEqual({});
+    expect(validarPlan({ ...VALIDOS, pruebasPorRucIlimitado: true }, es)).toMatchObject({ cuerpo: { limites: { pruebas_beta_por_ruc: { ilimitado: true } } } });
+  });
+
+  it("al editar se prellena con el periodo y las pruebas del plan (las programadas primero)", () => {
+    const plan = {
+      nombre: "Gratis",
+      precio_mensual: 0,
+      visible_en_publicidad: true,
+      limites: { ...VALORES_LIMITES, periodo_documentos: "MENSUAL" },
+      limites_programados: { aplica_desde: "2026-12-01T05:00:00Z", limites: { ...VALORES_LIMITES, periodo_documentos: "TOTAL", pruebas_beta_por_ruc: { ilimitado: true } } },
+    } as unknown as PlanAdmin;
+
+    expect(valoresDePlan(plan)).toMatchObject({ periodo: "TOTAL", pruebasPorRuc: "", pruebasPorRucIlimitado: true });
+  });
+
+  it("dice en vivo cuántas pruebas al mes tiene la cuenta: las de cada RUC por los RUC", () => {
+    expect(pruebasDeLaCuenta({ pruebasPorRuc: "1000", pruebasPorRucIlimitado: false, rucs: "3" }, es)).toBe(
+      "= 3,000 pruebas al mes para la cuenta con 3 RUC, compartidas entre sus empresas.",
+    );
+    expect(pruebasDeLaCuenta({ pruebasPorRuc: "1000", pruebasPorRucIlimitado: true, rucs: "3" }, es)).toBe("Sin tope de pruebas en Beta.");
+    expect(pruebasDeLaCuenta({ pruebasPorRuc: "1000", pruebasPorRucIlimitado: false, rucs: "" }, es)).toMatch(/para ver el total/);
+    expect(pruebasDeLaCuenta({ pruebasPorRuc: "x", pruebasPorRucIlimitado: false, rucs: "3" }, es)).toMatch(/para ver el total/);
+  });
+});
+
+const VALORES_LIMITES = {
+  documentos_al_mes: { maximo: 10, ilimitado: false },
+  rucs: 1,
+  usuarios: { maximo: 1, ilimitado: false },
+  api_keys: { maximo: 1, ilimitado: false },
+  retencion_anios: 1,
+  pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false },
+  pruebas_beta_al_mes: { maximo: 1000, ilimitado: false },
+};

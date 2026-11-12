@@ -22,7 +22,7 @@ const PLAN: PlanAdmin = {
   id: "p-1",
   nombre: "Negocio",
   precio_mensual: 69,
-  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
+  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
   estado: "ACTIVO",
   por_defecto: false, visible_en_publicidad: true,
   cuentas: 0,

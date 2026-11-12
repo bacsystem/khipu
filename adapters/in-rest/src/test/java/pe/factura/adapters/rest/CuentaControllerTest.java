@@ -37,7 +37,7 @@ class CuentaControllerTest {
         Plan plan = new Plan(UUID.randomUUID(), "Emprende", new BigDecimal("29.00"), new Limites(documentos, 1, Limite.de(1), Limite.de(2), 5), EstadoPlan.ACTIVO, false);
         Suscripcion s = new Suscripcion(UUID.randomUUID(), CUENTA, plan.id(), Instant.parse("2026-10-08T17:00:00Z"), venceEn, 5, null);
         return new MiCuenta(CUENTA, "Ferretería Torres", new PlanDeCuenta(CUENTA, plan, s, estado, s.hastaCuandoCubre(), null),
-                new ConsumoDeCuenta(CUENTA, YearMonth.of(2026, 10), 12, List.of()), new UsoDeRecursos(1, 2, 1));
+                new ConsumoDeCuenta(CUENTA, YearMonth.of(2026, 10), 12, List.of()), new UsoDeRecursos(1, 2, 1), 37, 450);
     }
 
     @Test void devuelveElNombreElPlanYElConsumoContraElTope() throws Exception {

@@ -2,6 +2,7 @@ package pe.factura.application.port.in;
 
 import pe.factura.domain.plan.EstadoSuscripcion;
 import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.time.Instant;
 import java.time.YearMonth;
@@ -19,8 +20,9 @@ public interface ConsultarConsumoDeCuentasUseCase {
      * es que ya llegó al umbral ({@code UsoDeLimite}). {@code estado} es el de pago de su suscripción vigente (al día, en gracia o vencida); {@code hastaCuandoCubre} es
      * hasta cuándo se la sirve, gracia incluida, y es nulo si el plan no vence.
      */
-    record Fila(UUID cuentaId, String nombre, String email, UUID planId, String planNombre, long documentos, Limite limite, Integer porcentaje, boolean enAlerta,
-                EstadoSuscripcion estado, Instant venceEn, int diasDeGracia, Instant hastaCuandoCubre) {}
+    /** {@code documentos} es lo del mes, o lo de toda la vida de la cuenta si {@code periodo} es {@code TOTAL} (#613): lo que se compara con {@code limite}. */
+    record Fila(UUID cuentaId, String nombre, String email, UUID planId, String planNombre, long documentos, Limite limite, PeriodoDelTope periodo, Integer porcentaje,
+                boolean enAlerta, EstadoSuscripcion estado, Instant venceEn, int diasDeGracia, Instant hastaCuandoCubre) {}
 
     /** El mes en curso, en hora de Lima. */
     YearMonth mesActual();

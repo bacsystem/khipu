@@ -48,7 +48,7 @@ public class AgenteController {
     private static final String ERRORES = """
             **Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,
             documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),
-            `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`.""";
+            `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`.""";
     private final EmitirComprobanteUseCase emitir;
     private final ObjectMapper json;
 

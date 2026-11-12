@@ -2,6 +2,7 @@ package pe.factura.adapters.persistence;
 
 import org.junit.jupiter.api.Test;
 import pe.factura.domain.documento.EstadoDocumento;
+import pe.factura.domain.tenant.Entorno;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -20,7 +21,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Lo que ocupa el tope de documentos del plan (#18), con Postgres real: los documentos de todas las empresas de la cuenta que consumieron o pueden llegar a
- * consumir, en el mes de su fecha de emisión, solo de Producción (#580); y el bloqueo que impide que dos emisiones simultáneas tomen el último lugar libre.
+ * consumir, en el mes de su fecha de emisión o en toda la vida de la cuenta (#613), por entorno (#580, #613); y el bloqueo que impide que dos emisiones simultáneas tomen el último lugar libre.
  */
 class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
     static final YearMonth OCTUBRE = YearMonth.of(2026, 10);
@@ -49,7 +50,10 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
                 UUID.randomUUID(), empresa, NUMERO.getAndIncrement(), Date.valueOf(fecha), estado.name());
     }
 
-    long ocupados(UUID cuenta, YearMonth mes) { return uow.ejecutar(() -> repo.ocupadosBloqueando(cuenta, mes)); }
+    /** Lo de Producción en el mes. */
+    long ocupados(UUID cuenta, YearMonth mes) { return ocupados(cuenta, Entorno.PRODUCCION, mes); }
+
+    long ocupados(UUID cuenta, Entorno entorno, YearMonth mes) { return uow.ejecutar(() -> repo.ocupadosBloqueando(cuenta, entorno, mes)); }
 
     /** Un documento por cada estado: ocupan los que dice el dominio, ni uno más. Si aparece un estado nuevo, el test del dominio obliga a clasificarlo. */
     @Test void ocupanLosEstadosQueDiceElDominio() {
@@ -108,6 +112,37 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
         assertThat(ocupados(c, OCTUBRE)).isEqualTo(1);
     }
 
+    /** #613: las pruebas en Beta tienen su propia bolsa: se cuentan solo las de Beta, de todas las empresas de la cuenta, con los mismos estados y en su mes. */
+    @Test void lasPruebasEnBetaSeCuentanAparte() {
+        UUID c = cuenta();
+        UUID beta = empresa(c, "BETA");
+        UUID otraBeta = empresa(c, "BETA");
+        documento(beta, EstadoDocumento.ACEPTADO, MITAD);
+        documento(beta, EstadoDocumento.ENVIADO, MITAD);
+        documento(otraBeta, EstadoDocumento.ACEPTADO, MITAD);
+        documento(otraBeta, EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 30));
+        documento(empresa(c), EstadoDocumento.ACEPTADO, MITAD);
+        documento(empresa(cuenta(), "BETA"), EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(ocupados(c, Entorno.BETA, OCTUBRE)).as("las tres de Beta de octubre, de sus dos empresas").isEqualTo(3);
+        assertThat(ocupados(c, Entorno.BETA, YearMonth.of(2026, 9))).isEqualTo(1);
+        assertThat(ocupados(c, Entorno.PRODUCCION, OCTUBRE)).as("Producción no cuenta las pruebas").isEqualTo(1);
+    }
+
+    /** #613: un tope en total (sin mes) cuenta toda la vida de la cuenta en Producción, sin las pruebas. */
+    @Test void sinMesCuentaTodaLaVidaDeLaCuenta() {
+        UUID c = cuenta();
+        UUID e = empresa(c);
+        documento(e, EstadoDocumento.ACEPTADO, LocalDate.of(2025, 1, 10));
+        documento(e, EstadoDocumento.ACEPTADO, LocalDate.of(2026, 9, 30));
+        documento(e, EstadoDocumento.ENVIADO, MITAD);
+        documento(e, EstadoDocumento.RECHAZADO, MITAD);
+        documento(empresa(c, "BETA"), EstadoDocumento.ACEPTADO, MITAD);
+        documento(empresa(cuenta()), EstadoDocumento.ACEPTADO, MITAD);
+
+        assertThat(ocupados(c, Entorno.PRODUCCION, null)).isEqualTo(3);
+    }
+
     @Test void unaCuentaSinDocumentosOQueNoExisteEsCero() {
         assertThat(ocupados(cuenta(), OCTUBRE)).isZero();
         assertThat(ocupados(UUID.randomUUID(), OCTUBRE)).isZero();
@@ -115,7 +150,7 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
 
     /** Sin transacción el bloqueo se soltaría al terminar la consulta y no protegería nada: se rechaza en vez de fallar en silencio. */
     @Test void exigeUnaTransaccion() {
-        assertThatThrownBy(() -> repo.ocupadosBloqueando(cuenta(), OCTUBRE)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> repo.ocupadosBloqueando(cuenta(), Entorno.PRODUCCION, OCTUBRE)).isInstanceOf(IllegalStateException.class);
     }
 
     /**
@@ -132,7 +167,7 @@ class JdbcTopeDeDocumentosRepositoryTest extends PersistenciaTestBase {
         List<Future<Boolean>> emitidas = new ArrayList<>();
         try {
             for (UUID e : empresas) emitidas.add(ex.submit(() -> uow.ejecutar(() -> {
-                if (repo.ocupadosBloqueando(c, OCTUBRE) >= tope) return false;
+                if (repo.ocupadosBloqueando(c, Entorno.PRODUCCION, OCTUBRE) >= tope) return false;
                 try { Thread.sleep(50); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
                 documento(e, EstadoDocumento.FIRMADO, MITAD);
                 return true;

@@ -70,7 +70,7 @@ class PlanesAdminE2ETest {
     private ResponseEntity<Map> borrar(String id) { return llamar(HttpMethod.DELETE, "/v1/admin/planes/" + id, conClaveDePlataforma(), null); }
 
     private static String cuerpo(String nombre, String precio, String documentos, int rucs, String usuarios, String keys, int retencion) {
-        return "{\"nombre\":\"%s\",\"precio_mensual\":%s,\"limites\":{\"documentos_al_mes\":%s,\"rucs\":%d,\"usuarios\":%s,\"api_keys\":%s,\"retencion_anios\":%d}}"
+        return "{\"nombre\":\"%s\",\"precio_mensual\":%s,\"limites\":{\"documentos_al_mes\":%s,\"rucs\":%d,\"usuarios\":%s,\"api_keys\":%s,\"retencion_anios\":%d,\"periodo_documentos\":\"MENSUAL\",\"pruebas_beta_por_ruc\":{\"maximo\":1000}}}"
                 .formatted(nombre, precio, documentos, rucs, usuarios, keys, retencion);
     }
 
@@ -165,7 +165,7 @@ class PlanesAdminE2ETest {
         assertThat(datos(r)).containsEntry("nombre", "Estudio").containsEntry("estado", "ACTIVO").containsEntry("por_defecto", false).containsEntry("cuentas", 0);
         assertThat(plan("Estudio")).containsEntry("precio_mensual", 49.9);
         assertThat(registros("CREAR_PLAN")).isEqualTo(1);
-        assertThat(detalle("CREAR_PLAN")).isEqualTo("plan=Estudio precio=49.90 documentos=800 ruc=2 usuarios=1 api_keys=ilimitado retencion=6");
+        assertThat(detalle("CREAR_PLAN")).isEqualTo("plan=Estudio precio=49.90 documentos=800 ruc=2 usuarios=1 api_keys=ilimitado retencion=6 periodo=mensual pruebas_beta_por_ruc=1000");
         assertThat(jdbc.queryForObject("SELECT actor_tipo FROM auditoria_admin WHERE accion = 'CREAR_PLAN'", String.class)).isEqualTo("CLAVE_PLATAFORMA");
     }
 
@@ -448,7 +448,7 @@ class PlanesAdminE2ETest {
 
     /** Sin credenciales, como la lee la portada: un plan a medida (activo pero fuera de la publicidad) no sale; los sembrados sí, del más barato al más caro. */
     @Test void losPlanesPublicadosSeLeenSinCredencialesYNoTraenLosAMedida() {
-        String aMedida = idDe(crear(cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":false}")));
+        String aMedida = idDe(crear(cuerpo("A medida Torres", "80", 900).replaceFirst("}$", ",\"visible_en_publicidad\":false}")));
         assertThat(listar()).filteredOn(p -> aMedida.equals(p.get("id"))).singleElement().satisfies(p -> {
             assertThat(p).containsEntry("visible_en_publicidad", false).containsEntry("estado", "ACTIVO");
         });
@@ -462,9 +462,9 @@ class PlanesAdminE2ETest {
     }
 
     @Test void volverAPublicarUnPlanAMedidaLoPoneEnLaPaginaDePreciosYQuedaEnLaBitacora() {
-        String id = idDe(crear(cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":false}")));
+        String id = idDe(crear(cuerpo("A medida Torres", "80", 900).replaceFirst("}$", ",\"visible_en_publicidad\":false}")));
 
-        editar(id, cuerpo("A medida Torres", "80", 900).replace("}}", "},\"visible_en_publicidad\":true}"));
+        editar(id, cuerpo("A medida Torres", "80", 900).replaceFirst("}$", ",\"visible_en_publicidad\":true}"));
 
         List<Map<String, Object>> publicados = (List<Map<String, Object>>) http.getForEntity("/v1/planes", Map.class).getBody().get("datos");
         assertThat(publicados).extracting(p -> p.get("nombre")).contains("A medida Torres");

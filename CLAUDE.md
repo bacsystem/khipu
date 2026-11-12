@@ -64,6 +64,21 @@ The `git-flow` skill detects `develop` automatically and uses it as the PR base 
 
 Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR merges into the **default branch** (`main`). A PR merged into `develop` leaves its issue open until the release PR reaches `main` — close it by hand if it shouldn't wait for the release.
 
+### Every PR goes through `/pr-review`
+
+**Rule: right after a PR is opened, run `/pr-review <number>` on it**, with no exceptions: code, docs, config, a one-line change or a PR you opened yourself. Do not tell the user a PR is ready, or ask them to merge it, before that review is clean. Working alone, you review and fix. With the agent team (see «Equipo de agentes»), the loop is:
+
+1. The developer opens the PR and asks the tech-lead for a review.
+2. The tech-lead runs `/pr-review <number> --comment` and **publishes every report (review and re-review) as a comment on the GitHub PR**. This rule is the owner's standing consent to post reviews on this repo's PRs, so no confirmation is asked per comment.
+3. The tech-lead messages the developer who owns the PR with the PR link and the finding IDs. The tech-lead does not fix them.
+4. The developer fixes every finding in the same branch, answers each one, and **asks the tech-lead for a re-review** once all of them are fixed. The tech-lead does not re-review on its own initiative.
+5. Repeat from 2 until the verdict is clean. Only then does the tech-lead tell the user the PR is ready to merge.
+
+- Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then the review runs again until the verdict is APROBADO with no findings (in the team, the tech-lead runs it when the developer asks, never the developer on their own PR). Out-of-scope follow-ups are not fixed there: open an issue for them.
+- Report the findings, how each was fixed and the final verdict, and list the PRs left open and ready to merge (number and link), in merge order.
+- A PR still open without review gets reviewed as soon as it is noticed, and its findings are fixed in its own branch like any other. A PR already merged without review gets reviewed afterwards, and its findings go in a follow-up PR.
+- If the `/pr-review` skill is not available in the session, stop and say so; do not replace it with a manual review.
+
 ### Pull requests: stacked, via `gh stack`
 
 Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
@@ -131,3 +146,13 @@ The generic components are **not** in the portal: they come from the `khipu-desi
 ## Load testing
 
 `k6/` has load-test scripts for `docs/spec/spec.md`'s throughput targets (`k6/emision.js`, `k6/descargas.js`) plus `k6/preparar-tenant.sh` to spin up an isolated test tenant (self-signed cert with the RUC in its `OU`, which is all the backend validates) without touching real data. See `k6/README.md` for current results and the known emission bottleneck above.
+
+## Equipo de agentes
+Roles (definidos en .claude/agents/): po, architect, tech-lead (sesión principal), backend-dev, backend-dev-2, frontend-dev, devops, qa.
+Flujo: po escribe issues de GitHub (historia de usuario + criterios de aceptación, el formato que ya usa el repo) -> architect revisa su impacto y publica el contrato de API/datos como comentario en el issue, además de sus ADR en docs/adr/ (local) ->
+tech-lead reparte tareas -> backend-dev y backend-dev-2 (domain/application/adapters, módulos distintos), frontend-dev (portal/) y devops (CI, Docker, entornos y releases) trabajan en paralelo, cada uno dueño de sus archivos ->
+qa valida contra los criterios de aceptación -> cada developer crea su PR a develop -> tech-lead revisa todo PR (sin excepción) con el skill /pr-review y publica el reporte en el PR ->
+si hay hallazgos, los corrige el developer autor y el tech-lead vuelve a revisar, hasta que quede limpio.
+Ninguna tarea se cierra sin ese review limpio. El merge requiere aprobación del usuario. Un PR mergeado a develop no autocierra su issue (GitHub solo lo hace contra main): el tech-lead lo cierra a mano tras validar.
+Comunicación siempre activa: cada integrante avisa al empezar, al terminar, al bloquearse y cuando su cambio afecta a otro.
+Respetar las convenciones de este archivo (GitFlow, Conventional Commits, arquitectura hexagonal, khipu-design-system). Sin push ni deploy sin aprobación del usuario.

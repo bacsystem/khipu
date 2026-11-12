@@ -280,24 +280,26 @@
       "columnas": {
         "plan": "Plan",
         "precio": "Monthly price",
-        "documentos": "Documents / month",
+        "documentos": "Documents",
         "rucs": "RUC",
         "usuarios": "Users",
         "apiKeys": "API keys",
         "retencion": "Retention",
         "cuentas": "Accounts",
-        "acciones": "Actions"
+        "acciones": "Actions",
+        "pruebasBeta": "Beta tests / month"
       },
       "retencionAnios": "{n} years",
       "retencionUnAnio": "1 year",
       "programado": "From {fecha}",
       "programadoAyuda": "This limit change is not in effect yet: it starts at the beginning of the next cycle.",
       "cambiosDe": {
-        "documentos": "Documents / month",
+        "documentos": "Documents",
         "rucs": "RUC",
         "usuarios": "Users",
         "apiKeys": "API keys",
-        "retencion": "Retention (years)"
+        "retencion": "Retention (years)",
+        "pruebasBeta": "Beta tests per RUC"
       },
       "editar": "Edit",
       "formulario": {
@@ -319,7 +321,7 @@
         "nombreEjemplo": "Studio",
         "precio": "Monthly price (S/)",
         "precioAyuda": "In soles, with up to two decimals. Zero for a free plan.",
-        "documentos": "Documents per month",
+        "documentos": "Document cap",
         "rucs": "RUC",
         "usuarios": "Users",
         "apiKeys": "API keys",
@@ -337,8 +339,19 @@
           "nombreLargo": "The name can be up to 40 characters.",
           "precioInvalido": "Enter a price of zero or more (up to 99,999,999.99), with up to two decimals.",
           "limiteInvalido": "Enter a whole number greater than zero, or check “Unlimited”.",
-          "numeroInvalido": "Enter a whole number greater than zero."
-        }
+          "numeroInvalido": "Enter a whole number greater than zero.",
+          "totalSinCifra": "A total cap needs a number: uncheck «Unlimited» or choose «Per month»."
+        },
+        "periodo": "Cap period",
+        "periodos": {
+          "MENSUAL": "Per month (renews on the 1st)",
+          "TOTAL": "In total (never renews)"
+        },
+        "periodoAyuda": "Counts what SUNAT accepts in Production. «In total» adds up the account’s whole life and needs a number.",
+        "pruebasPorRuc": "Beta tests per RUC (per month)",
+        "pruebasTotal": "= {total} tests a month for the account with {rucs} RUC, shared by its companies.",
+        "pruebasSinTope": "No cap on Beta tests.",
+        "pruebasAyuda": "Enter the tests per RUC and the RUCs to see the account’s total."
       },
       "desactivar": {
         "boton": "Deactivate",
@@ -402,8 +415,21 @@
           "varios": "{n} API keys",
           "ilimitados": "unlimited API keys"
         },
-        "retencion": "{retencion} retention"
-      }
+        "retencion": "{retencion} retention",
+        "porMes": "{n}/month",
+        "enTotal": "{n} in total",
+        "documentosEnTotal": {
+          "uno": "{n} document in total",
+          "varios": "{n} documents in total",
+          "ilimitados": "Unlimited documents"
+        },
+        "pruebasBeta": {
+          "uno": "{n} Beta test per month",
+          "varios": "{n} Beta tests per month",
+          "ilimitados": "unlimited Beta tests"
+        }
+      },
+      "pruebasPorRuc": "{n} per RUC"
     },
     "consumo": {
       "titulo": "Usage",
@@ -433,7 +459,7 @@
         "cuenta": "Account",
         "plan": "Plan",
         "documentos": "Documents",
-        "limite": "Monthly cap",
+        "limite": "Cap",
         "uso": "Usage",
         "estadoDelPlan": "Plan status"
       },
@@ -443,7 +469,9 @@
       "enElLimite": "At the limit",
       "pagadoHasta": "Until {fecha}",
       "error": "Could not load the accounts’ usage.",
-      "reintentar": "Retry"
+      "reintentar": "Retry",
+      "limiteEnTotal": "{n} in total",
+      "ayudaTotal": "A plan with a total cap counts the account’s whole life, not the chosen month."
     },
     "planDeCuenta": {
       "titulo": "Plan",
@@ -498,7 +526,10 @@
           "vencimientoPasado": "The date must be today or later.",
           "graciaInvalida": "Grace days range from 0 to 90."
         },
-        "planActual": " (current plan)"
+        "planActual": " (current plan)",
+        "consumoTotal": "Since it was created, the account used {n} documents in Production (this counts what SUNAT accepted, even if later voided). The {plan} plan allows {limite} in total, without renewing.",
+        "superaInmediatoTotal": "It already exceeds that cap: with the immediate change, the account could not issue any more in Production.",
+        "superaBajadaTotal": "Nothing changes this month: until the next cycle the account keeps its current plan. After that it will not be able to issue in Production."
       }
     },
     "pagos": {
@@ -1810,7 +1841,8 @@
     "INVITACION_PENDIENTE": "There is already a pending invitation for that email: resend it from the list.",
     "INVITACION_NO_PENDIENTE": "The invitation is no longer pending: it was accepted or revoked. Reload the page.",
     "DEMASIADAS_INVITACIONES": "You reached the invitation limit: 20 pending, or 30 invitation emails from your account (or 3 to that email) in the last 24 hours. Revoke the extra ones or try again tomorrow.",
-    "DEMASIADOS_ENVIOS": "We already sent this invitation 5 times. Revoke it and invite again if needed."
+    "DEMASIADOS_ENVIOS": "We already sent this invitation 5 times. Revoke it and invite again if needed.",
+    "LIMITE_PRUEBAS": "You reached this month’s Beta test cap."
   },
   "validacion": {
     "correoRequerido": "Enter your email",
@@ -1897,7 +1929,8 @@
     "plan": {
       "sinPlan": "Could not load your plan. View my plan",
       "etiqueta": "Plan {plan}",
-      "resumenAccesible": "Plan {plan}: {consumo} documents this month"
+      "resumenAccesible": "Plan {plan}: {consumo} documents this month",
+      "resumenAccesibleTotal": "Plan {plan}: {n} of {maximo} documents in total"
     }
   },
   "resumenDePlan": {
@@ -1907,7 +1940,11 @@
     "llegaste": "You reached this month’s document limit",
     "pagoVencidoHasta": "Payment overdue: service continues until {fecha}",
     "pagoVencido": "Payment overdue",
-    "cerca": "Close to this month’s document limit"
+    "cerca": "Close to this month’s document limit",
+    "deEnTotal": "{n} of {maximo} in total",
+    "superasteTotal": "You exceeded your plan’s document limit",
+    "llegasteTotal": "You used all your plan’s documents",
+    "cercaTotal": "Close to your plan’s document limit"
   },
   "inicio": {
     "sinEmpresa": "First register a company to see your dashboard.",
@@ -3100,6 +3137,14 @@
       "series": {
         "titulo": "Your series could not be loaded",
         "texto": "It may be a temporary connection problem. Your series and their sequence numbers were not touched."
+      },
+      "topeTotal": {
+        "titulo": "You used your plan’s documents",
+        "texto": "Your {plan} plan includes {maximo} documents in total and you already used them. To keep issuing in Production, switch to a paid plan."
+      },
+      "topePruebas": {
+        "titulo": "You reached this month’s Beta test cap",
+        "texto": "Your {plan} plan gives {maximo} Beta tests a month and you already used them. You can test again next month, or sooner if you change plans."
       }
     },
     "descargaMasiva": {
@@ -4170,8 +4215,8 @@
     "hero": {
       "etiqueta": "Electronic invoicing for Peru",
       "titulo": "Documents SUNAT accepts the first time.",
-      "descripcion": "We calculate the totals on the server before signing, so rejections for mismatched totals don’t happen. Start free, forever, with your first RUC.",
-      "notaAbierto": "No card · A permanent free plan, not a trial.",
+      "descripcion": "We calculate the totals on the server before signing, so rejections for mismatched totals don’t happen. Start free with your first RUC: 10 real invoices in Production and 1 000 Beta tests a month.",
+      "notaAbierto": "No card · The Gratis plan never expires: it comes with 10 real invoices to get started.",
       "notaCerrado": "Invitation-only beta: we enable accounts one by one and help with every setup."
     },
     "confianza": [
@@ -4316,7 +4361,7 @@
       },
       "planGratis": {
         "pregunta": "Does the free plan expire?",
-        "respuesta": "No. It’s permanent, not a trial — as long as your volume fits within 30 documents a month."
+        "respuesta": "No. It comes with 10 real invoices in Production, in total, to check with SUNAT that everything works, and 1 000 Beta tests a month. When you need to issue more, you move to Emprende."
       },
       "boletas": {
         "pregunta": "Can I issue boletas or credit notes?",
@@ -4325,20 +4370,20 @@
     },
     "planes": {
       "titulo": "Clear plans, free to start",
-      "descripcion": "The Gratis plan never expires — it’s not a trial. You move up a plan when your volume calls for it.",
+      "descripcion": "Gratis comes with 10 real invoices in Production and 1 000 Beta tests a month, with no card and no expiry. You move up a plan when your volume calls for it.",
       "periodo": "Billing period",
       "mensual": "Monthly",
       "anual": "Yearly",
       "ahorroAnual": "−2 months",
       "masUsado": "Most popular",
-      "paraSiempre": "forever",
+      "sinTarjeta": "no card",
       "porMes": "/month",
       "igvIncluido": "IGV (VAT) included",
       "alAno": "{monto} per year · 2 months free",
       "empezarGratis": "Start for free",
       "elegir": "Choose {plan}",
       "pedirAcceso": "Request access",
-      "nota": "Prices in soles, IGV (VAT) included. Only documents SUNAT accepts in Production count: Beta tests, rejections and retries don’t use up your plan.",
+      "nota": "Prices in soles, IGV (VAT) included. Only documents SUNAT accepts in Production count: rejections and retries don’t use up your plan. Beta tests are separate: 1 000 a month for each RUC in your plan.",
       "aMedida": "Need on-premise or a custom plan?",
       "escribenos": "Write to us",
       "limites": {
@@ -4353,22 +4398,25 @@
         "apiKeys": "{n} API keys",
         "retencion": "XML and CDR stored for {periodo}",
         "unAno": "1 year",
-        "anos": "{n} years"
+        "anos": "{n} years",
+        "documentosEnTotal": "{n} real invoices in total",
+        "pruebasBeta": "{n} Beta tests/month",
+        "pruebasBetaIlimitadas": "Unlimited Beta tests"
       },
       "catalogo": {
         "gratis": {
           "nombre": "Gratis",
           "para": "To try out the API",
-          "docs": "10 documents/month",
+          "docs": "10 real invoices in total",
           "rucs": "1 RUC · 1 user",
           "incluye": [
             "Invoices, credit and debit notes, and voiding",
             "Web portal and REST API",
             "Real invoices in Production",
-            "Unlimited Beta testing",
             "1 API key · A4 PDF",
             "XML and CDR stored for 1 year"
-          ]
+          ],
+          "beta": "1 000 Beta tests/month"
         },
         "emprende": {
           "nombre": "Emprende",
@@ -4380,7 +4428,8 @@
             "2 API keys",
             "XML and CDR stored for 5 years",
             "Email support (48 h)"
-          ]
+          ],
+          "beta": "1 000 Beta tests/month"
         },
         "negocio": {
           "nombre": "Negocio",
@@ -4392,7 +4441,8 @@
             "PDF with your logo and color",
             "5 API keys",
             "Email and WhatsApp support (24 h)"
-          ]
+          ],
+          "beta": "3 000 Beta tests/month"
         },
         "pro": {
           "nombre": "Pro",
@@ -4403,7 +4453,8 @@
             "Everything in Negocio",
             "Unlimited API keys",
             "Priority support (8 business hours)"
-          ]
+          ],
+          "beta": "10 000 Beta tests/month"
         }
       }
     }
@@ -4605,9 +4656,14 @@
             "422 RECEPTOR_INVALIDO."
           ],
           [
-            "Documents per month",
-            "The account plan’s cap, adding up invoices, receipts and notes of all its companies.",
+            "Production documents",
+            "The account plan’s cap, monthly or in total depending on the plan, adding up invoices, receipts and notes of all its companies.",
             "429 LIMITE_PLAN; 402 PLAN_VENCIDO when the plan expired and its grace days have passed."
+          ],
+          [
+            "BETA tests per month",
+            "1,000 for each RUC in the plan, adding up all the account’s companies in BETA. Separate from the Production cap; they renew on the 1st.",
+            "429 LIMITE_PRUEBAS."
           ],
           [
             "Listings",
@@ -4894,8 +4950,8 @@
           "Load a valid certificate of the company."
         ],
         "LIMITE_PLAN": [
-          "The account reached its plan’s monthly document cap (invoices, receipts and notes of all its companies). Nothing is issued and no number is used.",
-          "Issue again next month or ask for a plan change; the voiding communication does not count."
+          "The account reached its plan’s Production document cap (invoices, receipts and notes of all its companies): monthly, or in total if the plan counts it that way. Nothing is issued and no number is used.",
+          "With a monthly cap, issue again next month; a total cap does not renew. Either way you can ask for a plan change; the voiding communication does not count."
         ],
         "CUPO_DEL_PLAN": [
           "The account’s plan no longer allows one more active API key, user (pending invitations count) or company. The message says how much the plan includes and how much the account has; whatever already exceeded the cap is left alone.",
@@ -4992,6 +5048,10 @@
         "INTERNO": [
           "Unhandled error.",
           "Retry; if it persists, send the trace_id to support."
+        ],
+        "LIMITE_PRUEBAS": [
+          "A company in BETA and the account reached its monthly test cap: its plan’s tests per RUC times its RUCs, shared by all its companies. It is separate from the Production cap. Nothing is issued and no number is used.",
+          "Test again next month (it renews on the 1st, Lima time) or ask for a plan change."
         ]
       },
       "titulo": "Errors and statuses",
@@ -5980,7 +6040,18 @@
         "excedido": "You have more {recurso} than your plan includes. Nothing was removed, but you cannot add more."
       },
       "consumoTope": "Usage of the monthly cap",
-      "nota": "Counts what SUNAT accepted this month across all your companies, even if it’s voided later, by issue date (Lima time)."
+      "nota": "Counts what SUNAT accepted this month across all your companies, even if it’s voided later, by issue date (Lima time).",
+      "consumoTotal": "Total usage in Production",
+      "consumoTopeTotal": "Usage of the total cap",
+      "notaTotal": "Counts what SUNAT accepted in Production since your account was created, across all your companies, even if it’s voided later. This cap does not renew: once you use it, move to a paid plan to keep issuing.",
+      "pruebasDe": "Beta tests for {mes}",
+      "pruebasTope": "Beta tests used this month",
+      "pruebasNota": "The tests SUNAT Beta accepted this month across all your companies. Your plan gives {porRuc} a month per RUC, shared by your companies: they don’t use up your Production documents and they renew on the 1st.",
+      "pruebasNotaSinTope": "The tests SUNAT Beta accepted this month across all your companies. Your plan sets no cap on them and they don’t use up your Production documents.",
+      "pruebasAvisos": {
+        "cerca": "You’re close to this month’s Beta test cap.",
+        "lleno": "You reached this month’s {n} Beta tests: they renew on the 1st. To keep testing sooner, ask for a plan change."
+      }
     }
   }
 }

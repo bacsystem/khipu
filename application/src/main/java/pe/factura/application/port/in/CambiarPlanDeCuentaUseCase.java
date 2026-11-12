@@ -56,8 +56,8 @@ public interface CambiarPlanDeCuentaUseCase {
     }
 
     /**
-     * Lo que pasaría con un cambio, para mostrarlo antes de confirmar: cuándo entra y qué pasa con el consumo del mes en curso. {@code superaElLimite}: el consumo de
-     * este mes ya pasa el tope de documentos del plan nuevo (solo es una advertencia: un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no
+     * Lo que pasaría con un cambio, para mostrarlo antes de confirmar: cuándo entra y qué pasa con el consumo del mes en curso. {@code consumoDelMes} es el de toda la
+     * vida de la cuenta si el plan nuevo tiene el tope en total (#613): es lo que se compara con él. {@code superaElLimite}: ese consumo ya pasa el tope de documentos del plan nuevo (solo es una advertencia: un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no
      * toca este mes). {@code programadoQueSeDescarta}: la bajada que estaba esperando y que este cambio deja sin efecto (un cambio inmediato la cancela; otra bajada la
      * reemplaza); nulo si no había ninguna o si ya llegó su fecha (entonces manda y se aplica primero).
      */

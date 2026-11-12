@@ -15,8 +15,9 @@ public record PrevisualizacionDePlanResponse(
         @Schema(example = "CICLO_SIGUIENTE", allowableValues = {"INMEDIATO", "CICLO_SIGUIENTE"}, description = "Subir y renovar entran ya; bajar, al inicio del ciclo siguiente") String efecto,
         @Schema(example = "2026-10-01T05:00:00Z", description = "Desde cuándo manda el plan nuevo") Instant aplicaDesde,
         @Schema(example = "2026-09", description = "El mes en curso (calendario de America/Lima) del que se habla") String mes,
-        @Schema(example = "312", description = "Documentos que la cuenta ha consumido este mes: solo los comprobantes aceptados por SUNAT") long consumoDelMes,
-        @Schema(description = "El tope de documentos al mes del plan nuevo") LimiteDto limiteDeDocumentos,
+        @Schema(example = "312", description = "Documentos que la cuenta ha consumido este mes en Producción: solo los comprobantes aceptados por SUNAT. "
+                + "Los de toda la vida de la cuenta si el plan nuevo tiene el tope en total (`planNuevo.limites.periodoDocumentos` = `TOTAL`)") long consumoDelMes,
+        @Schema(description = "El tope de documentos del plan nuevo (al mes, o en total según su periodo)") LimiteDto limiteDeDocumentos,
         @Schema(description = "El consumo de este mes ya pasa el tope del plan nuevo: una advertencia (un cambio inmediato dejaría a la cuenta por encima de su límite; una bajada no toca este mes)") boolean superaElLimite,
         @Schema(nullable = true, description = "La bajada que estaba esperando y que este cambio deja sin efecto (un cambio inmediato la cancela; otra bajada la reemplaza); ausente si no hay") DescartadoResponse programadoQueSeDescarta) {
 

@@ -12,8 +12,12 @@ import java.util.UUID;
  * pura: cambiar de plan lo hace el administrador (#191).
  */
 public interface ConsultarMiCuentaUseCase {
-    record MiCuenta(UUID cuentaId, String nombre, PlanDeCuenta plan, ConsumoDeCuenta consumo, UsoDeRecursos uso) {}
+    /**
+     * {@code documentosEnTotal}: lo consumido en Producción en toda la vida de la cuenta, para un plan con tope en total (#613). {@code pruebasDelMes}: lo emitido en
+     * Beta este mes, contra el tope de pruebas (#613).
+     */
+    record MiCuenta(UUID cuentaId, String nombre, PlanDeCuenta plan, ConsumoDeCuenta consumo, UsoDeRecursos uso, long documentosEnTotal, long pruebasDelMes) {}
 
-    /** {@code NO_ENCONTRADO} si la cuenta no existe. El consumo es el del mes en curso (Lima). */
+    /** {@code NO_ENCONTRADO} si la cuenta no existe. El consumo y las pruebas son los del mes en curso (Lima). */
     MiCuenta deLaCuenta(UUID cuentaId);
 }

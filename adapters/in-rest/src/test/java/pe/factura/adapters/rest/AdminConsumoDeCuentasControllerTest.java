@@ -12,6 +12,7 @@ import pe.factura.application.port.in.FiltroDeConsumo;
 import pe.factura.application.port.in.OrdenDeConsumo;
 import pe.factura.domain.plan.EstadoSuscripcion;
 import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -46,11 +47,11 @@ class AdminConsumoDeCuentasControllerTest {
     }
 
     static Fila alerta() {
-        return new Fila(CUENTA, "Ana", "ana@x.pe", UUID.randomUUID(), "Emprende", 240, Limite.de(300), 80, true, EstadoSuscripcion.EN_GRACIA, VENCE, 5, VENCE.plusSeconds(5 * 86_400));
+        return new Fila(CUENTA, "Ana", "ana@x.pe", UUID.randomUUID(), "Emprende", 240, Limite.de(300), PeriodoDelTope.MENSUAL, 80, true, EstadoSuscripcion.EN_GRACIA, VENCE, 5, VENCE.plusSeconds(5 * 86_400));
     }
 
     static Fila ilimitada() {
-        return new Fila(UUID.randomUUID(), "Luis", "luis@x.pe", UUID.randomUUID(), "Pro", 9000, Limite.sinLimite(), null, false, EstadoSuscripcion.VIGENTE, null, 0, null);
+        return new Fila(UUID.randomUUID(), "Luis", "luis@x.pe", UUID.randomUUID(), "Pro", 9000, Limite.sinLimite(), PeriodoDelTope.MENSUAL, null, false, EstadoSuscripcion.VIGENTE, null, 0, null);
     }
 
     @Test void listaLasCuentasConSuConsumoSuLimiteYSuEstadoDeCobro() throws Exception {
@@ -160,6 +161,6 @@ class AdminConsumoDeCuentasControllerTest {
 
         String cuerpo = mvc.perform(get("/v1/admin/consumo/exportacion").with(clave())).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
-        assertThat(cuerpo).isEqualTo("\uFEFFcuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta\r\n");
+        assertThat(cuerpo).isEqualTo("\uFEFFcuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta,periodo\r\n");
     }
 }
