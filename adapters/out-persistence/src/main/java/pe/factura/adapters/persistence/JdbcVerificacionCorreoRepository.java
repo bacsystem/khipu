@@ -2,15 +2,30 @@ package pe.factura.adapters.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import pe.factura.application.port.out.PurgaDeVerificaciones;
 import pe.factura.application.port.out.VerificacionCorreoRepository;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class JdbcVerificacionCorreoRepository implements VerificacionCorreoRepository {
+public class JdbcVerificacionCorreoRepository implements VerificacionCorreoRepository, PurgaDeVerificaciones {
+    /** Solo lo vencido antes del corte, usado o no: un token vigente (aun usado) sostiene el «ya se usó» y el tope de reenvíos. SKIP LOCKED: nunca espera. */
+    static final String PURGAR_VERIFICACIONES_VENCIDAS = """
+            DELETE FROM token_verificacion WHERE token_hash IN (
+              SELECT token_hash FROM token_verificacion
+              WHERE expira_en < ?
+              ORDER BY expira_en
+              LIMIT ?
+              FOR UPDATE SKIP LOCKED)""";
+
     private final JdbcTemplate jdbc;
+
+    @Override public int purgarVerificacionesVencidas(Instant vencidasAntesDe, int lote) {
+        return jdbc.update(PURGAR_VERIFICACIONES_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
+    }
 
     @Override public void crear(Token t) {
         jdbc.update("INSERT INTO token_verificacion (token_hash, usuario_id, expira_en, usado) VALUES (?, ?, ?, ?)",
@@ -28,7 +43,7 @@ public class JdbcVerificacionCorreoRepository implements VerificacionCorreoRepos
         return jdbc.update("UPDATE token_verificacion SET usado = true WHERE token_hash = ? AND usado = false", tokenHash) == 1;
     }
 
-    @Override public int contarSinVencer(UUID usuarioId, java.time.Instant ahora) {
+    @Override public int contarSinVencer(UUID usuarioId, Instant ahora) {
         return jdbc.queryForObject("SELECT count(*) FROM token_verificacion WHERE usuario_id = ? AND expira_en > ?", Integer.class,
                 usuarioId, Timestamp.from(ahora));
     }

@@ -3,6 +3,7 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import pe.factura.application.port.out.PurgaDeRecuperaciones;
 import pe.factura.application.port.out.PurgaDeSesiones;
 import pe.factura.application.port.out.SesionRepository;
 
@@ -12,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones {
+public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones, PurgaDeRecuperaciones {
     /**
      * Una sesión es borrable si venció antes del corte y el mismo usuario tiene otra más reciente: la última de cada usuario se queda, porque el
      * backoffice saca de ella su último acceso. SKIP LOCKED: ni espera a una fila que otra réplica o una revocación tiene tomada ni puede entrar en un
@@ -27,10 +28,26 @@ public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones {
               LIMIT ?
               FOR UPDATE SKIP LOCKED)""";
 
+    /**
+     * Un token de recuperación (o de invitación) vencido antes del corte se borra, esté usado o no: ninguna respuesta depende de él una vez vencido y no
+     * alimenta ningún «último acceso», así que, a diferencia de {@code sesion}, no se conserva uno por usuario. SKIP LOCKED: nunca espera a otra réplica.
+     */
+    static final String PURGAR_RECUPERACIONES_VENCIDAS = """
+            DELETE FROM token_recuperacion WHERE token_hash IN (
+              SELECT token_hash FROM token_recuperacion
+              WHERE expira_en < ?
+              ORDER BY expira_en
+              LIMIT ?
+              FOR UPDATE SKIP LOCKED)""";
+
     private final JdbcTemplate jdbc;
 
     @Override public int purgarVencidas(Instant vencidasAntesDe, int lote) {
         return jdbc.update(PURGAR_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
+    }
+
+    @Override public int purgarRecuperacionesVencidas(Instant vencidasAntesDe, int lote) {
+        return jdbc.update(PURGAR_RECUPERACIONES_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
     }
 
     @Override public void crear(Sesion s) {
