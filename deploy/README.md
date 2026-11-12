@@ -539,11 +539,11 @@ Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el re
 
 | Sigue al reloj movido (usa el `Clock` de la aplicación) | NO lo sigue |
 |---|---|
-| La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: `created_at`, `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
+| La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: el `created_at` del resto de las tablas (el de las sesiones de refresh sí lo sigue), `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
 | Los plazos de envío (factura 3 días; boleta 5 individual y 7 en resumen) y el cierre `FUERA_DE_PLAZO`, también el del barrido horario (si no hay empresas en PRODUCCION) | Los `iat`/`exp` de los JWT del portal y del backoffice, y las cookies del navegador (hora real) |
 | La fecha de generación, el correlativo del día y el formato (05 o 06–08/9996) de los RC y RA | La hora de SUNAT: valida lo que recibe contra **su** fecha real |
 | La comprobación de vigencia del certificado en el backend (`CERTIFICADO_VENCIDO`), el plan de la cuenta (`PLAN_VENCIDO`), el tope y el consumo del mes | La caducidad real del certificado dentro de la firma XML-DSig, que SUNAT mira con su fecha |
-| El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal | La fecha de modificación de los archivos del storage |
+| El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal; el `created_at` de esas sesiones y su corte por inactividad (#636) | La fecha de modificación de los archivos del storage |
 
 Consecuencias que conviene tener presentes:
 
@@ -552,6 +552,7 @@ Consecuencias que conviene tener presentes:
   `enviar_automatico: false` y provocan los fallos de forma controlada en vez de esperar al worker.
 - Con el reloj adelantado, usa una empresa **sin cuenta** (la que crea `POST /v1/admin/tenants`) o una cuenta con plan sin vencimiento: un plan con fecha de fin se vence y emitir
   responde `402 PLAN_VENCIDO`. También las sesiones de refresh del portal creadas antes pueden figurar vencidas: vuelve a iniciar sesión (con una API key no pasa).
+  Con el reloj adelantado, además, el corte por inactividad (`SESION_INACTIVIDAD_MINUTOS`, #636) mide contra el reloj movido: las sesiones previas se cortan en su primer refresh.
 - Usa una empresa de pruebas dedicada (`BETA`): lo que se emite con fechas movidas no es un dato que quieras conservar.
 
 ### Cómo usarlo en develop (Docker)
