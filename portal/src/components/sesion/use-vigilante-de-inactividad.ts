@@ -11,7 +11,7 @@ import {
   type Decision,
   type Vigilante,
 } from "@/lib/sesion/inactividad";
-import { avisarALasDemasPestanas, escucharAvisosDeSesion, type AvisoDeSesion } from "@/lib/sesion/canal-de-sesion";
+import { avisarALasDemasPestanas, type AvisoDeSesion } from "@/lib/sesion/canal-de-sesion";
 import { pedirKeepAlive } from "@/lib/sesion/keep-alive";
 
 /** Lo que cuenta como actividad de la persona. Las peticiones de fondo (sondeos, `router.refresh()`, reintentos del proxy) no tocan el DOM, así que nunca llegan acá. */
@@ -127,7 +127,6 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     const alCambiarElAlmacen = (evento: StorageEvent) => {
       if (evento.key === null || evento.key === CLAVE_ULTIMA_ACTIVIDAD || evento.key === CLAVE_ULTIMO_KEEP_ALIVE) evaluarYa();
     };
-    const alRecibirAviso = (aviso: AvisoDeSesion) => navegar(aviso === "inactividad" ? RUTA_LOGIN_POR_INACTIVIDAD : RUTA_LOGIN_POR_OTRA_PESTANA);
 
     for (const tipo of EVENTOS_DE_ACTIVIDAD) window.addEventListener(tipo, alActividad, { capture: true, passive: true });
     window.addEventListener("pointermove", alActividad, { passive: true });
@@ -135,7 +134,6 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     window.addEventListener("pageshow", evaluarYa);
     window.addEventListener("storage", alCambiarElAlmacen);
     document.addEventListener("visibilitychange", alVolverVisible);
-    const dejarDeEscucharAvisos = escucharAvisosDeSesion(alRecibirAviso);
 
     controles.current = {
       seguir: () => {
@@ -157,7 +155,6 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
       window.removeEventListener("pageshow", evaluarYa);
       window.removeEventListener("storage", alCambiarElAlmacen);
       document.removeEventListener("visibilitychange", alVolverVisible);
-      dejarDeEscucharAvisos();
     };
   }, [minutos, irA, ahora]);
 

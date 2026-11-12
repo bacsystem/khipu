@@ -315,6 +315,45 @@ describe("VigilanteDeInactividad", () => {
       expect(llamadas).not.toContain("/api/auth/logout");
     });
 
+    /** El corte por inactividad puede estar apagado (`SESION_INACTIVIDAD_MINUTOS=0`) o no aplicar (sesión de soporte): cerrar la sesión en una pestaña igual saca a las demás. */
+    it.each([[0], [undefined]])("con minutos=%s (sin contador) también escucha el cierre voluntario de otra pestaña", async (minutos) => {
+      const otra = simularOtraPestana();
+      render(<VigilanteDeInactividad minutos={minutos} irA={irA} />);
+      expect(aviso()).toBeNull();
+
+      await act(async () => otra.publicar("salir"));
+
+      expect(irA).toHaveBeenCalledExactlyOnceWith("/login?motivo=otra-pestana");
+    });
+
+    it("y sin contador también escucha el cierre por inactividad de otra pestaña", async () => {
+      const otra = simularOtraPestana();
+      render(<VigilanteDeInactividad minutos={0} irA={irA} />);
+
+      await act(async () => otra.publicar("inactividad"));
+
+      expect(irA).toHaveBeenCalledExactlyOnceWith("/login?motivo=inactividad");
+    });
+
+    it("con contador, el aviso de otra pestaña navega una sola vez (no hay dos oyentes)", async () => {
+      const otra = simularOtraPestana();
+      montar();
+
+      await act(async () => otra.publicar("salir"));
+
+      expect(irA).toHaveBeenCalledTimes(1);
+    });
+
+    it("al desmontarse deja de escuchar", async () => {
+      const otra = simularOtraPestana();
+      const { unmount } = render(<VigilanteDeInactividad minutos={0} irA={irA} />);
+
+      unmount();
+      await act(async () => otra.publicar("salir"));
+
+      expect(irA).not.toHaveBeenCalled();
+    });
+
     it("un aviso que no conoce se ignora", async () => {
       const otra = simularOtraPestana();
       montar();
