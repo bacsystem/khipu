@@ -180,6 +180,58 @@ describe("VigilanteDeInactividad", () => {
       expect(irA).not.toHaveBeenCalled();
     });
 
+    /** Un backend colgado no puede dejar la pestaña en la página privada con los datos a la vista: pasado el tope, navega aunque el logout no haya respondido. */
+    it("un logout que nunca responde no retiene la página: al vencer el tope va al login por inactividad", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string) => {
+          llamadas.push(url);
+          return new Promise<Response>(() => undefined);
+        }),
+      );
+      await conAviso();
+
+      await avanzar(AVISO_ANTES_MS);
+      expect(llamadas).toContain("/api/auth/logout");
+      expect(irA).not.toHaveBeenCalled();
+
+      await avanzar(2_999);
+      expect(irA).not.toHaveBeenCalled();
+
+      await avanzar(1);
+      expect(irA).toHaveBeenCalledTimes(1);
+      expect(irA).toHaveBeenCalledWith("/login?motivo=inactividad");
+    });
+
+    it("lo mismo con «Cerrar sesión»: un logout colgado no impide salir", async () => {
+      vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => undefined)));
+      await conAviso();
+
+      await act(async () => void fireEvent.click(screen.getByTestId("inactividad-salir")));
+      expect(irA).not.toHaveBeenCalled();
+      await avanzar(3_000);
+
+      expect(irA).toHaveBeenCalledTimes(1);
+      expect(irA).toHaveBeenCalledWith("/login");
+    });
+
+    it("si el logout responde antes del tope navega al responder, una sola vez", async () => {
+      await conAviso();
+
+      await avanzar(AVISO_ANTES_MS);
+      await avanzar(5_000);
+
+      expect(irA).toHaveBeenCalledTimes(1);
+    });
+
+    it("el logout se manda con keepalive: termina aunque la página ya se haya ido", async () => {
+      await conAviso();
+
+      await avanzar(AVISO_ANTES_MS);
+
+      expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/auth/logout", expect.objectContaining({ method: "POST", keepalive: true }));
+    });
+
     it("«Cerrar sesión» hace el logout normal y va al login sin motivo", async () => {
       await conAviso();
 

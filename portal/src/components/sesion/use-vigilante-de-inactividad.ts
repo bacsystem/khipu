@@ -22,6 +22,9 @@ const TIC_NORMAL_MS = 10_000;
 /** Con el aviso abierto la cuenta regresiva se evalúa cada segundo. */
 const TIC_CON_AVISO_MS = 1_000;
 
+/** Cuánto se espera al logout antes de navegar al login de todos modos. */
+const TOPE_DEL_LOGOUT_MS = 3_000;
+
 const CANAL = "khipu-sesion";
 const RUTA_LOGIN = "/login";
 export const RUTA_LOGIN_POR_INACTIVIDAD = "/login?motivo=inactividad";
@@ -63,9 +66,19 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
       clearTimeout(temporizador);
       reiniciarMarcas(almacen); // la sesión siguiente empieza de cero (también la ve cualquier otra pestaña)
       canal?.postMessage(aviso);
-      void fetch("/api/auth/logout", { method: "POST" })
+      // El logout no puede retener la página: si el backend se cuelga, la pestaña seguiría mostrando los datos de una sesión que ya se dio por cerrada. Navega cuando responde o,
+      // a más tardar, al vencer el tope; `keepalive` deja que la petición termine aunque la página ya se haya ido.
+      let navegado = false;
+      const irAlLogin = () => {
+        if (navegado) return;
+        navegado = true;
+        clearTimeout(tope);
+        irA(url);
+      };
+      const tope = setTimeout(irAlLogin, TOPE_DEL_LOGOUT_MS);
+      void fetch("/api/auth/logout", { method: "POST", keepalive: true })
         .catch(() => undefined)
-        .finally(() => irA(url));
+        .finally(irAlLogin);
     }
 
     function aplicar(decision: Decision) {
