@@ -265,6 +265,15 @@ class AuthE2ETest {
         return (Map<?, ?>) http.exchange("/v1/auth/me", HttpMethod.GET, new HttpEntity<>(conJwt(access)), Map.class).getBody().get("datos");
     }
 
+    /** #638: el valor real de {@code application.yml} (30 por defecto) llega al portal por /me, y solo por /me. */
+    @Test void meDiceElCortePorInactividadYElLoginNo() {
+        Cuenta cuenta = registrar("Mi negocio", "ana@negocio.pe");
+
+        assertThat(me(cuenta.access()).get("sesion_inactividad_minutos")).isEqualTo(30);
+        ResponseEntity<Map> entrada = login("ana@negocio.pe", "Segura123");
+        assertThat(((Map<?, ?>) ((Map<?, ?>) entrada.getBody().get("datos")).get("usuario")).containsKey("sesion_inactividad_minutos")).isFalse();
+    }
+
     @Test void sinAceptarLosTerminosElRegistroEs400YNoCreaNada() {
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
         for (String acepta : new String[]{"", ",\"acepta_terminos\":false"}) {

@@ -19,15 +19,26 @@ public record UsuarioResponse(
                 + "(la respuesta de abrir una sesión de soporte).")
         Boolean terminosPendientes,
         @Schema(example = "2026-10-04T12:15:00Z", description = "Solo en una sesión de soporte (#184: un administrador mirando el portal como este usuario): hasta cuándo vale. Ausente en una sesión normal. El portal lo usa para avisar que se está actuando como el cliente")
-        Instant soporteHasta) {
+        Instant soporteHasta,
+        @Schema(example = "30", minimum = "0", maximum = "480", description = "Minutos sin renovar la sesión tras los cuales el servidor la corta (#638): `0` si el corte está "
+                + "desactivado, o de 15 a 480. El corte real llega hasta ese valor más 15 min, la vida del access token. El portal lo usa para avisar antes del cierre. "
+                + "Solo en `GET /v1/auth/me` de una sesión normal: ausente en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh, "
+                + "el registro y la sesión de soporte.")
+        Integer sesionInactividadMinutos) {
     /** Sin {@code terminosPendientes}: para quien no es el propio usuario (el administrador que abre una sesión de soporte). */
     public static UsuarioResponse de(Usuario u) {
-        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), null, null);
+        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), null, null, null);
     }
 
     /** El usuario de la sesión, diciendo hasta cuándo vale si es de soporte. Del administrador solo se usa la expiración: nunca sale su id. */
     public static UsuarioResponse de(Usuario u, boolean terminosPendientes, TokenEmisor.Soporte soporte) {
         return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), terminosPendientes,
-                soporte == null ? null : soporte.expiraEn());
+                soporte == null ? null : soporte.expiraEn(), null);
+    }
+
+    /** Lo que devuelve {@code GET /v1/auth/me}: además, el corte por inactividad, salvo en una sesión de soporte, que no se renueva. */
+    public static UsuarioResponse de(Usuario u, boolean terminosPendientes, TokenEmisor.Soporte soporte, int sesionInactividadMinutos) {
+        return new UsuarioResponse(u.id(), u.cuentaId(), u.email(), u.rol().name(), u.correoVerificado(), terminosPendientes,
+                soporte == null ? null : soporte.expiraEn(), soporte == null ? sesionInactividadMinutos : null);
     }
 }

@@ -230,6 +230,44 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.datos.email").value("ana@negocio.pe"));
     }
 
+    // --- #638: cuánto tarda el servidor en cortar la sesión inactiva, para que el portal avise a la misma hora ---------------------------------------
+
+    @Test void meDiceTrasCuantosMinutosSinRenovarSeCortaLaSesion() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.sesion_inactividad_minutos").value(30));
+    }
+
+    @Test void meNoDiceNadaDeInactividadEnUnaSesionDeSoporte() throws Exception {
+        when(auth.me(usuarioId)).thenReturn(usuario);
+
+        mvc.perform(get("/v1/auth/me").requestAttr(UsuarioActual.ATRIBUTO, usuarioId)
+                        .requestAttr(SoporteActual.ATRIBUTO, new pe.factura.application.port.out.TokenEmisor.Soporte(UUID.randomUUID(), java.time.Instant.parse("2026-10-04T12:15:00Z"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.datos.soporte_hasta").exists())
+                .andExpect(jsonPath("$.datos.sesion_inactividad_minutos").doesNotExist());
+    }
+
+    /** El campo es solo de {@code /me}: el usuario que viaja con los tokens del login, el refresh y el registro no lo lleva. */
+    @Test void loginRefreshYRegistroNoLoLlevan() throws Exception {
+        when(auth.login("ana@negocio.pe", "Segura123", null)).thenReturn(tokens);
+        when(auth.refrescar("refresh-viejo")).thenReturn(tokens);
+        when(auth.registrar("Mi negocio", "ana@negocio.pe", "Segura123", "987654321", true, null, "http://localhost:3000")).thenReturn(tokens);
+
+        mvc.perform(post("/v1/auth/login").contentType("application/json").content("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}"))
+                .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
+                .andExpect(jsonPath("$.datos.usuario.sesion_inactividad_minutos").doesNotExist());
+        mvc.perform(post("/v1/auth/refresh").contentType("application/json").content("{\"refresh\":\"refresh-viejo\"}"))
+                .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
+                .andExpect(jsonPath("$.datos.usuario.sesion_inactividad_minutos").doesNotExist());
+        mvc.perform(post("/v1/auth/registro").contentType("application/json")
+                        .content("{\"nombre\":\"Mi negocio\",\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\",\"telefono\":\"987654321\",\"acepta_terminos\":true}"))
+                .andExpect(jsonPath("$.datos.usuario.email").value("ana@negocio.pe"))
+                .andExpect(jsonPath("$.datos.usuario.sesion_inactividad_minutos").doesNotExist());
+    }
+
     /** El cliente nunca debe enterarse del id del administrador desde su propia sesión. */
     @Test void meNoDiceQueAdministradorEs() throws Exception {
         UUID admin = UUID.randomUUID();
