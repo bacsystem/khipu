@@ -125,3 +125,4 @@ por la que entra el navegador (esquema, host y puerto). `api-reference.test.tsx`
 opciones vuelve a su default.
 
 O desde la raíz del repo: `docker compose up portal`.
+<!-- ejemplo de PR de #650 (solo portal): no mergear, se cierra -->
