@@ -42,7 +42,8 @@
       "olvidaste": "Forgot your password?",
       "sinCuenta": "Don’t have an account?",
       "crearCuenta": "Create one",
-      "soloPorInvitacion": "Access is by invitation while the beta lasts."
+      "soloPorInvitacion": "Access is by invitation while the beta lasts.",
+      "motivoInactividad": "We signed you out due to inactivity. Please sign in again."
     },
     "registro": {
       "titulo": "Create your account",
@@ -1681,6 +1682,14 @@
     "reenviadaSinCorreo": "We generated a new link, but the email was not sent. Try again in a few minutes.",
     "resumenUsuarios": "{activos} active · {total} total",
     "pendientes": "{n} pending"
+  },
+  "sesion": {
+    "inactividad": {
+      "titulo": "Your session is about to end",
+      "cuerpo": "For your security, we'll sign you out in {segundos} s due to inactivity.",
+      "seguir": "Stay signed in",
+      "salir": "Sign out"
+    }
   },
   "soporte": {
     "soloLectura": "Support mode: view only, nothing can be changed.",

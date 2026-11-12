@@ -98,7 +98,7 @@ describe("middleware", () => {
 
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/cuenta-suspendida");
-    // El backend no revoca la sesión al suspender: al reactivar, la misma sesión vuelve a servir.
+    // El backend no revoca la sesión al suspender: si se reactiva antes del corte por inactividad (#636), la misma sesión sigue sirviendo.
     expect(res.cookies.get(COOKIE_REFRESH)).toBeUndefined();
     expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
   });

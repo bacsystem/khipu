@@ -42,7 +42,8 @@
       "olvidaste": "¿Olvidaste tu contraseña?",
       "sinCuenta": "¿No tienes cuenta?",
       "crearCuenta": "Crea una",
-      "soloPorInvitacion": "Acceso por invitación mientras dura la beta."
+      "soloPorInvitacion": "Acceso por invitación mientras dura la beta.",
+      "motivoInactividad": "Cerramos tu sesión por inactividad. Vuelve a ingresar."
     },
     "registro": {
       "titulo": "Crea tu cuenta",
@@ -1681,6 +1682,14 @@
     "reenviadaSinCorreo": "Generamos un enlace nuevo, pero el correo no salió. Inténtalo de nuevo en unos minutos.",
     "resumenUsuarios": "{activos} activos · {total} en total",
     "pendientes": "{n} pendientes"
+  },
+  "sesion": {
+    "inactividad": {
+      "titulo": "Tu sesión está por cerrarse",
+      "cuerpo": "Por seguridad, cerraremos tu sesión en {segundos} s por inactividad.",
+      "seguir": "Seguir conectado",
+      "salir": "Cerrar sesión"
+    }
   },
   "soporte": {
     "soloLectura": "Modo soporte: solo se puede mirar, no cambiar nada.",
