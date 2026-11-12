@@ -10,6 +10,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.mockito.Mockito;
+import pe.factura.application.port.out.SesionRepository;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,6 +43,8 @@ class ReusoDeRefreshE2ETest {
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcTemplate jdbc;
+    /** El repositorio real, espiado solo para meter una revocación entre la lectura de una sesión y su rotación (la carrera de {@code rotar}). */
+    @MockitoSpyBean SesionRepository sesiones;
 
     @BeforeEach void limpiar() {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
@@ -95,6 +100,59 @@ class ReusoDeRefreshE2ETest {
         assertThat(salida.getAll()).contains("usuario=" + usuario, "familia=" + familia);
         for (String secreto : new String[]{a, b, c, TokenOpaco.hash(a), TokenOpaco.hash(b), TokenOpaco.hash(c)})
             assertThat(salida.getAll()).as("el log no lleva el refresh ni su hash").doesNotContain(secreto);
+
+        // Lo que ve el usuario: la revocación no lo deja afuera. Vuelve a entrar con su contraseña y obtiene una familia nueva.
+        jdbc.update("UPDATE usuario SET correo_verificado_at = now()");
+        ResponseEntity<Map> login = http.postForEntity("/v1/auth/login", new HttpEntity<>("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}", json()), Map.class);
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String nuevo = refreshDe(login);
+        assertThat(refrescar(nuevo).getStatusCode()).as("el refresh del login nuevo sirve").isEqualTo(HttpStatus.OK);
+        UUID familiaNueva = jdbc.queryForObject("SELECT familia_id FROM sesion WHERE refresh_hash = ?", UUID.class, TokenOpaco.hash(nuevo));
+        assertThat(familiaNueva).as("una familia distinta de la revocada").isNotNull().isNotEqualTo(familia);
+    }
+
+    /**
+     * #635 + #611: la fila raíz de la familia ya la borró la limpieza. El reuso de una rama rotada que todavía existe revoca igual la familia completa, incluida
+     * la otra rama que abrió la gracia, porque la familia se revoca por su id y no recorriéndola desde la raíz.
+     */
+    @Test void conLaFilaRaizPurgadaElReusoRevocaLaFamiliaCompletaIncluidaLaOtraRama(CapturedOutput salida) {
+        String raiz = refreshDe(registrar());
+        String ramaA = refreshDe(refrescar(raiz));
+        String ramaB = refreshDe(refrescar(raiz));   // la segunda, en gracia: abre otra rama de la misma familia
+        String c = refreshDe(refrescar(ramaA));
+        jdbc.update("DELETE FROM sesion WHERE refresh_hash = ?", TokenOpaco.hash(raiz));
+        vencerLaGracia(ramaA);
+        assertThat(abiertas()).as("ramaB y c siguen abiertas").isEqualTo(2);
+
+        assertSesionInvalida(refrescar(ramaA));
+
+        assertThat(abiertas()).as("la otra rama y la que sigue a la reutilizada también murieron").isZero();
+        assertSesionInvalida(refrescar(ramaB));
+        assertSesionInvalida(refrescar(c));
+        assertThat(avisos(salida)).isEqualTo(1);
+    }
+
+    /**
+     * La carrera que cierra {@code rotar} condicional, con el servicio, el {@code UnitOfWork} y el repositorio reales: un logout (o la revocación por reuso)
+     * se confirma entre la lectura de la sesión y su rotación. El refresh se rechaza y la sesión nueva que {@code emitirSesion} ya había insertado se deshace
+     * con la transacción: no queda ninguna sesión viva de una familia cerrada.
+     */
+    @Test void siElLogoutLlegaEntreLaLecturaYLaRotacionLaSesionNuevaSeDeshace() {
+        String a = refreshDe(registrar());
+        boolean[] armada = {true};
+        Mockito.doAnswer(llamada -> {
+            Object leida = llamada.callRealMethod();
+            if (armada[0]) {
+                armada[0] = false;
+                jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL");   // lo que hace el logout
+            }
+            return leida;
+        }).when(sesiones).buscarPorRefreshHash(Mockito.anyString());
+
+        assertSesionInvalida(refrescar(a));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM sesion", Integer.class)).as("la sesión nueva se deshizo: solo queda la original").isEqualTo(1);
+        assertThat(abiertas()).as("ninguna sesión viva después del logout").isZero();
     }
 
     @Test void despuesDeCerrarSesionPresentarElRefreshViejoNoAvisa(CapturedOutput salida) {

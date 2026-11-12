@@ -598,6 +598,23 @@ class AutenticarUsuarioServiceTest {
         assertThat(sesionesMap.get(TokenOpaco.hash(a.refresh())).revocada()).isTrue();
     }
 
+    /**
+     * #635 + #611: con la fila raíz ya purgada, presentar una rama rotada fuera de la gracia revoca igual toda la familia, incluida la otra rama que abrió la
+     * gracia. Depende de que la familia se revoque por su id y no recorriendo la cadena desde la raíz.
+     */
+    @Test void conLaFilaRaizPurgadaElReusoRevocaLaFamiliaCompletaIncluidaLaOtraRama() {
+        Tokens raiz = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens ramaA = service.refrescar(raiz.refresh());
+        Tokens ramaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(raiz.refresh());   // en gracia: abre la otra rama
+        Tokens c = service.refrescar(ramaA.refresh());
+        sesionesMap.remove(TokenOpaco.hash(raiz.refresh()));   // la limpieza de #611 ya borró la raíz
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(ramaA.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(ramaB)).as("la otra rama").isFalse();
+        assertThat(viva(c)).as("la rama que sigue a la reutilizada").isFalse();
+    }
+
     private static final Duration GRACIA_MAS_UNO = AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1);
 
     /**
