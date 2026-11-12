@@ -18,8 +18,9 @@
 # Sin filtro de ramas base: las PR apiladas (gh stack) tienen como base otra rama feat/*, no develop ni main.
 #
 # Caché de Gradle: setup-gradle solo la escribe en la rama predeterminada (main), así que una PR solo la leería. `cache-read-only: false` hace que cada
-# PR escriba la suya en su ref y la reuse en el siguiente push (la primera corrida de una PR es la lenta). Si algún día se corre también en `push`,
-# el grupo de concurrency no debe cancelar esas corridas (por ejemplo `ci-${{ github.event.pull_request.number || github.sha }}`).
+# PR escriba la suya en su ref y la reuse en el siguiente push (la primera corrida de una PR es la lenta).
+# Medido en la primera corrida real (PR #655, sin caché): backend 18 min 24 s, portal 5 min 28 s. Si el backend pasara de ~30 min, avisar al dueño.
+# Si algún día se corre también en `push`, el grupo de concurrency no debe cancelar esas corridas (por ejemplo `ci-${{ github.event.pull_request.number || github.sha }}`).
 name: CI
 
 on:
