@@ -92,6 +92,15 @@ class InactividadDeSesionE2ETest {
         assertThat(salida.getAll()).contains("usuario=" + usuario, "familia=" + familia);
         for (String secreto : new String[]{a, b, c, TokenOpaco.hash(a), TokenOpaco.hash(b), TokenOpaco.hash(c)})
             assertThat(salida.getAll()).as("el log no lleva el refresh ni su hash").doesNotContain(secreto);
+
+        // Lo que ve el usuario: el corte no lo deja afuera. Vuelve a entrar con su contraseña y obtiene una familia nueva.
+        jdbc.update("UPDATE usuario SET correo_verificado_at = now()");
+        ResponseEntity<Map> login = http.postForEntity("/v1/auth/login", new HttpEntity<>("{\"email\":\"ana@negocio.pe\",\"password\":\"Segura123\"}", json()), Map.class);
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String nuevo = refreshDe(login);
+        assertThat(refrescar(nuevo).getStatusCode()).as("el refresh del login nuevo sirve").isEqualTo(HttpStatus.OK);
+        UUID familiaNueva = jdbc.queryForObject("SELECT familia_id FROM sesion WHERE refresh_hash = ?", UUID.class, TokenOpaco.hash(nuevo));
+        assertThat(familiaNueva).as("una familia distinta de la que cortó el servidor").isNotNull().isNotEqualTo(familia);
     }
 
     @Test void antesDelCorteElRefreshRota(CapturedOutput salida) {
