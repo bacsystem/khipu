@@ -2,7 +2,7 @@ import type { NextResponse } from "next/server";
 import { errorSinMensaje } from "./http";
 import type { ApiEnvelope } from "./types";
 
-export const CODIGO_JSON_INVALIDO = "JSON_INVALIDO";
+const CODIGO_JSON_INVALIDO = "JSON_INVALIDO";
 
 type CuerpoLeido<T> = { cuerpo: T } | { error: NextResponse<ApiEnvelope<null>> };
 
