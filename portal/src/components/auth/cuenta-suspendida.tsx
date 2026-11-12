@@ -3,6 +3,7 @@
 import { SignOutIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { reiniciarMarcas } from "@/lib/sesion/inactividad";
 import { useMessages } from "next-intl";
 
 /**
@@ -15,6 +16,7 @@ export function CuentaSuspendida() {
 
   async function cerrarSesion() {
     setSaliendo(true);
+    reiniciarMarcas(); // #637: la próxima sesión no hereda la inactividad de esta
     // Un corte de red no debe dejar el botón colgado: la sesión se limpia del lado del servidor, y si no llegó, el login se muestra igual.
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.assign("/login");

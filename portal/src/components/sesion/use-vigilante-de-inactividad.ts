@@ -7,6 +7,7 @@ import {
   CLAVE_ULTIMA_ACTIVIDAD,
   CLAVE_ULTIMO_KEEP_ALIVE,
   crearVigilante,
+  reiniciarMarcas,
   type Decision,
   type Vigilante,
 } from "@/lib/sesion/inactividad";
@@ -60,6 +61,7 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
       if (cerrando) return;
       cerrando = true;
       clearTimeout(temporizador);
+      reiniciarMarcas(almacen); // la sesión siguiente empieza de cero (también la ve cualquier otra pestaña)
       canal?.postMessage(aviso);
       void fetch("/api/auth/logout", { method: "POST" })
         .catch(() => undefined)

@@ -42,7 +42,8 @@
       "olvidaste": "¿Olvidaste tu contraseña?",
       "sinCuenta": "¿No tienes cuenta?",
       "crearCuenta": "Crea una",
-      "soloPorInvitacion": "Acceso por invitación mientras dura la beta."
+      "soloPorInvitacion": "Acceso por invitación mientras dura la beta.",
+      "motivoInactividad": "Cerramos tu sesión por inactividad. Vuelve a ingresar."
     },
     "registro": {
       "titulo": "Crea tu cuenta",

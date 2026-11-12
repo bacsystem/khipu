@@ -25,6 +25,8 @@ const BASE = [
   "onboarding",
   "paginaDeError",
   "roles",
+  // El aviso de inactividad (#637) también va en el onboarding, que no cuelga de `(privado)` aunque su sesión esté viva.
+  "sesion",
   "soporte",
   "validacion",
 ] as const satisfies readonly Namespace[];
@@ -53,7 +55,6 @@ export const TEXTOS_DE_CLIENTE = {
     "referenciaTecnica",
     "resumenDePlan",
     "series",
-    "sesion",
     "webhooks",
   ],
   /** El backoffice, `/admin` (su login incluido). */

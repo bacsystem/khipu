@@ -3,13 +3,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE } from "@/lib/sesion/inactividad";
 
 const push = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
+const consulta = vi.hoisted(() => ({ actual: "" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }), useSearchParams: () => new URLSearchParams(consulta.actual) }));
 
+import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { LoginForm } from "./login-form";
 
 afterEach(() => {
   cleanup();
   push.mockClear();
+  consulta.actual = "";
   window.localStorage.clear();
   vi.unstubAllGlobals();
 });
@@ -48,5 +51,37 @@ describe("LoginForm: la inactividad de la sesión anterior (#637)", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBe("1");
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+/** #637: el portal cierra la sesión por inactividad y lleva a `/login?motivo=inactividad`; el login lo explica, sin repetir lo que dice la URL. */
+describe("LoginForm: el motivo del cierre (#637)", () => {
+  it("con ?motivo=inactividad avisa en español que se cerró la sesión por inactividad", () => {
+    consulta.actual = "motivo=inactividad";
+    render(<LoginForm />);
+
+    expect(screen.getByText("Cerramos tu sesión por inactividad. Vuelve a ingresar.")).toBeInTheDocument();
+  });
+
+  it("y en inglés con el locale en inglés", () => {
+    fijarLocaleDePrueba("en");
+    consulta.actual = "motivo=inactividad";
+    render(<LoginForm />);
+
+    expect(screen.getByText("We signed you out due to inactivity. Please sign in again.")).toBeInTheDocument();
+  });
+
+  it("sin motivo no hay aviso", () => {
+    render(<LoginForm />);
+
+    expect(screen.queryByText(/inactividad/)).toBeNull();
+  });
+
+  it("otro valor de motivo no se muestra: el login solo compara con el literal y nunca refleja la URL", () => {
+    consulta.actual = "motivo=%3Cb%3Ehackeado%3C%2Fb%3E";
+    const { container } = render(<LoginForm />);
+
+    expect(container.textContent).not.toContain("hackeado");
+    expect(screen.queryByText(/inactividad/)).toBeNull();
   });
 });

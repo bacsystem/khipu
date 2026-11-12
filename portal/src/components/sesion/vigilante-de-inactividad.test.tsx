@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
-import { AVISO_ANTES_MS, CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE, MINUTO_MS, VENTANA_KEEP_ALIVE_MS } from "@/lib/sesion/inactividad";
+import { AVISO_ANTES_MS, CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE, MINUTO_MS, reiniciarMarcas, VENTANA_KEEP_ALIVE_MS } from "@/lib/sesion/inactividad";
 import { VigilanteDeInactividad } from "./vigilante-de-inactividad";
 
 const N = 30;
@@ -61,6 +61,9 @@ describe("VigilanteDeInactividad", () => {
     await avanzar(SEGUNDO);
     expect(llamadas).toContain("/api/auth/logout");
     expect(irA).toHaveBeenCalledWith("/login?motivo=inactividad");
+    // La sesión siguiente empieza de cero.
+    expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBeNull();
+    expect(window.localStorage.getItem(CLAVE_ULTIMO_KEEP_ALIVE)).toBeNull();
   });
 
   it("una tecla o un clic reinicia el contador", async () => {
@@ -184,6 +187,8 @@ describe("VigilanteDeInactividad", () => {
 
       expect(llamadas).toContain("/api/auth/logout");
       expect(irA).toHaveBeenCalledWith("/login");
+      expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBeNull();
+      expect(window.localStorage.getItem(CLAVE_ULTIMO_KEEP_ALIVE)).toBeNull();
     });
 
     it("con el aviso abierto, un clic en la página no lo salva: solo sus botones", async () => {
@@ -324,6 +329,20 @@ describe("VigilanteDeInactividad", () => {
       await act(async () => void window.dispatchEvent(new Event("pageshow")));
 
       expect(irA).toHaveBeenCalledWith("/login?motivo=inactividad");
+    });
+
+    it("marca de ayer, login y luego montar: no expulsa", async () => {
+      const AYER = T0 - 24 * 60 * MINUTO_MS;
+      window.localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, String(AYER));
+      window.localStorage.setItem(CLAVE_ULTIMO_KEEP_ALIVE, String(AYER));
+
+      reiniciarMarcas(); // lo que hace el login (y el registro) al responder bien, antes de navegar al panel
+      montar();
+      await avanzar(SEGUNDO);
+
+      expect(irA).not.toHaveBeenCalled();
+      expect(llamadas).toEqual([]);
+      expect(aviso()).toBeNull();
     });
 
     it("al montarse con una marca vencida cierra: es tiempo de pared, no se perdona", async () => {

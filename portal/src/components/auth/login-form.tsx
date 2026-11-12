@@ -51,6 +51,8 @@ export function LoginForm() {
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+      {/* #637: el portal cerró la sesión por inactividad. El valor de `motivo` solo se compara con un literal; nunca se muestra. */}
+      {params.get("motivo") === "inactividad" ? <Alerta tono="info">{messages.auth.login.motivoInactividad}</Alerta> : null}
       <FormField
         id="email"
         label={messages.auth.login.email}

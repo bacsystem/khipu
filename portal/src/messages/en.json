@@ -42,7 +42,8 @@
       "olvidaste": "Forgot your password?",
       "sinCuenta": "Don’t have an account?",
       "crearCuenta": "Create one",
-      "soloPorInvitacion": "Access is by invitation while the beta lasts."
+      "soloPorInvitacion": "Access is by invitation while the beta lasts.",
+      "motivoInactividad": "We signed you out due to inactivity. Please sign in again."
     },
     "registro": {
       "titulo": "Create your account",
