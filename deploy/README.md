@@ -1154,3 +1154,4 @@ La constancia de quién aceptó qué y cuándo se consulta en la base:
 ```sql
 SELECT u.email, a.version, a.aceptada_at FROM aceptacion_terminos a JOIN usuario u ON u.id = a.usuario_id ORDER BY a.aceptada_at DESC;
 ```
+<!-- ejemplo de PR de #650 (solo docs): no mergear, se cierra -->
