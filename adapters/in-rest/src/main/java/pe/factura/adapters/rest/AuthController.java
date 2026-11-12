@@ -25,14 +25,17 @@ public class AuthController {
     private final String portalUrl;
     private final boolean registroAbierto;
     private final IpDelCliente ip;
+    private final int sesionInactividadMinutos;
 
     public AuthController(AutenticarUsuarioUseCase auth, AceptarTerminosUseCase terminos, @Value("${app.portal-url}") String portalUrl,
-                           @Value("${app.registro-abierto:false}") boolean registroAbierto, IpDelCliente ip) {
+                           @Value("${app.registro-abierto:false}") boolean registroAbierto, IpDelCliente ip,
+                           @Value("${app.sesion-inactividad-minutos}") int sesionInactividadMinutos) {
         this.auth = auth;
         this.terminos = terminos;
         this.portalUrl = portalUrl;
         this.registroAbierto = registroAbierto;
         this.ip = ip;
+        this.sesionInactividadMinutos = sesionInactividadMinutos;
     }
 
     /**
@@ -77,10 +80,12 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Usuario de la sesión", description = "Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.")
+    @Operation(summary = "Usuario de la sesión", description = """
+            Correo, rol y cuenta del usuario autenticado por JWT, si le falta aceptar los términos vigentes y, en una sesión normal, tras cuántos minutos
+            sin renovarla la corta el servidor (`sesion_inactividad_minutos`, `0` si el corte está desactivado).""")
     public ApiResponse<UsuarioResponse> me(HttpServletRequest req) {
         var usuario = auth.me(UsuarioActual.id(req));
-        return ApiResponse.ok(UsuarioResponse.de(usuario, terminos.pendiente(usuario.id()), SoporteActual.de(req).orElse(null)));
+        return ApiResponse.ok(UsuarioResponse.de(usuario, terminos.pendiente(usuario.id()), SoporteActual.de(req).orElse(null), sesionInactividadMinutos));
     }
 
     /**

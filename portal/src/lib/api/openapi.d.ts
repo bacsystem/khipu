@@ -2978,7 +2978,8 @@ export interface paths {
         };
         /**
          * Usuario de la sesión
-         * @description Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.
+         * @description Correo, rol y cuenta del usuario autenticado por JWT, si le falta aceptar los términos vigentes y, en una sesión normal, tras cuántos minutos
+         *     sin renovarla la corta el servidor (`sesion_inactividad_minutos`, `0` si el corte está desactivado).
          */
         get: operations["me"];
         put?: never;
@@ -7394,6 +7395,12 @@ export interface components {
              * @example 2026-10-04T12:15:00Z
              */
             soporte_hasta?: string;
+            /**
+             * Format: int32
+             * @description Minutos sin renovar la sesión tras los cuales el servidor la corta (#638): `0` si el corte está desactivado, o de 15 a 480. El corte real llega hasta ese valor más 15 min, la vida del access token. El portal lo usa para avisar antes del cierre. Solo en `GET /v1/auth/me` de una sesión normal: ausente en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh, el registro y la sesión de soporte.
+             * @example 30
+             */
+            sesion_inactividad_minutos?: number;
         };
         RefreshRequest: {
             /** @example eyJhbGciOiJIUzI1NiJ9... */

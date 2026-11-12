@@ -118,6 +118,17 @@ public class AppConfig {
     }
 
     /**
+     * Cuánto puede pasar un usuario del portal sin renovar su sesión antes de que el servidor la corte (#638, la regla de corte es #636): 0 la desactiva
+     * y, si no, entre 15 y 480 minutos. Por debajo de 15 el access (15 min) vence antes de que el portal alcance a avisar; por encima de 8 horas deja de
+     * ser un corte por inactividad. Fuera de rango aborta el arranque, en vez de dejar pasar una sesión eterna por un cero de más.
+     */
+    static Duration inactividadDeSesion(int minutos) {
+        if (minutos != 0 && (minutos < 15 || minutos > 480))
+            throw new IllegalStateException("SESION_INACTIVIDAD_MINUTOS debe ser 0 (desactivado) o estar entre 15 y 480 (es " + minutos + ")");
+        return Duration.ofMinutes(minutos);
+    }
+
+    /**
      * Cuánto se conserva una sesión de refresh, un enlace de recuperación o uno de verificación después de vencer (#611, #634): entre 1 y 90 días. Sirve
      * para investigar un reclamo mirando la familia completa o el correo que el usuario dice no haber pedido y, a la vez, minimiza los datos guardados;
      * un 0 borraría al instante lo que el soporte aún necesita, y un valor enorme dejaría crecer las tablas, así que fuera de rango aborta el arranque.
@@ -534,6 +545,14 @@ public class AppConfig {
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
     @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
+    /** Valida el valor al arrancar aunque nadie lo consuma todavía, y es el que usa la regla de corte de #636. */
+    @Bean Duration sesionInactividad(@Value("${app.sesion-inactividad-minutos}") int minutos) {
+        Duration inactividad = inactividadDeSesion(minutos);
+        if (inactividad.isZero())
+            LoggerFactory.getLogger(AppConfig.class).warn("Corte de sesión por inactividad desactivado (SESION_INACTIVIDAD_MINUTOS=0)");
+        return inactividad;
+    }
+
     @Bean AdministradorTokenEmisor administradorTokenEmisor(AppProperties p, @Value("${app.admin-sesion-minutos:30}") int minutos) {
         return new JwtAdministradorTokenEmisor(p.jwtSecret(), vidaSesionAdmin(minutos));
     }
