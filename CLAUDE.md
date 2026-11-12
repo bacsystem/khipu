@@ -64,6 +64,21 @@ The `git-flow` skill detects `develop` automatically and uses it as the PR base 
 
 Closing keywords (`Closes #N`, `Cierra #N`) only auto-close an issue when the PR merges into the **default branch** (`main`). A PR merged into `develop` leaves its issue open until the release PR reaches `main` — close it by hand if it shouldn't wait for the release.
 
+### Every PR goes through `/pr-review`
+
+**Rule: right after a PR is opened, run `/pr-review <number>` on it**, with no exceptions: code, docs, config, a one-line change or a PR you opened yourself. Do not tell the user a PR is ready, or ask them to merge it, before that review is clean. Working alone, you review and fix. With the agent team (see «Equipo de agentes»), the loop is:
+
+1. The developer opens the PR and asks the tech-lead for a review.
+2. The tech-lead runs `/pr-review <number> --comment` and **publishes every report (review and re-review) as a comment on the GitHub PR**. This rule is the owner's standing consent to post reviews on this repo's PRs, so no confirmation is asked per comment.
+3. The tech-lead messages the developer who owns the PR with the PR link and the finding IDs. The tech-lead does not fix them.
+4. The developer fixes every finding in the same branch, answers each one, and **asks the tech-lead for a re-review** once all of them are fixed. The tech-lead does not re-review on its own initiative.
+5. Repeat from 2 until the verdict is clean. Only then does the tech-lead tell the user the PR is ready to merge.
+
+- Fix every finding (MENOR included) in the same branch, right away and without asking for permission, then the review runs again until the verdict is APROBADO with no findings (in the team, the tech-lead runs it when the developer asks, never the developer on their own PR). Out-of-scope follow-ups are not fixed there: open an issue for them.
+- Report the findings, how each was fixed and the final verdict, and list the PRs left open and ready to merge (number and link), in merge order.
+- A PR still open without review gets reviewed as soon as it is noticed, and its findings are fixed in its own branch like any other. A PR already merged without review gets reviewed afterwards, and its findings go in a follow-up PR.
+- If the `/pr-review` skill is not available in the session, stop and say so; do not replace it with a manual review.
+
 ### Pull requests: stacked, via `gh stack`
 
 Work that spans several PRs is stacked, not chained by hand. GitHub's official extension manages it (`gh extension install github/gh-stack` — per machine, not a repo dependency):
