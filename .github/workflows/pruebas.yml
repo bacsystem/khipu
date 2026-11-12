@@ -1,6 +1,7 @@
-# La suite completa, solo a pedido (Actions → «Pruebas» → Run workflow). Nació para correr en cada PR (CAL-02, auditoría 2026-10-22), pero las pruebas se
-# corren en local antes de cada PR y de cada release, y en el runner compartido tardaban más de 40 minutos por corrida: CI solo construye y despliega
-# (imagenes.yml). Sirve para correr la suite en un entorno limpio cuando haga falta.
+# La suite completa, solo a pedido (Actions → «Pruebas» → Run workflow). Nació para correr en cada PR (CAL-02, auditoría 2026-10-22) y se sacó de ahí porque
+# con los e2e de Playwright tardaba más de 40 minutos por corrida. Lo que corre en cada PR es ci.yml (backend y portal sin Playwright ni `npm run audit`, con
+# filtro por rutas, #650); este workflow agrega lo que ci.yml deja fuera (e2e de Playwright y `npm run audit`) y sirve para correr todo en un entorno
+# limpio cuando haga falta (p. ej. los e2e, una vez antes de cada release). El despliegue es aparte (imagenes.yml).
 # - backend: toda la suite de Gradle (Testcontainers levanta Postgres y MinIO con el Docker del runner), con --continue para ver todos los fallos de una vez.
 # - portal: npm ci (el design system es un paquete git público, sin secretos), typecheck, lint, Vitest, npm audit de producción y los e2e de Playwright con un
 #   solo worker (el dev server con mocks en memoria no es estable con varios; retries: 2 en CI ya lo cubre el playwright.config).

@@ -77,9 +77,12 @@ Agregar un texto: la clave en `es.json` y en `en.json` (si falta en `en`, `parid
 
 ## Integración continua y vulnerabilidades (CAL-02)
 
-`.github/workflows/pruebas.yml` corre **solo a pedido** (Actions → «Pruebas» → *Run workflow*; las pruebas se corren en local antes de cada PR y de cada release, y CI solo construye y despliega) dos jobs: **Pruebas / backend**
-(`./gradlew test --continue`, con Testcontainers) y **Pruebas / portal** (`npm ci`, `typecheck`, `lint`, Vitest, `npm run audit` y los e2e de Playwright con
-un solo worker). Dependabot (`.github/dependabot.yml`) abre una PR semanal por ecosistema (Gradle, npm, GitHub Actions y los Dockerfiles del portal, el backend y el respaldo), con las
+`.github/workflows/ci.yml` corre **en cada PR** (#650) el job **CI / portal** (`npm ci`, `typecheck`, `lint` y Vitest, lo mismo que se corre en local) solo si la PR toca
+`portal/`, y **CI / backend** (`./gradlew test --continue`, con Testcontainers) solo si toca el backend o un archivo del portal que las pruebas de Gradle leen
+(`openapi.json`, `content/legal/version.ts`, `components/developers/guia/casos-emision.ts`); el check requerido es el agregador `ci`. No corre `npm run audit` ni los
+e2e de Playwright. `.github/workflows/pruebas.yml` los corre **a pedido** (Actions → «Pruebas» → *Run workflow*; el e2e, una vez antes de cada release), junto con el
+resto de la suite, en dos jobs: **Pruebas / backend** (`./gradlew test --continue`) y **Pruebas / portal** (`npm ci`, `typecheck`, `lint`, Vitest, `npm run audit` y los e2e de
+Playwright con un solo worker). El despliegue es aparte (el tag, `imagenes.yml`). Dependabot (`.github/dependabot.yml`) abre una PR semanal por ecosistema (Gradle, npm, GitHub Actions y los Dockerfiles del portal, el backend y el respaldo), con las
 actualizaciones menores agrupadas.
 
 `npm run audit` (`scripts/auditar-dependencias.mjs`) falla con cualquier aviso high/critical de las dependencias de producción, salvo los que

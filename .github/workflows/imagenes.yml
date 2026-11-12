@@ -5,7 +5,8 @@
 # tag vX.Y.Z (en main) → imágenes :X.Y.Z, :X.Y, :latest y :sha-<corto> → redespliegue de backend y portal en Railway (producción sigue :latest)
 # workflow_dispatch eligiendo el tag → lo mismo (repetir un release que falló); sobre una rama se corta en el job «release» sin publicar
 #
-# CI no corre la suite: las pruebas se corren en local antes del release (pruebas.yml queda solo a pedido). Un merge a develop o a main no dispara nada.
+# Este workflow no corre pruebas: las corre ci.yml en cada PR (backend y portal, con filtro por rutas) y pruebas.yml a pedido (e2e de Playwright y `npm run audit`,
+# una vez antes del release). Un merge a develop o a main no dispara nada de aquí.
 #
 # Imágenes: cbaciliod/khipu-backend (deploy/backend/Dockerfile, contexto la raíz), cbaciliod/khipu-portal (portal/Dockerfile) y cbaciliod/khipu-respaldo
 # (deploy/respaldo, el cron de pg_dump de deploy/README.md §8). Solo linux/amd64: el bootJar bajo QEMU para arm64 tardaría varias veces más.

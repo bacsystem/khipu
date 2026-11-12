@@ -1,4 +1,4 @@
-# Suite de homologación contra e-beta (#32), solo bajo demanda (antes corría cada noche; CI no gasta minutos en pruebas automáticas, ver pruebas.yml). Emite los escenarios de factura con el flujo
+# Suite de homologación contra e-beta (#32), solo bajo demanda (antes corría cada noche; no corre en las PR: ci.yml corre solo backend y portal, sin la suite contra e-beta). Emite los escenarios de factura con el flujo
 # completo (API → firma → XSD → SOAP) y exige CDR 0 sin observaciones; XML y CDR quedan como artifact (evidencia SUNAT).
 name: Homologación e-beta
 
