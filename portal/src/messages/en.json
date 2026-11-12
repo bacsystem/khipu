@@ -1060,7 +1060,7 @@
           "None of its users will be able to sign in to the portal, even with a session already open.",
           "None of its companies will be able to issue or query through the API: their API keys will respond “account suspended”.",
           "Documents already issued will keep being sent to SUNAT: stopping them would put them past the deadline.",
-          "Reactivating the account restores everything as it was, with the same sessions and API keys."
+          "Reactivating the account restores everything as it was, with the same API keys. Its users may need to sign in again."
         ],
         "motivo": "Reason (optional)",
         "motivoAyuda": "Saved in the audit log. Up to 200 characters; never write passwords or API keys.",

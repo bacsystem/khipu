@@ -1060,7 +1060,7 @@
           "Ninguno de sus usuarios podrá entrar al portal, ni siquiera con una sesión ya abierta.",
           "Ninguna de sus empresas podrá emitir ni consultar por API: sus API keys responderán «cuenta suspendida».",
           "Los comprobantes que ya se emitieron seguirán enviándose a SUNAT: cortarlos los dejaría fuera de plazo.",
-          "Reactivar la cuenta lo devuelve todo a como estaba, con las mismas sesiones y API keys."
+          "Reactivar la cuenta lo devuelve todo a como estaba, con las mismas API keys. Sus usuarios quizá deban volver a iniciar sesión."
         ],
         "motivo": "Motivo (opcional)",
         "motivoAyuda": "Queda en la bitácora de auditoría. Hasta 200 caracteres; nunca escribas contraseñas ni API keys.",
