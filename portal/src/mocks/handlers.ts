@@ -108,6 +108,8 @@ const CODIGOS_RECUPERACION_MOCK = [
 
 // Debe coincidir con la URL que usa el server del portal (client.ts); si no, MSW no intercepta y las peticiones van al backend real.
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8001";
+/** El N que el backend (#636) informa en `/me`; 0 desactivaría el corte. */
+const SESION_INACTIVIDAD_MINUTOS = 30;
 
 /**
  * La cola de errores del mock (#196). Los comprobantes que solo se leen (empresas 4, 7 y 101, y los terminales de las empresas 1 y 2) nunca cambian; los que se reintentan o se
@@ -1660,7 +1662,9 @@ export const handlers = [
     // Solo del mock: el mundo de clientes es otro, así que el token de soporte lleva el correo y la cuenta (del backoffice) del usuario al que se mira, para que el
     // aviso diga a quién y el enlace de salida lleve a la cuenta correcta. El backend real devuelve el usuario y la cuenta reales.
     const usuario = usuarioDeSesion(registro.usuario);
-    return ok(c.imp && c.exp ? { ...usuario, email: c.ue ?? usuario.email, cuenta_id: c.cx ?? usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() } : usuario);
+    if (c.imp && c.exp) return ok({ ...usuario, email: c.ue ?? usuario.email, cuenta_id: c.cx ?? usuario.cuenta_id, soporte_hasta: new Date(c.exp * 1000).toISOString() });
+    // El N de #636 solo viene en /me y no en una sesión de soporte. 30 min (el default del backend): los e2e no llegan a su aviso.
+    return ok({ ...usuario, sesion_inactividad_minutos: SESION_INACTIVIDAD_MINUTOS });
   }),
 
   // Aceptar la versión vigente de los términos (#342). Como el backend: es de la propia sesión, y una sesión de soporte no escribe nada.
