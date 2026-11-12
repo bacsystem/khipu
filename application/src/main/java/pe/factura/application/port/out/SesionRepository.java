@@ -33,8 +33,12 @@ public interface SesionRepository {
     void revocarFamilia(UUID familia);
     /** Como {@link #revocar} para todas las sesiones del usuario. */
     void revocarTodas(UUID usuarioId);
-    /** Cierra la sesión porque un refresh la reemplazó por {@code nueva}. Si ya estaba rotada, conserva la primera rotación. */
-    void rotar(UUID id, UUID nueva, Instant en);
+    /**
+     * Cierra la sesión porque un refresh la reemplazó por {@code nueva}. Si ya estaba rotada, conserva la primera rotación.
+     * Devuelve {@code false}, sin tocar nada, si la sesión quedó revocada por otro motivo (logout, restablecer la contraseña, reuso) sin haber sido
+     * rotada: no hay nada que rotar y quien llama debe rechazar el refresh.
+     */
+    boolean rotar(UUID id, UUID nueva, Instant en);
 
     record TokenRecuperacion(String tokenHash, UUID usuarioId, Instant expiraEn, boolean usado) {}
     void crearRecuperacion(TokenRecuperacion t);

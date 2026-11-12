@@ -40,18 +40,27 @@ class AutenticarUsuarioServiceTest {
     };
     Map<String, SesionRepository.Sesion> sesionesMap = new HashMap<>();
     Map<String, SesionRepository.TokenRecuperacion> recMap = new HashMap<>();
+    /** Se ejecuta una vez, justo después de la próxima lectura de una sesión por su refresh: simula otra petición que llega entre la lectura y la rotación. */
+    Runnable despuesDeLeer;
     SesionRepository sesiones = new SesionRepository() {
         public void crear(Sesion s) { sesionesMap.put(s.refreshHash(), s); }
-        public Optional<Sesion> buscarPorRefreshHash(String h) { return Optional.ofNullable(sesionesMap.get(h)); }
+        public Optional<Sesion> buscarPorRefreshHash(String h) {
+            Optional<Sesion> leida = Optional.ofNullable(sesionesMap.get(h));
+            if (despuesDeLeer != null) { Runnable otraPeticion = despuesDeLeer; despuesDeLeer = null; otraPeticion.run(); }   // la carrera: algo ocurre tras la lectura
+            return leida;
+        }
         public Optional<Sesion> buscar(UUID id) { return sesionesMap.values().stream().filter(s -> s.id().equals(id)).findFirst(); }
         /** Como el JDBC: revocar borra las marcas de rotación (sin gracia) y conserva la familia. */
         Sesion revocada(Sesion s) { return new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true, null, null, s.familia()); }
         public void revocar(UUID id) { sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? revocada(s) : s); }
         public void revocarFamilia(UUID f) { sesionesMap.replaceAll((k, s) -> s.familia().equals(f) ? revocada(s) : s); }
         public void revocarTodas(UUID u) { sesionesMap.replaceAll((k, s) -> s.usuarioId().equals(u) ? revocada(s) : s); }
-        public void rotar(UUID id, UUID nueva, java.time.Instant en) {
-            sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
-                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor(), s.familia()) : s);
+        /** Como el JDBC: no rota una sesión revocada sin rotación previa (logout, restablecer, reuso) y devuelve si la rotó. */
+        public boolean rotar(UUID id, UUID nueva, java.time.Instant en) {
+            Optional<Sesion> actual = buscar(id).filter(s -> !s.revocada() || s.rotadaEn() != null);
+            actual.ifPresent(s -> sesionesMap.put(s.refreshHash(), new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
+                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor(), s.familia())));
+            return actual.isPresent();
         }
         public void crearRecuperacion(TokenRecuperacion t) { recMap.put(t.tokenHash(), t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.ofNullable(recMap.get(h)); }
@@ -500,6 +509,113 @@ class AutenticarUsuarioServiceTest {
         service.logout(t2.refresh());
         assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
+
+    // --- #635: un refresh ya usado, presentado fuera de la gracia, revoca la familia ---------------------------------------------------
+
+    private AutenticarUsuarioService pasados(Duration segundos) { return conReloj(Clock.offset(clock, segundos)); }
+
+    private boolean viva(Tokens t) { return !sesionesMap.get(TokenOpaco.hash(t.refresh())).revocada(); }
+
+    /** El escenario del issue: A→B, el atacante rota B→C con el token robado, la víctima presenta B pasada la gracia: C también muere. */
+    @Test void reusarUnRefreshRotadoFueraDeLaGraciaRevocaLaFamiliaEntera() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+        Tokens c = pasados(GRACIA_MAS_UNO).refrescar(b.refresh());   // el atacante, con B
+        assertThat(viva(c)).isTrue();
+
+        // La víctima presenta B 31 s después de que el atacante lo rotó.
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO.multipliedBy(2)).refrescar(b.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(c)).as("la rama del atacante").isFalse();
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO.multipliedBy(2)).refrescar(c.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    @Test void elReusoNoTocaOtraFamiliaDelMismoUsuario() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens celular = service.login("a@b.pe", "Segura123", null);
+        service.refrescar(a.refresh());
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(celular)).as("otro login, otra familia").isTrue();
+    }
+
+    /** Dentro de la gracia no es un reuso: es la segunda petición del mismo navegador y no revoca nada. */
+    @Test void dentroDeLaGraciaNoRevocaNada() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+
+        Tokens rama = pasados(Duration.ofSeconds(5)).refrescar(a.refresh());
+
+        assertThat(viva(b)).isTrue();
+        assertThat(viva(rama)).isTrue();
+    }
+
+    /** Un refresh cerrado por logout, restablecer o desactivar no tiene rotación: la familia ya estaba cerrada y el rechazo es el de siempre. */
+    @Test void unRefreshRevocadoSinRotacionSoloSeRechaza() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens otroLogin = service.login("a@b.pe", "Segura123", null);
+        service.logout(a.refresh());
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(otroLogin)).isTrue();
+    }
+
+    /** Un refresh vencido es un rechazo sin más: no revoca la familia, que por la misma razón ya no tiene nada vivo que cuidar. */
+    @Test void unRefreshVencidoNoRevocaLaFamilia() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+        sesionesMap.put(TokenOpaco.hash(a.refresh()), vencida(sesionesMap.get(TokenOpaco.hash(a.refresh()))));
+
+        assertThatThrownBy(() -> service.refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(b)).isTrue();
+    }
+
+    private SesionRepository.Sesion vencida(SesionRepository.Sesion s) {
+        return new SesionRepository.Sesion(s.id(), s.usuarioId(), s.refreshHash(), clock.instant().minusSeconds(1), s.revocada(), s.rotadaEn(), s.reemplazadaPor(), s.familia());
+    }
+
+    /** Un refresh que no existe (o ya se purgó) es un rechazo sin revocar nada. */
+    @Test void unRefreshDesconocidoNoRevocaNada() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+
+        assertThatThrownBy(() -> service.refrescar("no-existe")).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(a)).isTrue();
+    }
+
+    /**
+     * La carrera que cierra {@code rotar} condicional: el logout (o el reuso) confirma entre la lectura de la sesión y su rotación. Sin la condición el
+     * refresh seguía y emitía una sesión nueva viva después del logout; con ella la rotación falla y el refresh se rechaza.
+     */
+    @Test void unLogoutQueLlegaEntreLaLecturaYLaRotacionRechazaElRefresh() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        despuesDeLeer = () -> service.logout(a.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThat(sesionesMap.get(TokenOpaco.hash(a.refresh())).revocada()).isTrue();
+    }
+
+    /**
+     * #635 + #611: con la fila raíz ya purgada, presentar una rama rotada fuera de la gracia revoca igual toda la familia, incluida la otra rama que abrió la
+     * gracia. Depende de que la familia se revoque por su id y no recorriendo la cadena desde la raíz.
+     */
+    @Test void conLaFilaRaizPurgadaElReusoRevocaLaFamiliaCompletaIncluidaLaOtraRama() {
+        Tokens raiz = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens ramaA = service.refrescar(raiz.refresh());
+        Tokens ramaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(raiz.refresh());   // en gracia: abre la otra rama
+        Tokens c = service.refrescar(ramaA.refresh());
+        sesionesMap.remove(TokenOpaco.hash(raiz.refresh()));   // la limpieza de #611 ya borró la raíz
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(ramaA.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(ramaB)).as("la otra rama").isFalse();
+        assertThat(viva(c)).as("la rama que sigue a la reutilizada").isFalse();
+    }
+
+    private static final Duration GRACIA_MAS_UNO = AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1);
 
     /**
      * #611: la limpieza borra las filas vencidas, así que un refresh rotado que vuelve cuando su fila ya no existe recibe el mismo rechazo que con la fila

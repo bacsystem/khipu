@@ -89,7 +89,7 @@ class EquipoServiceTest {
         public void revocar(UUID id) {}
         public void revocarFamilia(UUID f) {}
         public void revocarTodas(UUID u) { sesionesRevocadas.add(u); }
-        public void rotar(UUID id, UUID nueva, Instant en) {}
+        public boolean rotar(UUID id, UUID nueva, Instant en) { return true; }
         public void crearRecuperacion(TokenRecuperacion t) {}
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.empty(); }
         public void marcarRecuperacionUsada(String h) {}
