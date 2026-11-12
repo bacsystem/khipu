@@ -1636,7 +1636,7 @@ export const handlers = [
     const body = (await request.json()) as { refresh: string };
     const sesion = db.sesionesPorToken.get(body.refresh);
     if (!sesion) return fail(401, "SESION_INVALIDA", "Sesión expirada o inválida");
-    // Sin tocar la sesión: suspender no la revoca, y al reactivar la cuenta la misma sesión vuelve a servir (#182).
+    // Sin tocar la sesión: suspender no la revoca (#182). El mock no modela el corte por inactividad del backend (#636), así que al reactivar la cuenta la sesión sigue sirviendo.
     if (db.cuentasSuspendidas.has(sesion.usuario.cuenta_id)) return fail(403, "CUENTA_SUSPENDIDA", "Tu cuenta está suspendida. Contacta a soporte para reactivarla");
     db.sesionesPorToken.delete(body.refresh);
     return ok(emitirTokens(sesion.usuario));
