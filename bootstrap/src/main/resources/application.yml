@@ -94,6 +94,9 @@ app:
   # Vida de la sesión del administrador del backoffice, en minutos (#177): entre 5 y 60, o el arranque aborta. Sin refresh: al vencer
   # se vuelve a entrar con contraseña y segundo factor.
   admin-sesion-minutos: ${ADMIN_SESION_MINUTOS:30}
+  # Días que se conserva una sesión de refresh después de vencer (#611): entre 1 y 90, o el arranque aborta. Pasado ese plazo la limpieza horaria
+  # la borra, salvo la más reciente de cada usuario (de ella sale el «último acceso» del backoffice).
+  sesion-retencion-dias: ${SESION_RETENCION_DIAS:7}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}

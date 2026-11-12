@@ -46,6 +46,7 @@ import pe.factura.adapters.scheduler.AvisarBoletasSinInformarWorker;
 import pe.factura.adapters.scheduler.CargaDelPadronRucWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
+import pe.factura.adapters.scheduler.LimpiezaSesionesWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
@@ -113,6 +114,17 @@ public class AppConfig {
         if (minutos < 5 || minutos > 60)
             throw new IllegalStateException("ADMIN_SESION_MINUTOS debe estar entre 5 y 60 (es " + minutos + ")");
         return Duration.ofMinutes(minutos);
+    }
+
+    /**
+     * Cuánto se conserva una sesión de refresh después de vencer (#611): entre 1 y 90 días. Sirve para investigar un reclamo mirando la familia
+     * completa y, a la vez, minimiza los datos guardados; un 0 borraría al instante lo que el soporte aún necesita, y un valor enorme dejaría
+     * crecer la tabla, así que fuera de rango aborta el arranque.
+     */
+    static Duration retencionDeSesiones(int dias) {
+        if (dias < 1 || dias > 90)
+            throw new IllegalStateException("SESION_RETENCION_DIAS debe estar entre 1 y 90 (es " + dias + ")");
+        return Duration.ofDays(dias);
     }
 
     /**
@@ -306,7 +318,8 @@ public class AppConfig {
         return new AceptarTerminosService(a, u, clock, version);
     }
     @Bean VerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
-    @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
+    // Tipado como el adaptador: es a la vez el SesionRepository y la PurgaDeSesiones (#611).
+    @Bean JdbcSesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
     @Bean SegundoFactorRepository segundoFactorRepository(JdbcTemplate jdbc) { return new JdbcSegundoFactorRepository(jdbc); }
@@ -564,6 +577,11 @@ public class AppConfig {
     @Bean IntentosDeAccesoRepository intentosDeAccesoRepository(JdbcTemplate jdbc) { return new JdbcIntentosDeAccesoRepository(jdbc); }
     @Bean LimiteDeIntentos limiteDeIntentos(IntentosDeAccesoRepository i, Clock clock) { return new LimiteDeIntentos(i, clock); }
     @Bean LimpiezaIntentosDeAccesoWorker limpiezaIntentosDeAccesoWorker(LimiteDeIntentos l) { return new LimpiezaIntentosDeAccesoWorker(l); }
+
+    @Bean PurgarSesionesUseCase purgarSesiones(PurgaDeSesiones purga, Clock clock, @Value("${app.sesion-retencion-dias:7}") int dias) {
+        return new PurgarSesionesService(purga, clock, retencionDeSesiones(dias));
+    }
+    @Bean LimpiezaSesionesWorker limpiezaSesionesWorker(PurgarSesionesUseCase purga) { return new LimpiezaSesionesWorker(purga); }
 
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
