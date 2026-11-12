@@ -215,6 +215,21 @@ describe("VigilanteDeInactividad", () => {
       expect(irA).toHaveBeenCalledWith("/login");
     });
 
+    it("si el logout responde después del tope, no navega una segunda vez", async () => {
+      let responder!: (r: Response) => void;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => new Promise<Response>((resolve) => (responder = resolve))),
+      );
+      await conAviso();
+      await avanzar(AVISO_ANTES_MS + 3_000);
+      expect(irA).toHaveBeenCalledTimes(1);
+
+      await act(async () => responder(new Response(null, { status: 200 })));
+
+      expect(irA).toHaveBeenCalledTimes(1);
+    });
+
     it("si el logout responde antes del tope navega al responder, una sola vez", async () => {
       await conAviso();
 
