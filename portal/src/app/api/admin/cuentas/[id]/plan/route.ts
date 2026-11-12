@@ -4,7 +4,8 @@ import { cambiarPlanDeCuenta, type CuerpoDeCambioDePlan } from "@/lib/api/admin-
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
-import { ERROR, leerCuerpoJson, sinCache } from "../../../planes/comun";
+import { ERROR, sinCache } from "../../../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 /**
  * Cambiar el plan de una cuenta (#191). El JWT del administrador sale de su cookie `httpOnly` y nunca llega al JS; el id se valida antes de pegarlo en la URL del

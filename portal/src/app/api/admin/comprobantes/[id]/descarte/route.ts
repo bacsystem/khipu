@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { descartarComprobante } from "@/lib/api/admin-errores";
-import { ERROR, leerCuerpoJson } from "../../../planes/comun";
+import { ERROR } from "../../../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { sobreComprobante } from "../comun";
 
 /**
@@ -10,9 +11,9 @@ import { sobreComprobante } from "../comun";
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!readAdminSession(req).access) return ERROR(401, "NO_AUTORIZADO", "Sesión de administrador requerida");
-  const leido = await leerCuerpoJson(req);
+  const leido = await leerCuerpoJson<{ motivo?: unknown }>(req);
   if ("error" in leido) return leido.error;
-  const { motivo } = leido.cuerpo as { motivo?: unknown };
+  const { motivo } = leido.cuerpo;
   if (motivo !== undefined && motivo !== null && typeof motivo !== "string") return ERROR(422, "MOTIVO_INVALIDO", "El motivo debe ser un texto");
   return sobreComprobante(req, ctx, (access, id, origen) => descartarComprobante(access, id, typeof motivo === "string" ? motivo : "", origen));
 }

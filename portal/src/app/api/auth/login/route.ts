@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { login } from "@/lib/api/auth";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { clearEmpresaActiva, readSession, writeEmpresaActiva, writeTokens } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
+  const leido = await leerCuerpoJson<{ email: string; password: string }>(req);
+  if ("error" in leido) return leido.error;
+  const { email, password } = leido.cuerpo;
   try {
     const tokens = await login(email, password, cabecerasDeOrigen(req.headers));
     const res = NextResponse.json({

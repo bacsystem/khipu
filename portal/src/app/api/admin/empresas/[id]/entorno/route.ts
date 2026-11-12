@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { cambiarEntornoEmpresa, ENTORNOS_DE_EMPRESA } from "@/lib/api/admin-acciones-empresa";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
@@ -21,17 +22,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   if (!esUuid(id)) return ERROR(400, "ID_INVALIDO", "Identificador de empresa inválido");
 
-  let entorno: EntornoAdmin;
-  try {
-    const cuerpo = JSON.parse(await req.text()) as { entorno?: unknown };
-    if (typeof cuerpo.entorno !== "string" || !ENTORNOS_DE_EMPRESA.includes(cuerpo.entorno as EntornoAdmin)) return ERROR(422, "ENTORNO_INVALIDO", "El entorno debe ser BETA o PRODUCCION");
-    entorno = cuerpo.entorno as EntornoAdmin;
-  } catch {
-    return ERROR(400, "JSON_INVALIDO", "Petición inválida");
-  }
+  const leido = await leerCuerpoJson<{ entorno?: unknown }>(req);
+  if ("error" in leido) return leido.error;
+  const { entorno } = leido.cuerpo;
+  if (typeof entorno !== "string" || !ENTORNOS_DE_EMPRESA.includes(entorno as EntornoAdmin)) return ERROR(422, "ENTORNO_INVALIDO", "El entorno debe ser BETA o PRODUCCION");
 
   try {
-    const datos = await cambiarEntornoEmpresa(access, id, entorno, cabecerasDeOrigen(req.headers));
+    const datos = await cambiarEntornoEmpresa(access, id, entorno as EntornoAdmin, cabecerasDeOrigen(req.headers));
     return NextResponse.json({ estado: "exito", datos, mensaje: null, codigo: null, errores: null }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     return errorResponse(err);

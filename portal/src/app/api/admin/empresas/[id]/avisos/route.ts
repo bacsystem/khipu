@@ -4,7 +4,8 @@ import { avisarAlCliente, type TipoDeAviso } from "@/lib/api/admin-avisos";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
-import { ERROR, leerCuerpoJson, sinCache } from "../../../planes/comun";
+import { ERROR, sinCache } from "../../../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 const TIPOS: readonly TipoDeAviso[] = ["CERTIFICADO", "CREDENCIALES_SOL"];
 

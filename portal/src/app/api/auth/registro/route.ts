@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registroAbierto } from "@/lib/acceso";
-import { registrar } from "@/lib/api/auth";
+import { registrar, type DatosDeRegistro } from "@/lib/api/auth";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { clearEmpresaActiva, writeTokens } from "@/lib/session";
 
@@ -11,7 +12,9 @@ export async function POST(req: NextRequest) {
       { estado: "error", datos: null, mensaje: "El registro está por invitación: escríbenos para pedir acceso.", codigo: "REGISTRO_CERRADO", errores: null },
       { status: 403 },
     );
-  const { nombre, email, password, telefono, acepta_terminos, plan } = await req.json();
+  const leido = await leerCuerpoJson<Omit<DatosDeRegistro, "acepta_terminos" | "plan"> & { acepta_terminos?: unknown; plan?: unknown }>(req);
+  if ("error" in leido) return leido.error;
+  const { nombre, email, password, telefono, acepta_terminos, plan } = leido.cuerpo;
   // #581: el plan elegido es opcional y solo un nombre corto; cualquier otra cosa no se reenvía (el backend igual ignora uno que no sea un plan publicado).
   const planElegido = typeof plan === "string" && plan.trim() !== "" && plan.trim().length <= 40 ? plan.trim() : undefined;
   try {

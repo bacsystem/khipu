@@ -3,7 +3,8 @@ import { readAdminSession } from "@/lib/admin-session";
 import { esTipoDeCorreo } from "@/lib/api/admin-configuracion";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
-import { ERROR, leerCuerpoJson, sinCache } from "../planes/comun";
+import { ERROR, sinCache } from "../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 type Entrada = { access: string; origen: Record<string, string>; tipo: string; cuerpo: object };
 
