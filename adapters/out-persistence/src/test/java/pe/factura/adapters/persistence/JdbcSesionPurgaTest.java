@@ -151,12 +151,18 @@ class JdbcSesionPurgaTest extends PersistenciaTestBase {
     }
 
     /** Sin este índice cada lote recorrería la tabla entera: una fila por cada refresh de cada usuario activo. */
-    @Test void elCortePorVencimientoUsaElIndice() {
+    @Test void elBorradoRealUsaElIndiceDeVencimiento() {
+        // EXPLAIN de la sentencia que ejecuta el repositorio, con recorridos completos prohibidos: con las pocas filas de una prueba el planificador
+        // preferiría recorrer la tabla aunque el índice sirva, y lo que se comprueba es que sirve.
         String plan = jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>) con -> {
             try (java.sql.Statement st = con.createStatement()) {
                 st.execute("SET enable_seqscan = off");
+            }
+            try (java.sql.PreparedStatement ps = con.prepareStatement("EXPLAIN " + JdbcSesionRepository.PURGAR_VENCIDAS)) {
+                ps.setTimestamp(1, Timestamp.from(CORTE));
+                ps.setInt(2, 1000);
                 StringBuilder texto = new StringBuilder();
-                try (java.sql.ResultSet rs = st.executeQuery("EXPLAIN SELECT id FROM sesion WHERE expira_en < '" + CORTE + "' ORDER BY expira_en LIMIT 1000")) {
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) texto.append(rs.getString(1)).append('\n');
                 }
                 return texto.toString();

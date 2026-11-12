@@ -518,6 +518,19 @@ class AutenticarUsuarioServiceTest {
         assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
+    /** #611: con la fila del login borrada, el logout con una rama sigue cerrando la otra rama de la gracia (la familia se busca por su id, no por la fila raíz). */
+    @Test void conLaFilaDelLoginPurgadaElLogoutCierraLaOtraRama() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens ramaA = service.refrescar(t1.refresh());
+        Tokens ramaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(t1.refresh());
+        sesionesMap.remove(TokenOpaco.hash(t1.refresh()));
+
+        service.logout(ramaB.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(ramaA.refresh())).as("la otra rama").extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThatThrownBy(() -> service.refrescar(ramaB.refresh())).as("la que cerró sesión").extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
     // --- S6: dos instancias del portal refrescan la misma sesión casi a la vez ---------------------------------------------------
 
     /**

@@ -108,7 +108,8 @@ class LimpiezaDeSesionesE2ETest {
 
     @Test void elLogoutCierraLaFamiliaAunqueSeHayaBorradoLaFilaDelLogin() {
         String a = registrar();
-        ResponseEntity<Map> renovada = refrescar(a);
+        String otraRama = refreshDe(refrescar(a));
+        ResponseEntity<Map> renovada = refrescar(a);   // la segunda, en gracia: abre otra rama de la misma familia
         String b = refreshDe(renovada);
         UUID filaA = idDe(a);
         jdbc.update("UPDATE sesion SET rotada_en = now() - interval '31 seconds' WHERE id = ?", filaA);
@@ -122,6 +123,7 @@ class LimpiezaDeSesionesE2ETest {
                 .isEqualTo(HttpStatus.NO_CONTENT);
 
         assertSesionInvalida(refrescar(b));
+        assertSesionInvalida(refrescar(otraRama));
     }
 
     @Test void laUltimaSesionDelUsuarioSeConservaAunqueEsteVencida() {

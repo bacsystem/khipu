@@ -18,7 +18,7 @@ public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones {
      * backoffice saca de ella su último acceso. SKIP LOCKED: ni espera a una fila que otra réplica o una revocación tiene tomada ni puede entrar en un
      * deadlock. Usa ix_sesion_expira para el corte y ix_sesion_acceso para la subconsulta.
      */
-    private static final String PURGAR_VENCIDAS = """
+    static final String PURGAR_VENCIDAS = """
             DELETE FROM sesion WHERE id IN (
               SELECT s.id FROM sesion s
               WHERE s.expira_en < ?
