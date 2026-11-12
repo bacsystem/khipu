@@ -16,7 +16,18 @@ Design docs live in `docs/` (gitignored, local-only): `docs/spec/spec.md` (archi
 - If the query fails (expired Google session, server down), say so and do not carry on as if it had been consulted. `nlm login` renews the session.
 - It holds copies of this repo's docs, so it can lag behind or drop steps. The repo, GitHub and production win; for key rotation or restores, read `deploy/README.md` itself.
 - Only public content goes in: never `docs/`, secrets or customer data.
-- **Log each work session in the notebook.** When a block of work closes (a merged PR, a release, a decision, the end of the session), add a text source titled `sesion-YYYY-MM-DD` with what was done, the decisions, the PRs and issues, and what is pending. Use a source, not a note: queries read sources. Later work the same day goes in a new source (`sesion-YYYY-MM-DD-2`), not over the old one.
+- **Log each work session in the notebook.** When a block of work closes (a merged PR, a release, a decision, the end of the session), add a text source titled `sesion-YYYY-MM-DD`. Use a source, not a note: queries read sources. Later work the same day goes in a new source (`sesion-YYYY-MM-DD-2`), not over the old one. Keep it under ~1000 characters, in this shape:
+
+  ```
+  sesion-YYYY-MM-DD[-n] · <topic in a few words>
+  Hecho: #PR → #issue, one line each (what changed, not how it was reviewed)
+  Decisiones: the decision and why (only what no issue, PR or ADR records)
+  Pendiente: what · who · blocked by
+  Lecciones: a trap in the environment or the workflow worth remembering (optional)
+  ```
+
+  Leave out what GitHub already keeps (test counts, review details, mutations, measurements in the PR body): the PR number is enough.
+- **Consolidate weekly.** In the first session of a new week, merge the previous week's `sesion-*` sources into one `semana-YYYY-Www` (ISO week) with what is still true: decisions, pending items still open, lessons. Drop what was closed later, then delete those `sesion-*` sources. Fewer, current sources keep queries from answering with stale pending items.
 
 ## Commands
 
