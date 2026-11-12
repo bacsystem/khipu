@@ -51,17 +51,18 @@ public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones, 
     }
 
     @Override public void crear(Sesion s) {
-        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id) VALUES (?, ?, ?, ?, ?, ?)",
-                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada(), s.familia());
+        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada(), s.familia(), Timestamp.from(s.creadaEn()));
     }
-    private static final String COLUMNAS = "SELECT id, usuario_id, refresh_hash, expira_en, revocada, rotada_en, reemplazada_por, familia_id FROM sesion";
+    private static final String COLUMNAS = "SELECT id, usuario_id, refresh_hash, expira_en, revocada, rotada_en, reemplazada_por, familia_id, created_at FROM sesion";
     private static final RowMapper<Sesion> MAPPER = (rs, i) -> {
         Timestamp rotada = rs.getTimestamp("rotada_en");
         UUID id = rs.getObject("id", UUID.class);
         UUID familia = rs.getObject("familia_id", UUID.class);
         // Una sesión de antes de V49 no tiene familia: es la suya propia.
         return new Sesion(id, rs.getObject("usuario_id", UUID.class), rs.getString("refresh_hash"), rs.getTimestamp("expira_en").toInstant(), rs.getBoolean("revocada"),
-                rotada == null ? null : rotada.toInstant(), rs.getObject("reemplazada_por", UUID.class), familia == null ? id : familia);
+                rotada == null ? null : rotada.toInstant(), rs.getObject("reemplazada_por", UUID.class), familia == null ? id : familia,
+                rs.getTimestamp("created_at").toInstant());
     };
 
     @Override public Optional<Sesion> buscarPorRefreshHash(String hash) {

@@ -615,8 +615,9 @@ public class AppConfig {
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
                                                     SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite,
                                                     AceptarTerminosUseCase terminos, PlanRepository planes, PlanSolicitadoRepository planesSolicitados,
-                                                    AvisoAlOperador operador) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos, planes, planesSolicitados, operador);
+                                                    AvisoAlOperador operador, @Value("${app.sesion-inactividad-minutos}") int inactividadMinutos) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos, planes, planesSolicitados, operador,
+                inactividadDeSesion(inactividadMinutos));
     }
     // #581: el plan que la cuenta eligió en la página de precios, para el operador.
     @Bean PlanSolicitadoRepository planSolicitadoRepository(JdbcTemplate jdbc) { return new JdbcPlanSolicitadoRepository(jdbc); }
