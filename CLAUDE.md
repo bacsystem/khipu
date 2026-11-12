@@ -131,3 +131,13 @@ The generic components are **not** in the portal: they come from the `khipu-desi
 ## Load testing
 
 `k6/` has load-test scripts for `docs/spec/spec.md`'s throughput targets (`k6/emision.js`, `k6/descargas.js`) plus `k6/preparar-tenant.sh` to spin up an isolated test tenant (self-signed cert with the RUC in its `OU`, which is all the backend validates) without touching real data. See `k6/README.md` for current results and the known emission bottleneck above.
+
+## Equipo de agentes
+Roles (definidos en .claude/agents/): po, architect, tech-lead (sesión principal), backend-dev, backend-dev-2, frontend-dev, devops, qa.
+Flujo: po escribe issues de GitHub (historia de usuario + criterios de aceptación, el formato que ya usa el repo) -> architect revisa su impacto y publica el contrato de API/datos como comentario en el issue, además de sus ADR en docs/adr/ (local) ->
+tech-lead reparte tareas -> backend-dev y backend-dev-2 (domain/application/adapters, módulos distintos), frontend-dev (portal/) y devops (CI, Docker, entornos y releases) trabajan en paralelo, cada uno dueño de sus archivos ->
+qa valida contra los criterios de aceptación -> cada developer crea su PR a develop -> tech-lead revisa todo PR (sin excepción) con el skill /pr-review y publica el reporte en el PR ->
+si hay hallazgos, los corrige el developer autor y el tech-lead vuelve a revisar, hasta que quede limpio.
+Ninguna tarea se cierra sin ese review limpio. El merge requiere aprobación del usuario. Un PR mergeado a develop no autocierra su issue (GitHub solo lo hace contra main): el tech-lead lo cierra a mano tras validar.
+Comunicación siempre activa: cada integrante avisa al empezar, al terminar, al bloquearse y cuando su cambio afecta a otro.
+Respetar las convenciones de este archivo (GitFlow, Conventional Commits, arquitectura hexagonal, khipu-design-system). Sin push ni deploy sin aprobación del usuario.
