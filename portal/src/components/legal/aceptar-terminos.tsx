@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { CasillaDeTerminos } from "@/components/legal/casilla-de-terminos";
 import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
+import { avisarALasDemasPestanas } from "@/lib/sesion/canal-de-sesion";
 import { reiniciarMarcas } from "@/lib/sesion/inactividad";
 import { useMessages } from "next-intl";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -44,6 +45,7 @@ export function AceptarTerminos({ revisado = false }: { revisado?: boolean }) {
   async function cerrarSesion() {
     setSaliendo(true);
     reiniciarMarcas(); // #637: la próxima sesión no hereda la inactividad de esta
+    avisarALasDemasPestanas("salir"); // #653
     // Como en la cuenta suspendida: un corte de red no deja el botón colgado; el login se muestra igual.
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.assign("/login");

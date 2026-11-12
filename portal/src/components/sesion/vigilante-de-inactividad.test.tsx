@@ -1,7 +1,9 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
+import { avisarALasDemasPestanas } from "@/lib/sesion/canal-de-sesion";
 import { AVISO_ANTES_MS, CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE, MINUTO_MS, reiniciarMarcas, VENTANA_KEEP_ALIVE_MS } from "@/lib/sesion/inactividad";
+import { simularOtraPestana } from "@/test/otra-pestana";
 import { VigilanteDeInactividad } from "./vigilante-de-inactividad";
 
 const N = 30;
@@ -17,6 +19,11 @@ function montar(minutos: number | undefined = N) {
 }
 
 const avanzar = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+/** Monta el vigilante y lo deja con el aviso de inactividad abierto (a N − 2 min). */
+async function conAviso() {
+  montar();
+  await avanzar((N - 2) * MINUTO_MS);
+}
 const aviso = () => screen.queryByTestId("aviso-de-inactividad");
 const seguirConectado = () => screen.getByTestId("inactividad-seguir");
 const keepAlives = () => llamadas.filter((u) => u === "/api/auth/sesion").length;
@@ -121,11 +128,6 @@ describe("VigilanteDeInactividad", () => {
   });
 
   describe("el aviso", () => {
-    async function conAviso() {
-      montar();
-      await avanzar((N - 2) * MINUTO_MS);
-    }
-
     it("tiene una cuenta regresiva en segundos, que baja cada segundo", async () => {
       await conAviso();
       expect(screen.getByText("Por seguridad, cerraremos tu sesión en 120 s por inactividad.")).toBeInTheDocument();
@@ -293,27 +295,72 @@ describe("VigilanteDeInactividad", () => {
     });
 
     it("un cierre por inactividad en otra pestaña la lleva al login sin llamar otra vez al logout", async () => {
-      const canales: Array<{ onmessage?: (e: { data: string }) => void; postMessage: () => void }> = [];
-      vi.stubGlobal(
-        "BroadcastChannel",
-        class {
-          oyentes: Array<(e: { data: string }) => void> = [];
-          constructor() {
-            canales.push(this as never);
-          }
-          addEventListener(_t: string, f: (e: { data: string }) => void) {
-            this.oyentes.push(f);
-          }
-          postMessage() {}
-          close() {}
-        },
-      );
+      const otra = simularOtraPestana();
       montar();
 
-      await act(async () => void (canales[0] as unknown as { oyentes: Array<(e: { data: string }) => void> }).oyentes.forEach((f) => f({ data: "inactividad" })));
+      await act(async () => otra.publicar("inactividad"));
 
       expect(irA).toHaveBeenCalledWith("/login?motivo=inactividad");
       expect(llamadas).not.toContain("/api/auth/logout");
+    });
+
+    /** #653: el cierre voluntario de otra pestaña (el menú, los términos, la cuenta suspendida o el «Cerrar sesión» del aviso) lleva al login con su motivo. */
+    it("un cierre voluntario en otra pestaña la lleva a /login?motivo=otra-pestana sin llamar otra vez al logout", async () => {
+      const otra = simularOtraPestana();
+      montar();
+
+      await act(async () => otra.publicar("salir"));
+
+      expect(irA).toHaveBeenCalledExactlyOnceWith("/login?motivo=otra-pestana");
+      expect(llamadas).not.toContain("/api/auth/logout");
+    });
+
+    it("un aviso que no conoce se ignora", async () => {
+      const otra = simularOtraPestana();
+      montar();
+
+      await act(async () => otra.publicar("salir-para-siempre"));
+
+      expect(irA).not.toHaveBeenCalled();
+    });
+
+    it("el «Cerrar sesión» del aviso avisa a las demás pestañas y la propia va al login sin motivo, una sola vez", async () => {
+      const otra = simularOtraPestana();
+      await conAviso();
+
+      await act(async () => void fireEvent.click(screen.getByTestId("inactividad-salir")));
+      await avanzar(3_000);
+
+      expect(otra.recibidos).toEqual(["salir"]);
+      expect(irA).toHaveBeenCalledExactlyOnceWith("/login");
+    });
+
+    it("el cierre por inactividad avisa a las demás pestañas con su propio aviso", async () => {
+      const otra = simularOtraPestana();
+      await conAviso();
+
+      await avanzar(AVISO_ANTES_MS);
+
+      expect(otra.recibidos).toEqual(["inactividad"]);
+    });
+
+    /** La pestaña que cierra la sesión desde el menú no se navega a sí misma: publica por el mismo canal por el que escucha el vigilante. */
+    it("la pestaña que publica un cierre voluntario no se recibe a sí misma", async () => {
+      simularOtraPestana();
+      montar();
+
+      await act(async () => avisarALasDemasPestanas("salir"));
+
+      expect(irA).not.toHaveBeenCalled();
+    });
+
+    it("sin BroadcastChannel el vigilante funciona igual", async () => {
+      vi.stubGlobal("BroadcastChannel", undefined);
+      await conAviso();
+
+      await avanzar(AVISO_ANTES_MS);
+
+      expect(irA).toHaveBeenCalledWith("/login?motivo=inactividad");
     });
   });
 

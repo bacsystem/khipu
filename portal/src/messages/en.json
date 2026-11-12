@@ -43,7 +43,8 @@
       "sinCuenta": "Don’t have an account?",
       "crearCuenta": "Create one",
       "soloPorInvitacion": "Access is by invitation while the beta lasts.",
-      "motivoInactividad": "We signed you out due to inactivity. Please sign in again."
+      "motivoInactividad": "We signed you out due to inactivity. Please sign in again.",
+      "motivoOtraPestana": "You signed out in another tab."
     },
     "registro": {
       "titulo": "Create your account",

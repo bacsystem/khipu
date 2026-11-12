@@ -75,6 +75,31 @@ describe("LoginForm: el motivo del cierre (#637)", () => {
     render(<LoginForm />);
 
     expect(screen.queryByText(/inactividad/)).toBeNull();
+    expect(screen.queryByText(/otra pestaña/)).toBeNull();
+  });
+
+  /** #653: las demás pestañas caen acá cuando la persona cerró la sesión a propósito en otra. */
+  it("con ?motivo=otra-pestana avisa que cerró la sesión en otra pestaña, y no habla de inactividad", () => {
+    consulta.actual = "motivo=otra-pestana";
+    render(<LoginForm />);
+
+    expect(screen.getByText("Cerraste sesión en otra pestaña.")).toBeInTheDocument();
+    expect(screen.queryByText(/inactividad/)).toBeNull();
+  });
+
+  it("el aviso de otra pestaña también sale en inglés", () => {
+    fijarLocaleDePrueba("en");
+    consulta.actual = "motivo=otra-pestana";
+    render(<LoginForm />);
+
+    expect(screen.getByText("You signed out in another tab.")).toBeInTheDocument();
+  });
+
+  it("el motivo de inactividad no muestra el de otra pestaña", () => {
+    consulta.actual = "motivo=inactividad";
+    render(<LoginForm />);
+
+    expect(screen.queryByText(/otra pestaña/)).toBeNull();
   });
 
   it("otro valor de motivo no se muestra: el login solo compara con el literal y nunca refleja la URL", () => {
@@ -83,5 +108,14 @@ describe("LoginForm: el motivo del cierre (#637)", () => {
 
     expect(container.textContent).not.toContain("hackeado");
     expect(screen.queryByText(/inactividad/)).toBeNull();
+    expect(screen.queryByText(/otra pestaña/)).toBeNull();
+  });
+
+  it("un motivo que solo empieza con el literal tampoco se muestra", () => {
+    consulta.actual = "motivo=otra-pestana%3Cb%3Ex%3C%2Fb%3E";
+    const { container } = render(<LoginForm />);
+
+    expect(container.textContent).not.toContain("Cerraste sesión");
+    expect(container.querySelector("b")).toBeNull();
   });
 });

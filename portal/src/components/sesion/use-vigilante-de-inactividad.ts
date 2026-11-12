@@ -11,6 +11,7 @@ import {
   type Decision,
   type Vigilante,
 } from "@/lib/sesion/inactividad";
+import { avisarALasDemasPestanas, escucharAvisosDeSesion, type AvisoDeSesion } from "@/lib/sesion/canal-de-sesion";
 import { pedirKeepAlive } from "@/lib/sesion/keep-alive";
 
 /** Lo que cuenta como actividad de la persona. Las peticiones de fondo (sondeos, `router.refresh()`, reintentos del proxy) no tocan el DOM, así que nunca llegan acá. */
@@ -25,11 +26,10 @@ const TIC_CON_AVISO_MS = 1_000;
 /** Cuánto se espera al logout antes de navegar al login de todos modos. */
 const TOPE_DEL_LOGOUT_MS = 3_000;
 
-const CANAL = "khipu-sesion";
 const RUTA_LOGIN = "/login";
 export const RUTA_LOGIN_POR_INACTIVIDAD = "/login?motivo=inactividad";
-
-type Aviso = "inactividad" | "salir";
+/** Donde caen las demás pestañas cuando la persona cerró la sesión a propósito en otra (#653): el login se lo explica. */
+export const RUTA_LOGIN_POR_OTRA_PESTANA = "/login?motivo=otra-pestana";
 
 export type OpcionesDelVigilante = {
   minutos: number;
@@ -48,7 +48,6 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
 
   useEffect(() => {
     const almacen = almacenDelNavegador();
-    const canal = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(CANAL);
     let avisando = false;
     let cerrando = false;
     let temporizador: ReturnType<typeof setTimeout> | undefined;
@@ -60,12 +59,12 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     }
 
     /** El logout normal (revoca la familia) y, pase lo que pase con él, al login: la sesión del navegador ya no sirve. */
-    function cerrarSesion(url: string, aviso: Aviso) {
+    function cerrarSesion(url: string, aviso: AvisoDeSesion) {
       if (cerrando) return;
       cerrando = true;
       clearTimeout(temporizador);
       reiniciarMarcas(almacen); // la sesión siguiente empieza de cero (también la ve cualquier otra pestaña)
-      canal?.postMessage(aviso);
+      avisarALasDemasPestanas(aviso);
       // El logout no puede retener la página: si el backend se cuelga, la pestaña seguiría mostrando los datos de una sesión que ya se dio por cerrada. Navega cuando responde o,
       // a más tardar, al vencer el tope; `keepalive` deja que la petición termine aunque la página ya se haya ido.
       let navegado = false;
@@ -128,10 +127,7 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     const alCambiarElAlmacen = (evento: StorageEvent) => {
       if (evento.key === null || evento.key === CLAVE_ULTIMA_ACTIVIDAD || evento.key === CLAVE_ULTIMO_KEEP_ALIVE) evaluarYa();
     };
-    const alRecibirAviso = (evento: MessageEvent<Aviso>) => {
-      if (evento.data === "inactividad") navegar(RUTA_LOGIN_POR_INACTIVIDAD);
-      else if (evento.data === "salir") navegar(RUTA_LOGIN);
-    };
+    const alRecibirAviso = (aviso: AvisoDeSesion) => navegar(aviso === "inactividad" ? RUTA_LOGIN_POR_INACTIVIDAD : RUTA_LOGIN_POR_OTRA_PESTANA);
 
     for (const tipo of EVENTOS_DE_ACTIVIDAD) window.addEventListener(tipo, alActividad, { capture: true, passive: true });
     window.addEventListener("pointermove", alActividad, { passive: true });
@@ -139,7 +135,7 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     window.addEventListener("pageshow", evaluarYa);
     window.addEventListener("storage", alCambiarElAlmacen);
     document.addEventListener("visibilitychange", alVolverVisible);
-    canal?.addEventListener("message", alRecibirAviso);
+    const dejarDeEscucharAvisos = escucharAvisosDeSesion(alRecibirAviso);
 
     controles.current = {
       seguir: () => {
@@ -161,7 +157,7 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
       window.removeEventListener("pageshow", evaluarYa);
       window.removeEventListener("storage", alCambiarElAlmacen);
       document.removeEventListener("visibilitychange", alVolverVisible);
-      canal?.close();
+      dejarDeEscucharAvisos();
     };
   }, [minutos, irA, ahora]);
 
