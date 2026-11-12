@@ -14,8 +14,7 @@ import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMessages } from "next-intl";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
-import { reiniciarMarcas } from "@/lib/sesion/inactividad";
-import { empezarSesionNueva } from "@/lib/sesion/sesion-terminada";
+import { empezarSesion } from "@/lib/sesion/empezar-sesion";
 import { cn } from "@/lib/utils";
 import { esquemas } from "@/lib/validacion";
 
@@ -41,10 +40,7 @@ export function LoginForm() {
     setError(null);
     const res = await postJson<{ usuario: unknown }>("/api/auth/login", values);
     if (res.estado === "exito") {
-      // Una sesión nueva no hereda la inactividad de la anterior (#637): sin esto, la marca de ayer la cerraría en la primera evaluación.
-      reiniciarMarcas();
-      // Lo mismo con «Tu sesión terminó» (#654): la navegación del cliente no recarga la página, y el estado de la sesión anterior abriría el diálogo sobre la nueva.
-      empezarSesionNueva();
+      empezarSesion();
       router.push(rutaSegura(params.get("next")));
       router.refresh();
       return;

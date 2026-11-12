@@ -93,6 +93,7 @@ async function forward(
 
 const HTTP_NO_AUTORIZADO = 401;
 const HTTP_PROHIBIDO = 403;
+const HTTP_BAD_GATEWAY = 502;
 
 function pasar(backendRes: Response): NextResponse {
   return new NextResponse(backendRes.body, { status: backendRes.status, headers: backendRes.headers });
@@ -108,6 +109,15 @@ function sesionTerminada(backendRes: Response): NextResponse {
 /** El sobre de siempre, armado acá porque el cuerpo y las cabeceras del 401 original no corresponden a un 403. */
 function cuentaSuspendida(): NextResponse {
   return NextResponse.json({ estado: "error", datos: null, mensaje: null, codigo: "CUENTA_SUSPENDIDA", errores: null }, { status: HTTP_PROHIBIDO });
+}
+
+/** El mismo pedido con el access nuevo. Un corte de red no lanza: llega como el error de red de siempre (`RED`, un 502 con el sobre), para poder escribir los tokens nuevos igual. */
+async function reenviarTrasRenovar(req: NextRequest, path: string[], body: ArrayBuffer | undefined, tokens: Tokens, empresa: string | undefined): Promise<NextResponse> {
+  try {
+    return pasar(await forward(req, path, body, tokens.access, empresa));
+  } catch {
+    return NextResponse.json({ estado: "error", datos: null, mensaje: null, codigo: "RED", errores: null }, { status: HTTP_BAD_GATEWAY });
+  }
 }
 
 async function handle(req: NextRequest, context: RouteContext) {
@@ -127,7 +137,7 @@ async function handle(req: NextRequest, context: RouteContext) {
   // Sin refresh no hay nada que renovar (una limpieza anterior, un cierre de sesión en otra pestaña, una sesión de soporte vencida): la sesión ya terminó.
   if (!refresh) return sesionTerminada(backendRes);
 
-  // El `try` cubre solo el refresh: si el reintento falla por la red no se limpia nada, porque el refresh viejo sigue valiendo 30 s (S6) y el siguiente intento lo recupera.
+  // El `try` cubre solo el refresh: si falla, la sesión terminó. El reintento va aparte (abajo).
   let tokens: Tokens;
   try {
     tokens = await refrescarUnaVez(refresh);
@@ -139,8 +149,9 @@ async function handle(req: NextRequest, context: RouteContext) {
     return res;
   }
 
-  const reintento = await forward(req, path, body, tokens.access, empresa);
-  const res = pasar(reintento);
+  // El refresh ya rotó el token en el backend: los tokens nuevos se escriben pase lo que pase con el reintento. Si el reintento falla por la red y no se escribieran, el navegador se quedaría
+  // con el refresh viejo, que el backend solo acepta 30 s más (S6), y la siguiente petición pasada esa ventana daría «Tu sesión terminó» con la sesión viva.
+  const res = await reenviarTrasRenovar(req, path, body, tokens, empresa);
   writeTokens(res, tokens);
   return res;
 }

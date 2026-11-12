@@ -409,13 +409,21 @@ describe("proxy /api/proxy/[...path]: sesión terminada (#654)", () => {
     expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("a2");
   });
 
-  /** H2: el `try` cubre solo el refresh. Con el reintento caído por la red no hay respuesta de la que limpiar cookies: el error sale como el de cualquier otro `forward`. */
-  it("el refresh sirve pero el reintento falla por la red: no se limpia la sesión", async () => {
-    const red = new TypeError("fetch failed");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 401 })).mockRejectedValueOnce(red));
+  /**
+   * H2: el `try` cubre solo el refresh, así que un reintento caído por la red no limpia la sesión. Y los tokens nuevos se escriben igual: el backend ya rotó el refresh y el viejo solo
+   * vale 30 s (S6); sin escribirlos, la siguiente petición pasada esa ventana daría «Tu sesión terminó» con la sesión viva.
+   */
+  it("el refresh sirve pero el reintento falla por la red: responde el error de red y escribe igual los tokens nuevos, sin limpiar ni marcar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 401 })).mockRejectedValueOnce(new TypeError("fetch failed")));
     vi.mocked(refrescar).mockResolvedValue(TOKENS);
 
-    await expect(GET(conSesion(), ctx(["empresas"]))).rejects.toBe(red);
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(502);
+    expect(marca(res)).toBeNull();
+    expect(await res.json()).toEqual({ estado: "error", datos: null, mensaje: null, codigo: "RED", errores: null });
+    expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("a2");
+    expect(res.cookies.get(COOKIE_REFRESH)?.value).toBe("r2");
   });
 
   /** H1: una cuenta suspendida (#182) conserva su sesión; el middleware ya lo hace así y el proxy no lo contradice. */
