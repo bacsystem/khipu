@@ -27,6 +27,7 @@ import {
   type EstadoDocumento,
   type PaginaComprobantes,
 } from "@/lib/api/facturas";
+import { fetchDelPortal } from "@/lib/api/browser";
 import { formatearFecha, formatearMonto } from "@/lib/formato";
 import { cn } from "@/lib/utils";
 import { BotonCopiar } from "khipu-design-system/patrones/boton-copiar";
@@ -63,7 +64,7 @@ const ACCION = "flex h-control items-center justify-center rounded-lg border bor
 
 async function fetchComprobantes(filtros: FiltrosComprobantes, pagina: number, porPagina: number, errorListar: string): Promise<PaginaComprobantes> {
   const qs = paramsDeFiltros(filtros, new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) }));
-  const res = await fetch(`/api/proxy/facturas?${qs}`);
+  const res = await fetchDelPortal(`/api/proxy/facturas?${qs}`);
   const json = await res.json();
   if (json.estado !== "exito") throw new Error(json.mensaje ?? errorListar);
   const datos = (json.datos as Comprobante[]).map(normalizarComprobante);

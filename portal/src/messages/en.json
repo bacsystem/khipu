@@ -1690,6 +1690,11 @@
       "cuerpo": "For your security, we'll sign you out in {segundos} s due to inactivity.",
       "seguir": "Stay signed in",
       "salir": "Sign out"
+    },
+    "terminada": {
+      "titulo": "Your session has ended",
+      "cuerpo": "For your security we had to close it. Sign in again to pick up where you left off.",
+      "volver": "Sign in again"
     }
   },
   "soporte": {

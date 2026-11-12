@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { reiniciarCanalParaPruebas } from "@/lib/sesion/canal-de-sesion";
+import { reiniciarSesionTerminadaParaPruebas } from "@/lib/sesion/sesion-terminada";
 
 // #25: next-intl sin provider ni request de Next. Los traductores son los reales de next-intl sobre src/messages/<locale>.json;
 // solo cambia de dónde salen el locale y los mensajes (ver src/i18n/prueba.ts).
@@ -48,4 +49,6 @@ afterEach(() => {
   fijarLocaleDePrueba("es");
   // #653: el canal de la pestaña es único por módulo; la prueba siguiente crea el suyo (con el BroadcastChannel que simule).
   reiniciarCanalParaPruebas();
+  // #654: el estado de «la sesión terminó» también es único por módulo y no vuelve atrás hasta la próxima carga completa.
+  reiniciarSesionTerminadaParaPruebas();
 });

@@ -344,3 +344,111 @@ describe("proxy /api/proxy/[...path]", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * #654: el 401 que ya no se puede recuperar lleva `X-Khipu-Sesion: terminada` para que el navegador abra «Tu sesión terminó». Una fila de la tabla del contrato por prueba.
+ */
+describe("proxy /api/proxy/[...path]: sesión terminada (#654)", () => {
+  const TOKENS = { access: "a2", refresh: "r2", usuario: { id: "u1", cuenta_id: "c1", email: "a@b.com", rol: "admin", correo_verificado: true } };
+  const conSesion = () => requestWithSession("http://localhost/api/proxy/empresas", { method: "GET", access: "a1", refresh: "r1" });
+  const marca = (res: Response) => res.headers.get("x-khipu-sesion");
+
+  it("401 y el refresh es rechazado: 401 marcado, con el cuerpo del backend y las cookies limpias", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"codigo":"NO_AUTORIZADO"}', { status: 401, headers: { "content-type": "application/json" } })));
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(401, "NO_AUTORIZADO", "Refresh inválido"));
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(401);
+    expect(marca(res)).toBe("terminada");
+    expect(await res.text()).toBe('{"codigo":"NO_AUTORIZADO"}');
+    expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("");
+  });
+
+  it("un fallo de red o un 5xx del refresh también lo da por terminado, como el middleware", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    vi.mocked(refrescar).mockRejectedValue(new TypeError("sin red"));
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(401);
+    expect(marca(res)).toBe("terminada");
+    expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("");
+  });
+
+  it("401 sin cookie de refresh (tras una limpieza, un cierre en otra pestaña o una sesión de soporte vencida): marcado y sin tocar las cookies", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+
+    const res = await GET(requestWithSession("http://localhost/api/proxy/empresas", { method: "GET", access: "a1" }), ctx(["empresas"]));
+
+    expect(res.status).toBe(401);
+    expect(marca(res)).toBe("terminada");
+    expect(refrescar).not.toHaveBeenCalled();
+    expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
+  });
+
+  it("401 recuperado (el refresh sirve y el reintento responde bien): sin marca y con los tokens nuevos", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 401 })).mockResolvedValueOnce(new Response("{}", { status: 200 })));
+    vi.mocked(refrescar).mockResolvedValue(TOKENS);
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(200);
+    expect(marca(res)).toBeNull();
+    expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("a2");
+  });
+
+  it("el refresh sirve pero el reintento vuelve a dar 401: 401 sin marca (no es una sesión muerta) y con los tokens nuevos", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    vi.mocked(refrescar).mockResolvedValue(TOKENS);
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(401);
+    expect(marca(res)).toBeNull();
+    expect(res.cookies.get(COOKIE_ACCESS)?.value).toBe("a2");
+  });
+
+  /** H2: el `try` cubre solo el refresh. Con el reintento caído por la red no hay respuesta de la que limpiar cookies: el error sale como el de cualquier otro `forward`. */
+  it("el refresh sirve pero el reintento falla por la red: no se limpia la sesión", async () => {
+    const red = new TypeError("fetch failed");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 401 })).mockRejectedValueOnce(red));
+    vi.mocked(refrescar).mockResolvedValue(TOKENS);
+
+    await expect(GET(conSesion(), ctx(["empresas"]))).rejects.toBe(red);
+  });
+
+  /** H1: una cuenta suspendida (#182) conserva su sesión; el middleware ya lo hace así y el proxy no lo contradice. */
+  it("el refresh responde 403 CUENTA_SUSPENDIDA: 403 con el sobre, sin marca y sin limpiar las cookies", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"cuerpo":"del 401"}', { status: 401, headers: { "content-length": "20" } })));
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "CUENTA_SUSPENDIDA", "Cuenta suspendida"));
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(403);
+    expect(marca(res)).toBeNull();
+    expect(await res.json()).toEqual({ estado: "error", datos: null, mensaje: null, codigo: "CUENTA_SUSPENDIDA", errores: null });
+    expect(res.cookies.get(COOKIE_ACCESS)).toBeUndefined();
+    expect(res.cookies.get(COOKIE_REFRESH)).toBeUndefined();
+  });
+
+  it("un refresh que responde 403 por otra causa no es una suspensión: es una sesión terminada", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    vi.mocked(refrescar).mockRejectedValue(new ApiError(403, "ROL_INSUFICIENTE", "no"));
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(401);
+    expect(marca(res)).toBe("terminada");
+  });
+
+  it.each([[200], [403], [404], [422], [500]])("un %i del backend pasa sin marca ni cambios", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status })));
+
+    const res = await GET(conSesion(), ctx(["empresas"]));
+
+    expect(res.status).toBe(status);
+    expect(marca(res)).toBeNull();
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+});

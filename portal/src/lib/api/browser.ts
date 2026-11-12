@@ -1,3 +1,4 @@
+import { avisarSesionTerminada, esSesionTerminada } from "@/lib/sesion/sesion-terminada";
 import { seCortoLaConexion, noSeSabeSiLlego, seVencioLaEspera } from "./corte-de-red";
 import type { ApiEnvelope } from "./types";
 
@@ -49,15 +50,27 @@ async function toEnvelope<T>(res: Response): Promise<ApiEnvelope<T>> {
 export const ESPERA_MAXIMA_LECTURA_MS = 30_000;
 export const ESPERA_MAXIMA_ESCRITURA_MS = 120_000;
 
+/**
+ * El único `fetch` del navegador hacia el proxy (#654): si la respuesta es el 401 definitivo (la sesión murió y el refresh ya no sirve), avisa para que se abra el diálogo «Tu sesión
+ * terminó», y devuelve la `Response` intacta para que quien llama la lea como siempre. `fetch-del-portal.test.ts` impide que aparezca otro `fetch` suelto.
+ */
+export async function fetchDelPortal(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const res = await fetch(input, init);
+  if (esSesionTerminada(res)) avisarSesionTerminada();
+  return res;
+}
+
 async function pedir<T>(path: string, init: RequestInit, esperaMs?: number): Promise<ApiEnvelope<T>> {
   let res: Response;
   const espera = esperaMs ?? (init.method === undefined || init.method === "GET" ? ESPERA_MAXIMA_LECTURA_MS : ESPERA_MAXIMA_ESCRITURA_MS);
   try {
-    res = await fetch(path, { signal: AbortSignal.timeout(espera), ...init });
+    res = await fetchDelPortal(path, { signal: AbortSignal.timeout(espera), ...init });
   } catch (error) {
     if (error instanceof DOMException && error.name === "TimeoutError") return sobre("ESPERA_VENCIDA");
     return sobre("RED");
   }
+  // Detrás del diálogo no queda un «No autorizado.»: el código de sesión inválida ya tiene su texto.
+  if (esSesionTerminada(res)) return sobre("SESION_INVALIDA");
   return toEnvelope<T>(res);
 }
 
