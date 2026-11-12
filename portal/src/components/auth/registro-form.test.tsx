@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
 
+import { CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE } from "@/lib/sesion/inactividad";
 import { RegistroForm } from "./registro-form";
 
 afterEach(() => {
@@ -72,6 +73,21 @@ describe("RegistroForm: términos y privacidad (#342)", () => {
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/auth/registro");
     expect(JSON.parse(init.body as string)).toEqual({ nombre: "Mi negocio", telefono: "987654321", email: "ana@negocio.pe", password: "Segura123", acepta_terminos: true });
+  });
+
+  it("una cuenta nueva no hereda la inactividad de la sesión anterior (#637): al registrarse se reinician las marcas", async () => {
+    window.localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, "1");
+    window.localStorage.setItem(CLAVE_ULTIMO_KEEP_ALIVE, "1");
+    stubFetch(201, { estado: "exito", datos: { usuario: {} } });
+    render(<RegistroForm />);
+
+    llenar();
+    fireEvent.click(casilla());
+    enviar();
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/onboarding"));
+    expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBeNull();
+    expect(window.localStorage.getItem(CLAVE_ULTIMO_KEEP_ALIVE)).toBeNull();
   });
 
   it("si el backend igual lo rechaza, muestra su mensaje", async () => {

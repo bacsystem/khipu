@@ -1682,6 +1682,14 @@
     "resumenUsuarios": "{activos} activos · {total} en total",
     "pendientes": "{n} pendientes"
   },
+  "sesion": {
+    "inactividad": {
+      "titulo": "Tu sesión está por cerrarse",
+      "cuerpo": "Por seguridad, cerraremos tu sesión en {segundos} s por inactividad.",
+      "seguir": "Seguir conectado",
+      "salir": "Cerrar sesión"
+    }
+  },
   "soporte": {
     "soloLectura": "Modo soporte: solo se puede mirar, no cambiar nada.",
     "aviso": {

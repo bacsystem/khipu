@@ -14,6 +14,7 @@ import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMessages } from "next-intl";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
+import { reiniciarMarcas } from "@/lib/sesion/inactividad";
 import { cn } from "@/lib/utils";
 import { esquemas } from "@/lib/validacion";
 
@@ -39,6 +40,8 @@ export function LoginForm() {
     setError(null);
     const res = await postJson<{ usuario: unknown }>("/api/auth/login", values);
     if (res.estado === "exito") {
+      // Una sesión nueva no hereda la inactividad de la anterior (#637): sin esto, la marca de ayer la cerraría en la primera evaluación.
+      reiniciarMarcas();
       router.push(rutaSegura(params.get("next")));
       router.refresh();
       return;

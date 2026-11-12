@@ -53,6 +53,7 @@ export const TEXTOS_DE_CLIENTE = {
     "referenciaTecnica",
     "resumenDePlan",
     "series",
+    "sesion",
     "webhooks",
   ],
   /** El backoffice, `/admin` (su login incluido). */

@@ -73,6 +73,14 @@ export function reiniciarMarcas(almacen: Almacen = almacenDelNavegador()): void 
   almacen.borrar(CLAVE_ULTIMO_KEEP_ALIVE);
 }
 
+/**
+ * El N que se le da al vigilante. Una sesión de soporte no lo lleva: no tiene refresh y vence a hora fija, y su logout dejaría al administrador sin su pestaña. El backend ya no manda
+ * el campo ahí; esto lo asegura también si algún día lo mandara.
+ */
+export function minutosDeInactividad(usuario: { soporte_hasta?: string; sesion_inactividad_minutos?: number }): number | undefined {
+  return usuario.soporte_hasta ? undefined : usuario.sesion_inactividad_minutos;
+}
+
 export type Marcas = { ultimaActividad: number | null; ultimoKeepAlive: number | null };
 
 export type Decision = {

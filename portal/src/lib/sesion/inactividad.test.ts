@@ -7,6 +7,7 @@ import {
   crearVigilante,
   decidir,
   MINUTO_MS,
+  minutosDeInactividad,
   REINTENTO_TRAS_FALLO_MS,
   reiniciarMarcas,
   VENTANA_KEEP_ALIVE_MS,
@@ -36,6 +37,21 @@ function pestana(compartido: { almacen: Almacen; reloj: { t: number } }, resulta
 
 const mundo = () => ({ almacen: almacenEnMemoria(), reloj: { t: 1_000_000_000_000 } });
 const avanzar = (m: ReturnType<typeof mundo>, ms: number) => void (m.reloj.t += ms);
+
+describe("minutosDeInactividad", () => {
+  it("es el N que informa /me", () => {
+    expect(minutosDeInactividad({ sesion_inactividad_minutos: 30 })).toBe(30);
+  });
+
+  it("sin el campo o con 0 no hay N que pasar (el 0 lo descarta el vigilante)", () => {
+    expect(minutosDeInactividad({})).toBeUndefined();
+    expect(minutosDeInactividad({ sesion_inactividad_minutos: 0 })).toBe(0);
+  });
+
+  it("una sesión de soporte no lleva contador aunque el campo venga", () => {
+    expect(minutosDeInactividad({ soporte_hasta: "2026-11-12T10:30:00Z", sesion_inactividad_minutos: 30 })).toBeUndefined();
+  });
+});
 
 describe("decidir", () => {
   const A = 5_000_000;

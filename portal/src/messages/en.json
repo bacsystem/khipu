@@ -1682,6 +1682,14 @@
     "resumenUsuarios": "{activos} active · {total} total",
     "pendientes": "{n} pending"
   },
+  "sesion": {
+    "inactividad": {
+      "titulo": "Your session is about to end",
+      "cuerpo": "For your security, we'll sign you out in {segundos} s due to inactivity.",
+      "seguir": "Stay signed in",
+      "salir": "Sign out"
+    }
+  },
   "soporte": {
     "soloLectura": "Support mode: view only, nothing can be changed.",
     "aviso": {
