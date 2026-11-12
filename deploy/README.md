@@ -13,16 +13,35 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 ### Cómo llega un cambio a producción
 
 Solo un release llega a producción. El release es el tag `vX.Y.Z` sobre `main`: un merge a `develop` o a `main` no publica ni
-despliega nada. **CI no corre las pruebas** (consumían más de 40 minutos de Actions por corrida): la suite completa se corre en
-local antes de mergear y antes de poner el tag (`./gradlew test`, y en `portal/` `npm run typecheck`, `lint`, `test` y `e2e`).
-Si hace falta en un entorno limpio, Actions → «Pruebas» → *Run workflow*.
+despliega nada. Las pruebas corren **en cada PR** (`.github/workflows/ci.yml`, #650), con filtro por rutas:
+
+- `backend`: `./gradlew test --continue --no-daemon`, solo si la PR toca `domain/`, `application/`, `adapters/`, `bootstrap/`, `gradle/`, los archivos
+  raíz de la build (`gradlew*`, `*.gradle.kts`, `gradle.properties`, `lombok.config`) o los tres archivos del portal que son `inputs` de pruebas de Gradle
+  (`portal/src/lib/api/openapi.json`, `portal/src/content/legal/version.ts`, `portal/src/components/developers/guia/casos-emision.ts`).
+- `portal`: `npm ci`, `typecheck`, `lint` y Vitest, solo si la PR toca `portal/`.
+- Una PR que solo toca `docs/`, `README.md`, `deploy/`, `k6/` o `qa/` no corre ninguno y queda en verde. Un cambio de `ci.yml` corre los dos.
+- `ci` es el job agregador: falla si el filtro (`cambios`) falla o si `backend` o `portal` fallan o se cancelan. **El check que el dueño marca como
+  requerido en `develop` y `main` (Settings → Branches) es solo `ci`.** Hasta que lo marque, los checks informan pero no bloquean el merge.
+
+**Qué no corre en la PR:** el e2e de Playwright y `npm run audit` (a pedido: Actions → «Pruebas» → *Run workflow*; el e2e se corre una vez antes de
+cada release), la suite de homologación contra e-beta (`homologacion.yml`, a pedido), k6 (`k6.yml`, a pedido) y el despliegue (el tag, `imagenes.yml`).
+Cada corrida cancela la anterior de la misma PR, y el caché de Gradle se llena con la primera corrida de cada PR.
 
 ```mermaid
 flowchart TB
-    subgraph LOCAL["Antes del merge y del tag (en local)"]
+    subgraph PR["En cada PR (ci.yml)"]
         direction LR
-        lc_t["Suite completa<br/>backend + portal"] --> lc_m["Merge de la PR"]
-        lc_m -.-> mg_r["CI no corre nada"]
+        pr_ev["PR abierta<br/>o actualizada"] --> pr_c["cambios<br/>(git diff por rutas)"]
+        pr_c -->|"toca backend"| pr_b["backend<br/>(Gradle)"]
+        pr_c -->|"toca portal"| pr_p["portal<br/>(typecheck · lint · Vitest)"]
+        pr_b --> pr_ci["ci<br/>(check requerido)"]
+        pr_p --> pr_ci
+        pr_ci --> pr_m["Merge de la PR"]
+    end
+
+    subgraph LOCAL["Antes del tag (a pedido o en local)"]
+        direction LR
+        lc_t["e2e de Playwright<br/>y npm run audit"]
     end
 
     subgraph TAG["Release: tag vX.Y.Z sobre main"]
@@ -34,20 +53,19 @@ flowchart TB
         tg_v -->|"no"| tg_x["No publica<br/>ni despliega"]
     end
 
+    PR ~~~ LOCAL
     LOCAL ~~~ TAG
 
     classDef prod stroke:#2457d6,stroke-width:3px
     classDef stop stroke:#c0392b,stroke-width:2px
-    classDef off stroke-dasharray:5 5
     class tg_r prod
     class tg_x stop
-    class mg_r off
 ```
 
 Paso a paso:
 
-1. Con la suite en verde en local, merge a `main` (el release desde `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push
-   <remoto> vX.Y.Z`).
+1. Con `ci` en verde en la PR de release (o del `hotfix/*`) y el e2e de Playwright corrido una vez (en local o en «Pruebas»), merge a `main` (el release desde
+   `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push <remoto> vX.Y.Z`).
 2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, y construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
 3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
    Railway baja la `:latest` nueva y la levanta cuando pasa su healthcheck. El `respaldo` no se redespliega solo; toma la imagen
