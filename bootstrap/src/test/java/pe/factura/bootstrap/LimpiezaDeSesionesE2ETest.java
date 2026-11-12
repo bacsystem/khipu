@@ -94,7 +94,9 @@ class LimpiezaDeSesionesE2ETest {
         assertThat(existe(filaA)).as("vencida hace más que la retención: se borra").isFalse();
         assertSesionInvalida(refrescar(a));   // sin fila, la misma respuesta
 
-        assertThat(refrescar(b).getStatusCode()).as("la sesión vigente no se tocó").isEqualTo(HttpStatus.OK);
+        // Desde #635 el primer reuso revocó toda la familia, así que b ya no sirve; la limpieza igual conserva su fila (la más reciente del usuario).
+        assertThat(existe(idDe(b))).as("la sesión más reciente no se purgó").isTrue();
+        assertSesionInvalida(refrescar(b));
     }
 
     @Test void elRefreshEnGraciaSigueSirviendoDespuesDeLaLimpieza() {

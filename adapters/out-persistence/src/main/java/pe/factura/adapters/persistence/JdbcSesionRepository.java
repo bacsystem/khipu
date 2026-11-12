@@ -61,9 +61,11 @@ public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones {
     @Override public void revocarTodas(UUID usuarioId) {
         jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL WHERE usuario_id = ?", usuarioId);
     }
-    @Override public void rotar(UUID id, UUID nueva, Instant en) {
-        jdbc.update("UPDATE sesion SET revocada = true, rotada_en = COALESCE(rotada_en, ?), reemplazada_por = COALESCE(reemplazada_por, ?) WHERE id = ?",
-                Timestamp.from(en), nueva, id);
+    // La condición cierra la carrera con una revocación: si la fila quedó revocada sin rotación (logout, restablecer, reuso) entre la lectura y este
+    // UPDATE, Postgres reevalúa el WHERE al obtener el bloqueo y no la toca. Una fila ya rotada conserva rotada_en, así que la gracia (S6) sigue pasando.
+    @Override public boolean rotar(UUID id, UUID nueva, Instant en) {
+        return jdbc.update("UPDATE sesion SET revocada = true, rotada_en = COALESCE(rotada_en, ?), reemplazada_por = COALESCE(reemplazada_por, ?) "
+                + "WHERE id = ? AND (revocada = false OR rotada_en IS NOT NULL)", Timestamp.from(en), nueva, id) > 0;
     }
 
     @Override public void crearRecuperacion(TokenRecuperacion t) {

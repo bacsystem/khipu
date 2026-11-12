@@ -90,6 +90,34 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
         assertThat(sesiones.buscar(UUID.randomUUID())).isEmpty();
     }
 
+    /**
+     * #635: rotar solo actúa sobre una sesión abierta o ya rotada (la gracia de S6). Una fila revocada sin rotación (logout, restablecer la contraseña,
+     * reuso detectado) no se toca y devuelve false: así un refresh que ya había leído la fila antes de la revocación no deja viva una sesión nueva.
+     */
+    @Test void rotarNoTocaUnaSesionRevocadaSinRotacionYDevuelveSiLaRoto() {
+        jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
+        Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
+        Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
+        Instant vence = Instant.parse("2030-01-01T00:00:00Z"), en = Instant.parse("2026-10-09T12:00:00Z");
+        Sesion abierta = new Sesion(UUID.randomUUID(), u.id(), "abierta", vence, false);
+        Sesion cerrada = new Sesion(UUID.randomUUID(), u.id(), "cerrada", vence, false);
+        sesiones.crear(abierta);
+        sesiones.crear(cerrada);
+        UUID reemplazo = UUID.randomUUID();
+
+        assertThat(sesiones.rotar(abierta.id(), reemplazo, en)).as("abierta: rota").isTrue();
+        assertThat(sesiones.rotar(abierta.id(), UUID.randomUUID(), en.plusSeconds(10))).as("ya rotada: la gracia sigue pasando").isTrue();
+        assertThat(sesiones.buscar(abierta.id()).orElseThrow()).extracting(Sesion::rotadaEn, Sesion::reemplazadaPor).containsExactly(en, reemplazo);
+
+        sesiones.revocarFamilia(cerrada.familia());
+        assertThat(sesiones.rotar(cerrada.id(), UUID.randomUUID(), en)).as("revocada sin rotación: no rota").isFalse();
+        assertThat(sesiones.buscar(cerrada.id()).orElseThrow()).extracting(Sesion::revocada, Sesion::rotadaEn, Sesion::reemplazadaPor).containsExactly(true, null, null);
+
+        sesiones.revocarFamilia(abierta.familia());   // la revocación por reuso también borra la marca de rotación
+        assertThat(sesiones.rotar(abierta.id(), UUID.randomUUID(), en)).as("tras revocar la familia ya no rota").isFalse();
+        assertThat(sesiones.rotar(UUID.randomUUID(), UUID.randomUUID(), en)).as("no existe").isFalse();
+    }
+
     /** 271-H1: el logout revoca toda la familia (la sesión del login, sus rotaciones y las ramas de la gracia) y nada de otro login. */
     @Test void revocarFamiliaCierraTodoLoDeEseLoginYNadaMas() {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");

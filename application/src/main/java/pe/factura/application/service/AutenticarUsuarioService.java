@@ -1,6 +1,7 @@
 package pe.factura.application.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import pe.factura.application.port.in.AceptarTerminosUseCase;
 import pe.factura.application.port.in.AutenticarUsuarioUseCase;
 import pe.factura.application.port.out.*;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     static final Duration VIDA_REFRESH = Duration.ofDays(30);
@@ -162,17 +164,36 @@ public class AutenticarUsuarioService implements AutenticarUsuarioUseCase {
     @Override
     public Tokens refrescar(String refresh) {
         Sesion s = sesiones.buscarPorRefreshHash(TokenOpaco.hash(refresh == null ? "" : refresh))
-                .filter(x -> x.expiraEn().isAfter(clock.instant()) && (!x.revocada() || enGracia(x)))
-                .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Sesión expirada o inválida"));
+                .filter(x -> x.expiraEn().isAfter(clock.instant()))
+                .orElseThrow(AutenticarUsuarioService::sesionInvalida);
+        if (s.revocada() && !enGracia(s)) throw rechazarRevocada(s);
         Usuario u = usuarios.buscar(s.usuarioId()).filter(Usuario::activo)
                 .orElseThrow(() -> new DomainException("SESION_INVALIDA", "Usuario inactivo"));
         // Sin tocar la sesión: suspender no borra nada, y al reactivar la misma sesión vuelve a servir (#182).
         exigirCuentaActiva(u);
         return uow.ejecutar(() -> {   // rotación: la sesión nueva es de la misma familia (271-H1), también si entró en gracia
             SesionEmitida t = emitirSesion(u, s.familia());
-            sesiones.rotar(s.id(), t.sesionId(), clock.instant());
+            // Si un logout, un restablecimiento o la revocación por reuso cerró la sesión entre la lectura y aquí, no rota: la excepción deshace la sesión nueva.
+            if (!sesiones.rotar(s.id(), t.sesionId(), clock.instant())) throw sesionInvalida();
             return t.tokens();
         });
+    }
+
+    private static DomainException sesionInvalida() { return new DomainException("SESION_INVALIDA", "Sesión expirada o inválida"); }
+
+    /**
+     * Un refresh revocado y fuera de la gracia. Si lo cerró una rotación (tiene {@code rotadaEn}), alguien presenta un refresh que ya se usó: puede ser
+     * un token robado, así que se revoca la familia entera. Si lo cerró un logout, restablecer la contraseña o desactivar al miembro, la familia ya
+     * está cerrada y no hay nada más que hacer. La revocación va en su propia unidad de trabajo y se confirma antes de devolver el rechazo: lanzar
+     * dentro la desharía. Revocar la familia deja {@code rotadaEn} en {@code null} en todas sus filas, así que un segundo reuso no repite el aviso.
+     */
+    private DomainException rechazarRevocada(Sesion s) {
+        if (s.rotadaEn() != null) {
+            uow.ejecutar(() -> sesiones.revocarFamilia(s.familia()));
+            // Solo ids: nunca el refresh, su hash, el access ni el correo.
+            log.warn("Refresh reutilizado fuera de la gracia: familia revocada (usuario={}, familia={})", s.usuarioId(), s.familia());
+        }
+        return sesionInvalida();
     }
 
     /**
