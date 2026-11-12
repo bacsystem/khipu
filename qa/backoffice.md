@@ -1448,7 +1448,9 @@ Qué se aprendió al verificar:
      quién soy, cerrar sesión) siguen funcionando para que el portal pueda decirle «tu cuenta está suspendida». Va antes que la verificación del correo.
   2. `ApiKeyFilter`: cualquier llamada con la API key de cualquier empresa de la cuenta, para ver y para emitir.
   3. El login: después de comprobar la contraseña, para no revelar el estado de una cuenta a quien no se identificó.
-  4. El refresh: **sin revocar la sesión**, así que al reactivar la misma sesión vuelve a servir.
+  4. El refresh: **sin revocar la sesión**, así que al reactivar la misma sesión vuelve a servir. **Desde #636 solo si la reactivación llega antes del corte por inactividad**
+     (N + 15 min sin refrescar, 45 con el N por defecto de 30): pasado ese tiempo el refresh responde `SESION_INVALIDA` (no `CUENTA_SUSPENDIDA`) y el usuario vuelve a entrar con su
+     contraseña. Evidencia en `qa/sesion-inactividad.md`.
 - **Los filtros rechazan primero lo inválido.** Un token o una API key inválidos dan 401 sin consultar el estado: nadie se entera de qué cuentas están suspendidas.
 - **Los documentos ya emitidos siguen enviándose a SUNAT.** El outbox no pasa por los filtros: cortarlos los dejaría fuera del plazo de envío (`FUERA_DE_PLAZO`, estado terminal: hay que
   emitir de nuevo), con consecuencia para el cliente. Suspender corta emitir y consultar, no el envío de lo ya emitido.
@@ -1463,7 +1465,7 @@ Qué se aprendió al verificar:
   estado**. Suspender abre un diálogo de confirmación que dice a cuántas empresas alcanza y qué hace y qué NO hace (no borra, no corta los envíos de lo ya emitido, es
   reversible) — el mismo patrón que la baja de comprobantes. Las acciones pasan por dos rutas del BFF que validan el id y reenvían la IP real del administrador (#208).
 - **Portal (cliente):** una página pública `/cuenta-suspendida` que explica la suspensión («no se borró nada») y deja cerrar la sesión; la lleva el middleware cuando el refresh
-  responde `CUENTA_SUSPENDIDA` (**sin limpiar las cookies**, para que al reactivar siga la misma sesión) y el layout privado cuando el listado de empresas lo responde. El login
+  responde `CUENTA_SUSPENDIDA` (**sin limpiar las cookies**, para que al reactivar siga la misma sesión mientras no venza el corte por inactividad, #636) y el layout privado cuando el listado de empresas lo responde. El login
   muestra el mensaje del backend.
 
 ### Tests
