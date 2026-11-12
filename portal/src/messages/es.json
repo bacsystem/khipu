@@ -1686,9 +1686,10 @@
   },
   "sesion": {
     "inactividad": {
-      "titulo": "Tu sesión está por cerrarse",
-      "cuerpo": "Por seguridad, cerraremos tu sesión en {segundos} s por inactividad.",
-      "seguir": "Seguir conectado",
+      "titulo": "¿Sigues ahí? Tu sesión está por finalizar",
+      "cuerpo": "Confirma que sigues usando el portal para mantener tu sesión activa.",
+      "franja": "Tu sesión se cerrará en:",
+      "seguir": "Seguir usando el portal",
       "salir": "Cerrar sesión"
     },
     "terminada": {

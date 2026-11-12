@@ -1686,9 +1686,10 @@
   },
   "sesion": {
     "inactividad": {
-      "titulo": "Your session is about to end",
-      "cuerpo": "For your security, we'll sign you out in {segundos} s due to inactivity.",
-      "seguir": "Stay signed in",
+      "titulo": "Are you still there? Your session is about to end",
+      "cuerpo": "Confirm you are still using the portal to keep your session active.",
+      "franja": "Your session will end in:",
+      "seguir": "Keep using the portal",
       "salir": "Sign out"
     },
     "terminada": {
