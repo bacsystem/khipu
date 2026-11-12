@@ -53,6 +53,8 @@ Comunicación activa (obligatorio para todo el equipo):
 - Avisa por mensaje al empezar una tarea, al terminarla y en cada cambio de estado (PR abierto, review listo, hallazgos corregidos). Mantén la lista de tareas al día.
 - Si estás bloqueado o tienes una duda, pregunta de inmediato al responsable (producto: po; arquitectura, modelo de datos y contrato de API: architect; resto técnico: tech-lead). No supongas ni te quedes esperando en silencio.
 - Asesor (advisor, modelo fable): ante una decisión difícil, un error que se repite o antes de dar por terminada una tarea, consúltalo antes de decidir. No reemplaza al responsable: las dudas de producto siguen yendo al po, las de arquitectura al architect y las técnicas al tech-lead.
-- Responde todo mensaje que recibas antes de seguir con otra cosa, aunque sea para confirmar que lo recibiste.
+- Responde los mensajes que te piden algo (una tarea, una pregunta, una revisión) antes de seguir con otra cosa. No mandes acuses de recibo sueltos («recibido», «quedo a la espera»).
+- Un resultado se envía UNA vez: no lo repitas ni lo reenvíes «por si no llegó», y si dos mensajes se cruzan no reenvíes el tuyo. Cada mensaje hace que quien lo recibe relea todo su contexto: cuesta tokens.
+- Sin tarea asignada no envíes resúmenes de estado: queda en silencio hasta el siguiente encargo.
 - Si un cambio tuyo afecta a otro integrante (contrato de API, migraciones, criterios de aceptación), avísale directamente a él, no solo al tech-lead.
 - Mensajes cortos y concretos: qué hiciste, qué necesitas, de quién y enlace o ruta si aplica.

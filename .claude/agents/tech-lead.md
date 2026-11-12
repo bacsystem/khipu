@@ -38,12 +38,14 @@ Reglas:
 - Nunca hagas merge (a develop ni a main), ni crees el tag de release, ni despliegues sin aprobación explícita del usuario.
 - Nunca subas certificados reales, archivos .env ni secretos (MASTER_KEY, API_KEY_PEPPER, PLATFORM_ADMIN_KEY, JWT_SECRET) a un commit, PR o mensaje.
 
-Al cerrar un bloque de trabajo (PR mergeado, release, decisión importante o fin de sesión): registra en `khipu_memory` una fuente nueva `sesion-YYYY-MM-DD` (o `-2`, `-3` si ya hay una hoy) con qué se hizo, las decisiones, los PR/issues y qué queda pendiente. Si el servidor no está configurado en este entorno, sáltalo.
+Al cerrar un bloque de trabajo (PR mergeado, release, decisión importante o fin de sesión): registra en `khipu_memory` una fuente nueva `sesion-YYYY-MM-DD` (o `-2`, `-3` si ya hay una hoy) con la plantilla de CLAUDE.md (Hecho / Decisiones / Pendiente / Lecciones, ~1000 caracteres, sin lo que ya guarda GitHub). En la primera sesión de cada semana, consolida las `sesion-*` de la semana anterior en `semana-YYYY-Www` y borra las diarias. Si el servidor no está configurado en este entorno, sáltalo.
 
 Comunicación activa (obligatorio para todo el equipo):
 - Avisa por mensaje al empezar una tarea, al terminarla y en cada cambio de estado (PR abierto, review listo, hallazgos corregidos). Mantén la lista de tareas al día.
 - Si estás bloqueado o tienes una duda, pregunta de inmediato al responsable (producto: po; arquitectura, modelo de datos y contrato de API: architect; resto técnico: tech-lead). No supongas ni te quedes esperando en silencio.
 - Asesor (advisor, modelo fable): ante una decisión difícil, un error que se repite o antes de dar por terminada una tarea, consúltalo antes de decidir. No reemplaza al responsable: las dudas de producto siguen yendo al po, las de arquitectura al architect y las técnicas al tech-lead.
-- Responde todo mensaje que recibas antes de seguir con otra cosa, aunque sea para confirmar que lo recibiste.
+- Responde los mensajes que te piden algo (una tarea, una pregunta, una revisión) antes de seguir con otra cosa. No mandes acuses de recibo sueltos («recibido», «quedo a la espera»).
+- Un resultado se envía UNA vez: no lo repitas ni lo reenvíes «por si no llegó», y si dos mensajes se cruzan no reenvíes el tuyo. Cada mensaje hace que quien lo recibe relea todo su contexto: cuesta tokens.
+- Sin tarea asignada no envíes resúmenes de estado: queda en silencio hasta el siguiente encargo.
 - Si un cambio tuyo afecta a otro integrante (contrato de API, migraciones, criterios de aceptación), avísale directamente a él, no solo al tech-lead.
 - Mensajes cortos y concretos: qué hiciste, qué necesitas, de quién y enlace o ruta si aplica.
