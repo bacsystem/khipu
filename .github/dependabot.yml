@@ -39,12 +39,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]
-      # Dos regresiones del build de producción (`next build --turbopack`). Desde 0.9.72, en Windows el build compila las 61 páginas pero termina
-      # en «EINVAL: copyfile … [externals]_node:url_….js» al copiar a `standalone` (no admite `:` en un nombre de archivo). Desde 0.9.80
-      # (probado hasta 0.9.89) su CSS rompe el build: «Parsing CSS source code failed» en un `::view-transition-group(...)` de varias líneas.
-      # Queda fijada en 0.9.71 en package.json; quitar esta regla cuando una versión nueva compile en Windows y en la imagen.
+      # Fijada en 0.9.67 en package.json (la de develop). Tres motivos para no subirla:
+      #  - >=0.9.68 trae `undici` 7.24.4 con advisories (vía @scalar/json-magic >=0.13.5), que `npm audit` marca y 0.9.67 no tiene.
+      #  - >=0.9.72, en Windows `next build --turbopack` compila las 61 páginas pero termina en «EINVAL: copyfile … [externals]_node:url_….js»
+      #    al copiar a `standalone` (Windows no admite `:` en un nombre de archivo).
+      #  - >=0.9.80 (probado hasta 0.9.89), su CSS rompe el build: «Parsing CSS source code failed» en un `::view-transition-group(...)` de varias líneas.
+      # Quitar esta regla cuando una versión nueva compile en Windows y en la imagen y su `npm audit --omit=dev` quede sin advisories.
       - dependency-name: "@scalar/api-reference-react"
-        versions: [">=0.9.72"]
+        versions: [">=0.9.68"]
     labels: [dependencies, portal]
     commit-message:
       prefix: build
