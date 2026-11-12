@@ -51,6 +51,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # core.quotePath=false: sin eso git cita entre comillas (con escapes octales) las rutas con tilde o ñ y ningún patrón las reconocería. Se guarda en una
+          # variable, y no en `< <(git ...)`, para que set -e corte el job si git falla en vez de dejar el filtro vacío (todo en false, CI «verde» sin probar nada).
+          archivos=$(git -c core.quotePath=false diff --name-only HEAD^1 HEAD)
           backend=false
           portal=false
           while IFS= read -r archivo; do
@@ -66,11 +69,11 @@ jobs:
             case "$archivo" in
               portal/*|.github/workflows/ci.yml) portal=true ;;
             esac
-          done < <(git diff --name-only HEAD^1 HEAD)
+          done <<< "$archivos"
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "portal=$portal" >> "$GITHUB_OUTPUT"
           echo "Archivos de la PR:"
-          git diff --name-only HEAD^1 HEAD
+          echo "$archivos"
           echo "backend=$backend portal=$portal"
 
   backend:
