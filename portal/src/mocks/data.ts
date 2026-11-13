@@ -635,6 +635,16 @@ export function resetDb() {
     { id: "e-en-el-tope", ruc: "20600000028", razon_social: "Bodega en el Tope SAC", entorno: "PRODUCCION", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
   ]);
   db.seriesPorEmpresa.set("e-en-el-tope", [{ tipo: "01", serie: "F001", ultimo_numero: 30, activa: true, establecimiento: "0000" }]);
+  // Un cliente con exactamente lo que incluye el plan Gratis: 1 RUC, 1 usuario y 1 API key (#498). Cuenta propia para `plan-y-consumo.spec.ts`: sobre la demo, lo que
+  // dejan `equipo.spec.ts` (usuarios e invitaciones) y `api-keys.spec.ts` (keys) le movía el uso y la prueba del «justo en el tope» fallaba según el orden de la corrida.
+  const enElTopeDeUso: Usuario = { id: "u-tope-de-uso", cuenta_id: "c-tope-de-uso", email: "uso-del-plan@example.com", rol: "ADMIN", correo_verificado: true };
+  db.usuariosPorEmail.set(enElTopeDeUso.email, { usuario: enElTopeDeUso, password: "Passw0rd1" });
+  db.nombresDeCuenta.set(enElTopeDeUso.cuenta_id, "Bodega Uso del Plan");
+  db.empresasPorCuenta.set(enElTopeDeUso.cuenta_id, [
+    { id: "e-tope-de-uso", ruc: "20600000081", razon_social: "Bodega Uso del Plan SAC", entorno: "BETA", tiene_certificado: true, tiene_credenciales_sol: true, certificado_vigencia_hasta: "2036-01-01" },
+  ]);
+  db.seriesPorEmpresa.set("e-tope-de-uso", [{ tipo: "01", serie: "F001", ultimo_numero: 0, activa: true, establecimiento: "0000" }]);
+  db.apiKeysPorEmpresa.set("e-tope-de-uso", [{ id: "k-tope-de-uso", prefijo: "fk_uso0001", activa: true, creada_en: "2026-09-01T15:00:00Z" }]);
   // Un cliente con el plan Emprende vencido hace 10 días y 3 de gracia ya pasados (#285): no emite hasta renovarlo, aunque le sobre tope. Cuenta propia.
   const conPlanVencido: Usuario = { id: "u-plan-vencido", cuenta_id: "c-plan-vencido", email: "vencido@example.com", rol: "ADMIN", correo_verificado: true };
   db.usuariosPorEmail.set(conPlanVencido.email, { usuario: conPlanVencido, password: "Passw0rd1" });
