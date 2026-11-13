@@ -38,7 +38,7 @@ Comprobar tras desplegar:
 - «Suspender cuenta» del backoffice ya no promete que los usuarios conservan sus sesiones al reactivar (#640, PR #645).
 - `khipu-design-system` de v0.5.9 a v0.5.19 (#657, PR #661, PR #665). Área táctil de 44 px, sin cambios funcionales.
 - Dependencias de Gradle al día (PR #583): Gradle 8.14.6, Jackson 2.22, Flyway 12.11, AWS SDK 2.57, java-jwt 4.6 y las de prueba, entre otras. Flyway sube de versión: es la que aplica V75 y V76 al arrancar.
-- Cada PR corre las pruebas del backend y del portal con filtro por rutas (`ci.yml`, #650, PR #655); el e2e de Playwright y `npm run audit` siguen a pedido en «Pruebas». `deploy/README.md` lo documenta.
+- Cada PR corre las pruebas del backend y del portal con filtro por rutas (`ci.yml`, #650, PR #655); el e2e de Playwright y `npm run audit` corren en «Pruebas», sola en toda PR a `main` (#671, PR #672, PR #673) y a pedido. `deploy/README.md` lo documenta.
 - Equipo de agentes de Claude Code versionado en el repo (`setup-team.sh`, `.claude/`, sección de `CLAUDE.md`, regla de `/pr-review`, plantilla de `khipu_memory`): PR #626, #627, #628, #630, #631, #651, #652; más el informe de qa de la inactividad (PR #648) y el arreglo de un e2e que esperaba mal al keep-alive (#637, PR #649). Sin efecto en producción.
 
 ### Fixed
