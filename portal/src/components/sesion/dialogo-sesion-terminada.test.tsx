@@ -56,15 +56,27 @@ describe("DialogoSesionTerminada", () => {
     expect(screen.getByRole("button", { name: "Sign in again" })).toBeInTheDocument();
   });
 
+  /** El DS no tiene DOM de pruebas: que `descartable={false}` ignore Escape se comprueba aquí, con jsdom, sobre el elemento que de verdad tiene el foco. */
   it("no se puede cerrar con Escape", async () => {
     render(<DialogoSesionTerminada />);
     await abrir();
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Volver a ingresar" })).toHaveFocus());
 
-    fireEvent.keyDown(dialogo()!, { key: "Escape" });
-    fireEvent.keyDown(document.body, { key: "Escape" });
+    await act(async () => void fireEvent.keyDown(document.activeElement!, { key: "Escape" }));
+    await act(async () => void fireEvent.keyDown(dialogo()!, { key: "Escape" }));
+    await act(async () => void fireEvent.keyDown(document.body, { key: "Escape" }));
 
     expect(dialogo()).not.toBeNull();
     expect(leerSesionTerminada()).toBe(true);
+  });
+
+  it("se anuncia como diálogo con el título como nombre y el texto como descripción", async () => {
+    render(<DialogoSesionTerminada />);
+
+    await abrir();
+
+    const aviso = screen.getByRole("dialog", { name: "Tu sesión terminó", description: "Por seguridad tuvimos que cerrarla. Vuelve a ingresar para seguir donde estabas." });
+    expect(aviso).toBeInTheDocument();
   });
 
   it("no se puede cerrar con un clic afuera", async () => {
