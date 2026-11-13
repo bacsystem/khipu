@@ -23,8 +23,14 @@ despliega nada. Las pruebas corren **en cada PR** (`.github/workflows/ci.yml`, #
 - `ci` es el job agregador: falla si el filtro (`cambios`) falla o si `backend` o `portal` fallan o se cancelan. **El check que el dueño marca como
   requerido en `develop` y `main` (Settings → Branches) es solo `ci`.** Hasta que lo marque, los checks informan pero no bloquean el merge.
 
-**Qué no corre en la PR:** el e2e de Playwright y `npm run audit` (a pedido: Actions → «Pruebas» → *Run workflow*; el e2e se corre una vez antes de
-cada release), la suite de homologación contra e-beta (`homologacion.yml`, a pedido), k6 (`k6.yml`, a pedido) y el despliegue (el tag, `imagenes.yml`).
+**Además, en toda PR con base `main`** (la de release develop → main y los `hotfix/*`) corre solo el workflow «Pruebas»
+(`.github/workflows/pruebas.yml`, #671): la suite completa, sin filtro de rutas. Es `backend` (Gradle, la misma suite que `ci.yml`) más `portal`
+(`typecheck`, `lint`, Vitest, `npm run audit` y los e2e de Playwright con un worker, unos 45 min). Su job agregador se llama **`pruebas`** y es el
+check que el dueño marca como requerido en `main` junto a `ci` (los jobs `backend` y `portal` de «Pruebas» comparten nombre con los de `ci.yml`: no se
+marcan). Las PR a `develop` y las apiladas (base `feat/*`) no lo disparan. También se lanza a mano: Actions → «Pruebas» → *Run workflow*.
+
+**Qué no corre en la PR:** la suite de homologación contra e-beta (`homologacion.yml`, a pedido), k6 (`k6.yml`, a pedido) y el despliegue (el tag,
+`imagenes.yml`). En una PR a `develop` tampoco corren el e2e ni `npm run audit` (solo en las PR a `main` o a pedido).
 Cada corrida cancela la anterior de la misma PR, y el caché de Gradle se llena con la primera corrida de cada PR.
 
 ```mermaid
@@ -39,9 +45,10 @@ flowchart TB
         pr_ci --> pr_m["Merge de la PR"]
     end
 
-    subgraph LOCAL["Antes del tag (a pedido o en local)"]
+    subgraph MAIN["En la PR a main: release o hotfix (pruebas.yml)"]
         direction LR
-        lc_t["e2e de Playwright<br/>y npm run audit"]
+        mn_ev["PR con base main"] --> mn_s["backend (Gradle) y portal<br/>(typecheck · lint · Vitest<br/>· audit · e2e de Playwright)"]
+        mn_s --> mn_p["pruebas<br/>(check requerido)"]
     end
 
     subgraph TAG["Release: tag vX.Y.Z sobre main"]
@@ -53,8 +60,8 @@ flowchart TB
         tg_v -->|"no"| tg_x["No publica<br/>ni despliega"]
     end
 
-    PR ~~~ LOCAL
-    LOCAL ~~~ TAG
+    PR ~~~ MAIN
+    MAIN ~~~ TAG
 
     classDef prod stroke:#2457d6,stroke-width:3px
     classDef stop stroke:#c0392b,stroke-width:2px
@@ -64,7 +71,7 @@ flowchart TB
 
 Paso a paso:
 
-1. Con `ci` en verde en la PR de release (o del `hotfix/*`) y el e2e de Playwright corrido una vez (en local o en «Pruebas»), merge a `main` (el release desde
+1. Con `ci` y `pruebas` (el e2e de Playwright incluido, que corre solo en esa PR) en verde en la PR de release (o del `hotfix/*`), merge a `main` (el release desde
    `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push <remoto> vX.Y.Z`).
 2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, y construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
 3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
