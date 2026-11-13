@@ -1,5 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import { ESPERA_MAXIMA_LECTURA_MS } from "./browser";
+import { ESPERA_MAXIMA_LECTURA_MS, fetchDelPortal } from "./browser";
 import type { EntregaWebhook, EstadoEntrega } from "./webhooks";
 import type { ApiEnvelope } from "./types";
 
@@ -18,7 +18,7 @@ export async function listarEntregas(
   const params = new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) });
   if (estado) params.set("estado", estado);
   try {
-    const res = await fetch(`/api/proxy/webhooks/${webhookId}/entregas?${params}`, { signal: AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS) });
+    const res = await fetchDelPortal(`/api/proxy/webhooks/${webhookId}/entregas?${params}`, { signal: AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS) });
     const cuerpo = (await res.json()) as ApiEnvelope<EntregaWebhook[]>;
     if (cuerpo.estado !== "exito" || !cuerpo.datos) return { estado: "error", mensaje: cuerpo.mensaje ?? t.errorLectura, codigo: cuerpo.codigo };
     const total = Number(res.headers.get("x-total-count") ?? cuerpo.datos.length);

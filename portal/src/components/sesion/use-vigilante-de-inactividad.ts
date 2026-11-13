@@ -13,6 +13,7 @@ import {
 } from "@/lib/sesion/inactividad";
 import { avisarALasDemasPestanas, type AvisoDeSesion } from "@/lib/sesion/canal-de-sesion";
 import { pedirKeepAlive } from "@/lib/sesion/keep-alive";
+import { avisarSesionTerminada } from "@/lib/sesion/sesion-terminada";
 
 /** Lo que cuenta como actividad de la persona. Las peticiones de fondo (sondeos, `router.refresh()`, reintentos del proxy) no tocan el DOM, así que nunca llegan acá. */
 const EVENTOS_DE_ACTIVIDAD = ["keydown", "pointerdown", "touchstart", "wheel", "scroll"] as const;
@@ -53,6 +54,8 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     let temporizador: ReturnType<typeof setTimeout> | undefined;
 
     function navegar(url: string) {
+      // Un keep-alive que estaba en vuelo cuando el vigilante se desmontó (porque se abrió «Tu sesión terminó», #654) vuelve después y no debe navegar por encima del diálogo.
+      if (cerrando) return;
       cerrando = true;
       clearTimeout(temporizador);
       irA(url);
@@ -107,7 +110,8 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
       almacen,
       ahora,
       enviarKeepAlive: pedirKeepAlive,
-      alTerminarLaSesion: (motivo) => navegar(motivo === "suspendida" ? RUTA_CUENTA_SUSPENDIDA : RUTA_LOGIN),
+      // Una sesión muerta se explica con el mismo diálogo que las acciones del proxy (#654), con `next`; la suspendida sigue yendo a su página.
+      alTerminarLaSesion: (motivo) => (motivo === "suspendida" ? navegar(RUTA_CUENTA_SUSPENDIDA) : avisarSesionTerminada()),
     });
 
     let ultimoRegistro = 0;
@@ -148,6 +152,7 @@ export function useVigilanteDeInactividad({ minutos, irA, ahora }: OpcionesDelVi
     programar();
 
     return () => {
+      cerrando = true;
       clearTimeout(temporizador);
       for (const tipo of EVENTOS_DE_ACTIVIDAD) window.removeEventListener(tipo, alActividad, { capture: true });
       window.removeEventListener("pointermove", alActividad);

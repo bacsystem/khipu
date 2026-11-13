@@ -2,6 +2,8 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { avisarALasDemasPestanas } from "@/lib/sesion/canal-de-sesion";
+import { avisarSesionTerminada } from "@/lib/sesion/sesion-terminada";
+import { DialogoSesionTerminada } from "./dialogo-sesion-terminada";
 import { AVISO_ANTES_MS, CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE, MINUTO_MS, reiniciarMarcas, VENTANA_KEEP_ALIVE_MS } from "@/lib/sesion/inactividad";
 import { simularOtraPestana } from "@/test/otra-pestana";
 import { VigilanteDeInactividad } from "./vigilante-de-inactividad";
@@ -19,6 +21,15 @@ function montar(minutos: number | undefined = N) {
 }
 
 const avanzar = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+/** Como en `(privado)` y en `/onboarding` (#654): el diálogo «Tu sesión terminó» es hermano del vigilante. */
+function montarConDialogo() {
+  return render(
+    <>
+      <VigilanteDeInactividad minutos={N} irA={irA} />
+      <DialogoSesionTerminada />
+    </>,
+  );
+}
 /** Monta el vigilante y lo deja con el aviso de inactividad abierto (a N − 2 min). */
 async function conAviso() {
   montar();
@@ -431,15 +442,52 @@ describe("VigilanteDeInactividad", () => {
       expect(keepAlives()).toBe(0);
     });
 
-    it("si responde que la sesión murió (401) va al login sin motivo de inactividad", async () => {
+    /** #654: la sesión muerta se explica con «Tu sesión terminó» (con `next`), no con un salto al login sin explicación. */
+    it("si responde que la sesión murió (401) abre «Tu sesión terminó» en vez de navegar", async () => {
       estadoKeepAlive = 401;
-      montar();
+      montarConDialogo();
       await avanzar(6 * MINUTO_MS);
 
       fireEvent.keyDown(window, { key: "a" });
       await avanzar(SEGUNDO);
 
-      expect(irA).toHaveBeenCalledWith("/login");
+      expect(screen.getByTestId("dialogo-sesion-terminada")).toBeInTheDocument();
+      expect(irA).not.toHaveBeenCalled();
+    });
+
+    it("con el diálogo abierto el vigilante se desmonta: ni el aviso de inactividad ni el cierre por inactividad se ven encima", async () => {
+      estadoKeepAlive = 401;
+      montarConDialogo();
+      await avanzar((N - 2) * MINUTO_MS);
+      expect(aviso()).not.toBeNull();
+
+      await act(async () => void avisarSesionTerminada());
+
+      expect(aviso()).toBeNull();
+      await avanzar(AVISO_ANTES_MS + MINUTO_MS);
+      expect(irA).not.toHaveBeenCalled();
+      expect(llamadas).not.toContain("/api/auth/logout");
+    });
+
+    it("un keep-alive que estaba en vuelo cuando se abrió el diálogo no navega al volver", async () => {
+      let responder!: (r: Response) => void;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string) => {
+          llamadas.push(url);
+          return new Promise<Response>((resolve) => (responder = resolve));
+        }),
+      );
+      montarConDialogo();
+      await avanzar(6 * MINUTO_MS);
+      fireEvent.keyDown(window, { key: "a" }); // sale el keep-alive y queda en vuelo
+      expect(keepAlives()).toBe(1);
+
+      await act(async () => void avisarSesionTerminada()); // otra acción encontró la sesión muerta antes
+      await act(async () => responder(new Response(null, { status: 403 })));
+
+      expect(irA).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialogo-sesion-terminada")).toBeInTheDocument();
     });
 
     it("si responde que la cuenta está suspendida (403) va a la página que se lo explica", async () => {

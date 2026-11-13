@@ -1,5 +1,5 @@
 import type { Mensajes } from "@/i18n/mensajes";
-import { ESPERA_MAXIMA_LECTURA_MS } from "./browser";
+import { ESPERA_MAXIMA_LECTURA_MS, fetchDelPortal } from "./browser";
 import type { ApiEnvelope } from "./types";
 import type { ClienteGuardado, PaginaDeClientes } from "./clientes";
 
@@ -13,7 +13,7 @@ export async function buscarClientes({ q, pagina = 1, porPagina = 20, senal }: {
   const params = new URLSearchParams({ pagina: String(pagina), por_pagina: String(porPagina) });
   if (q && q.trim() !== "") params.set("q", q.trim());
   try {
-    const res = await fetch(`/api/proxy/clientes?${params}`, { signal: senal ? AbortSignal.any([senal, AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS)]) : AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS) });
+    const res = await fetchDelPortal(`/api/proxy/clientes?${params}`, { signal: senal ? AbortSignal.any([senal, AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS)]) : AbortSignal.timeout(ESPERA_MAXIMA_LECTURA_MS) });
     const cuerpo = (await res.json()) as ApiEnvelope<ClienteGuardado[]>;
     if (cuerpo.estado !== "exito" || !cuerpo.datos) return { estado: "error", mensaje: cuerpo.mensaje ?? messages.clientes.errores.lectura, codigo: cuerpo.codigo };
     const total = Number(res.headers.get("x-total-count") ?? cuerpo.datos.length);

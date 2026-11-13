@@ -5,6 +5,7 @@ const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
 
 import { CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE } from "@/lib/sesion/inactividad";
+import { avisarSesionTerminada, leerSesionTerminada, montarDialogo } from "@/lib/sesion/sesion-terminada";
 import { RegistroForm } from "./registro-form";
 
 afterEach(() => {
@@ -88,6 +89,35 @@ describe("RegistroForm: términos y privacidad (#342)", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/onboarding"));
     expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBeNull();
     expect(window.localStorage.getItem(CLAVE_ULTIMO_KEEP_ALIVE)).toBeNull();
+  });
+
+  /** #654: la navegación del cliente no recarga la página; el estado de la sesión anterior abriría «Tu sesión terminó» sobre la cuenta recién creada. */
+  it("una cuenta nueva empieza de cero: borra el estado de «la sesión terminó»", async () => {
+    montarDialogo();
+    avisarSesionTerminada();
+    stubFetch(201, { estado: "exito", datos: { usuario: {} } });
+    render(<RegistroForm />);
+
+    llenar();
+    fireEvent.click(casilla());
+    enviar();
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/onboarding"));
+    expect(leerSesionTerminada()).toBe(false);
+  });
+
+  it("si el registro falla no toca el estado de «la sesión terminó»", async () => {
+    montarDialogo();
+    avisarSesionTerminada();
+    stubFetch(400, { estado: "error", codigo: "TERMINOS_NO_ACEPTADOS", mensaje: "x" });
+    render(<RegistroForm />);
+
+    llenar();
+    fireEvent.click(casilla());
+    enviar();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(leerSesionTerminada()).toBe(true);
   });
 
   it("si el backend igual lo rechaza, muestra su mensaje", async () => {

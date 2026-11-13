@@ -1690,6 +1690,11 @@
       "cuerpo": "Por seguridad, cerraremos tu sesión en {segundos} s por inactividad.",
       "seguir": "Seguir conectado",
       "salir": "Cerrar sesión"
+    },
+    "terminada": {
+      "titulo": "Tu sesión terminó",
+      "cuerpo": "Por seguridad tuvimos que cerrarla. Vuelve a ingresar para seguir donde estabas.",
+      "volver": "Volver a ingresar"
     }
   },
   "soporte": {

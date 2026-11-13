@@ -8,6 +8,7 @@ import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabece
 import { interpolar } from "@/i18n/mensajes";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useAvisosDeOtrasPestanas } from "./use-avisos-de-otras-pestanas";
+import { useSesionTerminada } from "./use-sesion-terminada";
 import { useVigilanteDeInactividad } from "./use-vigilante-de-inactividad";
 
 const irAPorDefecto = (url: string) => window.location.assign(url);
@@ -20,7 +21,9 @@ const ahoraPorDefecto = () => Date.now();
 export function VigilanteDeInactividad({ minutos, irA = irAPorDefecto, ahora = ahoraPorDefecto }: { minutos?: number; irA?: (url: string) => void; ahora?: () => number }) {
   // Los avisos de las otras pestañas se escuchan aunque no haya contador (#653): ver `useAvisosDeOtrasPestanas`.
   useAvisosDeOtrasPestanas(irA);
-  if (!Number.isInteger(minutos) || minutos === undefined || minutos <= 0) return null;
+  // Con «Tu sesión terminó» abierto (#654) no hay nada que vigilar: desmontarlo limpia los temporizadores, los oyentes y cierra el aviso de inactividad.
+  const sesionTerminada = useSesionTerminada();
+  if (sesionTerminada || !Number.isInteger(minutos) || minutos === undefined || minutos <= 0) return null;
   return <Vigilando minutos={minutos} irA={irA} ahora={ahora} />;
 }
 

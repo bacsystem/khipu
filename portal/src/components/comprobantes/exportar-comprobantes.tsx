@@ -7,6 +7,7 @@ import { GrupoOpciones } from "khipu-design-system/formularios/opciones";
 import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
+import { fetchDelPortal } from "@/lib/api/browser";
 import { type FiltrosComprobantes, paramsDeFiltros } from "@/lib/api/facturas";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { Popover, PopoverContent, PopoverTrigger } from "khipu-design-system/ui/popover";
@@ -57,7 +58,7 @@ export function ExportarComprobantes({ filtros, total }: { filtros: FiltrosCompr
     setExportando(true);
     setError(null);
     try {
-      const res = await fetch(hrefDeExportacion(filtros, formato, separador));
+      const res = await fetchDelPortal(hrefDeExportacion(filtros, formato, separador));
       if (!res.ok) {
         const cuerpo = (await res.json().catch(() => null)) as { mensaje?: string | null; codigo?: string | null } | null;
         setError(cuerpo?.mensaje ?? mensajeError(cuerpo?.codigo ?? undefined));

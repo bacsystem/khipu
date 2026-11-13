@@ -8,6 +8,7 @@ import { Alerta } from "khipu-design-system/feedback/alerta";
 import { Spinner } from "khipu-design-system/feedback/spinner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "khipu-design-system/ui/sheet";
 import { interpolar } from "@/i18n/mensajes";
+import { fetchDelPortal } from "@/lib/api/browser";
 import { formatearXml } from "@/lib/xml";
 import { ACCION_PRINCIPAL, ACCION_SECUNDARIA, SEGMENTADO, SEGMENTO } from "@/lib/estilos";
 
@@ -43,7 +44,7 @@ export function VistaPrevia({
     if (!activo || pedidos.current.has(activo)) return;
     pedidos.current.add(activo);
     setCache((c) => ({ ...c, [activo]: { estado: "cargando" } }));
-    fetch(urlDe(id, activo, false))
+    fetchDelPortal(urlDe(id, activo, false))
       .then(async (res) => {
         if (!res.ok) throw new Error(res.status === 404 ? t.noExiste : interpolar(t.errorHttp, { estado: res.status }));
         return res.text();

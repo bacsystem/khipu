@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { RevisaTuCorreo } from "@/components/auth/revisa-tu-correo";
 import { BannerDeMantenimiento } from "@/components/banner-de-mantenimiento";
 import { debeAceptarTerminos, PantallaDeTerminos } from "@/components/legal/pantalla-de-terminos";
+import { DialogoSesionTerminada } from "@/components/sesion/dialogo-sesion-terminada";
 import { VigilanteDeInactividad } from "@/components/sesion/vigilante-de-inactividad";
 import { AvisoDeSoporte } from "@/components/soporte/aviso-de-soporte";
 import { AyudaDeSoporte } from "@/components/soporte/ayuda-de-soporte";
@@ -43,11 +44,17 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
   // #342: sin la versión vigente de los términos aceptada no se usa el panel. En la misma URL, para que al aceptar siga donde quería ir; antes del
   // onboarding, que tampoco se hace sin aceptar.
   // #637: el corte por inactividad cubre también la pantalla de términos, que es una sesión viva. Una sesión de soporte no lo lleva: no tiene refresh y vence a hora fija.
-  const vigilante = <VigilanteDeInactividad minutos={minutosDeInactividad(usuario)} />;
+  // #654: «Tu sesión terminó» va aquí, hermano del vigilante y no dentro de él: el vigilante no renderiza nada sin `minutos`.
+  const avisosDeSesion = (
+    <>
+      <VigilanteDeInactividad minutos={minutosDeInactividad(usuario)} />
+      <DialogoSesionTerminada />
+    </>
+  );
   if (debeAceptarTerminos(usuario))
     return (
       <TextosDeCliente segmento="privado">
-        {vigilante}
+        {avisosDeSesion}
         <PantallaDeTerminos />
       </TextosDeCliente>
     );
@@ -56,7 +63,7 @@ export default async function PrivadoLayout({ children }: { children: ReactNode 
 
   return (
     <TextosDeCliente segmento="privado">
-      {vigilante}
+      {avisosDeSesion}
       <div className="flex min-h-screen flex-col">
         {/* Una sesión de soporte (#184) lo dice arriba de todo, fijo, en cada página: es lo que evita confundirla con la sesión normal del cliente. */}
         {usuario.soporte_hasta ? <AvisoDeSoporte email={usuario.email} hasta={usuario.soporte_hasta} cuentaId={usuario.cuenta_id} /> : null}
