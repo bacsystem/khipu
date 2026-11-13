@@ -43,7 +43,8 @@
       "sinCuenta": "¿No tienes cuenta?",
       "crearCuenta": "Crea una",
       "soloPorInvitacion": "Acceso por invitación mientras dura la beta.",
-      "motivoInactividad": "Cerramos tu sesión por inactividad. Vuelve a ingresar."
+      "motivoInactividad": "Cerramos tu sesión por inactividad. Vuelve a ingresar.",
+      "motivoOtraPestana": "Cerraste sesión en otra pestaña."
     },
     "registro": {
       "titulo": "Crea tu cuenta",

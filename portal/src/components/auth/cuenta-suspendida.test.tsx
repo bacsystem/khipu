@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLAVE_ULTIMA_ACTIVIDAD, CLAVE_ULTIMO_KEEP_ALIVE } from "@/lib/sesion/inactividad";
+import { simularOtraPestana } from "@/test/otra-pestana";
 import { CuentaSuspendida } from "./cuenta-suspendida";
 
 const asignar = vi.fn();
@@ -49,6 +50,18 @@ describe("CuentaSuspendida (#182)", () => {
     await waitFor(() => expect(asignar).toHaveBeenCalledWith("/login"));
     expect(window.localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)).toBeNull();
     expect(window.localStorage.getItem(CLAVE_ULTIMO_KEEP_ALIVE)).toBeNull();
+  });
+
+  it("cerrar sesión avisa a las demás pestañas (#653)", async () => {
+    const otra = simularOtraPestana();
+    salida();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+    render(<CuentaSuspendida />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Cerrar sesión/ }));
+
+    await waitFor(() => expect(asignar).toHaveBeenCalledWith("/login"));
+    expect(otra.recibidos).toEqual(["salir"]);
   });
 
   /** Un corte de red no debe dejar al usuario sin salida: el login se muestra igual. */

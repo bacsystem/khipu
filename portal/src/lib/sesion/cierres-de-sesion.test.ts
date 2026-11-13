@@ -33,4 +33,9 @@ describe("los cierres de sesión del cliente reinician las marcas de inactividad
   it.each(conLogout.map((ruta) => [ruta.slice(RAIZ.length + 1).replaceAll("\\", "/"), ruta]))("%s llama a reiniciarMarcas()", (_nombre, ruta) => {
     expect(readFileSync(ruta, "utf8")).toMatch(/reiniciarMarcas\(/);
   });
+
+  // #653: una pestaña olvidada con datos de la empresa a la vista, en un equipo compartido, es lo que el aviso evita; un cierre nuevo que no avise la deja abierta.
+  it.each(conLogout.map((ruta) => [ruta.slice(RAIZ.length + 1).replaceAll("\\", "/"), ruta]))("%s avisa a las demás pestañas (#653)", (_nombre, ruta) => {
+    expect(readFileSync(ruta, "utf8")).toMatch(/avisarALasDemasPestanas\(/);
+  });
 });
