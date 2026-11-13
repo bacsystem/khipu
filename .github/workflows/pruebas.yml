@@ -5,6 +5,8 @@
 # - backend: toda la suite de Gradle (Testcontainers levanta Postgres y MinIO con el Docker del runner), con --continue para ver todos los fallos de una vez.
 # - portal: npm ci (el design system es un paquete git público, sin secretos), typecheck, lint, Vitest, npm audit de producción y los e2e de Playwright con un
 #   solo worker (el dev server con mocks en memoria no es estable con varios; retries: 2 en CI ya lo cubre el playwright.config).
+#   El job lleva 60 minutos de tope: los 560 e2e con un worker necesitan unos 45 (en la corrida 43351962181 llegaron al test 414 en 32 min y el tope de 40 del
+#   job, que incluye la instalación, typecheck, lint y Vitest, los cortó antes de terminar).
 name: Pruebas
 
 on:
@@ -44,7 +46,7 @@ jobs:
 
   portal:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: portal
