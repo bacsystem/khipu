@@ -1703,9 +1703,9 @@ export const handlers = [
       },
       // #613: las pruebas en Beta del mes contra la bolsa de la cuenta.
       pruebas: { mes, usadas: PRUEBAS_DEL_MES_MOCK, ...(pruebas && !pruebas.ilimitado && pruebas.maximo !== undefined ? { maximo: pruebas.maximo } : {}) },
-      // #498: lo que la cuenta ocupa de su plan. Las keys, las de todas las empresas del mock; los usuarios, los activos más las invitaciones pendientes.
+      // #498: lo que la cuenta ocupa de su plan. Las keys activas de las empresas de la cuenta; los usuarios, los activos más las invitaciones pendientes.
       uso: {
-        api_keys: [...db.apiKeysPorEmpresa.values()].flat().filter((k) => k.activa).length,
+        api_keys: (db.empresasPorCuenta.get(c.cuenta) ?? []).flatMap((e) => db.apiKeysPorEmpresa.get(e.id) ?? []).filter((k) => k.activa).length,
         usuarios: equipoDe(c.cuenta).filter((u) => !db.usuariosDesactivados.has(u.id)).length + [...db.invitaciones.values()].filter((i) => i.cuenta_id === c.cuenta).length,
         rucs: (db.empresasPorCuenta.get(c.cuenta) ?? []).length,
       },
