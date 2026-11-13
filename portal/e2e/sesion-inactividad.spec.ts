@@ -56,8 +56,8 @@ test("sin interacción avisa a los N − 2 minutos y cierra a los N, y el login 
 
   await page.clock.fastForward(5_000);
   await expect(aviso(page)).toBeVisible();
-  await expect(aviso(page).getByRole("heading", { name: "Tu sesión está por cerrarse" })).toBeVisible();
-  await expect(aviso(page).getByRole("button", { name: "Seguir conectado" })).toBeFocused();
+  await expect(aviso(page).getByRole("heading", { name: "¿Sigues ahí? Tu sesión está por finalizar" })).toBeVisible();
+  await expect(aviso(page).getByRole("button", { name: "Seguir usando el portal" })).toBeFocused();
 
   await page.clock.fastForward(2 * MINUTO);
   await expect(page).toHaveURL(/\/login\?motivo=inactividad/);
@@ -68,11 +68,11 @@ test("sin interacción avisa a los N − 2 minutos y cierra a los N, y el login 
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("«Seguir conectado» cierra el aviso, renueva la sesión en el servidor y reinicia la cuenta", async ({ page }) => {
+test("«Seguir usando el portal» cierra el aviso, renueva la sesión en el servidor y reinicia la cuenta", async ({ page }) => {
   await hastaElAviso(page);
   const renovacion = page.waitForResponse((res) => esKeepAlive(res.url(), res.request().method()));
 
-  await aviso(page).getByRole("button", { name: "Seguir conectado" }).click();
+  await aviso(page).getByRole("button", { name: "Seguir usando el portal" }).click();
 
   // La respuesta, no solo la petición: si el reloj salta con ella en vuelo, el navegador la aborta (ver `esperarQueNoHayaKeepAliveEnVuelo`).
   expect((await renovacion).status()).toBe(204);

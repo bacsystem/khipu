@@ -1,11 +1,10 @@
 "use client";
 
-import { ClockCountdownIcon } from "@phosphor-icons/react";
+import { HourglassMediumIcon } from "@phosphor-icons/react";
 import { useMessages } from "next-intl";
 import { useRef } from "react";
-import { Dialog, DialogContent } from "khipu-design-system/ui/dialog";
-import { CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
-import { interpolar } from "@/i18n/mensajes";
+import { CabeceraAviso, AvisoResponsivo, PieAviso } from "khipu-design-system/patrones/aviso-responsivo";
+import { FranjaCuentaRegresiva } from "khipu-design-system/patrones/franja-cuenta-regresiva";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { useAvisosDeOtrasPestanas } from "./use-avisos-de-otras-pestanas";
 import { useSesionTerminada } from "./use-sesion-terminada";
@@ -32,20 +31,20 @@ function Vigilando({ minutos, irA, ahora }: { minutos: number; irA: (url: string
   const { segundos, seguirConectado, cerrarSesion } = useVigilanteDeInactividad({ minutos, irA, ahora });
   const seguirRef = useRef<HTMLButtonElement>(null);
 
-  // La cuenta regresiva cambia cada segundo en la descripción, que no es una región viva: el lector de pantalla la lee al abrirse el diálogo y no la repite en cada tic.
+  // La franja cambia cada segundo y no es una región viva: el lector de pantalla lee el título y el texto al abrirse el aviso y no repite el tiempo en cada tic (#656).
+  // Escape lo descarta y equivale a «seguir conectado»; el clic afuera nunca lo cierra. Hoja inferior bajo 640 px, diálogo centrado desde ahí (DS).
   return (
-    <Dialog open={segundos !== null} onOpenChange={(abierto) => (abierto ? undefined : seguirConectado())}>
-      <DialogContent className="gap-0 p-0" showCloseButton={false} initialFocus={seguirRef} data-testid="aviso-de-inactividad">
-        <CabeceraDialogo icon={ClockCountdownIcon} tono="aviso" titulo={t.titulo} descripcion={interpolar(t.cuerpo, { segundos: segundos ?? 0 })} />
-        <PieDialogo>
-          <button type="button" onClick={cerrarSesion} className={BOTON_SECUNDARIO} data-testid="inactividad-salir">
-            {t.salir}
-          </button>
-          <button ref={seguirRef} type="button" onClick={seguirConectado} className={BOTON_PRIMARIO} data-testid="inactividad-seguir">
-            {t.seguir}
-          </button>
-        </PieDialogo>
-      </DialogContent>
-    </Dialog>
+    <AvisoResponsivo open={segundos !== null} onOpenChange={(abierto) => (abierto ? undefined : seguirConectado())} initialFocus={seguirRef} data-testid="aviso-de-inactividad">
+      <CabeceraAviso icon={HourglassMediumIcon} tono="aviso" titulo={t.titulo} descripcion={t.cuerpo} />
+      <FranjaCuentaRegresiva segundos={segundos ?? 0} etiqueta={t.franja} tono="aviso" className="mx-5" />
+      <PieAviso>
+        <button type="button" onClick={cerrarSesion} className={BOTON_SECUNDARIO} data-testid="inactividad-salir">
+          {t.salir}
+        </button>
+        <button ref={seguirRef} type="button" onClick={seguirConectado} className={BOTON_PRIMARIO} data-testid="inactividad-seguir">
+          {t.seguir}
+        </button>
+      </PieAviso>
+    </AvisoResponsivo>
   );
 }

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { fijarLocaleDePrueba } from "@/i18n/prueba";
 import { avisarALasDemasPestanas } from "@/lib/sesion/canal-de-sesion";
@@ -37,6 +37,7 @@ async function conAviso() {
 }
 const aviso = () => screen.queryByTestId("aviso-de-inactividad");
 const seguirConectado = () => screen.getByTestId("inactividad-seguir");
+const franja = () => aviso()!.querySelector('[data-slot="franja-cuenta-regresiva"]')!;
 const keepAlives = () => llamadas.filter((u) => u === "/api/auth/sesion").length;
 
 beforeEach(() => {
@@ -139,25 +140,48 @@ describe("VigilanteDeInactividad", () => {
   });
 
   describe("el aviso", () => {
-    it("tiene una cuenta regresiva en segundos, que baja cada segundo", async () => {
+    /** #656: la cuenta regresiva va en su propia franja, en mm:ss, y no escondida dentro de la frase. */
+    it("el título y el texto no llevan el número; la franja cuenta en mm:ss y baja cada segundo", async () => {
       await conAviso();
-      expect(screen.getByText("Por seguridad, cerraremos tu sesión en 120 s por inactividad.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "¿Sigues ahí? Tu sesión está por finalizar" })).toBeInTheDocument();
+      expect(screen.getByText("Confirma que sigues usando el portal para mantener tu sesión activa.")).toBeInTheDocument();
+      expect(franja()).toHaveTextContent("Tu sesión se cerrará en:");
+      expect(franja()).toHaveTextContent("02:00");
 
       await avanzar(5 * SEGUNDO);
 
-      expect(screen.getByText("Por seguridad, cerraremos tu sesión en 115 s por inactividad.")).toBeInTheDocument();
+      expect(franja()).toHaveTextContent("01:55");
+    });
+
+    it("con 65 s faltando la franja dice 01:05 y con 4 s dice 00:04", async () => {
+      montar();
+
+      await avanzar(N * MINUTO_MS - 65 * SEGUNDO);
+      expect(franja()).toHaveTextContent("01:05");
+
+      await avanzar(61 * SEGUNDO);
+      expect(franja()).toHaveTextContent("00:04");
     });
 
     it("sale en inglés con el locale en inglés", async () => {
       fijarLocaleDePrueba("en");
       await conAviso();
 
-      expect(screen.getByText("Your session is about to end")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Stay signed in" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Are you still there? Your session is about to end" })).toBeInTheDocument();
+      expect(screen.getByText("Confirm you are still using the portal to keep your session active.")).toBeInTheDocument();
+      expect(franja()).toHaveTextContent("Your session will end in:");
+      expect(screen.getByRole("button", { name: "Keep using the portal" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
     });
 
-    it("el foco empieza en «Seguir conectado»", async () => {
+    it("«Seguir usando el portal» es el botón principal y «Cerrar sesión» el secundario, en ese orden del DOM para que el principal quede arriba en pantalla angosta", async () => {
+      await conAviso();
+
+      const botones = within(aviso()!).getAllByRole("button");
+      expect(botones.map((b) => b.textContent)).toEqual(["Cerrar sesión", "Seguir usando el portal"]);
+    });
+
+    it("el foco empieza en «Seguir usando el portal»", async () => {
       await conAviso();
 
       await vi.waitFor(() => expect(seguirConectado()).toHaveFocus());
@@ -171,7 +195,7 @@ describe("VigilanteDeInactividad", () => {
       expect(screen.queryByRole("status")).toBeNull();
     });
 
-    it("«Seguir conectado» cierra el aviso, reinicia el contador y renueva la sesión en el acto", async () => {
+    it("«Seguir usando el portal» cierra el aviso, reinicia el contador y renueva la sesión en el acto", async () => {
       await conAviso();
       const antes = keepAlives();
 
@@ -182,6 +206,19 @@ describe("VigilanteDeInactividad", () => {
       await avanzar(AVISO_ANTES_MS + MINUTO_MS);
       expect(aviso()).toBeNull();
       expect(irA).not.toHaveBeenCalled();
+    });
+
+    it("un clic afuera no lo cierra", async () => {
+      await conAviso();
+      const fondo = document.querySelector('[data-slot="dialog-overlay"]')!;
+
+      await act(async () => {
+        fireEvent.pointerDown(fondo);
+        fireEvent.mouseDown(fondo);
+        fireEvent.click(fondo);
+      });
+
+      expect(aviso()).not.toBeNull();
     });
 
     it("Escape cuenta como seguir conectado", async () => {
