@@ -48,7 +48,7 @@ public class ConsultarConsumoDeCuentasService implements ConsultarConsumoDeCuent
 
     private static Fila fila(Registro r, Instant ahora) {
         Limite tope = r.limite() == null ? Limite.sinLimite() : Limite.de(r.limite());
-        return new Fila(r.cuentaId(), r.nombre(), r.email(), r.planId(), r.planNombre(), r.documentos(), tope, UsoDeLimite.porcentaje(r.documentos(), tope).stream().boxed().findFirst().orElse(null),
+        return new Fila(r.cuentaId(), r.nombre(), r.email(), r.planId(), r.planNombre(), r.documentos(), tope, r.periodo(), UsoDeLimite.porcentaje(r.documentos(), tope).stream().boxed().findFirst().orElse(null),
                 UsoDeLimite.enAlerta(r.documentos(), tope), Suscripcion.estadoDeLaVigente(r.venceEn(), r.diasDeGracia(), ahora), r.venceEn(), r.diasDeGracia(),
                 r.venceEn() == null ? null : r.venceEn().plus(Duration.ofDays(r.diasDeGracia())));
     }

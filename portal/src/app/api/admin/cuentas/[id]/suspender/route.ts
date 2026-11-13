@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { suspenderCuenta } from "@/lib/api/admin-suspension";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
@@ -20,18 +21,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   if (!esUuid(id)) return ERROR(400, "ID_INVALIDO", "Identificador de cuenta inválido");
 
-  let motivo: string | undefined;
-  try {
-    const texto = await req.text();
-    if (texto.trim()) {
-      const cuerpo = JSON.parse(texto) as { motivo?: unknown };
-      if (cuerpo.motivo !== undefined && cuerpo.motivo !== null && typeof cuerpo.motivo !== "string")
-        return ERROR(422, "MOTIVO_INVALIDO", "El motivo debe ser un texto");
-      motivo = typeof cuerpo.motivo === "string" && cuerpo.motivo.trim() ? cuerpo.motivo : undefined;
-    }
-  } catch {
-    return ERROR(400, "JSON_INVALIDO", "Petición inválida");
-  }
+  const leido = await leerCuerpoJson<{ motivo?: unknown }>(req, { opcional: true });
+  if ("error" in leido) return leido.error;
+  const { motivo: crudo } = leido.cuerpo;
+  if (crudo !== undefined && crudo !== null && typeof crudo !== "string") return ERROR(422, "MOTIVO_INVALIDO", "El motivo debe ser un texto");
+  const motivo = typeof crudo === "string" && crudo.trim() ? crudo : undefined;
 
   try {
     const datos = await suspenderCuenta(access, id, motivo, cabecerasDeOrigen(req.headers));

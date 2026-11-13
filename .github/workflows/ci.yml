@@ -1,0 +1,154 @@
+# Pruebas en cada PR (#650), con filtro por rutas y sin Playwright ni `npm run audit`.
+#
+# - cambios: calcula con `git diff` (sin acciones de terceros) si la PR toca el backend o el portal. El filtro va aquí y NO en `on.pull_request.paths`:
+#   con `paths` una PR que no toca esas rutas no crea el check, y si la regla de protección lo exige queda «Expected — Waiting for status» para siempre.
+#   Un job omitido por `if` sí cuenta como cumplido.
+# - backend: ./gradlew test (la misma invocación que pruebas.yml; Testcontainers usa el Docker del runner). Sin la suite de homologación (otra tarea de Gradle).
+# - portal: npm ci, typecheck, lint y Vitest (lo mismo que se corre en local). Sin e2e de Playwright ni `npm run audit`: los corre pruebas.yml
+#   solo en las PR con base `main` (release y hotfix, #671) y a pedido (Actions → «Pruebas»); `audit` depende del registro de npm y un aviso publicado hoy
+#   pondría en rojo una PR que no lo causó, por eso no corre aquí.
+# - ci: agregador. Check que el dueño debe marcar como requerido (Settings → Branches → develop y main; en main, junto con `pruebas` de pruebas.yml). Si `cambios`
+#   fallara o se cancelara, backend y portal quedarían «skipped» y GitHub los cuenta como éxito; `ci` falla salvo que cambios sea success y los otros dos success o skipped.
+#   Su nombre no lo usa ningún otro workflow (pruebas.yml tiene jobs «backend» y «portal», y una corrida manual en la misma rama publicaría checks con esos nombres).
+#
+# Seguridad: `pull_request` (nunca `pull_request_target`), sin secretos, GITHUB_TOKEN de solo lectura y sin credenciales persistidas. Una PR de un fork
+# corre código arbitrario en el runner pero no ve ningún secreto: el workflow no declara ninguno, y application-test.yml fija valores de relleno.
+# `setup-gradle` valida el wrapper (gradle-wrapper.jar) por defecto: no desactivarlo, una PR puede modificarlo.
+#
+# Sin filtro de ramas base: las PR apiladas (gh stack) tienen como base otra rama feat/*, no develop ni main.
+#
+# Caché de Gradle: setup-gradle solo la escribe en la rama predeterminada (main), así que una PR solo la leería. `cache-read-only: false` hace que cada
+# PR escriba la suya en su ref y la reuse en el siguiente push (la primera corrida de una PR es la lenta).
+# Medido en la primera corrida real (PR #655, sin caché): backend 18 min 24 s, portal 5 min 28 s. Si el backend pasara de ~30 min, avisar al dueño.
+# Si algún día se corre también en `push`, el grupo de concurrency no debe cancelar esas corridas (por ejemplo `ci-${{ github.event.pull_request.number || github.sha }}`).
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cambios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filtro.outputs.backend }}
+      portal: ${{ steps.filtro.outputs.portal }}
+    steps:
+      # En pull_request el checkout es el merge commit de la PR: HEAD^1 es la base y HEAD trae los cambios. Con fetch-depth 2 alcanza para ese diff.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Qué toca la PR
+        id: filtro
+        shell: bash
+        run: |
+          set -euo pipefail
+          # core.quotePath=false: sin eso git cita entre comillas (con escapes octales) las rutas con tilde o ñ y ningún patrón las reconocería. Se guarda en una
+          # variable, y no en `< <(git ...)`, para que set -e corte el job si git falla en vez de dejar el filtro vacío (todo en false, CI «verde» sin probar nada).
+          archivos=$(git -c core.quotePath=false diff --name-only HEAD^1 HEAD)
+          backend=false
+          portal=false
+          while IFS= read -r archivo; do
+            case "$archivo" in
+              # Backend: módulos Gradle, el wrapper y la configuración de la build, más tres archivos del portal que son `inputs` de tareas de test
+              # (bootstrap/build.gradle.kts: DeveloperPortalE2ETest y TerminosVersionTest; adapters/in-rest/build.gradle.kts: CasosDeLaGuiaTest).
+              domain/*|application/*|adapters/*|bootstrap/*|gradle/*) backend=true ;;
+              gradlew|gradlew.bat|build.gradle.kts|settings.gradle.kts|gradle.properties|lombok.config) backend=true ;;
+              portal/src/lib/api/openapi.json|portal/src/content/legal/version.ts) backend=true ;;
+              portal/src/components/developers/guia/casos-emision.ts) backend=true ;;
+              .github/workflows/ci.yml) backend=true ;;
+            esac
+            case "$archivo" in
+              portal/*|.github/workflows/ci.yml) portal=true ;;
+            esac
+          done <<< "$archivos"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "portal=$portal" >> "$GITHUB_OUTPUT"
+          echo "Archivos de la PR:"
+          echo "$archivos"
+          echo "backend=$backend portal=$portal"
+
+  backend:
+    needs: cambios
+    if: needs.cambios.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Suite del backend
+        run: ./gradlew test --continue --no-daemon
+      - name: Informes de pruebas (solo si algo falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informes-backend
+          path: |
+            **/build/reports/tests/test/
+            **/build/test-results/test/*.xml
+          retention-days: 7
+
+  portal:
+    needs: cambios
+    if: needs.cambios.outputs.portal == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: portal
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Typecheck (incluye la guardia de contrato con openapi.json)
+        run: npm run typecheck
+      - name: Lint (incluye la regla de textos de UI y su baseline)
+        run: npm run lint
+      - name: Vitest
+        run: npm run test
+
+  ci:
+    needs: [cambios, backend, portal]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resultado de CI
+        env:
+          CAMBIOS: ${{ needs.cambios.result }}
+          BACKEND: ${{ needs.backend.result }}
+          PORTAL: ${{ needs.portal.result }}
+        run: |
+          echo "cambios=$CAMBIOS backend=$BACKEND portal=$PORTAL"
+          [ "$CAMBIOS" = "success" ] || { echo "El filtro de rutas no terminó bien: no se probó nada."; exit 1; }
+          for r in "$BACKEND" "$PORTAL"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "Un job de pruebas terminó en '$r'."; exit 1 ;;
+            esac
+          done

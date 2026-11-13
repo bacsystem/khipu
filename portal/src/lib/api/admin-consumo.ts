@@ -1,6 +1,7 @@
 import { POR_PAGINA_DEFECTO, porPaginaValido } from "khipu-design-system/lib/paginacion";
 import { apiBaseUrl, backendFetchConHeaders } from "./client";
 import { totalDesdeHeaders } from "./facturas";
+import type { PeriodoDeDocumentos } from "./admin-planes";
 import { ApiError, CODIGO_COMUNICACION, type ApiEnvelope } from "./types";
 
 /** Qué cuentas mostrar (#193): todas, las que ya llegaron al umbral de alerta de su tope, o las que dejaron de pagar (en gracia o ya vencidas). */
@@ -26,6 +27,8 @@ export type CuentaConsumo = {
   plan: string;
   documentos: number;
   limite?: number;
+  /** #613: `TOTAL` si el tope del plan es de toda la vida de la cuenta; entonces `documentos` es lo de toda la vida, no lo del mes elegido. */
+  periodo: PeriodoDeDocumentos;
   porcentaje?: number;
   en_alerta: boolean;
   estado_del_plan: EstadoDelPlan;

@@ -16,6 +16,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
+    /** Un instante lejos de hoy: si `crear` dejara el `now()` de la base, la prueba de {@code creadaEn} lo vería. */
+    static final Instant CREADA = Instant.parse("2026-11-01T09:00:00Z");
+
     JdbcCuentaRepository cuentas = new JdbcCuentaRepository(jdbc);
     JdbcUsuarioRepository usuarios = new JdbcUsuarioRepository(jdbc);
     JdbcSesionRepository sesiones = new JdbcSesionRepository(jdbc);
@@ -51,9 +54,10 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
         Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
         Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
-        Sesion s = new Sesion(UUID.randomUUID(), u.id(), "abc", Instant.parse("2030-01-01T00:00:00Z"), false);
+        Sesion s = new Sesion(UUID.randomUUID(), u.id(), "abc", Instant.parse("2030-01-01T00:00:00Z"), false, CREADA);
         sesiones.crear(s);
         assertThat(sesiones.buscarPorRefreshHash("abc").orElseThrow().revocada()).isFalse();
+        assertThat(sesiones.buscarPorRefreshHash("abc").orElseThrow().creadaEn()).as("creadaEn lo pone la app, no el now() de la base").isEqualTo(CREADA);
         sesiones.revocarTodas(u.id());
         assertThat(sesiones.buscarPorRefreshHash("abc").orElseThrow().revocada()).isTrue();
         sesiones.crearRecuperacion(new TokenRecuperacion("t1", u.id(), Instant.parse("2030-01-01T00:00:00Z"), false));
@@ -66,8 +70,8 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
         Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
         Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
-        Sesion vieja = new Sesion(UUID.randomUUID(), u.id(), "vieja", Instant.parse("2030-01-01T00:00:00Z"), false);
-        Sesion nueva = new Sesion(UUID.randomUUID(), u.id(), "nueva", Instant.parse("2030-01-01T00:00:00Z"), false);
+        Sesion vieja = new Sesion(UUID.randomUUID(), u.id(), "vieja", Instant.parse("2030-01-01T00:00:00Z"), false, CREADA);
+        Sesion nueva = new Sesion(UUID.randomUUID(), u.id(), "nueva", Instant.parse("2030-01-01T00:00:00Z"), false, CREADA);
         sesiones.crear(vieja);
         sesiones.crear(nueva);
         Instant en = Instant.parse("2026-10-09T12:00:00Z");
@@ -90,16 +94,44 @@ class JdbcAuthRepositoriesTest extends PersistenciaTestBase {
         assertThat(sesiones.buscar(UUID.randomUUID())).isEmpty();
     }
 
+    /**
+     * #635: rotar solo actúa sobre una sesión abierta o ya rotada (la gracia de S6). Una fila revocada sin rotación (logout, restablecer la contraseña,
+     * reuso detectado) no se toca y devuelve false: así un refresh que ya había leído la fila antes de la revocación no deja viva una sesión nueva.
+     */
+    @Test void rotarNoTocaUnaSesionRevocadaSinRotacionYDevuelveSiLaRoto() {
+        jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
+        Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
+        Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
+        Instant vence = Instant.parse("2030-01-01T00:00:00Z"), en = Instant.parse("2026-10-09T12:00:00Z");
+        Sesion abierta = new Sesion(UUID.randomUUID(), u.id(), "abierta", vence, false, CREADA);
+        Sesion cerrada = new Sesion(UUID.randomUUID(), u.id(), "cerrada", vence, false, CREADA);
+        sesiones.crear(abierta);
+        sesiones.crear(cerrada);
+        UUID reemplazo = UUID.randomUUID();
+
+        assertThat(sesiones.rotar(abierta.id(), reemplazo, en)).as("abierta: rota").isTrue();
+        assertThat(sesiones.rotar(abierta.id(), UUID.randomUUID(), en.plusSeconds(10))).as("ya rotada: la gracia sigue pasando").isTrue();
+        assertThat(sesiones.buscar(abierta.id()).orElseThrow()).extracting(Sesion::rotadaEn, Sesion::reemplazadaPor).containsExactly(en, reemplazo);
+
+        sesiones.revocarFamilia(cerrada.familia());
+        assertThat(sesiones.rotar(cerrada.id(), UUID.randomUUID(), en)).as("revocada sin rotación: no rota").isFalse();
+        assertThat(sesiones.buscar(cerrada.id()).orElseThrow()).extracting(Sesion::revocada, Sesion::rotadaEn, Sesion::reemplazadaPor).containsExactly(true, null, null);
+
+        sesiones.revocarFamilia(abierta.familia());   // la revocación por reuso también borra la marca de rotación
+        assertThat(sesiones.rotar(abierta.id(), UUID.randomUUID(), en)).as("tras revocar la familia ya no rota").isFalse();
+        assertThat(sesiones.rotar(UUID.randomUUID(), UUID.randomUUID(), en)).as("no existe").isFalse();
+    }
+
     /** 271-H1: el logout revoca toda la familia (la sesión del login, sus rotaciones y las ramas de la gracia) y nada de otro login. */
     @Test void revocarFamiliaCierraTodoLoDeEseLoginYNadaMas() {
         jdbc.update("TRUNCATE token_recuperacion, sesion, usuario, cuenta CASCADE");
         Cuenta c = new Cuenta(UUID.randomUUID(), "A", "a@b.pe"); cuentas.guardar(c);
         Usuario u = new Usuario(UUID.randomUUID(), c.id(), "a@b.pe", "h", Rol.ADMIN, true); usuarios.guardar(u);
         Instant vence = Instant.parse("2030-01-01T00:00:00Z");
-        Sesion login = new Sesion(UUID.randomUUID(), u.id(), "login", vence, false);
-        Sesion rotada = new Sesion(UUID.randomUUID(), u.id(), "rotada", vence, login.familia());
-        Sesion rama = new Sesion(UUID.randomUUID(), u.id(), "rama", vence, login.familia());
-        Sesion otroLogin = new Sesion(UUID.randomUUID(), u.id(), "otro", vence, false);
+        Sesion login = new Sesion(UUID.randomUUID(), u.id(), "login", vence, false, CREADA);
+        Sesion rotada = new Sesion(UUID.randomUUID(), u.id(), "rotada", vence, login.familia(), CREADA);
+        Sesion rama = new Sesion(UUID.randomUUID(), u.id(), "rama", vence, login.familia(), CREADA);
+        Sesion otroLogin = new Sesion(UUID.randomUUID(), u.id(), "otro", vence, false, CREADA);
         for (Sesion s : new Sesion[]{login, rotada, rama, otroLogin}) sesiones.crear(s);
         sesiones.rotar(login.id(), rotada.id(), Instant.parse("2026-10-09T12:00:00Z"));
 

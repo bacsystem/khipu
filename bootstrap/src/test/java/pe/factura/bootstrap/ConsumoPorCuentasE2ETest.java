@@ -225,8 +225,10 @@ class ConsumoPorCuentasE2ETest {
         documentos(ana, 6, "ERROR_ENVIO");
         jdbc.update("UPDATE documento SET fecha_emision = '2026-09-30' WHERE tenant_id = ? AND numero = 1", ana.empresa());
 
-        assertThat(cuentas(lista("")).get(0)).containsEntry("documentos", 3);
-        assertThat(cuentas(llamar(HttpMethod.GET, "/v1/admin/consumo?mes=2026-09", conClaveDePlataforma(), null)).get(0)).containsEntry("documentos", 1);
+        // Ana está en Gratis, que tiene el tope en total (#613): se compara con lo de toda su vida, sea cual sea el mes pedido. El corte por mes de un tope mensual
+        // lo prueba JdbcConsumoPorCuentaRepositoryTest con Emprende.
+        assertThat(cuentas(lista("")).get(0)).containsEntry("documentos", 4).containsEntry("periodo", "TOTAL");
+        assertThat(cuentas(llamar(HttpMethod.GET, "/v1/admin/consumo?mes=2026-09", conClaveDePlataforma(), null)).get(0)).containsEntry("documentos", 4);
     }
 
     // --- páginas ----------------------------------------------------------------------------------------------------------------------------

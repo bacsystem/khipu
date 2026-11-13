@@ -46,6 +46,8 @@ import pe.factura.adapters.scheduler.AvisarBoletasSinInformarWorker;
 import pe.factura.adapters.scheduler.CargaDelPadronRucWorker;
 import pe.factura.adapters.scheduler.LimpiezaIdempotenciaWorker;
 import pe.factura.adapters.scheduler.LimpiezaIntentosDeAccesoWorker;
+import pe.factura.adapters.scheduler.LimpiezaSesionesWorker;
+import pe.factura.adapters.scheduler.LimpiezaTokensDeAccesoWorker;
 import pe.factura.adapters.scheduler.PlazoEnvioWorker;
 import pe.factura.adapters.signing.XmlDsigSigner;
 import pe.factura.adapters.storage.FileSystemDocumentStorage;
@@ -113,6 +115,28 @@ public class AppConfig {
         if (minutos < 5 || minutos > 60)
             throw new IllegalStateException("ADMIN_SESION_MINUTOS debe estar entre 5 y 60 (es " + minutos + ")");
         return Duration.ofMinutes(minutos);
+    }
+
+    /**
+     * Cuánto puede pasar un usuario del portal sin renovar su sesión antes de que el servidor la corte (#638, la regla de corte es #636): 0 la desactiva
+     * y, si no, entre 15 y 480 minutos. Por debajo de 15 el access (15 min) vence antes de que el portal alcance a avisar; por encima de 8 horas deja de
+     * ser un corte por inactividad. Fuera de rango aborta el arranque, en vez de dejar pasar una sesión eterna por un cero de más.
+     */
+    static Duration inactividadDeSesion(int minutos) {
+        if (minutos != 0 && (minutos < 15 || minutos > 480))
+            throw new IllegalStateException("SESION_INACTIVIDAD_MINUTOS debe ser 0 (desactivado) o estar entre 15 y 480 (es " + minutos + ")");
+        return Duration.ofMinutes(minutos);
+    }
+
+    /**
+     * Cuánto se conserva una sesión de refresh, un enlace de recuperación o uno de verificación después de vencer (#611, #634): entre 1 y 90 días. Sirve
+     * para investigar un reclamo mirando la familia completa o el correo que el usuario dice no haber pedido y, a la vez, minimiza los datos guardados;
+     * un 0 borraría al instante lo que el soporte aún necesita, y un valor enorme dejaría crecer las tablas, así que fuera de rango aborta el arranque.
+     */
+    static Duration retencionDeAccesos(int dias) {
+        if (dias < 1 || dias > 90)
+            throw new IllegalStateException("ACCESO_RETENCION_DIAS debe estar entre 1 y 90 (es " + dias + ")");
+        return Duration.ofDays(dias);
     }
 
     /**
@@ -305,8 +329,10 @@ public class AppConfig {
     @Bean AceptarTerminosUseCase aceptarTerminos(AceptacionDeTerminosRepository a, UnitOfWork u, Clock clock, @Value("${app.terminos-version}") String version) {
         return new AceptarTerminosService(a, u, clock, version);
     }
-    @Bean VerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
-    @Bean SesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
+    // Tipado como el adaptador: es a la vez el VerificacionCorreoRepository y la PurgaDeVerificaciones (#634).
+    @Bean JdbcVerificacionCorreoRepository verificacionCorreoRepository(JdbcTemplate jdbc) { return new JdbcVerificacionCorreoRepository(jdbc); }
+    // Tipado como el adaptador: es a la vez el SesionRepository, la PurgaDeSesiones (#611) y la PurgaDeRecuperaciones (#634).
+    @Bean JdbcSesionRepository sesionRepository(JdbcTemplate jdbc) { return new JdbcSesionRepository(jdbc); }
     @Bean AdministradorRepository administradorRepository(JdbcTemplate jdbc) { return new JdbcAdministradorRepository(jdbc); }
     @Bean AuditoriaAdminRepository auditoriaAdminRepository(JdbcTemplate jdbc) { return new JdbcAuditoriaAdminRepository(jdbc); }
     @Bean SegundoFactorRepository segundoFactorRepository(JdbcTemplate jdbc) { return new JdbcSegundoFactorRepository(jdbc); }
@@ -519,6 +545,14 @@ public class AppConfig {
 
     @Bean PasswordHasher passwordHasher() { return new BcryptPasswordHasher(); }
     @Bean TokenEmisor tokenEmisor(AppProperties p) { return new JwtTokenEmisor(p.jwtSecret()); }
+    /** Valida el valor al arrancar aunque nadie lo consuma todavía, y es el que usa la regla de corte de #636. */
+    @Bean Duration sesionInactividad(@Value("${app.sesion-inactividad-minutos}") int minutos) {
+        Duration inactividad = inactividadDeSesion(minutos);
+        if (inactividad.isZero())
+            LoggerFactory.getLogger(AppConfig.class).warn("Corte de sesión por inactividad desactivado (SESION_INACTIVIDAD_MINUTOS=0)");
+        return inactividad;
+    }
+
     @Bean AdministradorTokenEmisor administradorTokenEmisor(AppProperties p, @Value("${app.admin-sesion-minutos:30}") int minutos) {
         return new JwtAdministradorTokenEmisor(p.jwtSecret(), vidaSesionAdmin(minutos));
     }
@@ -565,12 +599,25 @@ public class AppConfig {
     @Bean LimiteDeIntentos limiteDeIntentos(IntentosDeAccesoRepository i, Clock clock) { return new LimiteDeIntentos(i, clock); }
     @Bean LimpiezaIntentosDeAccesoWorker limpiezaIntentosDeAccesoWorker(LimiteDeIntentos l) { return new LimpiezaIntentosDeAccesoWorker(l); }
 
+    @Bean PurgarSesionesUseCase purgarSesiones(PurgaDeSesiones purga, Clock clock, @Value("${app.acceso-retencion-dias:7}") int dias) {
+        return new PurgarSesionesService(purga, clock, retencionDeAccesos(dias));
+    }
+    @Bean LimpiezaSesionesWorker limpiezaSesionesWorker(PurgarSesionesUseCase purga) { return new LimpiezaSesionesWorker(purga); }
+
+    // Las dos purgas de enlaces comparten la retención de las sesiones (#634): pasado el vencimiento ninguna de las tres filas sirve para nada.
+    @Bean PurgarTokensDeAccesoUseCase purgarTokensDeAcceso(PurgaDeRecuperaciones recuperaciones, PurgaDeVerificaciones verificaciones, Clock clock,
+                                                           @Value("${app.acceso-retencion-dias:7}") int dias) {
+        return new PurgarTokensDeAccesoService(recuperaciones, verificaciones, clock, retencionDeAccesos(dias));
+    }
+    @Bean LimpiezaTokensDeAccesoWorker limpiezaTokensDeAccesoWorker(PurgarTokensDeAccesoUseCase purga) { return new LimpiezaTokensDeAccesoWorker(purga); }
+
     @Bean AutenticarUsuarioUseCase autenticarUsuario(CuentaRepository cu, UsuarioRepository us, SesionRepository se, PasswordHasher h,
                                                     TokenEmisor te, CorreoSender co, UnitOfWork u, Clock clock, VerificacionCorreoRepository v,
                                                     SuspensionRepository suspensiones, PlantillasDeCorreo plantillas, LimiteDeIntentos limite,
                                                     AceptarTerminosUseCase terminos, PlanRepository planes, PlanSolicitadoRepository planesSolicitados,
-                                                    AvisoAlOperador operador) {
-        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos, planes, planesSolicitados, operador);
+                                                    AvisoAlOperador operador, Duration sesionInactividad) {
+        return new AutenticarUsuarioService(cu, us, se, h, te, co, u, clock, v, suspensiones, plantillas, limite, terminos, planes, planesSolicitados, operador,
+                sesionInactividad);
     }
     // #581: el plan que la cuenta eligió en la página de precios, para el operador.
     @Bean PlanSolicitadoRepository planSolicitadoRepository(JdbcTemplate jdbc) { return new JdbcPlanSolicitadoRepository(jdbc); }
@@ -633,8 +680,9 @@ public class AppConfig {
         return new ImpersonarUsuarioService(usuarios, tokens, auditoria, u, clock);
     }
     @Bean AccesosDeSoporteUseCase accesosDeSoporte(AccesosDeSoporteRepository registros) { return new AccesosDeSoporteService(registros); }
-    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo, CupoDeCuentaRepository ocupados, Clock clock) {
-        return new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, clock);
+    @Bean ConsultarMiCuentaUseCase consultarMiCuenta(CuentaRepository cuentas, CambiarPlanDeCuentaUseCase planes, ConsultarConsumoUseCase consumo, CupoDeCuentaRepository ocupados,
+                                                     ConsumoRepository documentos, Clock clock) {
+        return new ConsultarMiCuentaService(cuentas, planes, consumo, ocupados, documentos, clock);
     }
     @Bean SoporteDeAccesoUseCase soporteDeAcceso(UsuarioRepository usuarios, SesionRepository sesiones, VerificacionCorreoRepository verificaciones, CorreoSender correo,
                                                  UnitOfWork u, AuditoriaAdminRepository auditoria, Clock clock, PlantillasDeCorreo plantillas) {

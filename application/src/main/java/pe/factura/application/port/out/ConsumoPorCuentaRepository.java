@@ -3,6 +3,8 @@ package pe.factura.application.port.out;
 import pe.factura.application.port.in.FiltroDeConsumo;
 import pe.factura.application.port.in.OrdenDeConsumo;
 
+import pe.factura.domain.plan.PeriodoDelTope;
+
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
@@ -17,8 +19,12 @@ public interface ConsumoPorCuentaRepository {
     /** {@code ahora} fija «hoy» para el plan vigente y su vencimiento; {@code umbralDeAlerta} es el porcentaje desde el que una cuenta está cerca de su límite. */
     record Consulta(YearMonth mes, Instant ahora, FiltroDeConsumo filtro, OrdenDeConsumo orden, int umbralDeAlerta) {}
 
-    /** Una cuenta con su plan de hoy y lo que consumió en el mes. {@code limite} nulo es un plan sin tope de documentos. */
-    record Registro(UUID cuentaId, String nombre, String email, UUID planId, String planNombre, long documentos, Integer limite, Instant venceEn, int diasDeGracia) {}
+    /**
+     * Una cuenta con su plan de hoy y lo que consumió en el mes, o en toda su vida si su tope es {@code TOTAL} (#613): {@code documentos} es siempre lo que se compara
+     * con {@code limite}. {@code limite} nulo es un plan sin tope de documentos.
+     */
+    record Registro(UUID cuentaId, String nombre, String email, UUID planId, String planNombre, long documentos, Integer limite, PeriodoDelTope periodo, Instant venceEn,
+                    int diasDeGracia) {}
 
     /** Una página, desde 1. Si dos cuentas empatan, la de nombre menor primero, y a igualdad de nombre, la de id menor: el orden es estable entre páginas. */
     List<Registro> listar(Consulta consulta, int pagina, int porPagina);

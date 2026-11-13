@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanAdmin } from "@/lib/api/admin-planes";
 import type { ApiEnvelope } from "@/lib/api/types";
+import { elegirOpcion, opcionesDe } from "@/test/select-de-prueba";
 import { FormularioDePlan } from "./formulario-de-plan";
 
 const refresh = vi.fn();
@@ -29,7 +30,7 @@ const PLAN: PlanAdmin = {
   id: "p-1",
   nombre: "Negocio",
   precio_mensual: 69,
-  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
+  limites: { documentos_al_mes: { maximo: 1500, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } },
   estado: "ACTIVO",
   por_defecto: false, visible_en_publicidad: true,
   cuentas: 4,
@@ -54,7 +55,7 @@ function llenar(valores: Record<string, string>) {
 const VALIDOS = {
   Nombre: "Estudio",
   "Precio mensual (S/)": "49.90",
-  "Documentos por mes": "800",
+  "Tope de documentos": "800",
   RUC: "2",
   Usuarios: "3",
   "API keys": "5",
@@ -110,7 +111,7 @@ describe("FormularioDePlan — nuevo", () => {
       body: {
         nombre: "Estudio",
         precio_mensual: 49.9,
-        limites: { documentos_al_mes: { maximo: 800, ilimitado: false }, rucs: 2, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 6 },
+        limites: { documentos_al_mes: { maximo: 800, ilimitado: false }, rucs: 2, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 6, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false } },
         visible_en_publicidad: true,
       },
     });
@@ -136,12 +137,13 @@ describe("FormularioDePlan — nuevo", () => {
     abrirNuevo();
     llenar(VALIDOS);
     const ilimitados = screen.getAllByRole("checkbox", { name: "Ilimitado" });
-    expect(ilimitados).toHaveLength(3);
+    // Documentos, pruebas en Beta por RUC (#613), usuarios y API keys.
+    expect(ilimitados).toHaveLength(4);
 
     fireEvent.click(ilimitados[0]);
-    fireEvent.click(ilimitados[2]);
+    fireEvent.click(ilimitados[3]);
 
-    expect(campo("Documentos por mes").disabled).toBe(true);
+    expect(campo("Tope de documentos").disabled).toBe(true);
     expect(campo("Usuarios").disabled).toBe(false);
     expect(campo("API keys").disabled).toBe(true);
     fireEvent.click(screen.getByTestId("plan-guardar"));
@@ -155,14 +157,14 @@ describe("FormularioDePlan — nuevo", () => {
   /** Marcar «Ilimitado» no deja a la vista un número viejo que ya no vale: el campo se ve vacío (y al desmarcar vuelve lo que había). */
   it("«Ilimitado» vacía el campo a la vista y al desmarcarlo vuelve el número que había", () => {
     abrirNuevo();
-    llenar({ "Documentos por mes": "800" });
+    llenar({ "Tope de documentos": "800" });
     const ilimitado = screen.getAllByRole("checkbox", { name: "Ilimitado" })[0];
 
     fireEvent.click(ilimitado);
-    expect(campo("Documentos por mes").value).toBe("");
+    expect(campo("Tope de documentos").value).toBe("");
 
     fireEvent.click(ilimitado);
-    expect(campo("Documentos por mes").value).toBe("800");
+    expect(campo("Tope de documentos").value).toBe("800");
   });
 
   it("un nombre repetido lo dice el backend: se muestra bajo el campo, sin cerrar", async () => {
@@ -243,7 +245,7 @@ describe("FormularioDePlan — editar", () => {
     expect(within(dialogo).getByText("Editar Negocio", { selector: "h2" })).toBeTruthy();
     expect(campo("Nombre").value).toBe("Negocio");
     expect(campo("Precio mensual (S/)").value).toBe("69.00");
-    expect(campo("Documentos por mes").value).toBe("1500");
+    expect(campo("Tope de documentos").value).toBe("1500");
     expect(campo("RUC").value).toBe("3");
     expect(campo("Usuarios").value).toBe("3");
     expect(campo("API keys").value).toBe("5");
@@ -257,7 +259,7 @@ describe("FormularioDePlan — editar", () => {
   it("guardar hace PUT a /api/admin/planes/{id} con el cuerpo", async () => {
     apiRequest.mockResolvedValue(exito());
     abrirEdicion();
-    fireEvent.change(campo("Documentos por mes"), { target: { value: "3000" } });
+    fireEvent.change(campo("Tope de documentos"), { target: { value: "3000" } });
 
     fireEvent.click(screen.getByTestId("plan-guardar"));
 
@@ -267,7 +269,7 @@ describe("FormularioDePlan — editar", () => {
       body: {
         nombre: "Negocio",
         precio_mensual: 69,
-        limites: { documentos_al_mes: { maximo: 3000, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5 },
+        limites: { documentos_al_mes: { maximo: 3000, ilimitado: false }, rucs: 3, usuarios: { maximo: 3, ilimitado: false }, api_keys: { maximo: 5, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false } },
         visible_en_publicidad: true,
       },
     });
@@ -276,8 +278,8 @@ describe("FormularioDePlan — editar", () => {
   it("un plan con límites ilimitados abre con «Ilimitado» marcado y el campo vacío", () => {
     abrirEdicion({ ...PLAN, limites: { ...PLAN.limites, documentos_al_mes: { ilimitado: true } } });
 
-    expect(campo("Documentos por mes").value).toBe("");
-    expect(campo("Documentos por mes").disabled).toBe(true);
+    expect(campo("Tope de documentos").value).toBe("");
+    expect(campo("Tope de documentos").disabled).toBe(true);
     expect(screen.getAllByRole("checkbox", { name: "Ilimitado" })[0]).toBeChecked();
   });
 
@@ -291,7 +293,7 @@ describe("FormularioDePlan — editar", () => {
       },
     });
 
-    expect(campo("Documentos por mes").value).toBe("3000");
+    expect(campo("Tope de documentos").value).toBe("3000");
     const aviso = screen.getByTestId("plan-hay-programado").textContent;
     expect(aviso).toContain("desde el 1 Nov 2026");
     expect(aviso).toContain("se cancela");
@@ -318,5 +320,60 @@ describe("FormularioDePlan — editar", () => {
 
     expect(screen.getByTestId("plan-guardar").textContent).toContain("Guardando…");
     await act(async () => resolver(exito()));
+  });
+});
+
+/** #613: el tope de documentos se cuenta al mes o en total, y cada plan da pruebas en Beta por RUC. */
+describe("FormularioDePlan — periodo del tope y pruebas en Beta", () => {
+  const periodo = () => screen.getByRole("combobox", { name: "Periodo del tope" });
+
+  it("un plan nuevo es mensual y da 1 000 pruebas por RUC; el total de la cuenta se ve mientras se escribe", async () => {
+    abrirNuevo();
+
+    expect(periodo().textContent).toContain("Al mes (se renueva el día 1)");
+    expect(await opcionesDe(periodo())).toEqual(["Al mes (se renueva el día 1)", "En total (no se renueva)"]);
+    expect(campo("Pruebas en Beta por RUC (al mes)").value).toBe("1000");
+    expect(screen.getByText(/para ver el total de la cuenta/)).toBeTruthy();
+
+    llenar({ RUC: "3" });
+    expect(screen.getByText("= 3,000 pruebas al mes para la cuenta con 3 RUC, compartidas entre sus empresas.")).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("checkbox", { name: "Ilimitado" })[1]);
+    expect(campo("Pruebas en Beta por RUC (al mes)").disabled).toBe(true);
+    expect(screen.getByText("Sin tope de pruebas en Beta.")).toBeTruthy();
+  });
+
+  it("elegir «En total» manda el periodo TOTAL con las pruebas por RUC", async () => {
+    apiRequest.mockResolvedValue(exito());
+    abrirNuevo();
+    llenar({ ...VALIDOS, "Tope de documentos": "10", RUC: "1" });
+    await elegirOpcion(periodo(), "En total (no se renueva)");
+
+    fireEvent.click(screen.getByTestId("plan-guardar"));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
+    const cuerpo = apiRequest.mock.calls[0][1].body;
+    expect(cuerpo.limites).toMatchObject({ documentos_al_mes: { maximo: 10, ilimitado: false }, periodo_documentos: "TOTAL", pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false } });
+    expect(cuerpo.limites).not.toHaveProperty("pruebas_beta_al_mes");
+  });
+
+  it("un tope en total con documentos ilimitados no se envía: el error va bajo el campo", async () => {
+    abrirNuevo();
+    llenar(VALIDOS);
+    await elegirOpcion(periodo(), "En total (no se renueva)");
+    fireEvent.click(screen.getAllByRole("checkbox", { name: "Ilimitado" })[0]);
+
+    fireEvent.click(screen.getByTestId("plan-guardar"));
+
+    expect(screen.getByText("Un tope en total necesita una cifra: desmarca «Ilimitado» o elige «Al mes».")).toBeTruthy();
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("al editar un plan con tope total abre con «En total» y sus pruebas por RUC", () => {
+    abrirEdicion({ ...PLAN, limites: { ...PLAN.limites, periodo_documentos: "TOTAL", pruebas_beta_por_ruc: { maximo: 500, ilimitado: false } } });
+
+    expect(periodo().textContent).toContain("En total (no se renueva)");
+    expect(campo("Pruebas en Beta por RUC (al mes)").value).toBe("500");
+    expect(screen.getByText("= 1,500 pruebas al mes para la cuenta con 3 RUC, compartidas entre sus empresas.")).toBeTruthy();
   });
 });

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiBaseUrl } from "@/lib/api/client";
 import { refrescar, type Tokens } from "@/lib/api/auth";
+import { esCuentaSuspendida } from "@/lib/api/cuenta-suspendida";
 import { CABECERA_IDEMPOTENCIA } from "@/lib/idempotencia";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { clearSession, readSession, writeTokens } from "@/lib/session";
+import { CABECERA_SESION, SESION_TERMINADA } from "@/lib/sesion/sesion-terminada";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
@@ -89,6 +91,35 @@ async function forward(
   return fetch(url, { method: req.method, headers, body, cache: "no-store" });
 }
 
+const HTTP_NO_AUTORIZADO = 401;
+const HTTP_PROHIBIDO = 403;
+const HTTP_BAD_GATEWAY = 502;
+
+function pasar(backendRes: Response): NextResponse {
+  return new NextResponse(backendRes.body, { status: backendRes.status, headers: backendRes.headers });
+}
+
+/** El 401 del backend, marcado para que el navegador sepa que ya no tiene arreglo (#654): ahí abre «Tu sesión terminó». Solo este proxy pone la marca. */
+function sesionTerminada(backendRes: Response): NextResponse {
+  const res = pasar(backendRes);
+  res.headers.set(CABECERA_SESION, SESION_TERMINADA);
+  return res;
+}
+
+/** El sobre de siempre, armado acá porque el cuerpo y las cabeceras del 401 original no corresponden a un 403. */
+function cuentaSuspendida(): NextResponse {
+  return NextResponse.json({ estado: "error", datos: null, mensaje: null, codigo: "CUENTA_SUSPENDIDA", errores: null }, { status: HTTP_PROHIBIDO });
+}
+
+/** El mismo pedido con el access nuevo. Un corte de red no lanza: llega como el error de red de siempre (`RED`, un 502 con el sobre), para poder escribir los tokens nuevos igual. */
+async function reenviarTrasRenovar(req: NextRequest, path: string[], body: ArrayBuffer | undefined, tokens: Tokens, empresa: string | undefined): Promise<NextResponse> {
+  try {
+    return pasar(await forward(req, path, body, tokens.access, empresa));
+  } catch {
+    return NextResponse.json({ estado: "error", datos: null, mensaje: null, codigo: "RED", errores: null }, { status: HTTP_BAD_GATEWAY });
+  }
+}
+
 async function handle(req: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   if (path.length === 0 || !path.every(segmentoValido)) {
@@ -101,23 +132,28 @@ async function handle(req: NextRequest, context: RouteContext) {
   const { access, refresh, empresa } = readSession(req);
   const body = await readBody(req);
 
-  let backendRes = await forward(req, path, body, access, empresa);
+  const backendRes = await forward(req, path, body, access, empresa);
+  if (backendRes.status !== HTTP_NO_AUTORIZADO) return pasar(backendRes);
+  // Sin refresh no hay nada que renovar (una limpieza anterior, un cierre de sesión en otra pestaña, una sesión de soporte vencida): la sesión ya terminó.
+  if (!refresh) return sesionTerminada(backendRes);
 
-  if (backendRes.status === 401 && refresh) {
-    try {
-      const tokens = await refrescarUnaVez(refresh);
-      backendRes = await forward(req, path, body, tokens.access, empresa);
-      const res = new NextResponse(backendRes.body, { status: backendRes.status, headers: backendRes.headers });
-      writeTokens(res, tokens);
-      return res;
-    } catch {
-      const res = new NextResponse(backendRes.body, { status: backendRes.status, headers: backendRes.headers });
-      clearSession(res);
-      return res;
-    }
+  // El `try` cubre solo el refresh: si falla, la sesión terminó. El reintento va aparte (abajo).
+  let tokens: Tokens;
+  try {
+    tokens = await refrescarUnaVez(refresh);
+  } catch (error) {
+    // Una cuenta suspendida (#182) no es una sesión muerta: se conserva la sesión y el 403 llega tal cual, como en `middleware.ts`.
+    if (esCuentaSuspendida(error)) return cuentaSuspendida();
+    const res = sesionTerminada(backendRes);
+    clearSession(res);
+    return res;
   }
 
-  return new NextResponse(backendRes.body, { status: backendRes.status, headers: backendRes.headers });
+  // El refresh ya rotó el token en el backend: los tokens nuevos se escriben pase lo que pase con el reintento. Si el reintento falla por la red y no se escribieran, el navegador se quedaría
+  // con el refresh viejo, que el backend solo acepta 30 s más (S6), y la siguiente petición pasada esa ventana daría «Tu sesión terminó» con la sesión viva.
+  const res = await reenviarTrasRenovar(req, path, body, tokens, empresa);
+  writeTokens(res, tokens);
+  return res;
 }
 
 export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };

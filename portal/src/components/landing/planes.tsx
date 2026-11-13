@@ -97,7 +97,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
                 <span className="font-heading text-[2rem] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums" data-testid="precio-plan">
                   {p.mensual === 0 ? "S/ 0" : soles(porMes)}
                 </span>
-                <span className="text-sm whitespace-nowrap text-muted-foreground">{p.mensual === 0 ? t.paraSiempre : t.porMes}</span>
+                <span className="text-sm whitespace-nowrap text-muted-foreground">{p.mensual === 0 ? t.sinTarjeta : t.porMes}</span>
               </p>
               {/* Altura reservada: sin esto, las tarjetas saltan al cambiar de periodo, y las de pago con las gratis. */}
               <p className="mt-1 min-h-[2.5rem] text-control">
@@ -107,6 +107,7 @@ export function Planes({ planes, abierto, contacto }: { planes: TarjetaDePlan[];
 
               <div className="mt-4 rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
                 <p className="font-medium text-foreground">{p.docs}</p>
+                <p className="text-muted-foreground">{p.beta}</p>
                 <p className="text-muted-foreground">{p.rucs}</p>
               </div>
 

@@ -24,7 +24,7 @@ export function PlanYConsumo({ cuenta }: { cuenta: MiCuenta | null }) {
   return (
     <Link
       href="/cuenta/plan"
-      aria-label={`${interpolar(t.resumenAccesible, { plan: r.plan, consumo: r.consumo })}${r.aviso ? `. ${r.aviso}` : ""}`}
+      aria-label={`${r.accesible}${r.aviso ? `. ${r.aviso}` : ""}`}
       className={cn(
         "grid w-full grid-cols-1 gap-1.5 overflow-hidden rounded-lg border bg-muted/90 p-2.5 transition-colors hover:bg-secondary",
         r.tono === "ok" && "border-border/60",

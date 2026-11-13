@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verificarSegundoFactor } from "@/lib/api/admin-auth";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { clearAdminDesafio, readAdminDesafio, writeAdminAccess } from "@/lib/admin-session";
 import { cabecerasDeOrigen } from "@/lib/origen";
@@ -12,7 +13,9 @@ import { sinDesafio } from "../desafio";
 export async function POST(req: NextRequest) {
   const desafio = readAdminDesafio(req);
   if (!desafio) return sinDesafio();
-  const { codigo } = await req.json();
+  const leido = await leerCuerpoJson<{ codigo: string }>(req);
+  if ("error" in leido) return leido.error;
+  const { codigo } = leido.cuerpo;
   try {
     const sesion = await verificarSegundoFactor(desafio, codigo, cabecerasDeOrigen(req.headers));
     const res = NextResponse.json({ estado: "exito", datos: { administrador: sesion.administrador }, mensaje: null, codigo: null, errores: null });

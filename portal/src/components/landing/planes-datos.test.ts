@@ -9,6 +9,9 @@ const limites = (docs: number | null, rucs: number, usuarios: number | null, key
   usuarios: usuarios === null ? { ilimitado: true } : { maximo: usuarios, ilimitado: false },
   api_keys: keys === null ? { ilimitado: true } : { maximo: keys, ilimitado: false },
   retencion_anios: retencion,
+  periodo_documentos: "MENSUAL" as const,
+  pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false },
+  pruebas_beta_al_mes: { maximo: 1000 * rucs, ilimitado: false },
 });
 
 /** H20: la portada muestra lo que el backoffice publica, no una lista escrita a mano que se desactualiza al cambiar un precio. */
@@ -36,5 +39,32 @@ describe("tarjetasDePlanes", () => {
 
   it("sin planes publicados (backend caído) usa la lista de respaldo", () => {
     expect(tarjetasDePlanes(null, es)).toEqual(planesDeRespaldo(es));
+  });
+
+  /** #613: el tope de Gratis es de toda la vida de la cuenta, y la bolsa de Beta sale de lo publicado (por RUC × RUC). */
+  it("un tope en total se dice «en total», y las pruebas en Beta son las de la cuenta", () => {
+    const publicados: PlanPublicado[] = [
+      { nombre: "Gratis", precio_mensual: 0, limites: { ...limites(10, 1, 1, 1, 1), periodo_documentos: "TOTAL" } },
+      { nombre: "Negocio", precio_mensual: 69, limites: limites(1500, 3, 3, 5) },
+      { nombre: "Corporativo", precio_mensual: 299, limites: { ...limites(null, 20, null, null), pruebas_beta_al_mes: { ilimitado: true } } },
+    ];
+
+    const [gratis, negocio, corporativo] = tarjetasDePlanes(publicados, es);
+
+    expect(gratis).toMatchObject({ docs: "10 comprobantes reales en total", beta: "1 000 pruebas en Beta al mes" });
+    expect(negocio).toMatchObject({ docs: "1 500 documentos/mes", beta: "3 000 pruebas en Beta al mes" });
+    expect(corporativo.beta).toBe("Pruebas en Beta ilimitadas");
+  });
+
+  it("la lista de respaldo dice lo que decidió el dueño: Gratis 10 en total, y 1 000 pruebas en Beta al mes por RUC", () => {
+    const respaldo = planesDeRespaldo(es);
+
+    expect(respaldo.map((p) => [p.nombre, p.docs, p.beta])).toEqual([
+      ["Gratis", "10 comprobantes reales en total", "1 000 pruebas en Beta al mes"],
+      ["Emprende", "300 documentos/mes", "1 000 pruebas en Beta al mes"],
+      ["Negocio", "1 500 documentos/mes", "3 000 pruebas en Beta al mes"],
+      ["Pro", "10 000 documentos/mes", "10 000 pruebas en Beta al mes"],
+    ]);
+    expect(respaldo.flatMap((p) => p.incluye).some((x) => /Beta/.test(x))).toBe(false);
   });
 });

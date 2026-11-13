@@ -16,13 +16,22 @@ test.beforeEach(async ({ page }) => {
 
 const fila = (page: import("@playwright/test").Page, id: string) => page.getByTestId(`plan-fila-${id}`);
 
+type Fila = ReturnType<typeof fila>;
+
+/** Las celdas de una fila por el texto de su encabezado: otra columna en la tabla no corre los índices y rompe la spec. */
+async function celdasPorColumna(page: import("@playwright/test").Page, f: Fila): Promise<Record<string, string>> {
+  const encabezados = (await page.getByRole("columnheader").allTextContents()).map((t) => t.trim());
+  const celdas = await f.getByRole("cell").allTextContents();
+  return Object.fromEntries(encabezados.map((encabezado, i) => [encabezado, celdas[i]]));
+}
+
 /** Un nombre propio de esta corrida: nunca choca con el de otra spec ni con uno que haya quedado de una corrida anterior. */
 const nombreUnico = (base: string) => `${base} ${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
 
 async function llenarFormulario(page: import("@playwright/test").Page, v: { nombre: string; precio: string; documentos: string; rucs: string; usuarios: string; keys: string; retencion: string }) {
   await page.getByLabel("Nombre", { exact: true }).fill(v.nombre);
   await page.getByLabel("Precio mensual (S/)").fill(v.precio);
-  await page.getByLabel("Documentos por mes").fill(v.documentos);
+  await page.getByLabel("Tope de documentos").fill(v.documentos);
   await page.getByLabel("RUC", { exact: true }).fill(v.rucs);
   await page.getByLabel("Usuarios", { exact: true }).fill(v.usuarios);
   await page.getByLabel("API keys", { exact: true }).fill(v.keys);
@@ -55,14 +64,14 @@ test("el listado muestra los cuatro planes con su precio, sus límites y cuánta
   const gratis = fila(page, GRATIS);
   await expect(gratis).toContainText("Gratis");
   await expect(gratis).toContainText("Para cuentas nuevas");
-  const emprende = await fila(page, EMPRENDE).getByRole("cell").allTextContents();
-  expect(emprende[1]).toBe("S/ 29.00");
-  expect(emprende[2]).toBe("300");
-  expect(emprende[6]).toBe("5 años");
-  expect(emprende[7]).toBe("3");
-  const pro = await fila(page, PRO).getByRole("cell").allTextContents();
-  expect(pro[2]).toBe("Ilimitados");
-  expect(pro[3]).toBe("10");
+  const emprende = await celdasPorColumna(page, fila(page, EMPRENDE));
+  expect(emprende["Precio mensual"]).toBe("S/ 29.00");
+  expect(emprende["Documentos"]).toBe("300/mes");
+  expect(emprende["Retención"]).toBe("5 años");
+  expect(emprende["Cuentas"]).toBe("3");
+  const pro = await celdasPorColumna(page, fila(page, PRO));
+  expect(pro["Documentos"]).toBe("Ilimitados");
+  expect(pro["RUC"]).toBe("10");
 });
 
 test("el menú lleva a los planes y la miga dice «Comercial / Planes»", async ({ page }) => {
@@ -78,11 +87,10 @@ test("el menú lleva a los planes y la miga dice «Comercial / Planes»", async 
 test("un cambio de límites ya programado se muestra aparte, con qué cambia y desde cuándo, sin tocar lo vigente", async ({ page }) => {
   await page.goto("/admin/planes");
 
-  const negocio = fila(page, NEGOCIO);
-  await expect((await negocio.getByRole("cell").allTextContents())[2]).toBe("1,500");
+  expect((await celdasPorColumna(page, fila(page, NEGOCIO)))["Documentos"]).toBe("1,500/mes");
   const aviso = page.getByTestId(`plan-programado-${NEGOCIO}`);
   await expect(aviso).toContainText("Desde el 1");
-  await expect(aviso).toContainText("Documentos / mes: 1,500 → 2,000");
+  await expect(aviso).toContainText("Documentos: 1,500/mes → 2,000/mes");
 });
 
 // --- crear ----------------------------------------------------------------------------------------------------------------------------------
@@ -93,12 +101,14 @@ test("crear un plan lo deja en el listado, activo, con sus límites y sin cuenta
   try {
     const nuevo = await crearPlan(page, nombre);
 
-    const celdas = await nuevo.getByRole("cell").allTextContents();
-    expect(celdas[1]).toBe("S/ 49.90");
-    expect(celdas[2]).toBe("800");
-    expect(celdas[3]).toBe("2");
-    expect(celdas[6]).toBe("6 años");
-    expect(celdas[7]).toBe("0");
+    const celdas = await celdasPorColumna(page, nuevo);
+    expect(celdas["Precio mensual"]).toBe("S/ 49.90");
+    expect(celdas["Documentos"]).toBe("800/mes");
+    // #613: 1 000 pruebas en Beta por RUC (lo que trae un plan nuevo) por sus 2 RUC.
+    expect(celdas["Pruebas en Beta / mes"]).toBe("2,0001,000 por RUC");
+    expect(celdas["RUC"]).toBe("2");
+    expect(celdas["Retención"]).toBe("6 años");
+    expect(celdas["Cuentas"]).toBe("0");
     await expect(nuevo).toHaveAttribute("data-estado", "ACTIVO");
   } finally {
     await borrarPlan(page, nombre);
@@ -163,16 +173,16 @@ test("editar cambia el precio al instante pero los límites quedan programados p
     await expect(dialogo).toContainText("El nombre y el precio cambian al instante.");
     await expect(dialogo).toContainText("Los límites nuevos entran el 1");
     await page.getByLabel("Precio mensual (S/)").fill("59.90");
-    await page.getByLabel("Documentos por mes").fill("2000");
+    await page.getByLabel("Tope de documentos").fill("2000");
 
     await page.getByTestId("plan-guardar").click();
 
     const editado = page.getByRole("row", { name: new RegExp(nombre) });
     // Primero se espera a que la tabla se vuelva a pintar con el cambio; leer las celdas antes puede agarrar la fila vieja o ninguna.
-    await expect(editado).toContainText("Documentos / mes: 800 → 2,000");
+    await expect(editado).toContainText("Documentos: 800/mes → 2,000/mes");
     const celdas = await editado.getByRole("cell").allTextContents();
     expect(celdas[1]).toBe("S/ 59.90");
-    expect(celdas[2], "los límites vigentes no cambian").toBe("800");
+    expect(celdas[2], "los límites vigentes no cambian").toBe("800/mes");
   } finally {
     await borrarPlan(page, nombre);
   }
@@ -184,13 +194,13 @@ test("volver a poner los límites vigentes cancela el cambio programado", async 
   try {
     const nuevo = await crearPlan(page, nombre, "800");
     await nuevo.getByRole("button", { name: "Editar" }).click();
-    await page.getByLabel("Documentos por mes").fill("2000");
+    await page.getByLabel("Tope de documentos").fill("2000");
     await page.getByTestId("plan-guardar").click();
-    await expect(page.getByRole("row", { name: new RegExp(nombre) })).toContainText("800 → 2,000");
+    await expect(page.getByRole("row", { name: new RegExp(nombre) })).toContainText("800/mes → 2,000/mes");
 
     await page.getByRole("row", { name: new RegExp(nombre) }).getByRole("button", { name: "Editar" }).click();
     await expect(page.getByTestId("plan-hay-programado")).toContainText("se cancela");
-    await page.getByLabel("Documentos por mes").fill("800");
+    await page.getByLabel("Tope de documentos").fill("800");
     await page.getByTestId("plan-guardar").click();
 
     await expect(page.getByRole("row", { name: new RegExp(nombre) })).not.toContainText("→");

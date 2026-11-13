@@ -225,13 +225,13 @@ test("«Exportar CSV» baja lo que se ve: el mes y la vista, con la marca UTF-8 
   expect(nombre).toBe(`consumo-${mes}.csv`);
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   const lineas = bytes.toString("utf-8").slice(1).split("\r\n");
-  expect(lineas[0]).toBe("cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta");
+  expect(lineas[0]).toBe("cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta,periodo");
   expect(lineas.filter((l) => l !== "")).toHaveLength(4);
   expect(lineas[1]).toContain(",Cliente 07,");
   expect(lineas.join("\n")).toContain(`${cuenta(1)},Panadería Sol,`);
   expect(lineas.join("\n")).toContain(",312,300,104,si,VIGENTE,");
   // Las fechas son el último día cubierto en Lima, como en la pantalla, no el instante de vencimiento (que es exclusivo).
-  expect(lineas.find((l) => l.includes("Panadería Sol"))).toMatch(/,\d{4}-\d{2}-\d{2},\d{4}-\d{2}-\d{2}$/);
+  expect(lineas.find((l) => l.includes("Panadería Sol"))).toMatch(/,\d{4}-\d{2}-\d{2},\d{4}-\d{2}-\d{2},MENSUAL$/);
   expect(lineas.join("\n")).not.toContain("Ferretería Luna");
 });
 

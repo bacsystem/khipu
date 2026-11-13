@@ -595,7 +595,7 @@ export interface paths {
          *
          *     **Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,
          *     documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),
-         *     `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.
+         *     `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.
          */
         post: operations["retener"];
         delete?: never;
@@ -668,7 +668,7 @@ export interface paths {
          *
          *     **Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,
          *     documentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),
-         *     `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.
+         *     `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.
          */
         post: operations["percibir"];
         delete?: never;
@@ -750,8 +750,9 @@ export interface paths {
          *     —2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su
          *     saldo tras otras notas —3286/3503—), `422 DESCUENTO_INVALIDO` (un descuento que no afecta la base, código 01 o 03: la
          *     nota no lo admite —3280—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,
-         *     `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota
-         *     consume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta
+         *     `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan: una nota
+         *     consume como una factura; para anular sin consumir está la comunicación de baja), `429 LIMITE_PRUEBAS` (en Beta, el tope de pruebas del mes),
+         *     `402 PLAN_VENCIDO` (el plan de la cuenta
          *     venció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).
          *
          *     **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la nota se
@@ -797,7 +798,7 @@ export interface paths {
          *
          *     **Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,
          *     `422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 REDONDEO_INVALIDO` (4314: el redondeo pasa de ±1.00, o el neto queda en cero o negativo, 2062), `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,
-         *     `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.
+         *     `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.
          */
         post: operations["crear_3"];
         delete?: never;
@@ -986,8 +987,9 @@ export interface paths {
          *     **Errores frecuentes**: `422 VALIDACION` (campos con formato inválido, detalle en `errores`),
          *     `422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código
          *     SUNAT cuando aplica), `409 DUPLICADO` (ya existe ese `correlativo` en la serie), `422 CREDENCIALES_SOL_FALTAN`
-         *     (la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su
-         *     plan, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `402 PLAN_VENCIDO`
+         *     (la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan, del
+         *     mes o en total, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `429 LIMITE_PRUEBAS` (en Beta: la
+         *     cuenta llegó al tope de pruebas del mes, 1 000 por cada RUC de su plan; no gasta número), `402 PLAN_VENCIDO`
          *     (el plan de la cuenta venció y pasó su gracia: se vuelve a emitir al renovarlo; no gasta número, y la consulta y la baja siguen).
          *
          *     **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la factura
@@ -2976,7 +2978,8 @@ export interface paths {
         };
         /**
          * Usuario de la sesión
-         * @description Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.
+         * @description Correo, rol y cuenta del usuario autenticado por JWT, si le falta aceptar los términos vigentes y, en una sesión normal, tras cuántos minutos
+         *     sin renovarla la corta el servidor (`sesion_inactividad_minutos`, `0` si el corte está desactivado).
          */
         get: operations["me"];
         put?: never;
@@ -4026,7 +4029,7 @@ export interface components {
             pais?: string;
             email?: string;
         };
-        /** @description API keys vigentes por empresa */
+        /** @description Pruebas en Beta al mes de toda la cuenta: `pruebasBetaPorRuc` por `rucs`, compartidas entre sus empresas. Solo lectura */
         LimiteDto: {
             /**
              * Format: int32
@@ -4056,6 +4059,14 @@ export interface components {
              * @example 5
              */
             retencion_anios?: number;
+            /**
+             * @description `MENSUAL`: el tope de documentos se cuenta en el mes y se renueva el día 1. `TOTAL`: en toda la vida de la cuenta, sin renovarse (necesita una cifra: ilimitado solo puede ser mensual)
+             * @example MENSUAL
+             * @enum {string}
+             */
+            periodo_documentos?: "MENSUAL" | "TOTAL";
+            pruebas_beta_por_ruc?: components["schemas"]["LimiteDto"];
+            pruebas_beta_al_mes?: components["schemas"]["LimiteDto"];
         };
         PlanRequest: {
             /**
@@ -7384,6 +7395,12 @@ export interface components {
              * @example 2026-10-04T12:15:00Z
              */
             soporte_hasta?: string;
+            /**
+             * Format: int32
+             * @description Minutos sin renovar la sesión tras los cuales el servidor la corta (#638): `0` si el corte está desactivado, o de 15 a 480. El corte real llega hasta ese valor más 15 min, la vida del access token. El portal lo usa para avisar antes del cierre. Solo en `GET /v1/auth/me` de una sesión normal: ausente en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh, el registro y la sesión de soporte.
+             * @example 30
+             */
+            sesion_inactividad_minutos?: number;
         };
         RefreshRequest: {
             /** @example eyJhbGciOiJIUzI1NiJ9... */
@@ -9252,23 +9269,50 @@ export interface components {
             mes?: string;
             /**
              * Format: int64
-             * @description Lo que consumieron todas las empresas de la cuenta: lo que SUNAT aceptó, aunque después se anule
+             * @description Lo que consumieron todas las empresas de la cuenta en Producción: lo que SUNAT aceptó, aunque después se anule. Del mes, o de toda la vida de la cuenta si `periodo` es `TOTAL`
              * @example 12
              */
             documentos?: number;
             /**
              * Format: int32
-             * @description El tope de documentos al mes del plan de hoy; ausente si es ilimitado
+             * @description El tope de documentos del plan de hoy; ausente si es ilimitado
              * @example 300
              */
             maximo?: number;
+            /**
+             * @description `MENSUAL`: el tope se renueva el día 1. `TOTAL`: es de toda la vida de la cuenta y no se renueva
+             * @example MENSUAL
+             * @enum {string}
+             */
+            periodo?: "MENSUAL" | "TOTAL";
         };
         MiCuentaResponse: {
             /** @example Ferretería Torres */
             nombre?: string;
             plan?: components["schemas"]["PlanDeCuentaResponse"];
             consumo?: components["schemas"]["ConsumoDelMesResponse"];
+            pruebas?: components["schemas"]["PruebasDelMesResponse"];
             uso?: components["schemas"]["UsoDeRecursosResponse"];
+        };
+        /** @description Las pruebas en Beta de este mes, de todas las empresas de la cuenta, contra el tope de pruebas del plan */
+        PruebasDelMesResponse: {
+            /**
+             * @description El mes calendario en curso (America/Lima)
+             * @example 2026-10
+             */
+            mes?: string;
+            /**
+             * Format: int64
+             * @description Pruebas que SUNAT Beta aceptó este mes, de todas las empresas de la cuenta
+             * @example 40
+             */
+            usadas?: number;
+            /**
+             * Format: int32
+             * @description El tope de pruebas del mes del plan de hoy (las de cada RUC por sus RUC); ausente si es ilimitado
+             * @example 3000
+             */
+            maximo?: number;
         };
         /** @description Lo que la cuenta ocupa de los límites de su plan que no son documentos: API keys activas, usuarios (con las invitaciones pendientes) y empresas */
         UsoDeRecursosResponse: {
@@ -10782,7 +10826,7 @@ export interface components {
             mes?: string;
             /**
              * Format: int64
-             * @description Documentos que la cuenta ha consumido este mes: solo los comprobantes aceptados por SUNAT
+             * @description Documentos que la cuenta ha consumido este mes en Producción: solo los comprobantes aceptados por SUNAT. Los de toda la vida de la cuenta si el plan nuevo tiene el tope en total (`planNuevo.limites.periodoDocumentos` = `TOTAL`)
              * @example 312
              */
             consumo_del_mes?: number;
@@ -10924,16 +10968,22 @@ export interface components {
             plan?: string;
             /**
              * Format: int64
-             * @description Comprobantes aceptados por SUNAT en el mes
+             * @description Comprobantes aceptados por SUNAT en Producción en el mes, o en toda la vida de la cuenta si `periodo` es `TOTAL`
              * @example 240
              */
             documentos?: number;
             /**
              * Format: int32
-             * @description El tope de documentos al mes que rige hoy; ausente si el plan no tiene tope
+             * @description El tope de documentos que rige hoy; ausente si el plan no tiene tope
              * @example 300
              */
             limite?: number;
+            /**
+             * @description `MENSUAL` (se renueva el día 1) o `TOTAL` (de toda la vida de la cuenta)
+             * @example MENSUAL
+             * @enum {string}
+             */
+            periodo?: "MENSUAL" | "TOTAL";
             /**
              * Format: int32
              * @description El porcentaje del tope usado, hacia abajo; ausente si el plan no tiene tope

@@ -89,8 +89,9 @@ public class FacturaController {
             **Errores frecuentes**: `422 VALIDACION` (campos con formato inválido, detalle en `errores`),
             `422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código
             SUNAT cuando aplica), `409 DUPLICADO` (ya existe ese `correlativo` en la serie), `422 CREDENCIALES_SOL_FALTAN`
-            (la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su
-            plan, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `402 PLAN_VENCIDO`
+            (la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan, del
+            mes o en total, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `429 LIMITE_PRUEBAS` (en Beta: la
+            cuenta llegó al tope de pruebas del mes, 1 000 por cada RUC de su plan; no gasta número), `402 PLAN_VENCIDO`
             (el plan de la cuenta venció y pasó su gracia: se vuelve a emitir al renovarlo; no gasta número, y la consulta y la baja siguen).
 
             **Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la factura

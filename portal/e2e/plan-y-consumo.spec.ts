@@ -27,7 +27,10 @@ test("el menú muestra el plan y el consumo del mes, y lleva al detalle", async 
   await expect(page.getByText("No vence")).toBeVisible();
   await expect(page.getByTestId("consumo-del-mes")).toHaveText("20 / 30");
   await expect(page.getByRole("progressbar", { name: "Consumo del tope del mes" })).toHaveAttribute("aria-valuenow", "67");
-  await expect(page.getByText("30 documentos al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención")).toBeVisible();
+  await expect(page.getByText("30 documentos al mes · 1,000 pruebas en Beta al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención")).toBeVisible();
+  // #613: las pruebas en Beta del mes, aparte (el mock lleva 40 de las 1 000 de su RUC).
+  await expect(page.getByTestId("pruebas-del-mes")).toHaveText("40 / 1,000");
+  await expect(page.getByRole("progressbar", { name: "Pruebas en Beta usadas este mes" })).toHaveAttribute("aria-valuenow", "4");
 });
 
 test("«Plan y consumo» también está en el menú, en el grupo de la cuenta", async ({ page }) => {
@@ -43,25 +46,3 @@ test("el menú de usuario muestra el nombre de la cuenta y sus iniciales", async
   await expect(disparador).toContainText("ND");
   await expect(disparador).toContainText("demo@example.com");
 });
-
-/**
- * #498: «Plan y consumo» muestra también lo que la cuenta ocupa de las API keys, los usuarios y los RUC de su plan, no solo los documentos: un límite que se enseña es un
- * límite que se cumple. La cuenta demo (plan Gratis: 1 RUC, 1 usuario, 1 API key) tiene su empresa y su usuario, así que ya está en el tope de los dos.
- */
-test("la página del plan muestra lo que se usa de API keys, usuarios y RUC contra el tope", async ({ page }) => {
-  await page.goto("/cuenta/plan");
-  await expect(page.getByRole("heading", { name: "Lo que usas de tu plan" })).toBeVisible();
-
-  for (const [clave, etiqueta] of [["apiKeys", "API keys activas"], ["usuarios", "Usuarios"], ["rucs", "Empresas (RUC)"]] as const) {
-    const fila = page.getByTestId(`uso-${clave}`);
-    // La barra de progreso del design system repite la etiqueta en texto solo para lectores de pantalla (#567): la que se ve es la primera.
-    await expect(fila.getByText(etiqueta, { exact: true }).first()).toBeVisible();
-    await expect(fila.getByRole("progressbar")).toBeVisible();
-    await expect(fila).toContainText(" / 1");
-  }
-  await expect(page.getByText(/Los años de retención son una referencia de tu plan/)).toBeVisible();
-  // Estar justo en el tope (1 / 1) es lo normal en el plan Gratis: se dice bajo su barra, sin un banner de alerta por recurso.
-  await expect(page.getByTestId("uso-usuarios")).toContainText("Llegaste al tope de usuarios de tu plan");
-  await expect(page.getByRole("alert").filter({ hasText: "Llegaste al tope" })).toHaveCount(0);
-});
-

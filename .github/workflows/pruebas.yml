@@ -1,17 +1,33 @@
-# La suite completa, solo a pedido (Actions → «Pruebas» → Run workflow). Nació para correr en cada PR (CAL-02, auditoría 2026-10-22), pero las pruebas se
-# corren en local antes de cada PR y de cada release, y en el runner compartido tardaban más de 40 minutos por corrida: CI solo construye y despliega
-# (imagenes.yml). Sirve para correr la suite en un entorno limpio cuando haga falta.
+# La suite completa: corre sola en toda PR con base `main` (la de release develop → main y los `hotfix/*`) y a pedido (Actions → «Pruebas» → Run workflow).
+# Nació para correr en cada PR (CAL-02, auditoría 2026-10-22) y se sacó de ahí porque con los e2e de Playwright tardaba más de 40 minutos por corrida. Lo que
+# corre en cada PR, sea cual sea su base, es ci.yml (backend y portal sin Playwright ni `npm run audit`, con filtro por rutas, #650); este workflow agrega lo
+# que ci.yml deja fuera (e2e de Playwright y `npm run audit`), así que el e2e ya no depende de que alguien se acuerde de lanzarlo antes del release (#671).
+# El despliegue es aparte (imagenes.yml).
+# - Disparo: `pull_request` con `branches: [main]` y `workflow_dispatch`. Las PR a `develop` y las apiladas (gh stack, base feat/*) no lo disparan: no hay
+#   filtro de rutas, una PR a `main` es un release o un hotfix y siempre merece la suite completa. Este workflow solo corre con `pull_request` (nunca
+#   `pull_request_target`), sin secretos y con GITHUB_TOKEN de solo lectura: una PR de un fork corre código arbitrario en el runner pero no ve ningún secreto.
 # - backend: toda la suite de Gradle (Testcontainers levanta Postgres y MinIO con el Docker del runner), con --continue para ver todos los fallos de una vez.
+#   Repite la que ya corrió ci.yml en esa PR: es el costo de tener un solo check que lo cubra todo.
 # - portal: npm ci (el design system es un paquete git público, sin secretos), typecheck, lint, Vitest, npm audit de producción y los e2e de Playwright con un
 #   solo worker (el dev server con mocks en memoria no es estable con varios; retries: 2 en CI ya lo cubre el playwright.config).
+#   El job lleva 60 minutos de tope: los 560 e2e con un worker necesitan unos 45 (en la corrida 43351962181 llegaron al test 414 en 32 min y el tope de 40 del
+#   job, que incluye la instalación, typecheck, lint y Vitest, los cortó antes de terminar).
+# - pruebas: agregador. ÚNICO check de este workflow que el dueño debe marcar como requerido en `main` (Settings → Branches). Los jobs `backend` y `portal`
+#   comparten nombre con los de ci.yml, y un check requerido se elige por nombre: marcar `backend` o `portal` sería ambiguo. `pruebas` no lo usa ningún otro job,
+#   y falla salvo que `backend` y `portal` terminen en success (un job cancelado o saltado no cuenta como éxito).
+#   Un `npm audit` en rojo por un aviso publicado hoy bloquea el release hasta que se corrija la dependencia o se justifique en audit-excepciones.json.
 name: Pruebas
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# github.ref es refs/pull/N/merge en una PR (un grupo por PR: un push nuevo cancela la corrida anterior de esa PR y de ninguna otra) y refs/heads/<rama> en una
+# corrida manual (grupo aparte, no se pisa con el de la PR).
 concurrency:
   group: pruebas-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,7 +59,7 @@ jobs:
 
   portal:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: portal
@@ -79,3 +95,19 @@ jobs:
           name: informe-playwright
           path: portal/playwright-report/
           retention-days: 7
+
+  pruebas:
+    needs: [backend, portal]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resultado de Pruebas
+        env:
+          BACKEND: ${{ needs.backend.result }}
+          PORTAL: ${{ needs.portal.result }}
+        run: |
+          echo "backend=$BACKEND portal=$PORTAL"
+          for r in "$BACKEND" "$PORTAL"; do
+            [ "$r" = "success" ] || { echo "Un job de la suite completa terminó en '$r'."; exit 1; }
+          done

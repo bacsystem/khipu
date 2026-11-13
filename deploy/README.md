@@ -13,16 +13,42 @@ Dos servicios en el mismo proyecto de Railway (`backend` y `portal`) más el plu
 ### Cómo llega un cambio a producción
 
 Solo un release llega a producción. El release es el tag `vX.Y.Z` sobre `main`: un merge a `develop` o a `main` no publica ni
-despliega nada. **CI no corre las pruebas** (consumían más de 40 minutos de Actions por corrida): la suite completa se corre en
-local antes de mergear y antes de poner el tag (`./gradlew test`, y en `portal/` `npm run typecheck`, `lint`, `test` y `e2e`).
-Si hace falta en un entorno limpio, Actions → «Pruebas» → *Run workflow*.
+despliega nada. Las pruebas corren **en cada PR** (`.github/workflows/ci.yml`, #650), con filtro por rutas:
+
+- `backend`: `./gradlew test --continue --no-daemon`, solo si la PR toca `domain/`, `application/`, `adapters/`, `bootstrap/`, `gradle/`, los archivos
+  raíz de la build (`gradlew*`, `*.gradle.kts`, `gradle.properties`, `lombok.config`) o los tres archivos del portal que son `inputs` de pruebas de Gradle
+  (`portal/src/lib/api/openapi.json`, `portal/src/content/legal/version.ts`, `portal/src/components/developers/guia/casos-emision.ts`).
+- `portal`: `npm ci`, `typecheck`, `lint` y Vitest, solo si la PR toca `portal/`.
+- Una PR que solo toca `docs/`, `README.md`, `deploy/`, `k6/` o `qa/` no corre ninguno y queda en verde. Un cambio de `ci.yml` corre los dos.
+- `ci` es el job agregador: falla si el filtro (`cambios`) falla o si `backend` o `portal` fallan o se cancelan. **El check que el dueño marca como
+  requerido en `develop` y `main` (Settings → Branches) es solo `ci`.** Hasta que lo marque, los checks informan pero no bloquean el merge.
+
+**Además, en toda PR con base `main`** (la de release develop → main y los `hotfix/*`) corre solo el workflow «Pruebas»
+(`.github/workflows/pruebas.yml`, #671): la suite completa, sin filtro de rutas. Es `backend` (Gradle, la misma suite que `ci.yml`) más `portal`
+(`typecheck`, `lint`, Vitest, `npm run audit` y los e2e de Playwright con un worker, unos 45 min). Su job agregador se llama **`pruebas`** y es el
+check que el dueño marca como requerido en `main` junto a `ci` (los jobs `backend` y `portal` de «Pruebas» comparten nombre con los de `ci.yml`: no se
+marcan). Las PR a `develop` y las apiladas (base `feat/*`) no lo disparan. También se lanza a mano: Actions → «Pruebas» → *Run workflow*.
+
+**Qué no corre en la PR:** la suite de homologación contra e-beta (`homologacion.yml`, a pedido), k6 (`k6.yml`, a pedido) y el despliegue (el tag,
+`imagenes.yml`). En una PR a `develop` tampoco corren el e2e ni `npm run audit` (solo en las PR a `main` o a pedido).
+Cada corrida cancela la anterior de la misma PR, y el caché de Gradle se llena con la primera corrida de cada PR.
 
 ```mermaid
 flowchart TB
-    subgraph LOCAL["Antes del merge y del tag (en local)"]
+    subgraph PR["En cada PR (ci.yml)"]
         direction LR
-        lc_t["Suite completa<br/>backend + portal"] --> lc_m["Merge de la PR"]
-        lc_m -.-> mg_r["CI no corre nada"]
+        pr_ev["PR abierta<br/>o actualizada"] --> pr_c["cambios<br/>(git diff por rutas)"]
+        pr_c -->|"toca backend"| pr_b["backend<br/>(Gradle)"]
+        pr_c -->|"toca portal"| pr_p["portal<br/>(typecheck · lint · Vitest)"]
+        pr_b --> pr_ci["ci<br/>(check requerido)"]
+        pr_p --> pr_ci
+        pr_ci --> pr_m["Merge de la PR"]
+    end
+
+    subgraph MAIN["En la PR a main: release o hotfix (pruebas.yml)"]
+        direction LR
+        mn_ev["PR con base main"] --> mn_s["backend (Gradle) y portal<br/>(typecheck · lint · Vitest<br/>· audit · e2e de Playwright)"]
+        mn_s --> mn_p["pruebas<br/>(check requerido)"]
     end
 
     subgraph TAG["Release: tag vX.Y.Z sobre main"]
@@ -34,20 +60,19 @@ flowchart TB
         tg_v -->|"no"| tg_x["No publica<br/>ni despliega"]
     end
 
-    LOCAL ~~~ TAG
+    PR ~~~ MAIN
+    MAIN ~~~ TAG
 
     classDef prod stroke:#2457d6,stroke-width:3px
     classDef stop stroke:#c0392b,stroke-width:2px
-    classDef off stroke-dasharray:5 5
     class tg_r prod
     class tg_x stop
-    class mg_r off
 ```
 
 Paso a paso:
 
-1. Con la suite en verde en local, merge a `main` (el release desde `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push
-   <remoto> vX.Y.Z`).
+1. Con `ci` y `pruebas` (el e2e de Playwright incluido, que corre solo en esa PR) en verde en la PR de release (o del `hotfix/*`), merge a `main` (el release desde
+   `develop`, o un `hotfix/*`) y tag `vX.Y.Z` sobre ese commit (`git tag -a vX.Y.Z`, `git push <remoto> vX.Y.Z`).
 2. `imagenes.yml` comprueba que el tag sea `vX.Y.Z` y que su commit esté en `main`, y construye y publica `:X.Y.Z`, `:X.Y`, `:latest` y `:sha-<commit>` de las tres imágenes.
 3. El job `desplegar` (environment `produccion`) hace `railway redeploy --from-source` de `backend` y después de `portal`:
    Railway baja la `:latest` nueva y la levanta cuando pasa su healthcheck. El `respaldo` no se redespliega solo; toma la imagen
@@ -114,6 +139,8 @@ Agregar el plugin **Postgres** de Railway al proyecto. Provee las variables `PGH
 | `OPENAPI_RUTAS_OCULTAS` | no ponerla en producción | Opcional (#602). Sin ella, el OpenAPI publicado (`/openapi.json`, `/swagger-ui`, la referencia de `/developers`) no documenta las rutas `/v1/admin/**` del backoffice. Vacía (`OPENAPI_RUTAS_OCULTAS=`) las publica todas: es lo que usan el desarrollo (`docker-compose.yml`) y `npm --prefix portal run generate:api` |
 | `TRUSTED_PROXIES` | expresión regular de las IPs de los proxies de confianza (el servicio `portal`) | Opcional, **vacío por defecto: no se confía en `X-Forwarded-For`** y la bitácora registra la IP de la conexión. Se calibra con `GET /v1/admin/origen`; ver §5 antes de fijarla. Una expresión inválida impide arrancar |
 | `ADMIN_SESION_MINUTOS` | `30` | Opcional. Vida de la sesión del administrador del backoffice (#177), **entre 5 y 60**: fuera de ese rango el backend no arranca. Sin refresh: al vencer se vuelve a entrar con contraseña y segundo factor. El portal toma la vida de la cookie de la respuesta del login, no hace falta configurarla allá |
+| `SESION_INACTIVIDAD_MINUTOS` | `30` | Opcional (#638). Minutos que un usuario del portal puede pasar sin renovar su sesión antes de que el servidor la corte: **`0` lo desactiva, o entre 15 y 480**; fuera de eso el backend no arranca. El corte real llega hasta este valor más 15 min, la vida del access token (que no se revoca). El portal lee el valor de `GET /v1/auth/me` (`sesion_inactividad_minutos`) para avisar antes del cierre, así que no hace falta configurarlo allá. No aplica al backoffice (`ADMIN_SESION_MINUTOS`). La regla de corte es la de #636 |
+| `ACCESO_RETENCION_DIAS` | `7` | Opcional (#611, #634). Días que se conservan las sesiones y los enlaces de acceso (refresh, recuperación de contraseña y verificación de correo) después de vencer (las sesiones duran 30 días), **entre 1 y 90**: fuera de ese rango el backend no arranca. Dos limpiezas horarias borran por lotes lo vencido hace más de ese plazo; de las sesiones queda la más reciente de cada usuario (de ella sale el «último acceso» del backoffice) y de los enlaces no queda ninguno. La migración V76 crea un índice sobre `sesion(expira_en)` y bloquea los login y refresh mientras se construye: antes del deploy, mirar `SELECT count(*) FROM sesion`. La limpieza de enlaces no tiene migración ni índice; antes de activarla, medir `SELECT count(*) FROM token_recuperacion` y `SELECT count(*) FROM token_verificacion`: si alguna pasa de unas 100 000 filas, agregar primero un índice sobre `expira_en` en una migración nueva |
 | `LOG_DIR` | `/data/logs` (dentro del Volume) | Opcional. Carpeta de `khipu.log` (INFO y superiores) y `khipu-error.log` (WARN y ERROR con la traza completa). Default `./logs`, que en la imagen es `/app/logs` (el Dockerfile la crea con permisos para el usuario `khipu`) y se pierde al redeployar. Para conservarlos, apuntar `LOG_DIR` a una carpeta del Volume, con el mismo requisito que `STORAGE_FS_ROOT`: que el usuario `khipu` pueda escribir ahí. Con `STORAGE_TYPE=s3` no hay Volume y `/data` no existe: no fijar `LOG_DIR` en ese caso. **Un `LOG_DIR` que `khipu` no pueda crear o escribir impide que el backend arranque** (Spring Boot aborta con `Logback configuration error detected: Failed to create parent directories`): es una configuración que falla rápido, igual que `MASTER_KEY` o `MAIL_HOST`. En Railway el log de referencia es la consola, que ya muestra cada error en una línea con su causa raíz |
 
 > **Dejar `MAIL_HABILITADO` en `false` en producción falla en silencio.** No hay error ni alerta: la
@@ -537,11 +564,11 @@ Algunas reglas de SUNAT dependen de la fecha y no se pueden reproducir con el re
 
 | Sigue al reloj movido (usa el `Clock` de la aplicación) | NO lo sigue |
 |---|---|
-| La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: `created_at`, `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
+| La fecha y hora de emisión, y la validación «no futura» de `fecha_emision` | `now()` de PostgreSQL: el `created_at` del resto de las tablas (el de las sesiones de refresh sí lo sigue), `updated_at` y la **cola de envíos** (`outbox.siguiente_intento <= now()`) |
 | Los plazos de envío (factura 3 días; boleta 5 individual y 7 en resumen) y el cierre `FUERA_DE_PLAZO`, también el del barrido horario (si no hay empresas en PRODUCCION) | Los `iat`/`exp` de los JWT del portal y del backoffice, y las cookies del navegador (hora real) |
 | La fecha de generación, el correlativo del día y el formato (05 o 06–08/9996) de los RC y RA | La hora de SUNAT: valida lo que recibe contra **su** fecha real |
 | La comprobación de vigencia del certificado en el backend (`CERTIFICADO_VENCIDO`), el plan de la cuenta (`PLAN_VENCIDO`), el tope y el consumo del mes | La caducidad real del certificado dentro de la firma XML-DSig, que SUNAT mira con su fecha |
-| El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal | La fecha de modificación de los archivos del storage |
+| El vencimiento de enlaces de verificación y recuperación, y de las sesiones de refresh del portal; el `created_at` de esas sesiones y su corte por inactividad (#636) | La fecha de modificación de los archivos del storage |
 
 Consecuencias que conviene tener presentes:
 
@@ -550,6 +577,7 @@ Consecuencias que conviene tener presentes:
   `enviar_automatico: false` y provocan los fallos de forma controlada en vez de esperar al worker.
 - Con el reloj adelantado, usa una empresa **sin cuenta** (la que crea `POST /v1/admin/tenants`) o una cuenta con plan sin vencimiento: un plan con fecha de fin se vence y emitir
   responde `402 PLAN_VENCIDO`. También las sesiones de refresh del portal creadas antes pueden figurar vencidas: vuelve a iniciar sesión (con una API key no pasa).
+  Con el reloj adelantado, además, el corte por inactividad (`SESION_INACTIVIDAD_MINUTOS`, #636) mide contra el reloj movido: las sesiones previas se cortan en su primer refresh.
 - Usa una empresa de pruebas dedicada (`BETA`): lo que se emite con fechas movidas no es un dato que quieras conservar.
 
 ### Cómo usarlo en develop (Docker)

@@ -1,9 +1,10 @@
 import type { Mensajes } from "@/i18n/mensajes";
 import { interpolar } from "@/i18n/mensajes";
-import type { LimiteAdmin } from "@/lib/api/admin-planes";
+import type { LimiteAdmin, LimitesAdmin } from "@/lib/api/admin-planes";
 import type { PlanPublicado } from "@/lib/api/planes-publicados";
 
-export type TarjetaDePlan = { nombre: string; para: string; mensual: number; docs: string; rucs: string; incluye: string[]; destacado: boolean };
+/** `beta`: las pruebas en Beta al mes de la cuenta (#613), aparte de los documentos de Producción de `docs`. */
+export type TarjetaDePlan = { nombre: string; para: string; mensual: number; docs: string; beta: string; rucs: string; incluye: string[]; destacado: boolean };
 
 /**
  * Los planes que la portada conoce, por clave. La clave es el nombre del plan en minúsculas tal como lo publica el backoffice
@@ -23,7 +24,7 @@ const CATALOGO = [
 export function planesDeRespaldo(messages: Mensajes): TarjetaDePlan[] {
   return CATALOGO.map(({ clave, mensual, destacado }) => {
     const textos = messages.landing.planes.catalogo[clave];
-    return { nombre: textos.nombre, para: textos.para, mensual, docs: textos.docs, rucs: textos.rucs, incluye: [...textos.incluye], destacado };
+    return { nombre: textos.nombre, para: textos.para, mensual, docs: textos.docs, beta: textos.beta, rucs: textos.rucs, incluye: [...textos.incluye], destacado };
   });
 }
 
@@ -32,8 +33,16 @@ function miles(n: number): string {
   return n.toLocaleString("en-US").replaceAll(",", " ");
 }
 
-function documentos(l: LimiteAdmin, t: Mensajes["landing"]["planes"]["limites"]): string {
-  return l.ilimitado || l.maximo === undefined ? t.documentosIlimitados : interpolar(t.documentosAlMes, { n: miles(l.maximo) });
+/** «300 documentos/mes», o «10 comprobantes reales en total» si el tope es de toda la vida de la cuenta (#613). */
+function documentos(l: Pick<LimitesAdmin, "documentos_al_mes" | "periodo_documentos">, t: Mensajes["landing"]["planes"]["limites"]): string {
+  const d = l.documentos_al_mes;
+  if (d.ilimitado || d.maximo === undefined) return t.documentosIlimitados;
+  return interpolar(l.periodo_documentos === "TOTAL" ? t.documentosEnTotal : t.documentosAlMes, { n: miles(d.maximo) });
+}
+
+/** «3 000 pruebas en Beta al mes»: la bolsa de la cuenta, que el backend ya calcula (por RUC × RUC). */
+function pruebas(l: LimiteAdmin, t: Mensajes["landing"]["planes"]["limites"]): string {
+  return l.ilimitado || l.maximo === undefined ? t.pruebasBetaIlimitadas : interpolar(t.pruebasBeta, { n: miles(l.maximo) });
 }
 
 function usuarios(l: LimiteAdmin, t: Mensajes["landing"]["planes"]["limites"]): string {
@@ -64,7 +73,8 @@ export function tarjetasDePlanes(publicados: PlanPublicado[] | null, messages: M
       nombre: p.nombre,
       para: conocido?.para ?? "",
       mensual: p.precio_mensual,
-      docs: documentos(l.documentos_al_mes, t),
+      docs: documentos(l, t),
+      beta: pruebas(l.pruebas_beta_al_mes, t),
       rucs: interpolar(t.rucs, { n: l.rucs, usuarios: usuarios(l.usuarios, t) }),
       incluye: conocido?.incluye ?? [keys, interpolar(t.retencion, { periodo })],
       destacado: conocido?.destacado ?? false,

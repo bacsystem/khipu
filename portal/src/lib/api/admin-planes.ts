@@ -6,14 +6,27 @@ import { backendFetch } from "./client";
 /** Un tope de un plan. «Sin límite» es `ilimitado: true` y sin `maximo`: lo omitido nunca se interpreta como ilimitado. */
 export type LimiteAdmin = { maximo?: number; ilimitado: boolean };
 
-/** Lo que un plan permite. RUC y retención siempre llevan cifra. */
+/** Cómo se cuenta el tope de documentos de Producción (#613): en el mes calendario de Lima, que se renueva el día 1, o en toda la vida de la cuenta, sin renovarse. */
+export const PERIODOS_DE_DOCUMENTOS = ["MENSUAL", "TOTAL"] as const;
+export type PeriodoDeDocumentos = (typeof PERIODOS_DE_DOCUMENTOS)[number];
+
+/**
+ * Lo que un plan permite. RUC y retención siempre llevan cifra. `documentos_al_mes` conserva su nombre aunque el tope sea en total (`periodo_documentos`, #613), y un
+ * tope total siempre lleva cifra. Las pruebas en Beta se fijan por RUC; `pruebas_beta_al_mes` es lo que resulta para toda la cuenta (por RUC × RUC) y es de solo lectura.
+ */
 export type LimitesAdmin = {
   documentos_al_mes: LimiteAdmin;
   rucs: number;
   usuarios: LimiteAdmin;
   api_keys: LimiteAdmin;
   retencion_anios: number;
+  periodo_documentos: PeriodoDeDocumentos;
+  pruebas_beta_por_ruc: LimiteAdmin;
+  pruebas_beta_al_mes: LimiteAdmin;
 };
+
+/** Los límites que se envían al crear o editar un plan: sin `pruebas_beta_al_mes`, que calcula el backend. */
+export type LimitesDePlan = Omit<LimitesAdmin, "pruebas_beta_al_mes">;
 
 /** Un cambio de límites ya decidido que entra al inicio del ciclo siguiente (el mes calendario en Lima, #190). */
 export type CambioProgramadoAdmin = { limites: LimitesAdmin; aplica_desde: string };
@@ -35,7 +48,7 @@ export type PlanAdmin = {
 };
 
 /** Lo que se manda para crear o editar un plan. */
-export type CuerpoDePlan = { nombre: string; precio_mensual: number; limites: LimitesAdmin; visible_en_publicidad: boolean };
+export type CuerpoDePlan = { nombre: string; precio_mensual: number; limites: LimitesDePlan; visible_en_publicidad: boolean };
 
 /** «1,500» (el formato de miles del portal), o «Ilimitados»; un límite sin máximo ni marca (que el backend no debería mandar) se ve como un guion y no como «undefined». */
 export function limiteEnPalabras(l: LimiteAdmin, messages: Mensajes): string {
@@ -46,6 +59,14 @@ export function limiteEnPalabras(l: LimiteAdmin, messages: Mensajes): string {
 /** «S/ 29.00», o «Gratis» para cero. */
 export function precioEnSoles(precio: number, messages: Mensajes, locale: Locale): string {
   return precio === 0 ? messages.admin.planes.palabras.gratis : formatearMonto("PEN", precio, locale);
+}
+
+/** El tope de documentos de un plan con su periodo, para una celda: «300/mes», «10 en total» o «Ilimitados». */
+export function topeDeDocumentosEnPalabras(l: Pick<LimitesAdmin, "documentos_al_mes" | "periodo_documentos">, messages: Mensajes): string {
+  const p = messages.admin.planes.palabras;
+  const tope = limiteEnPalabras(l.documentos_al_mes, messages);
+  if (l.documentos_al_mes.ilimitado || l.documentos_al_mes.maximo === undefined) return tope;
+  return interpolar(l.periodo_documentos === "TOTAL" ? p.enTotal : p.porMes, { n: tope });
 }
 
 /** «1 año», «5 años». */
@@ -62,11 +83,15 @@ function cantidad(l: LimiteAdmin | number, textos: { uno: string; varios: string
   return interpolar(limite.maximo === 1 ? textos.uno : textos.varios, { n: limite.maximo.toLocaleString("en-US") });
 }
 
-/** Los límites de un plan en una línea, con singulares y plurales bien puestos (H13): «1 documento al mes · 1 RUC · 1 usuario · 1 API key · 1 año de retención». */
+/**
+ * Los límites de un plan en una línea, con singulares y plurales bien puestos (H13): «1 documento al mes · 1,000 pruebas en Beta al mes · 1 RUC · 1 usuario · 1 API key ·
+ * 1 año de retención». Un tope total dice «en total» (#613).
+ */
 export function limitesEnPalabras(l: LimitesAdmin, messages: Mensajes): string {
   const p = messages.admin.planes.palabras;
   return [
-    cantidad(l.documentos_al_mes, p.documentos),
+    cantidad(l.documentos_al_mes, l.periodo_documentos === "TOTAL" ? p.documentosEnTotal : p.documentos),
+    cantidad(l.pruebas_beta_al_mes, p.pruebasBeta),
     cantidad(l.rucs, p.rucs),
     cantidad(l.usuarios, p.usuarios),
     cantidad(l.api_keys, p.apiKeys),
@@ -74,7 +99,7 @@ export function limitesEnPalabras(l: LimitesAdmin, messages: Mensajes): string {
   ].join(" · ");
 }
 
-export type CampoDeLimite = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
+export type CampoDeLimite = "documentos" | "pruebasBeta" | "rucs" | "usuarios" | "apiKeys" | "retencion";
 
 /** Lo que cambia entre dos conjuntos de límites, de qué a qué y en el orden de la tabla; sin diferencias, nada. */
 export function cambiosDeLimites(
@@ -85,7 +110,8 @@ export function cambiosDeLimites(
   const limite = (l: LimiteAdmin) => limiteEnPalabras(l, messages);
   const retencion = (anios: number) => retencionEnPalabras(anios, messages);
   const pares: [CampoDeLimite, string, string][] = [
-    ["documentos", limite(actual.documentos_al_mes), limite(nuevo.documentos_al_mes)],
+    ["documentos", topeDeDocumentosEnPalabras(actual, messages), topeDeDocumentosEnPalabras(nuevo, messages)],
+    ["pruebasBeta", limite(actual.pruebas_beta_por_ruc), limite(nuevo.pruebas_beta_por_ruc)],
     ["rucs", String(actual.rucs), String(nuevo.rucs)],
     ["usuarios", limite(actual.usuarios), limite(nuevo.usuarios)],
     ["apiKeys", limite(actual.api_keys), limite(nuevo.api_keys)],

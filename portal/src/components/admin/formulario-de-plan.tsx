@@ -6,21 +6,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Casilla } from "khipu-design-system/formularios/casilla";
 import { Dialog, DialogContent, DialogTrigger } from "khipu-design-system/ui/dialog";
-import type { PlanAdmin } from "@/lib/api/admin-planes";
+import { PERIODOS_DE_DOCUMENTOS, type PeriodoDeDocumentos, type PlanAdmin } from "@/lib/api/admin-planes";
 import { apiRequest } from "@/lib/api/browser";
 import { noSeSabeSiLlego } from "@/lib/api/corte-de-red";
 import { ACCION_PRINCIPAL, BOTON_PRIMARIO, BOTON_SECUNDARIO } from "@/lib/estilos";
 import { Campo, Entrada } from "khipu-design-system/formularios/campo";
+import { SelectCampo } from "khipu-design-system/formularios/select-campo";
 import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { formatearFechaDeLima, inicioDelProximoCiclo } from "@/lib/formato";
 import { interpolar } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
-import { NOMBRE_MAX, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
+import { NOMBRE_MAX, pruebasDeLaCuenta, validarPlan, valoresDePlan, VALORES_NUEVO_PLAN, type ErroresDePlan, type ValoresDePlan } from "@/lib/planes-formulario";
 import { buttonVariants } from "khipu-design-system/ui/button";
 import { cn } from "@/lib/utils";
 import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
-type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion";
+type CampoDeNumero = "documentos" | "rucs" | "usuarios" | "apiKeys" | "retencion" | "pruebasPorRuc";
 
 /**
  * Crear o editar un plan (#190), en un modal que dice el efecto antes de guardar. Lo que no se puede saber acá (que el nombre no esté repetido) lo contesta el
@@ -101,11 +102,17 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
   const efectos = edicion ? f.efectosEditar.map((e) => e.replace("{fecha}", fechaProximoCiclo)) : f.efectosNuevo;
   const id = plan?.id ?? "nuevo";
 
-  function campoDeNumero(campo: CampoDeNumero, etiqueta: string, ilimitado?: "documentosIlimitado" | "usuariosIlimitado" | "apiKeysIlimitado") {
+  function campoDeNumero(
+    campo: CampoDeNumero,
+    etiqueta: string,
+    ilimitado?: "documentosIlimitado" | "usuariosIlimitado" | "apiKeysIlimitado" | "pruebasPorRucIlimitado",
+    ayuda?: string,
+  ) {
     const marcado = ilimitado ? valores[ilimitado] : false;
+    const describe = errores[campo] ? `plan-${id}-${campo}-error` : ayuda ? `plan-${id}-${campo}-ayuda` : undefined;
     return (
       // `Entrada` y no `StepperNumerico`: el valor viaja como texto a `validarPlan`, que explica qué está mal en vez de recortarlo.
-      <Campo id={`plan-${id}-${campo}`} etiqueta={etiqueta} error={errores[campo]}>
+      <Campo id={`plan-${id}-${campo}`} etiqueta={etiqueta} error={errores[campo]} ayuda={ayuda}>
         <Entrada
           id={`plan-${id}-${campo}`}
           value={marcado ? "" : valores[campo]}
@@ -114,7 +121,7 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
           inputMode="numeric"
           autoComplete="off"
           invalido={Boolean(errores[campo])}
-          aria-describedby={errores[campo] ? `plan-${id}-${campo}-error` : undefined}
+          aria-describedby={describe}
         />
         {ilimitado ? (
           <Casilla id={`plan-${id}-${campo}-ilimitado`} etiqueta={f.ilimitado} checked={marcado} onCheckedChange={(v) => poner(ilimitado, v)} />
@@ -180,7 +187,21 @@ export function FormularioDePlan({ plan, claseDelBoton }: { plan?: PlanAdmin; cl
 
           <div className="grid gap-4 sm:grid-cols-2">
             {campoDeNumero("documentos", f.documentos, "documentosIlimitado")}
+            {/* #613: el tope de documentos se cuenta al mes o en toda la vida de la cuenta (el plan Gratis). Un combo del DS, nunca un `<select>` nativo. */}
+            <Campo id={`plan-${id}-periodo`} etiqueta={f.periodo} ayuda={f.periodoAyuda}>
+              <SelectCampo
+                id={`plan-${id}-periodo`}
+                opciones={PERIODOS_DE_DOCUMENTOS.map((p) => ({ value: p, label: f.periodos[p] }))}
+                valor={valores.periodo}
+                onCambio={(v) => {
+                  poner("periodo", v as PeriodoDeDocumentos);
+                  setErrores((e) => ({ ...e, documentos: undefined }));
+                }}
+                describidoPor={`plan-${id}-periodo-ayuda`}
+              />
+            </Campo>
             {campoDeNumero("rucs", f.rucs)}
+            {campoDeNumero("pruebasPorRuc", f.pruebasPorRuc, "pruebasPorRucIlimitado", pruebasDeLaCuenta(valores, messages))}
             {campoDeNumero("usuarios", f.usuarios, "usuariosIlimitado")}
             {campoDeNumero("apiKeys", f.apiKeys, "apiKeysIlimitado")}
             {campoDeNumero("retencion", f.retencion)}

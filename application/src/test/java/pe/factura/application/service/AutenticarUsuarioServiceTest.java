@@ -40,18 +40,27 @@ class AutenticarUsuarioServiceTest {
     };
     Map<String, SesionRepository.Sesion> sesionesMap = new HashMap<>();
     Map<String, SesionRepository.TokenRecuperacion> recMap = new HashMap<>();
+    /** Se ejecuta una vez, justo después de la próxima lectura de una sesión por su refresh: simula otra petición que llega entre la lectura y la rotación. */
+    Runnable despuesDeLeer;
     SesionRepository sesiones = new SesionRepository() {
         public void crear(Sesion s) { sesionesMap.put(s.refreshHash(), s); }
-        public Optional<Sesion> buscarPorRefreshHash(String h) { return Optional.ofNullable(sesionesMap.get(h)); }
+        public Optional<Sesion> buscarPorRefreshHash(String h) {
+            Optional<Sesion> leida = Optional.ofNullable(sesionesMap.get(h));
+            if (despuesDeLeer != null) { Runnable otraPeticion = despuesDeLeer; despuesDeLeer = null; otraPeticion.run(); }   // la carrera: algo ocurre tras la lectura
+            return leida;
+        }
         public Optional<Sesion> buscar(UUID id) { return sesionesMap.values().stream().filter(s -> s.id().equals(id)).findFirst(); }
         /** Como el JDBC: revocar borra las marcas de rotación (sin gracia) y conserva la familia. */
-        Sesion revocada(Sesion s) { return new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true, null, null, s.familia()); }
+        Sesion revocada(Sesion s) { return new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true, null, null, s.familia(), s.creadaEn()); }
         public void revocar(UUID id) { sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? revocada(s) : s); }
         public void revocarFamilia(UUID f) { sesionesMap.replaceAll((k, s) -> s.familia().equals(f) ? revocada(s) : s); }
         public void revocarTodas(UUID u) { sesionesMap.replaceAll((k, s) -> s.usuarioId().equals(u) ? revocada(s) : s); }
-        public void rotar(UUID id, UUID nueva, java.time.Instant en) {
-            sesionesMap.replaceAll((k, s) -> s.id().equals(id) ? new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
-                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor(), s.familia()) : s);
+        /** Como el JDBC: no rota una sesión revocada sin rotación previa (logout, restablecer, reuso) y devuelve si la rotó. */
+        public boolean rotar(UUID id, UUID nueva, java.time.Instant en) {
+            Optional<Sesion> actual = buscar(id).filter(s -> !s.revocada() || s.rotadaEn() != null);
+            actual.ifPresent(s -> sesionesMap.put(s.refreshHash(), new Sesion(s.id(), s.usuarioId(), s.refreshHash(), s.expiraEn(), true,
+                    s.rotadaEn() == null ? en : s.rotadaEn(), s.reemplazadaPor() == null ? nueva : s.reemplazadaPor(), s.familia(), s.creadaEn())));
+            return actual.isPresent();
         }
         public void crearRecuperacion(TokenRecuperacion t) { recMap.put(t.tokenHash(), t); }
         public Optional<TokenRecuperacion> buscarRecuperacion(String h) { return Optional.ofNullable(recMap.get(h)); }
@@ -63,6 +72,7 @@ class AutenticarUsuarioServiceTest {
     };
     TokenEmisor tokens = new TokenEmisor() {
         public String emitir(Claims c) { return "jwt:" + c.usuarioId() + ":" + c.cuentaId() + ":" + c.rol(); }
+        public java.time.Duration vidaAccess() { return VIDA_ACCESS; }
         public Optional<Claims> verificar(String t) { return Optional.empty(); }
     };
     List<String> correos = new ArrayList<>();
@@ -72,6 +82,9 @@ class AutenticarUsuarioServiceTest {
     };
     Clock clock = Clock.fixed(java.time.Instant.parse("2026-09-14T12:00:00Z"), ZoneId.of("America/Lima"));
     static final String PORTAL = "https://portal";
+    static final Duration VIDA_ACCESS = Duration.ofMinutes(15);
+    /** Las pruebas de siempre corren con el corte por inactividad apagado; las de #636 arman su servicio con {@link #conInactividad}. */
+    static final Duration INACTIVIDAD = Duration.ZERO;
     Map<String, VerificacionCorreoRepository.Token> verifMap = new HashMap<>();
     VerificacionCorreoRepository verificaciones = new VerificacionCorreoRepository() {
         public void crear(Token t) { verifMap.put(t.tokenHash(), t); }
@@ -105,7 +118,7 @@ class AutenticarUsuarioServiceTest {
     PlanSolicitadoRepository planesSolicitados = anotados::put;
     List<String> avisos = new ArrayList<>();
     AvisoAlOperador operador = (asunto, cuerpo) -> avisos.add(asunto + "|" + cuerpo);
-    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
+    AutenticarUsuarioService service = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
 
     /** El token del último correo que contiene {@code ruta}: así llega al usuario, y así se lo usa. */
     private String tokenDelCorreo(String ruta) {
@@ -212,7 +225,7 @@ class AutenticarUsuarioServiceTest {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         String token = tokenDelCorreo("/verificar/");
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
 
         assertThatThrownBy(() -> tarde.verificarCorreo(token)).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
         assertThatThrownBy(() -> service.verificarCorreo("inventado")).extracting("codigo").isEqualTo("TOKEN_INVALIDO");
@@ -262,7 +275,7 @@ class AutenticarUsuarioServiceTest {
         assertThat(verifMap).hasSize(5);
 
         AutenticarUsuarioService manana = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
+                Clock.offset(clock, Duration.ofHours(24).plusSeconds(1)), verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
         manana.reenviarVerificacion(id, PORTAL);
         assertThat(correos).hasSize(6);
     }
@@ -289,7 +302,7 @@ class AutenticarUsuarioServiceTest {
             public Optional<Usuario> buscarPorEmail(String e) { return usuarios.buscarPorEmail(e); }
             public void marcarCorreoVerificado(UUID u, java.time.Instant cuando) { usuarios.marcarCorreoVerificado(u, cuando); }
         };
-        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
+        AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, leerConCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, conCarrera, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
 
         enCarrera.verificarCorreo(token);
 
@@ -333,7 +346,7 @@ class AutenticarUsuarioServiceTest {
             }
         };
         AutenticarUsuarioService enCarrera = new AutenticarUsuarioService(cuentas, conCarrera, sesiones, hasher, tokens, correo, Fakes.UOW, clock, verificaciones, suspensiones,
-                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
+                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
 
         enCarrera.restablecer(token, "Nueva1234");
 
@@ -348,7 +361,7 @@ class AutenticarUsuarioServiceTest {
             public void enviar(String p, String a, String c) { throw new IllegalStateException("SMTP caído"); }
             public void enviar(String p, String a, String c, List<Adjunto> adj) { throw new IllegalStateException("SMTP caído"); }
         };
-        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
+        AutenticarUsuarioService conRoto = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, roto, Fakes.UOW, clock, verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
 
         Tokens t = conRoto.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
 
@@ -407,7 +420,7 @@ class AutenticarUsuarioServiceTest {
         service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         AceptarTerminosService nuevos = new AceptarTerminosService(aceptaciones, Fakes.UOW, clock, "2027-01-15");
         AutenticarUsuarioService conNuevos = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, clock,
-                verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, nuevos, planes, planesSolicitados, operador);
+                verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, nuevos, planes, planesSolicitados, operador, INACTIVIDAD);
 
         assertThat(conNuevos.login("a@b.pe", "Segura123", null).terminosPendientes()).isTrue();
     }
@@ -488,7 +501,7 @@ class AutenticarUsuarioServiceTest {
     }
 
     private AutenticarUsuarioService conReloj(Clock c) {
-        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador);
+        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, c, verificaciones, suspensiones, new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
     }
 
     @Test void refreshRotaYElAnteriorDejaDeServir() {
@@ -499,6 +512,242 @@ class AutenticarUsuarioServiceTest {
         assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
         service.logout(t2.refresh());
         assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    // --- #636: corte de la sesión por inactividad ----------------------------------------------------------------------------------
+
+    static final Duration N = Duration.ofMinutes(30);
+    /** La inactividad más lo que dura el access que emitió el último refresh: pasado esto, el refresh ya no sirve. */
+    static final Duration CORTE = N.plus(VIDA_ACCESS);
+
+    /** Un servicio con el corte activo, cuyo reloj va {@code despues} adelante del reloj base de la prueba. */
+    private AutenticarUsuarioService conInactividad(Duration despues) {
+        return new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW, Clock.offset(clock, despues), verificaciones, suspensiones,
+                new PlantillasDeCorreo(plantillasGuardadas), limite, terminos, planes, planesSolicitados, operador, N);
+    }
+
+    private void assertSesionInvalida(Runnable refrescar) {
+        assertThatThrownBy(refrescar::run).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    @Test void justoAntesDelCorteElRefreshRotaYEnElCorteExactoCierraLaFamilia() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.login("a@b.pe", "Segura123", null);
+
+        Tokens rotada = conInactividad(CORTE.minusSeconds(1)).refrescar(a.refresh());
+
+        assertThat(viva(rotada)).as("a N + 15 min − 1 s todavía rota").isTrue();
+        assertSesionInvalida(() -> conInactividad(CORTE).refrescar(b.refresh()));
+        assertThat(viva(b)).as("a N + 15 min exactos corta (<=) y revoca la familia").isFalse();
+        assertSesionInvalida(() -> service.refrescar(b.refresh()));
+        assertThat(viva(rotada)).as("otra familia del mismo usuario").isTrue();
+    }
+
+    @Test void elCorteRevocaLaFamiliaEnteraAunqueLaRamaViajeraSigaCreciendo() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+
+        assertSesionInvalida(() -> conInactividad(CORTE.plusSeconds(1)).refrescar(b.refresh()));
+
+        assertThat(viva(b)).isFalse();
+        assertSesionInvalida(() -> service.refrescar(b.refresh()));
+    }
+
+    /** Un refresh ya usado e inactivo a la vez sigue el camino de #635 (revoca como reuso): el corte solo mira filas sin revocar. */
+    @Test void unRefreshRotadoEInactivoSigueElCaminoDelReuso() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+
+        assertSesionInvalida(() -> conInactividad(CORTE.plusSeconds(1)).refrescar(a.refresh()));
+
+        assertThat(viva(b)).as("la familia se revocó por el reuso").isFalse();
+    }
+
+    /** La fila rotada hace 20 s es un refresco reciente aunque su sesión sea vieja: rota y no revoca la rama recién creada. */
+    @Test void unaFilaEnGraciaDeUnaSesionVieja() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Duration tarde = CORTE.minusSeconds(10);
+        Tokens b = conInactividad(tarde).refrescar(a.refresh());
+
+        Tokens d = conInactividad(tarde.plusSeconds(20)).refrescar(a.refresh());   // A supera el corte (por creadaEn) pero está en gracia
+
+        assertThat(viva(b)).as("no revoca la rama que acaba de abrir el primer refresh").isTrue();
+        assertThat(viva(d)).isTrue();
+    }
+
+    /** Dos refrescos de A dentro de la gracia dan dos ramas; la cookie se queda con una y la otra es de quien la copió. Presentada tarde, cierra todo. */
+    @Test void unaRamaHuerfanaPresentadaTardeRevocaLaFamiliaIncluidaLaRamaViva() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens huerfana = service.refrescar(a.refresh());
+        Tokens rama = conInactividad(Duration.ofSeconds(5)).refrescar(a.refresh());
+        Tokens siguiente = conInactividad(Duration.ofMinutes(10)).refrescar(rama.refresh());
+        assertThat(viva(siguiente)).isTrue();
+
+        assertSesionInvalida(() -> conInactividad(CORTE.plusSeconds(1)).refrescar(huerfana.refresh()));
+
+        assertThat(viva(siguiente)).as("la rama viva de la familia").isFalse();
+    }
+
+    @Test void unaCuentaSuspendidaEInactivaDaSesionInvalidaYNoCuentaSuspendida() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        cuentasSuspendidas.add(a.usuario().cuentaId());
+
+        assertSesionInvalida(() -> conInactividad(CORTE).refrescar(a.refresh()));
+        assertThat(viva(a)).as("la familia se cerró").isFalse();
+    }
+
+    /** Dentro de la ventana, la cuenta suspendida sigue respondiendo CUENTA_SUSPENDIDA y la sesión no se toca (#182). */
+    @Test void unaCuentaSuspendidaPeroActivaConservaSuSesion() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        cuentasSuspendidas.add(a.usuario().cuentaId());
+
+        assertThatThrownBy(() -> conInactividad(CORTE.minusSeconds(1)).refrescar(a.refresh())).extracting("codigo").isEqualTo("CUENTA_SUSPENDIDA");
+        assertThat(viva(a)).isTrue();
+    }
+
+    @Test void conLaInactividadApagadaNuncaCorta() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+
+        Tokens b = conReloj(Clock.offset(clock, Duration.ofDays(29))).refrescar(a.refresh());   // INACTIVIDAD = cero: solo manda la vida del refresh
+
+        assertThat(viva(b)).isTrue();
+    }
+
+    // --- #635: un refresh ya usado, presentado fuera de la gracia, revoca la familia ---------------------------------------------------
+
+    private AutenticarUsuarioService pasados(Duration segundos) { return conReloj(Clock.offset(clock, segundos)); }
+
+    private boolean viva(Tokens t) { return !sesionesMap.get(TokenOpaco.hash(t.refresh())).revocada(); }
+
+    /** El escenario del issue: A→B, el atacante rota B→C con el token robado, la víctima presenta B pasada la gracia: C también muere. */
+    @Test void reusarUnRefreshRotadoFueraDeLaGraciaRevocaLaFamiliaEntera() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+        Tokens c = pasados(GRACIA_MAS_UNO).refrescar(b.refresh());   // el atacante, con B
+        assertThat(viva(c)).isTrue();
+
+        // La víctima presenta B 31 s después de que el atacante lo rotó.
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO.multipliedBy(2)).refrescar(b.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(c)).as("la rama del atacante").isFalse();
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO.multipliedBy(2)).refrescar(c.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    @Test void elReusoNoTocaOtraFamiliaDelMismoUsuario() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens celular = service.login("a@b.pe", "Segura123", null);
+        service.refrescar(a.refresh());
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(celular)).as("otro login, otra familia").isTrue();
+    }
+
+    /** Dentro de la gracia no es un reuso: es la segunda petición del mismo navegador y no revoca nada. */
+    @Test void dentroDeLaGraciaNoRevocaNada() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+
+        Tokens rama = pasados(Duration.ofSeconds(5)).refrescar(a.refresh());
+
+        assertThat(viva(b)).isTrue();
+        assertThat(viva(rama)).isTrue();
+    }
+
+    /** Un refresh cerrado por logout, restablecer o desactivar no tiene rotación: la familia ya estaba cerrada y el rechazo es el de siempre. */
+    @Test void unRefreshRevocadoSinRotacionSoloSeRechaza() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens otroLogin = service.login("a@b.pe", "Segura123", null);
+        service.logout(a.refresh());
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(otroLogin)).isTrue();
+    }
+
+    /** Un refresh vencido es un rechazo sin más: no revoca la familia, que por la misma razón ya no tiene nada vivo que cuidar. */
+    @Test void unRefreshVencidoNoRevocaLaFamilia() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens b = service.refrescar(a.refresh());
+        sesionesMap.put(TokenOpaco.hash(a.refresh()), vencida(sesionesMap.get(TokenOpaco.hash(a.refresh()))));
+
+        assertThatThrownBy(() -> service.refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(b)).isTrue();
+    }
+
+    private SesionRepository.Sesion vencida(SesionRepository.Sesion s) {
+        return new SesionRepository.Sesion(s.id(), s.usuarioId(), s.refreshHash(), clock.instant().minusSeconds(1), s.revocada(), s.rotadaEn(), s.reemplazadaPor(), s.familia(), s.creadaEn());
+    }
+
+    /** Un refresh que no existe (o ya se purgó) es un rechazo sin revocar nada. */
+    @Test void unRefreshDesconocidoNoRevocaNada() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+
+        assertThatThrownBy(() -> service.refrescar("no-existe")).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(a)).isTrue();
+    }
+
+    /**
+     * La carrera que cierra {@code rotar} condicional: el logout (o el reuso) confirma entre la lectura de la sesión y su rotación. Sin la condición el
+     * refresh seguía y emitía una sesión nueva viva después del logout; con ella la rotación falla y el refresh se rechaza.
+     */
+    @Test void unLogoutQueLlegaEntreLaLecturaYLaRotacionRechazaElRefresh() {
+        Tokens a = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        despuesDeLeer = () -> service.logout(a.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(a.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThat(sesionesMap.get(TokenOpaco.hash(a.refresh())).revocada()).isTrue();
+    }
+
+    /**
+     * #635 + #611: con la fila raíz ya purgada, presentar una rama rotada fuera de la gracia revoca igual toda la familia, incluida la otra rama que abrió la
+     * gracia. Depende de que la familia se revoque por su id y no recorriendo la cadena desde la raíz.
+     */
+    @Test void conLaFilaRaizPurgadaElReusoRevocaLaFamiliaCompletaIncluidaLaOtraRama() {
+        Tokens raiz = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens ramaA = service.refrescar(raiz.refresh());
+        Tokens ramaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(raiz.refresh());   // en gracia: abre la otra rama
+        Tokens c = service.refrescar(ramaA.refresh());
+        sesionesMap.remove(TokenOpaco.hash(raiz.refresh()));   // la limpieza de #611 ya borró la raíz
+
+        assertThatThrownBy(() -> pasados(GRACIA_MAS_UNO).refrescar(ramaA.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        assertThat(viva(ramaB)).as("la otra rama").isFalse();
+        assertThat(viva(c)).as("la rama que sigue a la reutilizada").isFalse();
+    }
+
+    private static final Duration GRACIA_MAS_UNO = AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1);
+
+    /**
+     * #611: la limpieza borra las filas vencidas, así que un refresh rotado que vuelve cuando su fila ya no existe recibe el mismo rechazo que con la fila
+     * presente, y el logout cierra la familia aunque falte la fila del login (se busca por la familia, que heredan las rotaciones).
+     */
+    @Test void conLaFilaPurgadaElRefreshRotadoDaElMismoRechazoYElLogoutCierraLaFamilia() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens t2 = service.refrescar(t1.refresh());
+        AutenticarUsuarioService pasadaLaGracia = conReloj(Clock.offset(clock, AutenticarUsuarioService.GRACIA_ROTACION.plusSeconds(1)));
+        assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).as("con la fila").extracting("codigo").isEqualTo("SESION_INVALIDA");
+
+        sesionesMap.remove(TokenOpaco.hash(t1.refresh()));
+
+        assertThatThrownBy(() -> pasadaLaGracia.refrescar(t1.refresh())).as("sin la fila").extracting("codigo").isEqualTo("SESION_INVALIDA");
+        service.logout(t2.refresh());
+        assertThatThrownBy(() -> service.refrescar(t2.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
+    }
+
+    /** #611: con la fila del login borrada, el logout con una rama sigue cerrando la otra rama de la gracia (la familia se busca por su id, no por la fila raíz). */
+    @Test void conLaFilaDelLoginPurgadaElLogoutCierraLaOtraRama() {
+        Tokens t1 = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
+        Tokens ramaA = service.refrescar(t1.refresh());
+        Tokens ramaB = conReloj(Clock.offset(clock, Duration.ofSeconds(5))).refrescar(t1.refresh());
+        sesionesMap.remove(TokenOpaco.hash(t1.refresh()));
+
+        service.logout(ramaB.refresh());
+
+        assertThatThrownBy(() -> service.refrescar(ramaA.refresh())).as("la otra rama").extracting("codigo").isEqualTo("SESION_INVALIDA");
+        assertThatThrownBy(() -> service.refrescar(ramaB.refresh())).as("la que cerró sesión").extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 
     // --- S6: dos instancias del portal refrescan la misma sesión casi a la vez ---------------------------------------------------
@@ -598,7 +847,7 @@ class AutenticarUsuarioServiceTest {
     @Test void refreshExpiradoFalla() {
         Tokens t = service.registrar("A", "a@b.pe", "Segura123", "987654321", true, PORTAL);
         AutenticarUsuarioService tarde = new AutenticarUsuarioService(cuentas, usuarios, sesiones, hasher, tokens, correo, Fakes.UOW,
-                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador);
+                Clock.offset(clock, Duration.ofDays(31)), verificaciones, suspensiones, new PlantillasDeCorreo(new ConfiguracionFake.Plantillas()), limite, terminos, planes, planesSolicitados, operador, INACTIVIDAD);
         assertThatThrownBy(() -> tarde.refrescar(t.refresh())).extracting("codigo").isEqualTo("SESION_INVALIDA");
     }
 

@@ -4,7 +4,8 @@ import { registrarPago, type CuerpoDePago } from "@/lib/api/admin-pagos";
 import { errorResponse } from "@/lib/api/http";
 import { cabecerasDeOrigen } from "@/lib/origen";
 import { esUuid } from "@/lib/uuid";
-import { ERROR, leerCuerpoJson, sinCache } from "../../../planes/comun";
+import { ERROR, sinCache } from "../../../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 /**
  * Registrar a mano el pago de una cuenta (#194). El JWT del administrador sale de su cookie `httpOnly` y nunca llega al JS; el id se valida antes de pegarlo en la URL

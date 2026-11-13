@@ -26,7 +26,8 @@ export async function middleware(req: NextRequest) {
     writeTokens(res, tokens);
     return res;
   } catch (err) {
-    // Una cuenta suspendida (#182) no es una sesión muerta: el backend no la revocó, y al reactivar la cuenta la misma sesión vuelve a servir.
+    // Una cuenta suspendida (#182) no es una sesión muerta: el backend no la revoca al suspender, y si la cuenta se reactiva antes de que el corte por inactividad (#636)
+    // venza la sesión, la misma sigue sirviendo; pasado ese tiempo ya no, y sus usuarios vuelven a iniciar sesión.
     // Por eso se explica en una página pública y NO se limpian las cookies; cerrar la sesión es una acción explícita de esa página.
     if (esCuentaSuspendida(err)) return NextResponse.redirect(new URL(RUTA_CUENTA_SUSPENDIDA, req.url));
     const res = redirigirALogin(req);

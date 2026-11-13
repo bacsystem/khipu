@@ -4,7 +4,8 @@ import { readAdminSession } from "@/lib/admin-session";
 import { verificarIntegridad } from "@/lib/api/admin-integridad";
 import { errorResponse } from "@/lib/api/http";
 import { validarRango } from "@/lib/integridad-formulario";
-import { ERROR, leerCuerpoJson, sinCache } from "../planes/comun";
+import { ERROR, sinCache } from "../planes/comun";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 
 /**
  * Lanzar la verificación de integridad del almacenamiento (#198). El JWT del administrador sale de su cookie `httpOnly` y nunca llega al JS. Las dos fechas se validan acá

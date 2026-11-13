@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSession } from "@/lib/admin-session";
 import { altaAsistida, type AltaAsistida } from "@/lib/api/admin-alta";
+import { leerCuerpoJson } from "@/lib/api/cuerpo-json";
 import { errorResponse } from "@/lib/api/http";
 import { CABECERA_IDEMPOTENCIA } from "@/lib/idempotencia";
 import { cabecerasDeOrigen } from "@/lib/origen";
@@ -16,12 +17,9 @@ export async function POST(req: NextRequest) {
   const { access } = readAdminSession(req);
   if (!access) return ERROR(401, "NO_AUTORIZADO", "Sesión de administrador requerida");
 
-  let cuerpo: AltaAsistida;
-  try {
-    cuerpo = await req.json();
-  } catch {
-    return ERROR(400, "JSON_INVALIDO", "Petición inválida");
-  }
+  const leido = await leerCuerpoJson<AltaAsistida>(req);
+  if ("error" in leido) return leido.error;
+  const cuerpo = leido.cuerpo;
 
   try {
     // La IP real del administrador (#208), ya resuelta: la bitácora del alta la registra. La clave de idempotencia (#219) es del

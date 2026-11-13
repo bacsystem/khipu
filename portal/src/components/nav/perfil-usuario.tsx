@@ -14,6 +14,8 @@ import { postJson } from "@/lib/api/browser";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ROTULO } from "@/lib/estilos";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { cn } from "@/lib/utils";
+import { avisarALasDemasPestanas } from "@/lib/sesion/canal-de-sesion";
+import { reiniciarMarcas } from "@/lib/sesion/inactividad";
 import { useSoloLecturaDeLaSesion } from "@/lib/solo-lectura";
 import { Aviso, CabeceraDialogo, PieDialogo } from "khipu-design-system/patrones/cabecera-dialogo";
 
@@ -119,6 +121,8 @@ export function PerfilUsuario({ usuario, nombreCuenta }: { usuario: Usuario; nom
 
   async function salir() {
     setSaliendo(true);
+    reiniciarMarcas(); // #637: la próxima sesión no hereda la inactividad de esta
+    avisarALasDemasPestanas("salir"); // #653: antes del logout, por si la pestaña se descarga antes de que responda
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();

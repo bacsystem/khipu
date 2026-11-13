@@ -2,6 +2,48 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.4.0] - 2026-11-12
+
+Dos migraciones, V75 y V76, que Flyway aplica sola al arrancar `bootstrap`. Se despliega el backend y después el portal (es el orden de `imagenes.yml`): el portal nuevo necesita los campos nuevos del backend. Entre los dos despliegues, no guardar planes desde el backoffice: el backend nuevo exige `periodo_documentos` y `pruebas_beta_por_ruc` y el backoffice viejo no los manda (400 `LIMITE_INVALIDO`).
+- **V75** (`plan` y `plan_cambio_programado`: columnas `periodo_documentos` y `pruebas_beta_por_ruc` con sus CHECK). Segura en caliente: son tablas de unas pocas filas y las columnas llevan valor por defecto. Efecto de negocio al instante: el plan gratuito por defecto pasa a tope **TOTAL** (10 documentos de Producción en toda la vida de la cuenta, sin renovación). Una cuenta Gratis con 10 o más documentos aceptados en Producción deja de poder emitir ahí hasta que cambie de plan. Todos los planes reciben 1 000 pruebas Beta al mes por RUC.
+- **V76** (`ix_sesion_expira` sobre `sesion(expira_en)`). Índice normal, no `CONCURRENTLY` (Flyway corre cada migración en una transacción): **bloquea los login y refresh mientras se construye**. Antes de desplegar, `SELECT count(*) FROM sesion` en producción; con decenas de miles de filas tarda menos de un segundo, con millones conviene desplegar en horario de poco uso.
+- Sin migración para las limpiezas de `token_recuperacion` y `token_verificacion`: antes de desplegar, `SELECT count(*)` de las dos. Si alguna pasa de unas 100 000 filas, agregar primero un índice sobre `expira_en` en una migración nueva (V77), porque la limpieza recorrería la tabla en cada lote.
+
+Variables nuevas del backend, las dos opcionales (no hace falta definirlas en Railway; el portal no tiene ninguna nueva):
+- `SESION_INACTIVIDAD_MINUTOS`, 30 por defecto: minutos sin renovar la sesión antes de que el servidor la corte. `0` lo desactiva; si no, de 15 a 480, o el backend no arranca.
+- `ACCESO_RETENCION_DIAS`, 7 por defecto: días que se conservan las sesiones y los enlaces de recuperación y de verificación después de vencer. De 1 a 90, o el backend no arranca.
+
+Qué cambia para los usuarios al desplegar: toda sesión del portal cuyo último refresco tenga más de N + 15 min (45 por defecto) cae en su primer refresh y su usuario vuelve a entrar con su contraseña. Las cuentas suspendidas por más de ese tiempo también pierden sus sesiones al reactivarse. Las limpiezas horarias arrancan a los 4 y 5,5 min del arranque y borran hasta 50 000 filas por tabla y por hora, así que un atraso grande se consume en varias horas.
+
+Comprobar tras desplegar:
+- En el log del backend, que Flyway aplicó V75 y V76 y que arrancó sin error de configuración.
+- En el backoffice, los planes: periodo (Gratis en «total») y pruebas Beta por RUC (1 000, o lo que corresponda al plan).
+- Con una cuenta Gratis, que `GET /v1/cuenta` trae `consumo.periodo` y `pruebas`, y que el portal muestra la tarjeta de Beta.
+- `GET /v1/auth/me` con `sesion_inactividad_minutos` y, en el portal, el aviso de inactividad 2 min antes del corte (cambiando `SESION_INACTIVIDAD_MINUTOS` a 15 solo en un entorno de prueba).
+- Login, refresh y cierre de sesión del portal sin errores nuevos, y que el log de las limpiezas horarias (`LimpiezaSesionesWorker`, `LimpiezaTokensDeAccesoWorker`) muestre solo conteos.
+
+### Security
+- Un refresh ya rotado que vuelve fuera de la gracia de 30 s revoca la familia entera de sesiones y deja un aviso en el log (solo UUIDs), en vez de solo responder 401: si un atacante tenía ese token, la rama viva ya no sigue 30 días. El logout que llega entre la lectura y la rotación tampoco deja una sesión viva (#635, PR #641).
+- El servidor corta la sesión por inactividad: un refresh cuya fila supera N + 15 min sin renovarse revoca la familia y responde el mismo 401 `SESION_INVALIDA`. Va antes de mirar la cuenta, así que una cuenta suspendida e inactiva responde `SESION_INVALIDA` y no `CUENTA_SUSPENDIDA` (#636, PR #647).
+
+### Added
+- Planes con tope total y bolsa de pruebas Beta (#613, PR #622): Gratis tiene 10 documentos de Producción en toda la vida de la cuenta y los demás planes siguen por mes; Beta se cuenta aparte, 1 000 pruebas al mes por RUC del plan, compartidas entre las empresas de la cuenta, y al agotarlas responde `429 LIMITE_PRUEBAS`. `/v1/cuenta`, el consumo, su CSV, los planes del backoffice y la vista previa de cambio de plan traen el periodo y las pruebas. La landing dice lo que Gratis incluye de verdad en vez de «gratis para siempre».
+- `SESION_INACTIVIDAD_MINUTOS` y el campo `sesion_inactividad_minutos` de `GET /v1/auth/me` (#638, PR #646); `POST /api/auth/sesion`, la ruta del portal que mantiene viva la sesión sin llamar al backend mientras el access sirva (#639, PR #643).
+- El portal avisa 2 min antes del corte por inactividad y cierra la sesión a los N minutos, contando solo la actividad de la persona (no el sondeo en segundo plano) y compartida entre pestañas; el login explica el motivo (#637, PR #644). El aviso usa el contenedor responsivo del design system: hoja inferior en celular, diálogo en escritorio (#656, PR #665).
+- Cerrar sesión en una pestaña lleva a las demás al login (#653, PR #662). Si una acción encuentra la sesión muerta, el portal abre un diálogo «sesión terminada» en vez de dejar la pantalla rota (#654, PR #663, PR #666); el proxy marca ese 401 con `X-Khipu-Sesion: terminada`.
+- `k6/login.js` y su lugar en el dashboard único: login, panel, lectura de empresas y cierre, con los modos `unico` y `navega` (PR #629).
+
+### Changed
+- La limpieza horaria borra las sesiones de refresh vencidas hace más de `ACCESO_RETENCION_DIAS`, conservando la más reciente de cada usuario (de ella sale el «último acceso» del backoffice), y los enlaces de recuperación y verificación vencidos (#611, PR #633; #634, PR #642). Hasta ahora esas tablas solo crecían; V76 le da el índice.
+- «Suspender cuenta» del backoffice ya no promete que los usuarios conservan sus sesiones al reactivar (#640, PR #645).
+- `khipu-design-system` de v0.5.9 a v0.5.19 (#657, PR #661, PR #665). Área táctil de 44 px, sin cambios funcionales.
+- Dependencias de Gradle al día (PR #583): Gradle 8.14.6, Jackson 2.22, Flyway 12.11, AWS SDK 2.57, java-jwt 4.6 y las de prueba, entre otras. Flyway sube de versión: es la que aplica V75 y V76 al arrancar.
+- Cada PR corre las pruebas del backend y del portal con filtro por rutas (`ci.yml`, #650, PR #655); el e2e de Playwright y `npm run audit` corren en «Pruebas», sola en toda PR a `main` (#671, PR #672, PR #673) y a pedido. `deploy/README.md` lo documenta.
+- Equipo de agentes de Claude Code versionado en el repo (`setup-team.sh`, `.claude/`, sección de `CLAUDE.md`, regla de `/pr-review`, plantilla de `khipu_memory`): PR #626, #627, #628, #630, #631, #651, #652; más el informe de qa de la inactividad (PR #648) y el arreglo de un e2e que esperaba mal al keep-alive (#637, PR #649). Sin efecto en producción.
+
+### Fixed
+- Las rutas del portal que leen un cuerpo JSON responden `400 JSON_INVALIDO` cuando llega vacío, sin JSON, `null` o algo que no es un objeto, en vez de 500 (#608, PR #632).
+
 ## [1.3.2] - 2026-11-10
 
 Sin migraciones. Tras desplegar, en Railway:

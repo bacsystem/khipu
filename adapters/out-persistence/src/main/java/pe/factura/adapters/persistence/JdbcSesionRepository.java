@@ -3,6 +3,8 @@ package pe.factura.adapters.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import pe.factura.application.port.out.PurgaDeRecuperaciones;
+import pe.factura.application.port.out.PurgaDeSesiones;
 import pe.factura.application.port.out.SesionRepository;
 
 import java.sql.Timestamp;
@@ -11,21 +13,56 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class JdbcSesionRepository implements SesionRepository {
+public class JdbcSesionRepository implements SesionRepository, PurgaDeSesiones, PurgaDeRecuperaciones {
+    /**
+     * Una sesión es borrable si venció antes del corte y el mismo usuario tiene otra más reciente: la última de cada usuario se queda, porque el
+     * backoffice saca de ella su último acceso. SKIP LOCKED: ni espera a una fila que otra réplica o una revocación tiene tomada ni puede entrar en un
+     * deadlock. Usa ix_sesion_expira para el corte y ix_sesion_acceso para la subconsulta.
+     */
+    static final String PURGAR_VENCIDAS = """
+            DELETE FROM sesion WHERE id IN (
+              SELECT s.id FROM sesion s
+              WHERE s.expira_en < ?
+                AND EXISTS (SELECT 1 FROM sesion n WHERE n.usuario_id = s.usuario_id AND n.created_at > s.created_at)
+              ORDER BY s.expira_en
+              LIMIT ?
+              FOR UPDATE SKIP LOCKED)""";
+
+    /**
+     * Un token de recuperación (o de invitación) vencido antes del corte se borra, esté usado o no: ninguna respuesta depende de él una vez vencido y no
+     * alimenta ningún «último acceso», así que, a diferencia de {@code sesion}, no se conserva uno por usuario. SKIP LOCKED: nunca espera a otra réplica.
+     */
+    static final String PURGAR_RECUPERACIONES_VENCIDAS = """
+            DELETE FROM token_recuperacion WHERE token_hash IN (
+              SELECT token_hash FROM token_recuperacion
+              WHERE expira_en < ?
+              ORDER BY expira_en
+              LIMIT ?
+              FOR UPDATE SKIP LOCKED)""";
+
     private final JdbcTemplate jdbc;
 
-    @Override public void crear(Sesion s) {
-        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id) VALUES (?, ?, ?, ?, ?, ?)",
-                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada(), s.familia());
+    @Override public int purgarVencidas(Instant vencidasAntesDe, int lote) {
+        return jdbc.update(PURGAR_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
     }
-    private static final String COLUMNAS = "SELECT id, usuario_id, refresh_hash, expira_en, revocada, rotada_en, reemplazada_por, familia_id FROM sesion";
+
+    @Override public int purgarRecuperacionesVencidas(Instant vencidasAntesDe, int lote) {
+        return jdbc.update(PURGAR_RECUPERACIONES_VENCIDAS, Timestamp.from(vencidasAntesDe), lote);
+    }
+
+    @Override public void crear(Sesion s) {
+        jdbc.update("INSERT INTO sesion (id, usuario_id, refresh_hash, expira_en, revocada, familia_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                s.id(), s.usuarioId(), s.refreshHash(), Timestamp.from(s.expiraEn()), s.revocada(), s.familia(), Timestamp.from(s.creadaEn()));
+    }
+    private static final String COLUMNAS = "SELECT id, usuario_id, refresh_hash, expira_en, revocada, rotada_en, reemplazada_por, familia_id, created_at FROM sesion";
     private static final RowMapper<Sesion> MAPPER = (rs, i) -> {
         Timestamp rotada = rs.getTimestamp("rotada_en");
         UUID id = rs.getObject("id", UUID.class);
         UUID familia = rs.getObject("familia_id", UUID.class);
         // Una sesión de antes de V49 no tiene familia: es la suya propia.
         return new Sesion(id, rs.getObject("usuario_id", UUID.class), rs.getString("refresh_hash"), rs.getTimestamp("expira_en").toInstant(), rs.getBoolean("revocada"),
-                rotada == null ? null : rotada.toInstant(), rs.getObject("reemplazada_por", UUID.class), familia == null ? id : familia);
+                rotada == null ? null : rotada.toInstant(), rs.getObject("reemplazada_por", UUID.class), familia == null ? id : familia,
+                rs.getTimestamp("created_at").toInstant());
     };
 
     @Override public Optional<Sesion> buscarPorRefreshHash(String hash) {
@@ -42,9 +79,11 @@ public class JdbcSesionRepository implements SesionRepository {
     @Override public void revocarTodas(UUID usuarioId) {
         jdbc.update("UPDATE sesion SET revocada = true, rotada_en = NULL, reemplazada_por = NULL WHERE usuario_id = ?", usuarioId);
     }
-    @Override public void rotar(UUID id, UUID nueva, Instant en) {
-        jdbc.update("UPDATE sesion SET revocada = true, rotada_en = COALESCE(rotada_en, ?), reemplazada_por = COALESCE(reemplazada_por, ?) WHERE id = ?",
-                Timestamp.from(en), nueva, id);
+    // La condición cierra la carrera con una revocación: si la fila quedó revocada sin rotación (logout, restablecer, reuso) entre la lectura y este
+    // UPDATE, Postgres reevalúa el WHERE al obtener el bloqueo y no la toca. Una fila ya rotada conserva rotada_en, así que la gracia (S6) sigue pasando.
+    @Override public boolean rotar(UUID id, UUID nueva, Instant en) {
+        return jdbc.update("UPDATE sesion SET revocada = true, rotada_en = COALESCE(rotada_en, ?), reemplazada_por = COALESCE(reemplazada_por, ?) "
+                + "WHERE id = ? AND (revocada = false OR rotada_en IS NOT NULL)", Timestamp.from(en), nueva, id) > 0;
     }
 
     @Override public void crearRecuperacion(TokenRecuperacion t) {

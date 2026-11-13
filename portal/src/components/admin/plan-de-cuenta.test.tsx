@@ -10,7 +10,7 @@ vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn() }));
 
 afterEach(cleanup);
 
-const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5 };
+const LIMITES = { documentos_al_mes: { maximo: 300, ilimitado: false }, rucs: 1, usuarios: { maximo: 1, ilimitado: false }, api_keys: { maximo: 2, ilimitado: false }, retencion_anios: 5, periodo_documentos: "MENSUAL" as const, pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false }, pruebas_beta_al_mes: { maximo: 1000, ilimitado: false } };
 const resumen = (id: string, nombre: string, precio: number) => ({ id, nombre, precio_mensual: precio, limites: LIMITES });
 const planAdmin = (id: string, nombre: string, precio: number, estado: "ACTIVO" | "INACTIVO" = "ACTIVO"): PlanAdmin => ({ id, nombre, precio_mensual: precio, limites: LIMITES, estado, por_defecto: false, visible_en_publicidad: true, cuentas: 0 });
 
@@ -47,7 +47,7 @@ describe("PlanDeCuenta", () => {
   it("resume los límites que mandan hoy", () => {
     montar();
 
-    expect(seccion().textContent).toContain("Límites vigentes: 300 documentos al mes · 1 RUC · 1 usuario · 2 API keys · 5 años de retención");
+    expect(seccion().textContent).toContain("Límites vigentes: 300 documentos al mes · 1,000 pruebas en Beta al mes · 1 RUC · 1 usuario · 2 API keys · 5 años de retención");
   });
 
   it("el estado de pago se dice con una etiqueta: al día, en gracia o vencido", () => {

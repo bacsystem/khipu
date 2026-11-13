@@ -11,6 +11,9 @@ const gratis: Limites = {
   usuarios: { maximo: 1, ilimitado: false },
   api_keys: { maximo: 1, ilimitado: false },
   retencion_anios: 1,
+  periodo_documentos: "MENSUAL" as const,
+  pruebas_beta_por_ruc: { maximo: 1000, ilimitado: false },
+  pruebas_beta_al_mes: { maximo: 1000, ilimitado: false },
 };
 
 function cuenta(uso: MiCuenta["uso"], limites: Limites = gratis): MiCuenta {
@@ -23,7 +26,8 @@ function cuenta(uso: MiCuenta["uso"], limites: Limites = gratis): MiCuenta {
       inicia_en: "2026-10-08T17:00:00Z",
       dias_de_gracia: 0,
     },
-    consumo: { mes: "2026-10", documentos: 0, maximo: 30 },
+    consumo: { mes: "2026-10", documentos: 0, maximo: 30, periodo: "MENSUAL" },
+    pruebas: { mes: "2026-10", usadas: 0, maximo: 1000 },
     uso,
   };
 }

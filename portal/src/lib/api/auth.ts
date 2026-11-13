@@ -17,6 +17,11 @@ export type Usuario = {
    * el refresh, el registro y `/me`; opcional porque la respuesta de abrir una sesión de soporte no lo trae.
    */
   terminos_pendientes?: boolean;
+  /**
+   * Minutos sin renovar la sesión tras los que el servidor la corta (#638): `0` si el corte está desactivado, o de 15 a 480. El portal avisa 2 minutos antes y cierra a los N (#637).
+   * Solo viene en `/me` de una sesión normal: falta en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh y el registro.
+   */
+  sesion_inactividad_minutos?: number;
 };
 
 /**

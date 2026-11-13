@@ -16,6 +16,10 @@ vi.mock("@/lib/api/banner", () => ({ obtenerBannerVigente: vi.fn().mockResolvedV
 vi.mock("@/components/auth/revisa-tu-correo", () => ({ RevisaTuCorreo: () => null }));
 vi.mock("@/components/nav/sidebar-content", () => ({ SidebarContent: () => null }));
 vi.mock("@/components/nav/top-bar", () => ({ TopBar: () => null }));
+// #637: el vigilante se prueba aparte; acá solo importa que el layout lo monte con el N que informa /me.
+vi.mock("@/components/sesion/vigilante-de-inactividad", () => ({
+  VigilanteDeInactividad: ({ minutos }: { minutos?: number }) => <span data-testid="vigilante" data-minutos={String(minutos)} />,
+}));
 vi.mock("@/lib/api/browser", () => ({ apiRequest: vi.fn().mockResolvedValue({ estado: "exito", datos: null, mensaje: null, codigo: null, errores: null }) }));
 
 import { me } from "@/lib/api/auth";
@@ -222,6 +226,52 @@ describe("PrivadoLayout (sesión vencida)", () => {
       vi.mocked(listarEmpresas).mockRejectedValue(err);
       await expect(PrivadoLayout({ children: null })).rejects.toBe(err);
     }
+  });
+});
+
+/** #637: el corte por inactividad cubre el panel y también la pantalla de términos (es una sesión viva); una sesión de soporte no lo lleva. */
+describe("PrivadoLayout (#637)", () => {
+  const vigilante = () => screen.queryByTestId("vigilante");
+
+  it("monta el vigilante con el N que informa /me", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, sesion_inactividad_minutos: 30 } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: <p>contenido</p> }));
+
+    expect(vigilante()?.getAttribute("data-minutos")).toBe("30");
+  });
+
+  it("también sobre la pantalla de aceptar los términos", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, terminos_pendientes: true, sesion_inactividad_minutos: 45 } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: null }));
+
+    expect(screen.getByTestId("aceptar-terminos")).toBeTruthy();
+    expect(vigilante()?.getAttribute("data-minutos")).toBe("45");
+  });
+
+  it("una sesión de soporte no lleva contador aunque el campo viniera", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue({ ...USUARIO, soporte_hasta: "2026-10-04T17:15:00Z", sesion_inactividad_minutos: 30 } as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: null }));
+
+    expect(vigilante()?.getAttribute("data-minutos")).toBe("undefined");
+  });
+
+  it("sin el campo (un backend anterior) no hay N que pasar", async () => {
+    sesion();
+    vi.mocked(me).mockResolvedValue(USUARIO as never);
+    vi.mocked(listarEmpresas).mockResolvedValue([EMPRESA] as never);
+
+    render(await PrivadoLayout({ children: null }));
+
+    expect(vigilante()?.getAttribute("data-minutos")).toBe("undefined");
   });
 });
 

@@ -45,6 +45,8 @@ class ConsultarConsumoServiceTest {
     static class Consumos implements ConsumoRepository {
         final List<String> llamadas = new ArrayList<>();
         public long documentosDeEmpresa(UUID t, YearMonth mes) { llamadas.add("empresa " + mes); return 7; }
+        public long documentosDeCuentaEnTotal(UUID c) { llamadas.add("cuenta en total"); return 40; }
+        public long pruebasDeCuenta(UUID c, YearMonth mes) { throw new AssertionError("el consumo no mira Beta"); }
         public List<ConsumoDeEmpresa> documentosPorEmpresaDeCuenta(UUID c, YearMonth mes) {
             llamadas.add("cuenta " + mes);
             return List.of(new ConsumoDeEmpresa(UUID.fromString("00000000-0000-4000-9000-000000000001"), "20100066603", "UNO SAC", 5),
@@ -116,6 +118,8 @@ class ConsultarConsumoServiceTest {
         ConsultarConsumoService sinEmpresas = new ConsultarConsumoService(new ConsumoRepository() {
             public long documentosDeEmpresa(UUID t, YearMonth mes) { return 0; }
             public List<ConsumoDeEmpresa> documentosPorEmpresaDeCuenta(UUID c, YearMonth mes) { return List.of(); }
+            public long documentosDeCuentaEnTotal(UUID c) { return 0; }
+            public long pruebasDeCuenta(UUID c, YearMonth mes) { return 0; }
         }, cuentas, tenants, Fakes.CLOCK);
 
         ConsumoDeCuenta c = sinEmpresas.deCuenta(cuentaId, OCTUBRE);

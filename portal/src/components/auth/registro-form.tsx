@@ -12,6 +12,7 @@ import { BotonAsync } from "khipu-design-system/patrones/boton-async";
 import { postJson } from "@/lib/api/browser";
 import { interpolar } from "@/i18n/mensajes";
 import { BOTON_PRIMARIO } from "@/lib/estilos";
+import { empezarSesion } from "@/lib/sesion/empezar-sesion";
 import { useMessages } from "next-intl";
 import type { Mensajes } from "@/i18n/mensajes";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
@@ -57,6 +58,7 @@ export function RegistroForm({ revisado = false, plan }: { revisado?: boolean; p
     // #581: el plan elegido viaja con el registro para que el operador lo active; la cuenta nace igual en el plan gratis.
     const res = await postJson<{ usuario: unknown }>("/api/auth/registro", plan ? { ...values, plan: plan.nombre } : values);
     if (res.estado === "exito") {
+      empezarSesion(); // una cuenta nueva empieza de cero: sin la inactividad ni el «Tu sesión terminó» de la sesión anterior
       router.push("/onboarding");
       router.refresh();
       return;

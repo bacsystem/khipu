@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 
+import { simularOtraPestana } from "@/test/otra-pestana";
 import { AceptarTerminos } from "./aceptar-terminos";
 import { debeAceptarTerminos } from "./pantalla-de-terminos";
 
@@ -91,6 +92,24 @@ describe("AceptarTerminos (#342)", () => {
 
       await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
       expect((fetch.mock.calls[0] as unknown as [string])[0]).toBe("/api/auth/logout");
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
+
+  it("al cerrar la sesión avisa a las demás pestañas (#653)", async () => {
+    const otra = simularOtraPestana();
+    stubFetch(200, { estado: "exito" });
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...original, assign } });
+    try {
+      render(<AceptarTerminos />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
+
+      await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
+      expect(otra.recibidos).toEqual(["salir"]);
     } finally {
       Object.defineProperty(window, "location", { configurable: true, value: original });
     }

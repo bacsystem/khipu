@@ -1462,7 +1462,7 @@
           "Retenciones y percepciones"
         ],
         "summary": "Emitir un comprobante de retención",
-        "description": "El agente de retención paga al `proveedor` (siempre con RUC) los `documentos` que este le emitió y le retiene el IGV a la tasa del `regimen` (catálogo 23: `01` 3 %, el vigente;\n`02` 6 %, solo para comprobantes emitidos hasta el 28/02/2014). Por documento: retenido = pago × tipo de cambio × tasa, y neto pagado = pago × tipo de cambio − retenido. Todos\nlos pagos son del mes del comprobante (2625). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.",
+        "description": "El agente de retención paga al `proveedor` (siempre con RUC) los `documentos` que este le emitió y le retiene el IGV a la tasa del `regimen` (catálogo 23: `01` 3 %, el vigente;\n`02` 6 %, solo para comprobantes emitidos hasta el 28/02/2014). Por documento: retenido = pago × tipo de cambio × tasa, y neto pagado = pago × tipo de cambio − retenido. Todos\nlos pagos son del mes del comprobante (2625). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las retenciones.",
         "operationId": "retener",
         "parameters": [
           {
@@ -1663,7 +1663,7 @@
           "Retenciones y percepciones"
         ],
         "summary": "Emitir un comprobante de percepción",
-        "description": "El agente de percepción cobra al `cliente` los `documentos` que le emitió y le percibe el IGV a la tasa del `regimen` (catálogo 22: `01` venta interna 2 %, `02` combustible 1 %,\n`03` tasa especial 0.5 %). Por documento: percibido = cobro × tipo de cambio × tasa, y neto cobrado = cobro × tipo de cambio + percibido. Todos los cobros son del mes del\ncomprobante (2612). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600). Si la percepción ya se informó en la factura (tipo de operación 2001), no se emite\nademás este comprobante: SUNAT lo rechazaría (3312).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.",
+        "description": "El agente de percepción cobra al `cliente` los `documentos` que le emitió y le percibe el IGV a la tasa del `regimen` (catálogo 22: `01` venta interna 2 %, `02` combustible 1 %,\n`03` tasa especial 0.5 %). Por documento: percibido = cobro × tipo de cambio × tasa, y neto cobrado = cobro × tipo de cambio + percibido. Todos los cobros son del mes del\ncomprobante (2612). SUNAT lo recibe hasta 7 días calendario desde el día siguiente a su emisión (2600). Si la percepción ya se informó en la factura (tipo de operación 2001), no se emite\nademás este comprobante: SUNAT lo rechazaría (3312).\n\n**Errores**: `422 VALIDACION`, `422 AGENTE_NO_DESIGNADO` (2617/4285), `422 RECEPTOR_INVALIDO` (contraparte), `422 RETENCION_INVALIDA` o `422 PERCEPCION_INVALIDA` (régimen y tasa,\ndocumentos, pagos, fechas, tipo de cambio; con el código de la regla de SUNAT), `422 FECHA_INVALIDA` (futura o pasados los 7 días, 2600),\n`422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las percepciones.",
         "operationId": "percibir",
         "parameters": [
           {
@@ -1779,7 +1779,7 @@
           "Notas de crédito y débito"
         ],
         "summary": "Emitir una nota de crédito o débito",
-        "description": "Sobre una factura o una boleta **aceptada** por SUNAT de la misma empresa. La nota toma el receptor, la moneda y el tipo de\noperación del documento; la serie debe existir con el tipo 07/08 y empezar con la letra del documento que modifica:\n`F` sobre una factura (p. ej. `FC01`, `FD01`), `B` sobre una boleta (p. ej. `BC01`, `BD01`; reglas 2399, 2400).\n\n**RUC del comprador**: si la nota lleva un RUC (el del documento que modifica), se valida contra el padrón de SUNAT como en la\nfactura: si no figura, `422 RECEPTOR_INVALIDO` (1083) antes de numerar; si está de baja (4013) o no habido (4014), se emite igual\ny la respuesta trae `avisos`.\n\n**Sobre una boleta**: el comprador es el de la boleta (puede no tener documento). No se admiten la NC `13` (la boleta no\ntiene cuotas, regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma\nboleta (RCP art. 10 num. 1.4). La nota se envía sola hasta el 5.º día; el 6.º y el 7.º va en el resumen diario (como la boleta),\nsalvo la NC `10` y la ND `03`, que no van en él y vencen el 5.º. Se anula con `POST /v1/facturas/{id}/baja`, que la informa en un\nresumen diario.\n\n**Nota total** (anulación `01`, devolución total `06`): omita `items` y khipu copia los ítems, el descuento global y\nlos cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó\nanticipos, indique los `items` por el importe neto: los anticipos no viajan en una nota (si el neto es 0.00 no hay nota posible:\nanule la factura con la comunicación de baja). **Nota parcial** (devolución\npor ítem `07`, descuento `04`/`05`, disminución `09`…): envíe los `items` que cubre, con el mismo formato que en la factura.\n\n**Descuentos y cargos**: SUNAT no admite descuentos ni cargos (`AllowanceCharge`) en una nota y exige que el valor de cada\nlínea sea valor unitario × cantidad (3271) y que la base del IGV sea la suma de las líneas (3277). El descuento (`00`/`02`)\ny el cargo (`47`/`49`) se aplican al valor de la línea —el global, repartido entre las líneas gravadas— y la nota sale sin\nellos: la base, el IGV y el total son los mismos, y el valor unitario de la línea es el neto. Un descuento que no afecta la\nbase (`afecta_base_igv: false`, códigos `01`/`03`) no cabe en una nota (3280: el total de la nota no resta descuentos): se\nrechaza con `422 DESCUENTO_INVALIDO` antes de numerar; indique los `items` por su importe neto. Los cargos que no afectan la\nbase (`48`, `46`, `50`) sí van.\n\n**Nota de crédito 13** (corrección de cuotas): solo sobre facturas al crédito; envíe `forma_pago` al crédito con el\nneto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315). En cualquier\notra nota `forma_pago` se rechaza.\n\n**Límites** (notas de crédito): el total y las bases por tributo no pueden superar los del documento (reglas 3286, 3503;\nsobre una boleta el total admite S/ 1 de más). khipu descuenta además lo ya acreditado por las notas de crédito anteriores\nsobre el mismo documento (las rechazadas no cuentan): varias notas parciales pueden sumar el documento, pero una segunda nota\ntotal —o cualquiera que exceda el saldo— se rechaza aunque SUNAT, que compara nota por nota, la aceptaría.\n\n**Errores**: `422 NOTA_INVALIDA` (factura o boleta inexistente, no aceptada o anulada —2119/2120—, fecha anterior al documento\n—2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su\nsaldo tras otras notas —3286/3503—), `422 DESCUENTO_INVALIDO` (un descuento que no afecta la base, código 01 o 03: la\nnota no lo admite —3280—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,\n`422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su plan: una nota\nconsume como una factura; para anular sin consumir está la comunicación de baja), `402 PLAN_VENCIDO` (el plan de la cuenta\nvenció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).\n\n**Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la nota se\nemitió, y repetirlo sin más emitiría otra y consumiría otro número. Mande una clave única por nota (un UUID) en la cabecera\n`Idempotency-Key` y repita el mismo pedido con la misma clave: si ya se había emitido, responde `200` con **la misma nota**\n(mismo id y número), sin emitir otra ni consumir número, aunque entretanto el documento haya pasado a tener una baja o vencido\nel plazo. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa durante 24 horas\ny es propia de las notas: la misma cadena en `POST /v1/facturas` es otra clave. Sin la cabecera, cada pedido es una nota nueva.",
+        "description": "Sobre una factura o una boleta **aceptada** por SUNAT de la misma empresa. La nota toma el receptor, la moneda y el tipo de\noperación del documento; la serie debe existir con el tipo 07/08 y empezar con la letra del documento que modifica:\n`F` sobre una factura (p. ej. `FC01`, `FD01`), `B` sobre una boleta (p. ej. `BC01`, `BD01`; reglas 2399, 2400).\n\n**RUC del comprador**: si la nota lleva un RUC (el del documento que modifica), se valida contra el padrón de SUNAT como en la\nfactura: si no figura, `422 RECEPTOR_INVALIDO` (1083) antes de numerar; si está de baja (4013) o no habido (4014), se emite igual\ny la respuesta trae `avisos`.\n\n**Sobre una boleta**: el comprador es el de la boleta (puede no tener documento). No se admiten la NC `13` (la boleta no\ntiene cuotas, regla 3259) ni la NC `04`, `05` u `08`: el descuento o la bonificación a un consumidor final va en la misma\nboleta (RCP art. 10 num. 1.4). La nota se envía sola hasta el 5.º día; el 6.º y el 7.º va en el resumen diario (como la boleta),\nsalvo la NC `10` y la ND `03`, que no van en él y vencen el 5.º. Se anula con `POST /v1/facturas/{id}/baja`, que la informa en un\nresumen diario.\n\n**Nota total** (anulación `01`, devolución total `06`): omita `items` y khipu copia los ítems, el descuento global y\nlos cargos de la factura (no envíe `descuento_global` ni `cargos` propios: se rechazan). Si la factura regularizó\nanticipos, indique los `items` por el importe neto: los anticipos no viajan en una nota (si el neto es 0.00 no hay nota posible:\nanule la factura con la comunicación de baja). **Nota parcial** (devolución\npor ítem `07`, descuento `04`/`05`, disminución `09`…): envíe los `items` que cubre, con el mismo formato que en la factura.\n\n**Descuentos y cargos**: SUNAT no admite descuentos ni cargos (`AllowanceCharge`) en una nota y exige que el valor de cada\nlínea sea valor unitario × cantidad (3271) y que la base del IGV sea la suma de las líneas (3277). El descuento (`00`/`02`)\ny el cargo (`47`/`49`) se aplican al valor de la línea —el global, repartido entre las líneas gravadas— y la nota sale sin\nellos: la base, el IGV y el total son los mismos, y el valor unitario de la línea es el neto. Un descuento que no afecta la\nbase (`afecta_base_igv: false`, códigos `01`/`03`) no cabe en una nota (3280: el total de la nota no resta descuentos): se\nrechaza con `422 DESCUENTO_INVALIDO` antes de numerar; indique los `items` por su importe neto. Los cargos que no afectan la\nbase (`48`, `46`, `50`) sí van.\n\n**Nota de crédito 13** (corrección de cuotas): solo sobre facturas al crédito; envíe `forma_pago` al crédito con el\nneto pendiente y las cuotas corregidas (reglas 3257, 3260, 3320, 3321); la nota sale con importe 0 (regla 3315). En cualquier\notra nota `forma_pago` se rechaza.\n\n**Límites** (notas de crédito): el total y las bases por tributo no pueden superar los del documento (reglas 3286, 3503;\nsobre una boleta el total admite S/ 1 de más). khipu descuenta además lo ya acreditado por las notas de crédito anteriores\nsobre el mismo documento (las rechazadas no cuentan): varias notas parciales pueden sumar el documento, pero una segunda nota\ntotal —o cualquiera que exceda el saldo— se rechaza aunque SUNAT, que compara nota por nota, la aceptaría.\n\n**Errores**: `422 NOTA_INVALIDA` (factura o boleta inexistente, no aceptada o anulada —2119/2120—, fecha anterior al documento\n—2885—, motivo fuera del catálogo —2172— o no admitido sobre una boleta —3259/4367—, importes mayores que el documento o que su\nsaldo tras otras notas —3286/3503—), `422 DESCUENTO_INVALIDO` (un descuento que no afecta la base, código 01 o 03: la\nnota no lo admite —3280—), `422 FECHA_INVALIDA` (plazo de envío vencido —2108/1079—), `422 SERIE_INVALIDA`,\n`422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`, `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan: una nota\nconsume como una factura; para anular sin consumir está la comunicación de baja), `429 LIMITE_PRUEBAS` (en Beta, el tope de pruebas del mes),\n`402 PLAN_VENCIDO` (el plan de la cuenta\nvenció y pasó su gracia: se vuelve a emitir al renovarlo; la comunicación de baja sigue).\n\n**Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la nota se\nemitió, y repetirlo sin más emitiría otra y consumiría otro número. Mande una clave única por nota (un UUID) en la cabecera\n`Idempotency-Key` y repita el mismo pedido con la misma clave: si ya se había emitido, responde `200` con **la misma nota**\n(mismo id y número), sin emitir otra ni consumir número, aunque entretanto el documento haya pasado a tener una baja o vencido\nel plazo. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa durante 24 horas\ny es propia de las notas: la misma cadena en `POST /v1/facturas` es otra clave. Sin la cabecera, cada pedido es una nota nueva.",
         "operationId": "crear_2",
         "parameters": [
           {
@@ -1848,7 +1848,7 @@
           "Liquidaciones de compra"
         ],
         "summary": "Emitir una liquidación de compra",
-        "description": "**Quién es quién**: la empresa es la compradora y la emisora; el `vendedor` es una persona sin RUC con DNI (`1`), carné de extranjería (`4`) o\npasaporte (`7`), y su domicilio completo (dirección, ubigeo y condición del catálogo 60) es obligatorio, igual que el `lugar_operacion`. Un vendedor\ncon RUC responde `422 RECEPTOR_INVALIDO` (2800): emite su propia factura o boleta.\n\n**Retenciones**: el comprador retiene al vendedor el IGV de las líneas gravadas y el Impuesto a la Renta (1.5 % del valor de venta de cada línea, tributo\n3000), y los declara y paga en su lugar. Por eso `totales.total` es el **importe neto** que se paga al vendedor: subtotal (valor de venta + IGV) − IGV − renta\n+ redondeo (regla 4312); el bloque `liquidacion` de la respuesta trae la retención y el subtotal. El `precio_unitario` de una línea gravada incluye el IGV,\ncomo en la factura.\n\n**Plazo**: SUNAT la recibe hasta el día calendario siguiente a su emisión (2108); no tiene resumen diario. **Baja**: SUNAT no la anula con una comunicación\nde baja (2308) sino con un resumen de reversiones, que khipu todavía no emite: `POST /v1/facturas/{id}/baja` responde `422 BAJA_INVALIDA`.\n\n**Aún no**: compra de oro (`0503`), compras gratuitas, otros tributos (9999) y anticipos. Cada línea lleva el código de producto SUNAT (obligatorio, 3506).\nQue el DNI exista, no sea de un menor ni de un fallecido (2450, 2460–2462) y que el vendedor no pase de 75 UIT al año (2451) lo valida SUNAT con datos que\nkhipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.\n\n**Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,\n`422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 REDONDEO_INVALIDO` (4314: el redondeo pasa de ±1.00, o el neto queda en cero o negativo, 2062), `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,\n`429 LIMITE_PLAN`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.",
+        "description": "**Quién es quién**: la empresa es la compradora y la emisora; el `vendedor` es una persona sin RUC con DNI (`1`), carné de extranjería (`4`) o\npasaporte (`7`), y su domicilio completo (dirección, ubigeo y condición del catálogo 60) es obligatorio, igual que el `lugar_operacion`. Un vendedor\ncon RUC responde `422 RECEPTOR_INVALIDO` (2800): emite su propia factura o boleta.\n\n**Retenciones**: el comprador retiene al vendedor el IGV de las líneas gravadas y el Impuesto a la Renta (1.5 % del valor de venta de cada línea, tributo\n3000), y los declara y paga en su lugar. Por eso `totales.total` es el **importe neto** que se paga al vendedor: subtotal (valor de venta + IGV) − IGV − renta\n+ redondeo (regla 4312); el bloque `liquidacion` de la respuesta trae la retención y el subtotal. El `precio_unitario` de una línea gravada incluye el IGV,\ncomo en la factura.\n\n**Plazo**: SUNAT la recibe hasta el día calendario siguiente a su emisión (2108); no tiene resumen diario. **Baja**: SUNAT no la anula con una comunicación\nde baja (2308) sino con un resumen de reversiones, que khipu todavía no emite: `POST /v1/facturas/{id}/baja` responde `422 BAJA_INVALIDA`.\n\n**Aún no**: compra de oro (`0503`), compras gratuitas, otros tributos (9999) y anticipos. Cada línea lleva el código de producto SUNAT (obligatorio, 3506).\nQue el DNI exista, no sea de un menor ni de un fallecido (2450, 2460–2462) y que el vendedor no pase de 75 UIT al año (2451) lo valida SUNAT con datos que\nkhipu no tiene: si falla, la liquidación queda `RECHAZADO` con el número consumido.\n\n**Errores**: `422 VALIDACION`, `422 RECEPTOR_INVALIDO` (vendedor), `422 LIQUIDACION_INVALIDA` (ubigeos, condiciones, lugar, tasa), `422 ITEM_INVALIDO`,\n`422 AFECTACION_INVALIDA`, `422 TIPO_OPERACION_INVALIDO`, `422 REDONDEO_INVALIDO` (4314: el redondeo pasa de ±1.00, o el neto queda en cero o negativo, 2062), `422 FECHA_INVALIDA`, `422 SERIE_INVALIDA`, `422 SERIE_NO_CONFIGURADA`, `409 DUPLICADO`,\n`429 LIMITE_PLAN`, `429 LIMITE_PRUEBAS`, `402 PLAN_VENCIDO`. Admite `Idempotency-Key` como `POST /v1/facturas`, con claves propias de las liquidaciones.",
         "operationId": "crear_3",
         "parameters": [
           {
@@ -2409,7 +2409,7 @@
           "Facturas"
         ],
         "summary": "Emitir una factura o una boleta",
-        "description": "Crea la factura (o la boleta, con una serie `B###`), la numera, la firma y la envía a SUNAT en la misma llamada\n(salvo `enviar_automatico: false`, que la deja `FIRMADO` para enviarla después con `POST /v1/facturas/{id}/enviar`).\n\n**Qué validar antes de llamar**: la serie debe existir (ver *Series*); el receptor de una factura siempre lleva\nRUC (`cliente.tipo_doc = \"6\"`); `tipo_afectacion_igv` de cada ítem viene del catálogo 07; `unidad` del catálogo 03;\n`tipo_operacion` del catálogo 51 (`0101` venta interna por defecto) y que khipu emita en ese comprobante (`0113` es solo de boletas; la lista de factura está en `tipo_operacion` del request): si no, `422 TIPO_OPERACION_INVALIDO` antes de consumir número.\n\n**Boleta** (serie `B###`): el comprador se identifica con cualquier documento del catálogo 06 (DNI de 8 dígitos,\ncarné de extranjería, pasaporte, RUC…) o, si la boleta es en soles y de hasta S/ 700.00, con `tipo_doc` y `num_doc`\n`-` (sin documento). Se emite al contado; el crédito y la retención todavía van en factura\n(`422` con el motivo). Admite anticipos de otra boleta (serie `B###`) o de una factura (serie `F###`) del mismo comprador, y la exportación y el `0401` con un comprador sin RUC. Una boleta aceptada se anula con `POST /v1/facturas/{id}/baja`, que la informa en un resumen diario.\n\n**Precios**: `precio_unitario` es el precio de venta unitario **con IGV incluido** para ítems gravados; khipu\ncalcula el valor unitario, el IGV y los totales (tolerancias SUNAT ±1).\n\n**Forma de pago** (obligatoria desde 2022): al contado por defecto; al crédito indique `monto_pendiente` y las\n`cuotas` con fecha posterior a la emisión.\n\n**RUC del comprador** (factura y boleta con RUC): se valida contra el padrón de SUNAT. Si no figura, `422 RECEPTOR_INVALIDO`\n(1083) antes de numerar, porque SUNAT rechazaría el comprobante. Si figura pero está de baja (4013) o no habido (4014), SUNAT\nlo acepta con una observación: se emite igual y la respuesta trae `avisos`. Mientras el padrón no esté cargado o tenga más\nde 3 días, no se rechaza nada.\n\n**Errores frecuentes**: `422 VALIDACION` (campos con formato inválido, detalle en `errores`),\n`422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código\nSUNAT cuando aplica), `409 DUPLICADO` (ya existe ese `correlativo` en la serie), `422 CREDENCIALES_SOL_FALTAN`\n(la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos del mes de su\nplan, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `402 PLAN_VENCIDO`\n(el plan de la cuenta venció y pasó su gracia: se vuelve a emitir al renovarlo; no gasta número, y la consulta y la baja siguen).\n\n**Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la factura\nse emitió. Mande una clave única por factura (un UUID) en la cabecera `Idempotency-Key` y repita el mismo pedido con la\nmisma clave: si ya se había emitido, responde `200` con **el mismo comprobante** (mismo id y número), sin emitir otro ni\nconsumir número. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa\ndurante 24 horas. Sin la cabecera, cada pedido es una factura nueva.",
+        "description": "Crea la factura (o la boleta, con una serie `B###`), la numera, la firma y la envía a SUNAT en la misma llamada\n(salvo `enviar_automatico: false`, que la deja `FIRMADO` para enviarla después con `POST /v1/facturas/{id}/enviar`).\n\n**Qué validar antes de llamar**: la serie debe existir (ver *Series*); el receptor de una factura siempre lleva\nRUC (`cliente.tipo_doc = \"6\"`); `tipo_afectacion_igv` de cada ítem viene del catálogo 07; `unidad` del catálogo 03;\n`tipo_operacion` del catálogo 51 (`0101` venta interna por defecto) y que khipu emita en ese comprobante (`0113` es solo de boletas; la lista de factura está en `tipo_operacion` del request): si no, `422 TIPO_OPERACION_INVALIDO` antes de consumir número.\n\n**Boleta** (serie `B###`): el comprador se identifica con cualquier documento del catálogo 06 (DNI de 8 dígitos,\ncarné de extranjería, pasaporte, RUC…) o, si la boleta es en soles y de hasta S/ 700.00, con `tipo_doc` y `num_doc`\n`-` (sin documento). Se emite al contado; el crédito y la retención todavía van en factura\n(`422` con el motivo). Admite anticipos de otra boleta (serie `B###`) o de una factura (serie `F###`) del mismo comprador, y la exportación y el `0401` con un comprador sin RUC. Una boleta aceptada se anula con `POST /v1/facturas/{id}/baja`, que la informa en un resumen diario.\n\n**Precios**: `precio_unitario` es el precio de venta unitario **con IGV incluido** para ítems gravados; khipu\ncalcula el valor unitario, el IGV y los totales (tolerancias SUNAT ±1).\n\n**Forma de pago** (obligatoria desde 2022): al contado por defecto; al crédito indique `monto_pendiente` y las\n`cuotas` con fecha posterior a la emisión.\n\n**RUC del comprador** (factura y boleta con RUC): se valida contra el padrón de SUNAT. Si no figura, `422 RECEPTOR_INVALIDO`\n(1083) antes de numerar, porque SUNAT rechazaría el comprobante. Si figura pero está de baja (4013) o no habido (4014), SUNAT\nlo acepta con una observación: se emite igual y la respuesta trae `avisos`. Mientras el padrón no esté cargado o tenga más\nde 3 días, no se rechaza nada.\n\n**Errores frecuentes**: `422 VALIDACION` (campos con formato inválido, detalle en `errores`),\n`422 FORMA_PAGO_INVALIDA` / `SERIE_INVALIDA` / `RECEPTOR_INVALIDO` (regla de negocio, el mensaje lleva el código\nSUNAT cuando aplica), `409 DUPLICADO` (ya existe ese `correlativo` en la serie), `422 CREDENCIALES_SOL_FALTAN`\n(la empresa aún no cargó usuario/clave SOL), `429 LIMITE_PLAN` (la cuenta llegó al tope de documentos de su plan, del\nmes o en total, sumando todas sus empresas: se vuelve a emitir el mes siguiente o con otro plan; no gasta número), `429 LIMITE_PRUEBAS` (en Beta: la\ncuenta llegó al tope de pruebas del mes, 1 000 por cada RUC de su plan; no gasta número), `402 PLAN_VENCIDO`\n(el plan de la cuenta venció y pasó su gracia: se vuelve a emitir al renovarlo; no gasta número, y la consulta y la baja siguen).\n\n**Reintentos seguros** (`Idempotency-Key`): si la red se corta después de enviar el pedido, no se sabe si la factura\nse emitió. Mande una clave única por factura (un UUID) en la cabecera `Idempotency-Key` y repita el mismo pedido con la\nmisma clave: si ya se había emitido, responde `200` con **el mismo comprobante** (mismo id y número), sin emitir otro ni\nconsumir número. La misma clave con otro contenido responde `422 IDEMPOTENCIA_INVALIDA`. La clave vale para la empresa\ndurante 24 horas. Sin la cabecera, cada pedido es una factura nueva.",
         "operationId": "crear_5",
         "parameters": [
           {
@@ -6266,7 +6266,7 @@
           "Autenticación (portal)"
         ],
         "summary": "Usuario de la sesión",
-        "description": "Correo, rol y cuenta del usuario autenticado por JWT, y si le falta aceptar los términos vigentes.",
+        "description": "Correo, rol y cuenta del usuario autenticado por JWT, si le falta aceptar los términos vigentes y, en una sesión normal, tras cuántos minutos\nsin renovarla la corta el servidor (`sesion_inactividad_minutos`, `0` si el corte está desactivado).",
         "operationId": "me",
         "responses": {
           "200": {
@@ -8160,7 +8160,8 @@
             "example": false
           }
         },
-        "description": "API keys vigentes por empresa"
+        "description": "Pruebas en Beta al mes de toda la cuenta: `pruebasBetaPorRuc` por `rucs`, compartidas entre sus empresas. Solo lectura",
+        "readOnly": true
       },
       "LimitesDto": {
         "type": "object",
@@ -8185,6 +8186,21 @@
             "description": "Años que se conservan el XML y el CDR; mayor que cero",
             "format": "int32",
             "example": 5
+          },
+          "periodo_documentos": {
+            "type": "string",
+            "description": "`MENSUAL`: el tope de documentos se cuenta en el mes y se renueva el día 1. `TOTAL`: en toda la vida de la cuenta, sin renovarse (necesita una cifra: ilimitado solo puede ser mensual)",
+            "example": "MENSUAL",
+            "enum": [
+              "MENSUAL",
+              "TOTAL"
+            ]
+          },
+          "pruebas_beta_por_ruc": {
+            "$ref": "#/components/schemas/LimiteDto"
+          },
+          "pruebas_beta_al_mes": {
+            "$ref": "#/components/schemas/LimiteDto"
           }
         }
       },
@@ -13508,6 +13524,14 @@
             "description": "Solo en una sesión de soporte (#184: un administrador mirando el portal como este usuario): hasta cuándo vale. Ausente en una sesión normal. El portal lo usa para avisar que se está actuando como el cliente",
             "format": "date-time",
             "example": "2026-10-04T12:15:00Z"
+          },
+          "sesion_inactividad_minutos": {
+            "maximum": 480,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Minutos sin renovar la sesión tras los cuales el servidor la corta (#638): `0` si el corte está desactivado, o de 15 a 480. El corte real llega hasta ese valor más 15 min, la vida del access token. El portal lo usa para avisar antes del cierre. Solo en `GET /v1/auth/me` de una sesión normal: ausente en una sesión de soporte (no se renueva, vence a hora fija) y en el `usuario` del login, el refresh, el registro y la sesión de soporte.",
+            "format": "int32",
+            "example": 30
           }
         }
       },
@@ -16655,15 +16679,24 @@
           },
           "documentos": {
             "type": "integer",
-            "description": "Lo que consumieron todas las empresas de la cuenta: lo que SUNAT aceptó, aunque después se anule",
+            "description": "Lo que consumieron todas las empresas de la cuenta en Producción: lo que SUNAT aceptó, aunque después se anule. Del mes, o de toda la vida de la cuenta si `periodo` es `TOTAL`",
             "format": "int64",
             "example": 12
           },
           "maximo": {
             "type": "integer",
-            "description": "El tope de documentos al mes del plan de hoy; ausente si es ilimitado",
+            "description": "El tope de documentos del plan de hoy; ausente si es ilimitado",
             "format": "int32",
             "example": 300
+          },
+          "periodo": {
+            "type": "string",
+            "description": "`MENSUAL`: el tope se renueva el día 1. `TOTAL`: es de toda la vida de la cuenta y no se renueva",
+            "example": "MENSUAL",
+            "enum": [
+              "MENSUAL",
+              "TOTAL"
+            ]
           }
         }
       },
@@ -16680,10 +16713,36 @@
           "consumo": {
             "$ref": "#/components/schemas/ConsumoDelMesResponse"
           },
+          "pruebas": {
+            "$ref": "#/components/schemas/PruebasDelMesResponse"
+          },
           "uso": {
             "$ref": "#/components/schemas/UsoDeRecursosResponse"
           }
         }
+      },
+      "PruebasDelMesResponse": {
+        "type": "object",
+        "properties": {
+          "mes": {
+            "type": "string",
+            "description": "El mes calendario en curso (America/Lima)",
+            "example": "2026-10"
+          },
+          "usadas": {
+            "type": "integer",
+            "description": "Pruebas que SUNAT Beta aceptó este mes, de todas las empresas de la cuenta",
+            "format": "int64",
+            "example": 40
+          },
+          "maximo": {
+            "type": "integer",
+            "description": "El tope de pruebas del mes del plan de hoy (las de cada RUC por sus RUC); ausente si es ilimitado",
+            "format": "int32",
+            "example": 3000
+          }
+        },
+        "description": "Las pruebas en Beta de este mes, de todas las empresas de la cuenta, contra el tope de pruebas del plan"
       },
       "UsoDeRecursosResponse": {
         "type": "object",
@@ -19050,7 +19109,7 @@
           },
           "consumo_del_mes": {
             "type": "integer",
-            "description": "Documentos que la cuenta ha consumido este mes: solo los comprobantes aceptados por SUNAT",
+            "description": "Documentos que la cuenta ha consumido este mes en Producción: solo los comprobantes aceptados por SUNAT. Los de toda la vida de la cuenta si el plan nuevo tiene el tope en total (`planNuevo.limites.periodoDocumentos` = `TOTAL`)",
             "format": "int64",
             "example": 312
           },
@@ -19281,15 +19340,24 @@
           },
           "documentos": {
             "type": "integer",
-            "description": "Comprobantes aceptados por SUNAT en el mes",
+            "description": "Comprobantes aceptados por SUNAT en Producción en el mes, o en toda la vida de la cuenta si `periodo` es `TOTAL`",
             "format": "int64",
             "example": 240
           },
           "limite": {
             "type": "integer",
-            "description": "El tope de documentos al mes que rige hoy; ausente si el plan no tiene tope",
+            "description": "El tope de documentos que rige hoy; ausente si el plan no tiene tope",
             "format": "int32",
             "example": 300
+          },
+          "periodo": {
+            "type": "string",
+            "description": "`MENSUAL` (se renueva el día 1) o `TOTAL` (de toda la vida de la cuenta)",
+            "example": "MENSUAL",
+            "enum": [
+              "MENSUAL",
+              "TOTAL"
+            ]
           },
           "porcentaje": {
             "type": "integer",

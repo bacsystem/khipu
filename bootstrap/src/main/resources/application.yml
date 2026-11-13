@@ -94,6 +94,13 @@ app:
   # Vida de la sesión del administrador del backoffice, en minutos (#177): entre 5 y 60, o el arranque aborta. Sin refresh: al vencer
   # se vuelve a entrar con contraseña y segundo factor.
   admin-sesion-minutos: ${ADMIN_SESION_MINUTOS:30}
+  # Minutos sin renovar la sesión antes de que el servidor la corte, para los usuarios del portal (#638, la regla es #636): 0 la desactiva, o entre
+  # 15 y 480, o el arranque aborta. El corte real llega hasta este valor más 15 min (vida del access). El portal lo lee de GET /v1/auth/me.
+  sesion-inactividad-minutos: ${SESION_INACTIVIDAD_MINUTOS:30}
+  # Días que se conservan las sesiones de refresh y los enlaces de recuperación y de verificación de correo después de vencer (#611, #634): entre 1 y 90,
+  # o el arranque aborta. Pasado ese plazo la limpieza horaria los borra; de las sesiones queda la más reciente de cada usuario (de ella sale el
+  # «último acceso» del backoffice).
+  acceso-retencion-dias: ${ACCESO_RETENCION_DIAS:7}
   storage:
     type: ${STORAGE_TYPE:fs}
     fs-root: ${STORAGE_FS_ROOT:./storage}

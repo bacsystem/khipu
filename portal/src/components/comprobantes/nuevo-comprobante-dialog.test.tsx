@@ -191,7 +191,75 @@ describe("NuevoComprobanteDialog", () => {
     expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
   });
 
-  /** #580: las pruebas en Beta no tienen tope. Con la cuenta llena en Producción, una empresa en Beta sigue emitiendo: el backend la deja y el diálogo no la frena. */
+  /** #613: el plan Gratis da sus documentos en total: el aviso no promete que se renueven el mes que viene. */
+  it("con un tope en total agotado dice que se usaron los documentos del plan, sin hablar del mes", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({
+              nombre: "Mi negocio",
+              plan: { plan: { nombre: "Gratis" }, estado: "VIGENTE" },
+              consumo: { mes: "2026-10", documentos: 10, maximo: 10, periodo: "TOTAL" },
+              pruebas: { mes: "2026-10", usadas: 0, maximo: 1000 },
+            })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "PRODUCCION" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Usaste los documentos de tu plan")).toBeInTheDocument());
+    expect(screen.getByText(/Tu plan Gratis incluye 10 documentos en total y ya los usaste/)).toBeInTheDocument();
+    expect(screen.queryByText(/mes que viene/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+  });
+
+  /** #613: Beta tiene su propia bolsa de pruebas del mes (429 LIMITE_PRUEBAS al llenarla); el diálogo lo dice antes, y solo a una empresa en Beta. */
+  it("con las pruebas en Beta del mes agotadas, una empresa en Beta no ve el formulario y va a Plan y consumo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({
+              nombre: "Mi negocio",
+              plan: { plan: { nombre: "Negocio" }, estado: "VIGENTE" },
+              consumo: { mes: "2026-10", documentos: 3, maximo: 1500, periodo: "MENSUAL" },
+              pruebas: { mes: "2026-10", usadas: 3000, maximo: 3000 },
+            })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "BETA" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /nuevo comprobante/i }));
+
+    await waitFor(() => expect(screen.getByText("Llegaste al tope de pruebas en Beta del mes")).toBeInTheDocument());
+    expect(screen.getByText(/Tu plan Negocio da 3,000 pruebas en Beta al mes y ya las usaste/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Serie")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver plan y consumo" })).toHaveAttribute("href", "/cuenta/plan");
+  });
+
+  it("con las pruebas en Beta agotadas, una empresa en Producción sigue emitiendo", async () => {
+    stubFetch((url) =>
+      url.includes("/series")
+        ? sobre(SERIES)
+        : url.includes("/cuenta")
+          ? sobre({
+              nombre: "Mi negocio",
+              plan: { plan: { nombre: "Negocio" }, estado: "VIGENTE" },
+              consumo: { mes: "2026-10", documentos: 3, maximo: 1500, periodo: "MENSUAL" },
+              pruebas: { mes: "2026-10", usadas: 3000, maximo: 3000 },
+            })
+          : sobre({ ...LISTA_PARA_EMITIR, id: "e-1", entorno: "PRODUCCION" }),
+    );
+
+    render(<NuevoComprobanteDialog />);
+    await abrir();
+
+    expect(screen.queryByText("Llegaste al tope de pruebas en Beta del mes")).not.toBeInTheDocument();
+  });
+
+  /** #580: el tope de documentos es de Producción. Con la cuenta llena en Producción, una empresa en Beta sigue emitiendo (contra su propia bolsa de pruebas, #613). */
   it("con la cuenta en el tope, una empresa en Beta sigue emitiendo", async () => {
     stubFetch((url) =>
       url.includes("/series")

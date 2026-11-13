@@ -34,9 +34,10 @@ const ANA: CuentaConsumo = {
   estado_del_plan: "EN_GRACIA",
   pagado_hasta: "2026-10-21T05:00:00Z",
   se_sirve_hasta: "2026-10-26T05:00:00Z",
+  periodo: "MENSUAL",
 };
-const LUIS: CuentaConsumo = { cuenta_id: "00000000-0000-4000-8000-000000000002", nombre: "Luis Rojas", email: "luis@otro.pe", plan_id: "p2", plan: "Gratis", documentos: 3, limite: 30, porcentaje: 10, en_alerta: false, estado_del_plan: "VIGENTE" };
-const PRO: CuentaConsumo = { cuenta_id: "00000000-0000-4000-8000-000000000003", nombre: "Tienda Pro", email: "pro@tienda.pe", plan_id: "p3", plan: "Pro", documentos: 9000, en_alerta: false, estado_del_plan: "VIGENTE" };
+const LUIS: CuentaConsumo = { cuenta_id: "00000000-0000-4000-8000-000000000002", nombre: "Luis Rojas", email: "luis@otro.pe", plan_id: "p2", plan: "Gratis", documentos: 3, limite: 30, periodo: "MENSUAL", porcentaje: 10, en_alerta: false, estado_del_plan: "VIGENTE" };
+const PRO: CuentaConsumo = { cuenta_id: "00000000-0000-4000-8000-000000000003", nombre: "Tienda Pro", email: "pro@tienda.pe", plan_id: "p3", plan: "Pro", documentos: 9000, periodo: "MENSUAL", en_alerta: false, estado_del_plan: "VIGENTE" };
 const TOPE: CuentaConsumo = { ...ANA, cuenta_id: "00000000-0000-4000-8000-000000000004", nombre: "Sobrepasada", documentos: 450, porcentaje: 150, estado_del_plan: "VENCIDA" };
 
 const datos = (cuentas: CuentaConsumo[], mes = "2026-10"): ConsumoDeCuentas => ({ mes, umbral_de_alerta: 80, cuentas });
@@ -161,6 +162,22 @@ describe("ConsumoTabla (#193)", () => {
     expect(vistas.getByRole("link", { name: "Todas" }).getAttribute("aria-current")).toBeNull();
     expect(vistas.getByRole("link", { name: "Todas" }).getAttribute("href")).toBe("/admin/consumo?mes=2026-09&orden=DOCUMENTOS&por_pagina=20");
     expect(vistas.getByRole("link", { name: "Plan vencido" }).getAttribute("href")).toBe("/admin/consumo?mes=2026-09&filtro=PLAN_VENCIDO&orden=DOCUMENTOS&por_pagina=20");
+  });
+
+  /** #613: un plan con tope total (Gratis) cuenta toda la vida de la cuenta; la tabla lo dice junto al tope y en la ayuda. */
+  it("una cuenta con tope total dice «en total» junto al tope, y la ayuda explica que no es el mes elegido", () => {
+    const total: CuentaConsumo = { ...LUIS, nombre: "Gratis Total", cuenta_id: "00000000-0000-4000-8000-000000000009", documentos: 7, limite: 10, porcentaje: 70, periodo: "TOTAL" };
+    render(<ConsumoTabla datos={datos([ANA, total])} total={2} params={PARAMS} />);
+
+    expect(within(fila("Gratis Total")).getByText("10 en total")).toBeTruthy();
+    expect(within(fila("Ana Quispe")).getByText("300")).toBeTruthy();
+    expect(screen.getByText("Un plan con tope en total cuenta toda la vida de la cuenta, no el mes elegido.")).toBeTruthy();
+  });
+
+  it("sin cuentas con tope total no hace falta la ayuda del tope total", () => {
+    render(<ConsumoTabla datos={datos([ANA, LUIS])} total={2} params={PARAMS} />);
+
+    expect(screen.queryByText(/tope en total/)).toBeNull();
   });
 
   it("explica el umbral de alerta con el que manda el backend y que se compara con el plan de hoy", () => {

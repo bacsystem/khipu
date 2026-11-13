@@ -25,6 +25,8 @@ const BASE = [
   "onboarding",
   "paginaDeError",
   "roles",
+  // El aviso de inactividad (#637) también va en el onboarding, que no cuelga de `(privado)` aunque su sesión esté viva.
+  "sesion",
   "soporte",
   "validacion",
 ] as const satisfies readonly Namespace[];

@@ -32,6 +32,8 @@ public class JwtTokenEmisor implements TokenEmisor {
         this.algoritmo = Algorithm.HMAC256(secreto);
     }
 
+    @Override public Duration vidaAccess() { return VIDA_ACCESS; }
+
     @Override public String emitir(Claims claims) {
         Instant ahora = Instant.now();
         var jwt = JWT.create()

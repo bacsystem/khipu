@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import pe.factura.application.port.in.ConsultarConsumoDeCuentasUseCase.Fila;
 import pe.factura.domain.plan.EstadoSuscripcion;
 import pe.factura.domain.plan.Limite;
+import pe.factura.domain.plan.PeriodoDelTope;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -18,7 +19,7 @@ class CsvDeConsumoTest {
     static final Instant VENCE = Instant.parse("2026-10-20T05:00:00Z");
 
     static Fila fila(String nombre, String email, String plan) {
-        return new Fila(CUENTA, nombre, email, UUID.randomUUID(), plan, 240, Limite.de(300), 80, true, EstadoSuscripcion.EN_GRACIA, VENCE, 5, VENCE.plusSeconds(5 * 86_400));
+        return new Fila(CUENTA, nombre, email, UUID.randomUUID(), plan, 240, Limite.de(300), PeriodoDelTope.MENSUAL, 80, true, EstadoSuscripcion.EN_GRACIA, VENCE, 5, VENCE.plusSeconds(5 * 86_400));
     }
 
     static String csv(Fila... filas) { return CsvDeConsumo.de(List.of(filas)); }
@@ -31,7 +32,7 @@ class CsvDeConsumoTest {
     }
 
     @Test void laCabeceraDiceLasColumnasEnElOrdenDeLasFilas() {
-        assertThat(lineas(csv()).get(0)).isEqualTo("cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta");
+        assertThat(lineas(csv()).get(0)).isEqualTo("cuenta_id,cuenta,correo,plan,documentos,limite,porcentaje,en_alerta,estado_del_plan,pagado_hasta,se_sirve_hasta,periodo");
     }
 
     /**
@@ -41,7 +42,7 @@ class CsvDeConsumoTest {
     @Test void unaFilaLlevaTodosSusDatosConLasFechasComoUltimoDiaCubierto() {
         String l = lineas(csv(fila("Ana Quispe", "ana@negocio.pe", "Emprende"))).get(1);
 
-        assertThat(l).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana Quispe,ana@negocio.pe,Emprende,240,300,80,si,EN_GRACIA,2026-10-19,2026-10-24");
+        assertThat(l).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana Quispe,ana@negocio.pe,Emprende,240,300,80,si,EN_GRACIA,2026-10-19,2026-10-24,MENSUAL");
     }
 
     @Test void terminaCadaRegistroConCrlfIncluidoElUltimo() {
@@ -53,9 +54,9 @@ class CsvDeConsumoTest {
     }
 
     @Test void unPlanSinTopeDiceIlimitadoYNoTienePorcentaje() {
-        Fila f = new Fila(CUENTA, "Ana", "a@x.pe", UUID.randomUUID(), "Pro", 9000, Limite.sinLimite(), null, false, EstadoSuscripcion.VIGENTE, null, 0, null);
+        Fila f = new Fila(CUENTA, "Ana", "a@x.pe", UUID.randomUUID(), "Pro", 9000, Limite.sinLimite(), PeriodoDelTope.MENSUAL, null, false, EstadoSuscripcion.VIGENTE, null, 0, null);
 
-        assertThat(lineas(csv(f)).get(1)).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana,a@x.pe,Pro,9000,ilimitado,,no,VIGENTE,,");
+        assertThat(lineas(csv(f)).get(1)).isEqualTo("9c1f3a2b-4d5e-4a6b-8c7d-1e2f3a4b5c6d,Ana,a@x.pe,Pro,9000,ilimitado,,no,VIGENTE,,,MENSUAL");
     }
 
     @Test void unaCeldaConComaComillasOSaltosVaEntreComillasConLasComillasDuplicadas() {
@@ -99,7 +100,7 @@ class CsvDeConsumoTest {
     }
 
     @Test void elNumeroNegativoDeLasColumnasNumericasNoSeToca() {
-        Fila f = new Fila(CUENTA, "Ana", "a@x.pe", UUID.randomUUID(), "P", 0, Limite.de(1), 0, false, EstadoSuscripcion.VIGENTE, null, 0, null);
+        Fila f = new Fila(CUENTA, "Ana", "a@x.pe", UUID.randomUUID(), "P", 0, Limite.de(1), PeriodoDelTope.MENSUAL, 0, false, EstadoSuscripcion.VIGENTE, null, 0, null);
 
         assertThat(lineas(csv(f)).get(1)).contains(",0,1,0,no,");
     }

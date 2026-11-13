@@ -14,6 +14,7 @@ import { BOTON_PRIMARIO } from "@/lib/estilos";
 import { useMessages } from "next-intl";
 import { useMensajeError } from "@/i18n/use-mensaje-error";
 import { rutaSegura } from "@/lib/ruta-segura";
+import { empezarSesion } from "@/lib/sesion/empezar-sesion";
 import { cn } from "@/lib/utils";
 import { esquemas } from "@/lib/validacion";
 
@@ -39,6 +40,7 @@ export function LoginForm() {
     setError(null);
     const res = await postJson<{ usuario: unknown }>("/api/auth/login", values);
     if (res.estado === "exito") {
+      empezarSesion();
       router.push(rutaSegura(params.get("next")));
       router.refresh();
       return;
@@ -48,6 +50,10 @@ export function LoginForm() {
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+      {/* #637: el portal cerró la sesión por inactividad. El valor de `motivo` solo se compara con un literal; nunca se muestra. */}
+      {params.get("motivo") === "inactividad" ? <Alerta tono="info">{messages.auth.login.motivoInactividad}</Alerta> : null}
+      {/* #653: la persona cerró la sesión en otra pestaña. Mismo criterio: se compara con un literal y la URL nunca se refleja. */}
+      {params.get("motivo") === "otra-pestana" ? <Alerta tono="info">{messages.auth.login.motivoOtraPestana}</Alerta> : null}
       <FormField
         id="email"
         label={messages.auth.login.email}

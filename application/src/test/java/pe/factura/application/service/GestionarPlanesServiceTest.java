@@ -144,7 +144,7 @@ class GestionarPlanesServiceTest {
         assertThat(r.actor()).isEqualTo(ACTOR);
         assertThat(r.cuentaId()).isNull();
         assertThat(r.ocurridoEn()).isEqualTo(Fakes.CLOCK.instant());
-        assertThat(r.detalle()).isEqualTo("plan=Estudio precio=49.90 documentos=ilimitado ruc=7 usuarios=9 api_keys=4 retencion=6");
+        assertThat(r.detalle()).isEqualTo("plan=Estudio precio=49.90 documentos=ilimitado ruc=7 usuarios=9 api_keys=4 retencion=6 periodo=mensual pruebas_beta_por_ruc=1000");
         assertThat(auditoria.dentroAlRegistrar).containsExactly(true);
     }
 
