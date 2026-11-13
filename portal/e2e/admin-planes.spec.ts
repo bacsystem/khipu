@@ -16,6 +16,15 @@ test.beforeEach(async ({ page }) => {
 
 const fila = (page: import("@playwright/test").Page, id: string) => page.getByTestId(`plan-fila-${id}`);
 
+type Fila = ReturnType<typeof fila>;
+
+/** Las celdas de una fila por el texto de su encabezado: otra columna en la tabla no corre los índices y rompe la spec. */
+async function celdasPorColumna(page: import("@playwright/test").Page, f: Fila): Promise<Record<string, string>> {
+  const encabezados = (await page.getByRole("columnheader").allTextContents()).map((t) => t.trim());
+  const celdas = await f.getByRole("cell").allTextContents();
+  return Object.fromEntries(encabezados.map((encabezado, i) => [encabezado, celdas[i]]));
+}
+
 /** Un nombre propio de esta corrida: nunca choca con el de otra spec ni con uno que haya quedado de una corrida anterior. */
 const nombreUnico = (base: string) => `${base} ${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
 
@@ -55,14 +64,14 @@ test("el listado muestra los cuatro planes con su precio, sus límites y cuánta
   const gratis = fila(page, GRATIS);
   await expect(gratis).toContainText("Gratis");
   await expect(gratis).toContainText("Para cuentas nuevas");
-  const emprende = await fila(page, EMPRENDE).getByRole("cell").allTextContents();
-  expect(emprende[1]).toBe("S/ 29.00");
-  expect(emprende[2]).toBe("300");
-  expect(emprende[6]).toBe("5 años");
-  expect(emprende[7]).toBe("3");
-  const pro = await fila(page, PRO).getByRole("cell").allTextContents();
-  expect(pro[2]).toBe("Ilimitados");
-  expect(pro[3]).toBe("10");
+  const emprende = await celdasPorColumna(page, fila(page, EMPRENDE));
+  expect(emprende["Precio mensual"]).toBe("S/ 29.00");
+  expect(emprende["Documentos"]).toBe("300/mes");
+  expect(emprende["Retención"]).toBe("5 años");
+  expect(emprende["Cuentas"]).toBe("3");
+  const pro = await celdasPorColumna(page, fila(page, PRO));
+  expect(pro["Documentos"]).toBe("Ilimitados");
+  expect(pro["RUC"]).toBe("10");
 });
 
 test("el menú lleva a los planes y la miga dice «Comercial / Planes»", async ({ page }) => {
@@ -78,8 +87,7 @@ test("el menú lleva a los planes y la miga dice «Comercial / Planes»", async 
 test("un cambio de límites ya programado se muestra aparte, con qué cambia y desde cuándo, sin tocar lo vigente", async ({ page }) => {
   await page.goto("/admin/planes");
 
-  const negocio = fila(page, NEGOCIO);
-  await expect((await negocio.getByRole("cell").allTextContents())[2]).toBe("1,500");
+  expect((await celdasPorColumna(page, fila(page, NEGOCIO)))["Documentos"]).toBe("1,500/mes");
   const aviso = page.getByTestId(`plan-programado-${NEGOCIO}`);
   await expect(aviso).toContainText("Desde el 1");
   await expect(aviso).toContainText("Documentos: 1,500/mes → 2,000/mes");
@@ -93,14 +101,14 @@ test("crear un plan lo deja en el listado, activo, con sus límites y sin cuenta
   try {
     const nuevo = await crearPlan(page, nombre);
 
-    const celdas = await nuevo.getByRole("cell").allTextContents();
-    expect(celdas[1]).toBe("S/ 49.90");
-    expect(celdas[2]).toBe("800/mes");
+    const celdas = await celdasPorColumna(page, nuevo);
+    expect(celdas["Precio mensual"]).toBe("S/ 49.90");
+    expect(celdas["Documentos"]).toBe("800/mes");
     // #613: 1 000 pruebas en Beta por RUC (lo que trae un plan nuevo) por sus 2 RUC.
-    expect(celdas[3]).toBe("2,0001,000 por RUC");
-    expect(celdas[4]).toBe("2");
-    expect(celdas[7]).toBe("6 años");
-    expect(celdas[8]).toBe("0");
+    expect(celdas["Pruebas en Beta / mes"]).toBe("2,0001,000 por RUC");
+    expect(celdas["RUC"]).toBe("2");
+    expect(celdas["Retención"]).toBe("6 años");
+    expect(celdas["Cuentas"]).toBe("0");
     await expect(nuevo).toHaveAttribute("data-estado", "ACTIVO");
   } finally {
     await borrarPlan(page, nombre);
