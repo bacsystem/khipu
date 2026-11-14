@@ -4,6 +4,14 @@
   },
   "teammateMode": "auto",
   "advisorModel": "fable",
+  "enabledPlugins": {
+    "github@claude-plugins-official": false,
+    "gopls-lsp@claude-plugins-official": false,
+    "remotion@synced": false,
+    "it-reelsmaker@synced": false,
+    "engineering@synced": false,
+    "cowork-plugin-management@synced": false
+  },
   "permissions": {
     "allow": [
       "Bash(./gradlew test)",
