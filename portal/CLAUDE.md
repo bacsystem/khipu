@@ -17,6 +17,8 @@ npm run generate:api                                # regenerate src/lib/api/ope
 npm run typecheck                                   # tsc --noEmit
 ```
 
+**Verification cadence.** Before reporting or opening a PR: `npm run typecheck`, `npm run lint` and `npm run test`, all exiting 0. `npm run e2e` (Playwright) runs only before a release, not per task. Launch it from Git Bash, never from PowerShell (`npm.ps1` swallows the `--` and runs every spec in parallel against the same port), and make sure port 3100 is free first. `portal/Dockerfile` belongs to devops.
+
 ## Architecture
 
 ### BFF pattern over the same API
