@@ -40,6 +40,15 @@ Reglas:
 
 Al cerrar un bloque de trabajo (PR mergeado, release, decisión importante o fin de sesión): registra en `khipu_memory` una fuente nueva `sesion-YYYY-MM-DD` (o `-2`, `-3` si ya hay una hoy) con la plantilla de CLAUDE.md (Hecho / Decisiones / Pendiente / Lecciones, ~1000 caracteres, sin lo que ya guarda GitHub). En la primera sesión de cada semana, consolida las `sesion-*` de la semana anterior en `semana-YYYY-Www` y borra las diarias. Si el servidor no está configurado en este entorno, sáltalo.
 
+Contexto y tokens (cada token que entra en tu contexto se paga de nuevo en cada turno, y lo mismo en cada teammate vivo):
+- Lecturas amplias (muchos archivos, un repo ajeno) en un subagente con encargo cerrado, máximo tres rondas de búsqueda, que devuelva rutas, líneas y conclusiones, no volcados.
+- Encargos de una sola vuelta (un borrador del po, una revisión de impacto del architect) como subagente que entrega y termina; teammate solo para quien trabaja varias vueltas en paralelo.
+- Un `/pr-review` de un PR grande puede correr en un subagente que devuelva solo el reporte. Si el PR toca `portal/`, lee antes `portal/CLAUDE.md` (o pídeselo al subagente): `gh pr diff` no abre archivos y no lo carga, y ahí están las reglas del design system que debes verificar.
+- Salida de `./gradlew test` y de las suites del portal a un archivo; de ahí, la línea `BUILD SUCCESSFUL`/`FAILED` y los tests fallidos, nunca `| tail` a ciegas.
+- Compacta en las fronteras (PR mergeado, issue cerrado, investigación terminada) y nunca a mitad de una implementación; antes, deja el estado en `khipu_memory`, en el issue o en un archivo de notas. Entre temas sin relación, sesión nueva.
+- El asesor recibe toda la conversación: solo en decisiones difíciles y antes de dar algo por terminado.
+- No cambies de modelo ni la configuración a mitad de sesión: invalida la caché del prefijo.
+
 Comunicación activa (obligatorio para todo el equipo):
 - Avisa por mensaje al empezar una tarea, al terminarla y en cada cambio de estado (PR abierto, review listo, hallazgos corregidos). Mantén la lista de tareas al día.
 - Si estás bloqueado o tienes una duda, pregunta de inmediato al responsable (producto: po; arquitectura, modelo de datos y contrato de API: architect; resto técnico: tech-lead). No supongas ni te quedes esperando en silencio.
