@@ -43,7 +43,7 @@ Al cerrar un bloque de trabajo (PR mergeado, release, decisión importante o fin
 Contexto y tokens (cada token que entra en tu contexto se paga de nuevo en cada turno, y lo mismo en cada teammate vivo):
 - Lecturas amplias (muchos archivos, un repo ajeno) en un subagente con encargo cerrado, máximo tres rondas de búsqueda, que devuelva rutas, líneas y conclusiones, no volcados.
 - Encargos de una sola vuelta (un borrador del po, una revisión de impacto del architect) como subagente que entrega y termina; teammate solo para quien trabaja varias vueltas en paralelo.
-- Un `/pr-review` de un PR grande puede correr en un subagente que devuelva solo el reporte.
+- Un `/pr-review` de un PR grande puede correr en un subagente que devuelva solo el reporte. Si el PR toca `portal/`, lee antes `portal/CLAUDE.md` (o pídeselo al subagente): `gh pr diff` no abre archivos y no lo carga, y ahí están las reglas del design system que debes verificar.
 - Salida de `./gradlew test` y de las suites del portal a un archivo; de ahí, la línea `BUILD SUCCESSFUL`/`FAILED` y los tests fallidos, nunca `| tail` a ciegas.
 - Compacta en las fronteras (PR mergeado, issue cerrado, investigación terminada) y nunca a mitad de una implementación; antes, deja el estado en `khipu_memory`, en el issue o en un archivo de notas. Entre temas sin relación, sesión nueva.
 - El asesor recibe toda la conversación: solo en decisiones difíciles y antes de dar algo por terminado.

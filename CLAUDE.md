@@ -47,7 +47,7 @@ Required env vars beyond `.env.example`: `JWT_SECRET` (≥32 bytes, portal auth)
 
 ### Portal (Next.js, `portal/`)
 
-Commands, the BFF pattern, the OpenAPI contract guard, i18n, test mocking and the design-system rules are in `portal/CLAUDE.md`, which Claude Code loads when a file under `portal/` is opened. Read it before touching the portal.
+Commands, the BFF pattern, the OpenAPI contract guard, i18n, test mocking and the design-system rules are in `portal/CLAUDE.md`, which Claude Code loads when a file under `portal/` is opened. Read it before touching the portal, and read it explicitly before reviewing a portal PR: `gh pr diff` does not open files, so it does not load it.
 
 **Git hooks (husky).** `npm install`/`npm ci` in `portal/` runs `prepare` (`cd .. && husky || true`, so an install without devDependencies, e.g. `npm ci --omit=dev`, does not fail), which points `core.hooksPath` at `.husky/_` in the repo root. That setting lives in the shared `.git/config`, so it applies to every worktree that has run an install. `.husky/pre-commit` only acts when the commit includes `portal/**/*.{ts,tsx,js,mjs}`: it runs eslint on those files and `tsc --noEmit` on the project (~10 s). Vitest and e2e are not part of it. `HUSKY=0 git commit …` skips the hooks. Without `.git` (the portal Docker build) `prepare` prints a notice and exits 0.
 
