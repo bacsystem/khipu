@@ -31,6 +31,22 @@ describe("ApiReference", () => {
     expect(configuracion?.telemetry).toBe(false);
   });
 
+  // #678: springdoc pone en `servers` la URL interna con la que el portal leyó el spec; «Send» tiene que ir a la pública.
+  it("reemplaza los servers del spec por la URL pública sin modificar el spec recibido", () => {
+    const spec = {
+      openapi: "3.0.1",
+      servers: [{ url: "http://khipu-backend.railway.internal:8001", description: "Generated server url" }],
+      paths: {},
+    };
+
+    render(<ApiReference spec={spec} baseServerURL="https://api.ejemplo.pe" />);
+
+    const contenido = capturado.configuraciones.at(-1)?.content as Record<string, unknown>;
+    expect(contenido.servers).toEqual([{ url: "https://api.ejemplo.pe" }]);
+    expect(contenido.paths).toBe(spec.paths);
+    expect(spec.servers).toEqual([{ url: "http://khipu-backend.railway.internal:8001", description: "Generated server url" }]);
+  });
+
   it("limpia light-mode/dark-mode de document.body al desmontar", () => {
     document.body.classList.add("dark-mode");
 

@@ -61,7 +61,10 @@ export function ApiReference({ spec, baseServerURL, apiKey }: { spec: Record<str
   const { resolvedTheme } = useTheme();
 
   const configuration: ScalarConfiguration = {
-    content: spec,
+    // springdoc escribe en `servers` la URL por la que le llegó la petición, y el portal lee el spec por la interna
+    // (API_BASE_URL, red privada). Esa entrada pesa más que `baseServerURL` y «Send» iría a una dirección que el
+    // navegador no alcanza: se reemplaza, en una copia, por la pública.
+    content: { ...spec, servers: [{ url: baseServerURL }] },
     theme: "default",
     forceDarkModeState: resolvedTheme === "dark" ? "dark" : "light",
     hideDarkModeToggle: true,
