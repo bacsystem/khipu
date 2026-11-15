@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/); versionado [SemVer](https://semver.org/lang/es/) (pre-1.0: cambios rompientes suben el minor, el resto el patch).
 
+## [1.4.1] - 2026-11-15
+
+Solo cambia el portal: sin migraciones ni variables nuevas. Antes de desplegar, confirmar en Railway que el servicio `portal` tiene `API_PUBLIC_URL` con el dominio público del backend (el que usan los integradores) y `API_BASE_URL` con el interno (`*.railway.internal`).
+
+Comprobar tras desplegar:
+- En `/developers`, «Send» de cualquier endpoint muestra y llama a `API_PUBLIC_URL`: `GET /v1/catalogos/07` responde 200 sin API key.
+- El HTML de `/developers` no contiene `railway.internal`.
+
+### Fixed
+- «Try it» de la referencia interactiva de `/developers` mandaba las peticiones a la URL interna del backend, que el navegador no alcanza: springdoc escribe en `servers` la dirección por la que el portal leyó el OpenAPI (`API_BASE_URL`) y Scalar la usa antes que la URL pública. El portal ahora entrega el spec con `API_PUBLIC_URL` como único servidor, ya desde el servidor, así que la URL interna tampoco aparece en el HTML ni en el OpenAPI que se descarga desde la referencia (#678, PR #679).
+
+### Changed
+- `CLAUDE.md` del repo y `portal/CLAUDE.md`: las reglas del equipo de agentes pasan a los agentes globales de `bacsystem/skills` y la guía del portal a su propio archivo (PR #676, PR #677). Sin efecto en producción.
+
 ## [1.4.0] - 2026-11-12
 
 Dos migraciones, V75 y V76, que Flyway aplica sola al arrancar `bootstrap`. Se despliega el backend y después el portal (es el orden de `imagenes.yml`): el portal nuevo necesita los campos nuevos del backend. Entre los dos despliegues, no guardar planes desde el backoffice: el backend nuevo exige `periodo_documentos` y `pruebas_beta_por_ruc` y el backoffice viejo no los manda (400 `LIMITE_INVALIDO`).

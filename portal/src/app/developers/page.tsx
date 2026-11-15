@@ -4,6 +4,7 @@ import { DevelopersView } from "@/components/developers/developers-view";
 import { Rico } from "@/components/developers/guia/rico";
 import { interpolar } from "@/i18n/mensajes";
 import { apiBaseUrl, apiPublicUrl } from "@/lib/api/client";
+import { conServidorPublico } from "@/lib/developers/spec-publico";
 import { getServerSession } from "@/lib/session-server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,5 +35,5 @@ export default async function DevelopersPage() {
     );
   }
 
-  return <DevelopersView spec={spec} baseServerURL={baseServerURL} mostrarGenerarKey={Boolean(access && empresaId)} />;
+  return <DevelopersView spec={conServidorPublico(spec, baseServerURL)} baseServerURL={baseServerURL} mostrarGenerarKey={Boolean(access && empresaId)} />;
 }
