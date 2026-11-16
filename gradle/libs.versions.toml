@@ -16,11 +16,11 @@ springdoc = "3.2.0"
 swagger = "2.2.55"
 flyingSaucer = "9.13.4"
 zxing = "3.5.4"
-awsSdk = "2.57.10"
+awsSdk = "2.59.0"
 caffeine = "3.3.1"
 # #321: escritor de XLSX en streaming, Apache-2.0, ~116 KB + opczip 27 KB (Apache POI SXSSF pesa ~15 MB con sus dependencias).
 fastexcel = "0.20.2"
-jackson2 = "2.22.4"
+jackson2 = "2.23.0"
 
 [libraries]
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "springBoot" }
