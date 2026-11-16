@@ -50,7 +50,7 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       # Acción de terceros: fijada por commit (v1) para que una etiqueta movida no cambie lo que corre.
-      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1
+      - uses: grafana/setup-k6-action@c47136d33d365efbeb9ae7266908b5dcf98cdece
         with:
           k6-version: "0.54.0"
 
